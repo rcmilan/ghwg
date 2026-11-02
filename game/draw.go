@@ -229,7 +229,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		if g.confirmed[i] {
 			status = "BOOKED"
 		}
-		text(s, fmt.Sprintf("%s GUEST %d -> %s  [%s]", mark, i+1, g.hotel.Rooms[room].Number, status), 280, 205+i*42, assets.Money)
+		r := g.hotel.Rooms[room]
+		text(s, fmt.Sprintf("%s GUEST %d -> %s %s $%d  [%s]", mark, i+1, r.Number, r.Type.Name, r.Type.Rate, status), 280, 205+i*42, assets.Money)
 	}
 	mark := " "
 	if g.terminalCursor == len(g.assignments) {

@@ -37,17 +37,23 @@ const (
 	stuckFrames     = 1 * tps // a walking guest with no progress this long ignores actors for one tile (D22c)
 	coinMagnet      = 27      // px: coins slide toward the Concierge inside this radius
 	coinPickup      = 7       // px
-	coinValue       = 25      // ponytail: flat until S8 (coin = Room Rate)
+	spinEvery       = 2       // Shifts between Spins; a Run also starts with one (D46)
 )
 
 // guestCast: Guests draw a random character from these; repeats are fine (D25). Bob is the Concierge.
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
-type Money struct{ X, Y float64 }
+// Money is a coin on the floor, worth its guest's Rate at Booking (D53).
+type Money struct {
+	X, Y  float64
+	Value int
+}
 
 type Game struct {
 	state                                          int
 	hotel                                          *world.Hotel
+	types                                          []world.RoomType // every loaded Room Type, drawn from at each Spin
+	shift                                          int              // the current Shift's number in this Run, from 1
 	cam                                            Camera
 	player                                         entities.Player
 	guests                                         []*entities.Guest
@@ -88,7 +94,7 @@ func New() (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, rng: rng, tiles: tiles, characters: chars}, nil
+	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, tiles: tiles, characters: chars}, nil
 }
 
 func (g *Game) mapSize() (int, int) {
@@ -101,7 +107,9 @@ func (g *Game) startShift(keepPlayer bool) {
 	g.resetBookings()
 	g.terminalCursor = 0
 	g.state = StateBooking
-	if !keepPlayer {
+	if !keepPlayer { // a new Run: Shift 1, with a Spin (D46)
+		g.shift = 1
+		g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 		g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 		g.money = 0
 		w, h := g.mapSize()
@@ -375,6 +383,7 @@ func (g *Game) beginArrivals() {
 	g.guests = make([]*entities.Guest, len(g.assignments))
 	for guest, room := range g.assignments {
 		v := entities.NewGuest(room, g.hotel.Spawn, guest*guestSpawnEvery, guestCast[g.rng.IntN(len(guestCast))])
+		v.Rate = g.hotel.Rooms[room].Type.Rate // Booking is final once Arrivals begin (D53)
 		g.guests[guest] = &v
 	}
 	g.arrivalsStarted = g.tick
@@ -436,7 +445,7 @@ func (g *Game) updateDepartures() {
 			}
 		case entities.GuestPaying:
 			if g.tick >= guest.PauseUntil {
-				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y})
+				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y, Value: guest.Rate})
 				guest.State = entities.GuestDeparting
 				h := g.hotel
 				guest.SetPath(append(h.Path(h.PaySpot, h.PayExit, -1), h.Path(h.PayExit, h.Spawn, -1)...))
@@ -450,9 +459,51 @@ func (g *Game) updateDepartures() {
 	}
 	g.guests = remaining
 	if len(g.guests) == 0 {
-		g.state = StateBooking
-		g.resetBookings()
-		g.message = "New shift ready. Approach reception to book guests."
+		g.endShift()
+	}
+}
+
+// endShift: the last guest has left. Every spinEvery-th Shift ends with a Spin (D46).
+func (g *Game) endShift() {
+	g.state = StateBooking
+	g.resetBookings()
+	g.message = "New shift ready. Approach reception to book guests."
+	if g.shift%spinEvery == 0 {
+		g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
+	}
+	g.shift++
+}
+
+// spin gives the Rooms their next types (D47). Rooms snap for now; the reel animation is S4.
+func (g *Game) spin(next []world.RoomType) {
+	g.hotel.Spin(next)
+	g.floorImg = nil // re-rendered on the next Draw
+	g.unstick()
+}
+
+// unstick moves the Concierge to the nearest cell center where the foot box fits, if a Spin left them
+// inside something solid (D50).
+// ponytail: BFS by steps through any cell, so a tight Room could drop them past a wall; path-aware if props need it
+func (g *Game) unstick() {
+	if !g.blocked(entities.FootBox(g.player.X, g.player.Y)) {
+		return
+	}
+	m := g.hotel.Map
+	start := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize)
+	seen := map[image.Point]bool{start: true}
+	for queue := []image.Point{start}; len(queue) > 0; queue = queue[1:] {
+		c := queue[0]
+		x, y := float64(c.X*world.TileSize+world.TileSize/2), float64(c.Y*world.TileSize+world.TileSize/2)
+		if !g.blocked(entities.FootBox(x, y)) {
+			g.player.X, g.player.Y = x, y
+			return
+		}
+		for _, d := range [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			if n := c.Add(d); n.X >= 0 && n.Y >= 0 && n.X < m.W && n.Y < m.H && !seen[n] {
+				seen[n] = true
+				queue = append(queue, n)
+			}
+		}
 	}
 }
 
@@ -466,7 +517,7 @@ func (g *Game) updateMoney() {
 			coin.Y += dy / d * math.Min(1.7, .33+d*.12)
 		}
 		if d < coinPickup {
-			g.money += coinValue
+			g.money += coin.Value
 			g.message = "Payment collected."
 			continue
 		}

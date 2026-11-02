@@ -56,6 +56,7 @@ type Room struct {
 
 // Hotel is the built map plus the anchors the game needs. Points are world px.
 type Hotel struct {
+	l              layout
 	Map            *Tilemap
 	Rooms          []Room
 	Doors          []Door          // one per Room (same index), then the Entrance
@@ -67,8 +68,7 @@ type Hotel struct {
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
 }
 
-// Build stamps the whole hotel for a cols x rows grid of Rooms. Each Room gets a Room Type drawn from
-// types with rng (repeats allowed).
+// Build stamps the whole hotel for a cols x rows grid of Rooms, each Room's type drawn with Draw.
 func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hotel, error) {
 	if len(types) == 0 {
 		return nil, errors.New("world: no room types")
@@ -124,23 +124,14 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		face(x, x+corridor-1, 1)
 	}
 
-	h := &Hotel{Map: m}
+	h := &Hotel{l: l, Map: m}
 	for r := range rows {
 		for c := range cols {
-			o, t := l.origin(c, r), types[rng.IntN(len(types))]
-			for layer, cells := range t.Tiles {
-				for i, tid := range cells {
-					if tid != 0 {
-						m.Set(layer, o.X+i%RoomW, o.Y+i/RoomW, tid)
-					}
-				}
-			}
+			o := l.origin(c, r)
 			h.Rooms = append(h.Rooms, Room{
 				Number: strconv.Itoa((r+1)*100 + c + 1),
-				Type:   t,
 				Origin: o,
-				Door:   o.Add(image.Pt(t.DoorCol, doorRow)),
-				Stay:   o.Mul(TileSize).Add(t.Stay),
+				Door:   o.Add(image.Pt(types[0].DoorCol, doorRow)), // every type shares it (D45)
 			})
 		}
 	}
@@ -161,13 +152,8 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, counterX+i, l.counter, n)
 	}
 	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
-	// hotel outer side walls: one unbroken line over every wall that meets them (overwrites the rooms' own)
-	for x, side := range map[int]string{1: "west", l.w - 2: "east"} {
-		put(LayerDecor, x, 1, "border_"+side+"_top")
-		for y := 2; y < l.front; y++ {
-			put(LayerDecor, x, y, "border_"+side)
-		}
-		put(LayerDecor, x, l.front, "border_"+side+"_corner")
+	for _, n := range []string{"border_west_top", "border_west", "border_west_corner", "border_east_top", "border_east", "border_east_corner"} {
+		id(n) // checked here so Spin's outer lines never miss
 	}
 	for i, r := range h.Rooms {
 		top := r.Door.Mul(TileSize)
@@ -177,6 +163,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}
+	h.Spin(Draw(types, len(h.Rooms), rng))
 
 	center := func(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
@@ -186,4 +173,36 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	h.PayExit = center(computer, l.front-1)
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	return h, nil
+}
+
+// Draw picks each Room's next Room Type: independent, equal odds, repeats allowed (D46).
+func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
+	next := make([]RoomType, n)
+	for i := range next {
+		next[i] = types[rng.IntN(len(types))]
+	}
+	return next
+}
+
+// Spin gives every Room its next Room Type (D47), one per Room, and re-stamps their cells. Doors never
+// move (D45), so the Doors and every anchor stay valid.
+func (h *Hotel) Spin(next []RoomType) {
+	for i := range h.Rooms {
+		r, t := &h.Rooms[i], next[i]
+		for layer, cells := range t.Tiles {
+			for c, tid := range cells {
+				h.Map.Set(layer, r.Origin.X+c%RoomW, r.Origin.Y+c/RoomW, tid)
+			}
+		}
+		r.Type, r.Stay = t, r.Origin.Mul(TileSize).Add(t.Stay)
+	}
+	// hotel outer side walls: one unbroken line over every wall that meets them (overwrites the rooms' own)
+	for x, side := range map[int]string{1: "west", h.l.w - 2: "east"} {
+		id := func(n string) TileID { t, _ := h.Map.TS.ID("border_" + side + n); return t } // checked by Build
+		h.Map.Set(LayerDecor, x, 1, id("_top"))
+		for y := 2; y < h.l.front; y++ {
+			h.Map.Set(LayerDecor, x, y, id(""))
+		}
+		h.Map.Set(LayerDecor, x, h.l.front, id("_corner"))
+	}
 }
