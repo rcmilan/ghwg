@@ -2,8 +2,10 @@ package game
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	_ "image/png" // tile decoding
+	"math"
 	"time"
 
 	"ghosthotel/assets"
@@ -30,16 +32,15 @@ func loadTiles(ts *world.Tileset) ([]*ebiten.Image, error) {
 	return imgs, nil
 }
 
-// renderMap pre-draws the static map: floor, walls, decor. Door leaves are skipped
-// (ponytail: doors drawn open until S4 animates them).
-func (g *Game) renderMap() *ebiten.Image {
+// renderMap pre-draws the map tiles for which keep is true, all layers in order.
+func (g *Game) renderMap(keep func(world.Tile) bool) *ebiten.Image {
 	m := g.hotel.Map
 	img := ebiten.NewImage(m.W*world.TileSize, m.H*world.TileSize)
 	for l := range world.NumLayers {
 		for y := range m.H {
 			for x := range m.W {
 				id := m.At(l, x, y)
-				if id == 0 || m.TS.Tiles[id].Door {
+				if id == 0 || !keep(m.TS.Tiles[id]) {
 					continue
 				}
 				op := &ebiten.DrawImageOptions{}
@@ -50,6 +51,9 @@ func (g *Game) renderMap() *ebiten.Image {
 	}
 	return img
 }
+
+// isLintel: the wall top over a doorway, archway or the Entrance. Actors pass under it.
+func isLintel(t world.Tile) bool { return t.Name == "wall_lintel" }
 
 func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 	ebitenutil.DrawRect(s, float64(x), float64(y), float64(w), float64(h), c)
@@ -88,7 +92,9 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image) {
 	if g.mapImg == nil {
-		g.mapImg = g.renderMap()
+		// door leaves are skipped (drawDoors slides them), lintels go over the actors
+		g.mapImg = g.renderMap(func(t world.Tile) bool { return !t.Door && !isLintel(t) })
+		g.overImg = g.renderMap(isLintel)
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
@@ -96,6 +102,7 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	screen.DrawImage(g.mapImg, op)
+	g.drawDoors(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	// ponytail: actors draw above all tiles until S7's y-sort
 	for _, coin := range g.pickups {
@@ -110,6 +117,33 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 	}
 	x, y := at(g.player.X, g.player.Y)
 	drawPerson(screen, x, y, assets.Ghost)
+	screen.DrawImage(g.overImg, op) // ponytail: only lintels go over actors; S7's y-sort generalizes depth
+}
+
+// drawDoors draws each door's leaves slid by its Open amount, clipped to their own cells: a Room door
+// slides right; the Entrance's leaves slide apart.
+func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
+	const ts = world.TileSize
+	m := g.hotel.Map
+	for _, d := range g.hotel.Doors {
+		off := int(math.Round(d.Open() * ts))
+		for y := d.Rect.Min.Y / ts; y < d.Rect.Max.Y/ts; y++ {
+			for x := d.Rect.Min.X / ts; x < d.Rect.Max.X/ts; x++ {
+				id := m.At(world.LayerDecor, x, y)
+				if !m.TS.Tiles[id].Door || off == ts {
+					continue
+				}
+				src, dx := image.Rect(0, 0, ts-off, ts), off // slides right: its left part shows, shifted
+				if d.Room < 0 && x == d.Rect.Min.X/ts {
+					src, dx = image.Rect(off, 0, ts, ts), 0 // Entrance's left leaf slides left
+				}
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(zoom, zoom)
+				op.GeoM.Translate(float64((x*ts+dx)*zoom-ox), float64(y*ts*zoom-oy))
+				screen.DrawImage(g.tiles[id].SubImage(src).(*ebiten.Image), op)
+			}
+		}
+	}
 }
 
 // drawPerson: placeholder body standing on its foot box (feet at y+FootH/2), in screen px, until S6 sprites.

@@ -34,6 +34,7 @@ type Room struct {
 type Hotel struct {
 	Map            *Tilemap
 	Rooms          []Room
+	Doors          []Door          // one per Room (same index), then the Entrance
 	Spawn          image.Point     // on the street below the Entrance; guests also leave here
 	ConciergeStart image.Point     // behind the counter's computer
 	PaySpot        image.Point     // in front of the computer
@@ -129,6 +130,11 @@ func Build(ts *Tileset, types []RoomType, rng *rand.Rand) (*Hotel, error) {
 		}
 		put(LayerDecor, x, frontRow, "border_"+side+"_corner")
 	}
+	for i, r := range h.Rooms {
+		top := r.Door.Mul(TileSize)
+		h.Doors = append(h.Doors, Door{Room: i, Rect: image.Rectangle{top, top.Add(image.Pt(TileSize, 2*TileSize))}})
+	}
+	h.Doors = append(h.Doors, Door{Room: -1, Rect: image.Rect(15*TileSize, frontRow*TileSize, 17*TileSize, (frontRow+2)*TileSize)})
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}

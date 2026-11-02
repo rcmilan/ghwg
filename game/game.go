@@ -51,7 +51,7 @@ type Game struct {
 	pickups                                        []Money
 	message                                        string
 	tiles                                          []*ebiten.Image // by world.TileID
-	mapImg                                         *ebiten.Image   // pre-rendered at 1px per world px
+	mapImg, overImg                                *ebiten.Image   // pre-rendered at 1px per world px: under / over the actors
 }
 
 func New() (*Game, error) {
@@ -124,7 +124,8 @@ func (g *Game) Update() error {
 		g.updateTerminal()
 		return nil
 	}
-	g.player.Move(g.hotel.Map)
+	g.player.Move(func(r image.Rectangle) bool { return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r) })
+	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	w, h := g.mapSize()
 	g.cam.Follow(g.player.X, g.player.Y, w, h)
 	g.updateMoney()
@@ -144,6 +145,38 @@ func (g *Game) Update() error {
 		g.updateDepartures()
 	}
 	return nil
+}
+
+// actors: everyone on the map the doors react to.
+func (g *Game) actors() []world.Actor {
+	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
+	for _, guest := range g.guests {
+		if guest.State != entities.GuestQueued {
+			as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
+		}
+	}
+	return as
+}
+
+// occupied (D4): a Room is Occupied from its Guest reaching the Stay Spot until that Guest pays.
+func (g *Game) occupied(room int) bool {
+	for _, guest := range g.guests {
+		if guest.RoomIndex == room && guest.State >= entities.GuestStaying && guest.State <= entities.GuestPaying {
+			return true
+		}
+	}
+	return false
+}
+
+// walk advances a guest along its path, waiting in place while the next step would hit a shut door.
+func (g *Game) walk(guest *entities.Guest, speed float64) bool {
+	x, y, path := guest.X, guest.Y, guest.Path
+	done := guest.FollowPath(speed)
+	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
+		guest.X, guest.Y, guest.Path = x, y, path
+		return false
+	}
+	return done
 }
 
 func (g *Game) atTerminal() bool {
@@ -243,7 +276,7 @@ func (g *Game) updateArrivals() {
 			arrived++
 			continue
 		}
-		if guest.FollowPath(arriveSpeed) {
+		if g.walk(guest, arriveSpeed) {
 			guest.State = entities.GuestStaying
 			arrived++
 		}
@@ -276,7 +309,7 @@ func (g *Game) updateDepartures() {
 		}
 		switch guest.State {
 		case entities.GuestLeavingRoom:
-			if guest.FollowPath(toCounterSpeed) {
+			if g.walk(guest, toCounterSpeed) {
 				guest.State = entities.GuestPaying
 				guest.PauseUntil = time.Since(g.departuresStarted).Seconds() + 1
 			}
@@ -287,7 +320,7 @@ func (g *Game) updateDepartures() {
 				guest.Path = g.hotel.Path(g.hotel.PaySpot, g.hotel.Spawn, -1)
 			}
 		case entities.GuestDeparting:
-			if guest.FollowPath(departSpeed) {
+			if g.walk(guest, departSpeed) {
 				continue // left through the Entrance
 			}
 		}

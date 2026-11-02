@@ -4,8 +4,6 @@ import (
 	"image"
 	"math"
 
-	"ghosthotel/world"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -26,7 +24,8 @@ type Player struct{ X, Y float64 }
 func NewPlayer(start image.Point) Player { return Player{X: float64(start.X), Y: float64(start.Y)} }
 
 // Move reads WASD and moves one axis at a time, so walls stop one axis and the other slides.
-func (p *Player) Move(m *world.Tilemap) {
+// blocked reports whether a foot box would hit a wall or a shut door.
+func (p *Player) Move(blocked func(image.Rectangle) bool) {
 	var dx, dy float64
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
 		dx--
@@ -44,10 +43,10 @@ func (p *Player) Move(m *world.Tilemap) {
 	if dx != 0 && dy != 0 {
 		speed *= math.Sqrt2 / 2
 	}
-	if nx := p.X + dx*speed; dx != 0 && !m.BlockedBox(FootBox(nx, p.Y)) {
+	if nx := p.X + dx*speed; dx != 0 && !blocked(FootBox(nx, p.Y)) {
 		p.X = nx
 	}
-	if ny := p.Y + dy*speed; dy != 0 && !m.BlockedBox(FootBox(p.X, ny)) {
+	if ny := p.Y + dy*speed; dy != 0 && !blocked(FootBox(p.X, ny)) {
 		p.Y = ny
 	}
 }
