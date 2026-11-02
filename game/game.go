@@ -4,7 +4,6 @@ import (
 	"image"
 	"math"
 	"math/rand/v2"
-	"time"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -23,16 +22,22 @@ const (
 	StateDepartures
 )
 
-// Tunables, world px per frame unless noted.
+// Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
 const (
-	dayDuration     = 12 * time.Second
+	tps             = 60
+	dayFrames       = 12 * tps
+	guestSpawnEvery = 3 * tps // between guests, in Arrivals and Departures
+	payFrames       = 1 * tps // a guest's pause at the pay spot
+	conciergeSpeed  = 1.0     // 3 screen px at x3
 	arriveSpeed     = 0.6
 	toCounterSpeed  = 0.65
 	departSpeed     = 0.75
-	coinMagnet      = 27  // px: coins slide toward the Concierge inside this radius
-	coinPickup      = 7   // px
-	coinValue       = 25  // ponytail: flat until S8 (coin = Room Rate)
-	guestSpawnEvery = 3.0 // seconds between guests
+	conciergeGive   = 0.8     // share of a push the Concierge takes against a moving guest (D22b),
+	guestGive       = 0.2     // and the moving guest takes; guest vs guest splits evenly; idle guests don't budge
+	stuckFrames     = 1 * tps // a walking guest with no progress this long ignores actors for one tile (D22c)
+	coinMagnet      = 27      // px: coins slide toward the Concierge inside this radius
+	coinPickup      = 7       // px
+	coinValue       = 25      // ponytail: flat until S8 (coin = Room Rate)
 )
 
 type Money struct{ X, Y float64 }
@@ -46,7 +51,8 @@ type Game struct {
 	terminalCursor                                 int
 	assignments                                    []int
 	confirmed                                      []bool
-	dayStarted, arrivalsStarted, departuresStarted time.Time
+	tick                                           int // simulation frames since launch
+	dayStarted, arrivalsStarted, departuresStarted int // ticks
 	money                                          int
 	pickups                                        []Money
 	message                                        string
@@ -124,27 +130,92 @@ func (g *Game) Update() error {
 		g.updateTerminal()
 		return nil
 	}
-	g.player.Move(func(r image.Rectangle) bool { return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r) })
+	g.step(entities.ReadMove())
+	if g.state == StateBooking && inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.atTerminal() {
+		g.state = StateTerminal
+		g.message = "Choose a room for each guest."
+	}
+	return nil
+}
+
+// step advances the world one frame with the Concierge walking in direction (dx,dy). No input, no
+// rendering: the headless sim drives it directly.
+func (g *Game) step(dx, dy float64) {
+	g.tick++
+	g.player.Move(dx, dy, conciergeSpeed, g.blocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
-	w, h := g.mapSize()
-	g.cam.Follow(g.player.X, g.player.Y, w, h)
-	g.updateMoney()
 	switch g.state {
-	case StateBooking:
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.atTerminal() {
-			g.state = StateTerminal
-			g.message = "Choose a room for each guest."
-		}
 	case StateArrivals:
 		g.updateArrivals()
 	case StateDay:
-		if time.Since(g.dayStarted) >= dayDuration {
+		if g.tick-g.dayStarted >= dayFrames {
 			g.beginDepartures()
 		}
 	case StateDepartures:
 		g.updateDepartures()
 	}
-	return nil
+	g.separate()
+	w, h := g.mapSize()
+	g.cam.Follow(g.player.X, g.player.Y, w, h)
+	g.updateMoney()
+}
+
+// blocked: a foot box would hit a wall or a shut door.
+func (g *Game) blocked(r image.Rectangle) bool {
+	return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r)
+}
+
+// separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
+// give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
+func (g *Game) separate() {
+	type body struct {
+		x, y *float64
+		give float64
+	}
+	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive}}
+	for _, guest := range g.guests {
+		if guest.State == entities.GuestQueued || guest.Phasing {
+			continue
+		}
+		give := 0.0 // idle guests (staying, paying) stand their ground
+		if len(guest.Path) > 0 {
+			give = guestGive
+		}
+		bodies = append(bodies, body{&guest.X, &guest.Y, give})
+	}
+	nudge := func(b body, dx, dy float64) {
+		if !g.blocked(entities.FootBox(*b.x+dx, *b.y+dy)) {
+			*b.x += dx
+			*b.y += dy
+		}
+	}
+	for i, a := range bodies {
+		for _, b := range bodies[i+1:] {
+			dx, dy := *b.x-*a.x, *b.y-*a.y
+			ox, oy := entities.FootW-math.Abs(dx), entities.FootH-math.Abs(dy)
+			if ox <= 0 || oy <= 0 {
+				continue
+			}
+			share := 0.5 // of the push that a takes
+			if a.give+b.give > 0 {
+				share = a.give / (a.give + b.give)
+			}
+			if ox < oy {
+				nudge(a, -sign(dx)*ox*share, 0)
+				nudge(b, sign(dx)*ox*(1-share), 0)
+			} else {
+				nudge(a, 0, -sign(dy)*oy*share)
+				nudge(b, 0, sign(dy)*oy*(1-share))
+			}
+		}
+	}
+}
+
+func sign(v float64) float64 {
+	if v < 0 {
+		return -1
+	}
+	return 1
 }
 
 // actors: everyone on the map the doors react to.
@@ -168,15 +239,48 @@ func (g *Game) occupied(room int) bool {
 	return false
 }
 
-// walk advances a guest along its path, waiting in place while the next step would hit a shut door.
+// walk advances a guest along its path. It waits in place while the next step would hit a shut door,
+// and sidesteps to its right (left if a wall is there) while the next step would bump into someone
+// ahead, so two guests meeting head-on pass each other.
 func (g *Game) walk(guest *entities.Guest, speed float64) bool {
+	guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
 	x, y, path := guest.X, guest.Y, guest.Path
 	done := guest.FollowPath(speed)
 	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
 		guest.X, guest.Y, guest.Path = x, y, path
 		return false
 	}
+	if hx, hy := guest.X-x, guest.Y-y; !guest.Phasing && g.bumpsAhead(guest, hx, hy) {
+		guest.X, guest.Y, guest.Path = x, y, path
+		for _, s := range [...]float64{1, -1} { // right of the heading (y points down), then left
+			if nx, ny := x-s*hy, y+s*hx; !g.blocked(entities.FootBox(nx, ny)) {
+				guest.X, guest.Y = nx, ny
+				break
+			}
+		}
+		return false
+	}
+	if done {
+		guest.Phasing = false
+	}
 	return done
+}
+
+// bumpsAhead: the guest's foot box overlaps another actor lying ahead along heading (hx,hy).
+func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) bool {
+	box := entities.FootBox(guest.X, guest.Y)
+	hit := func(x, y float64) bool {
+		return entities.FootBox(x, y).Overlaps(box) && (x-guest.X)*hx+(y-guest.Y)*hy > 0
+	}
+	if hit(g.player.X, g.player.Y) {
+		return true
+	}
+	for _, o := range g.guests {
+		if o != guest && o.State != entities.GuestQueued && !o.Phasing && hit(o.X, o.Y) {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Game) atTerminal() bool {
@@ -253,10 +357,10 @@ func (g *Game) cycleRoom(delta int) {
 func (g *Game) beginArrivals() {
 	g.guests = make([]*entities.Guest, len(g.assignments))
 	for guest, room := range g.assignments {
-		v := entities.NewGuest(room, g.hotel.Spawn, float64(guest)*guestSpawnEvery)
+		v := entities.NewGuest(room, g.hotel.Spawn, guest*guestSpawnEvery)
 		g.guests[guest] = &v
 	}
-	g.arrivalsStarted = time.Now()
+	g.arrivalsStarted = g.tick
 	g.state = StateArrivals
 	g.message = "Guests are arriving one at a time."
 }
@@ -267,11 +371,11 @@ func (g *Game) updateArrivals() {
 	for _, guest := range g.guests {
 		switch guest.State {
 		case entities.GuestQueued:
-			if time.Since(g.arrivalsStarted).Seconds() < guest.SpawnAt {
+			if g.tick-g.arrivalsStarted < guest.SpawnAt {
 				continue
 			}
 			guest.State = entities.GuestArriving
-			guest.Path = g.hotel.Path(g.hotel.Spawn, g.hotel.Rooms[guest.RoomIndex].Stay, guest.RoomIndex)
+			guest.SetPath(g.hotel.Path(g.hotel.Spawn, g.hotel.Rooms[guest.RoomIndex].Stay, guest.RoomIndex))
 		case entities.GuestStaying:
 			arrived++
 			continue
@@ -283,19 +387,19 @@ func (g *Game) updateArrivals() {
 	}
 	if arrived == len(g.guests) {
 		g.state = StateDay
-		g.dayStarted = time.Now()
+		g.dayStarted = g.tick
 		g.message = "Hotel occupied. Guests will check out automatically."
 	}
 }
 
 func (g *Game) beginDepartures() {
 	g.state = StateDepartures
-	g.departuresStarted = time.Now()
+	g.departuresStarted = g.tick
 	g.message = "Guests are checking out."
 	for i, guest := range g.guests {
 		guest.State = entities.GuestLeavingRoom
-		guest.SpawnAt = float64(i) * guestSpawnEvery
-		guest.Path = g.hotel.Path(g.hotel.Rooms[guest.RoomIndex].Stay, g.hotel.PaySpot, guest.RoomIndex)
+		guest.SpawnAt = i * guestSpawnEvery
+		guest.SetPath(g.hotel.Path(g.hotel.Rooms[guest.RoomIndex].Stay, g.hotel.PaySpot, guest.RoomIndex))
 	}
 }
 
@@ -303,7 +407,7 @@ func (g *Game) beginDepartures() {
 func (g *Game) updateDepartures() {
 	remaining := g.guests[:0]
 	for _, guest := range g.guests {
-		if time.Since(g.departuresStarted).Seconds() < guest.SpawnAt {
+		if g.tick-g.departuresStarted < guest.SpawnAt {
 			remaining = append(remaining, guest)
 			continue
 		}
@@ -311,13 +415,13 @@ func (g *Game) updateDepartures() {
 		case entities.GuestLeavingRoom:
 			if g.walk(guest, toCounterSpeed) {
 				guest.State = entities.GuestPaying
-				guest.PauseUntil = time.Since(g.departuresStarted).Seconds() + 1
+				guest.PauseUntil = g.tick + payFrames
 			}
 		case entities.GuestPaying:
-			if time.Since(g.departuresStarted).Seconds() >= guest.PauseUntil {
+			if g.tick >= guest.PauseUntil {
 				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y})
 				guest.State = entities.GuestDeparting
-				guest.Path = g.hotel.Path(g.hotel.PaySpot, g.hotel.Spawn, -1)
+				guest.SetPath(g.hotel.Path(g.hotel.PaySpot, g.hotel.Spawn, -1))
 			}
 		case entities.GuestDeparting:
 			if g.walk(guest, departSpeed) {

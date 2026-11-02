@@ -8,10 +8,7 @@ import (
 )
 
 // Actor positions are the center of their foot box, in world px.
-const (
-	FootW, FootH = 10, 6
-	PlayerSpeed  = 1.0 // world px per frame (3 screen px at ×3)
-)
+const FootW, FootH = 10, 6
 
 // FootBox is the collision box of an actor standing at (x,y).
 func FootBox(x, y float64) image.Rectangle {
@@ -23,10 +20,8 @@ type Player struct{ X, Y float64 }
 
 func NewPlayer(start image.Point) Player { return Player{X: float64(start.X), Y: float64(start.Y)} }
 
-// Move reads WASD and moves one axis at a time, so walls stop one axis and the other slides.
-// blocked reports whether a foot box would hit a wall or a shut door.
-func (p *Player) Move(blocked func(image.Rectangle) bool) {
-	var dx, dy float64
+// ReadMove returns the WASD direction, each axis -1, 0 or 1.
+func ReadMove() (dx, dy float64) {
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
 		dx--
 	}
@@ -39,7 +34,12 @@ func (p *Player) Move(blocked func(image.Rectangle) bool) {
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
 		dy++
 	}
-	speed := PlayerSpeed
+	return dx, dy
+}
+
+// Move walks in direction (dx,dy) one axis at a time, so walls stop one axis and the other slides.
+// blocked reports whether a foot box would hit a wall or a shut door.
+func (p *Player) Move(dx, dy, speed float64, blocked func(image.Rectangle) bool) {
 	if dx != 0 && dy != 0 {
 		speed *= math.Sqrt2 / 2
 	}

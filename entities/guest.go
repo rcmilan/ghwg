@@ -3,6 +3,8 @@ package entities
 import (
 	"image"
 	"math"
+
+	"ghosthotel/world"
 )
 
 type GuestState int
@@ -20,12 +22,17 @@ type Guest struct {
 	X, Y       float64
 	State      GuestState
 	RoomIndex  int
-	Path       []image.Point // remaining waypoints, world px
-	SpawnAt    float64
-	PauseUntil float64
+	Path       []image.Point // remaining waypoints, world px; set with SetPath
+	SpawnAt    int           // frames after the phase starts
+	PauseUntil int           // frame (game tick) the pay pause ends
+	Phasing    bool          // ignoring actor collisions after getting stuck (D22c)
+
+	best     float64 // shortest remaining path seen on this path
+	stuck    int     // frames without beating best
+	phaseEnd float64 // remaining path at which Phasing ends
 }
 
-func NewGuest(roomIndex int, at image.Point, spawnAt float64) Guest {
+func NewGuest(roomIndex int, at image.Point, spawnAt int) Guest {
 	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt}
 }
 
@@ -51,4 +58,39 @@ func (g *Guest) WalkTo(x, y, speed float64) bool {
 	g.X += dx / d * speed
 	g.Y += dy / d * speed
 	return false
+}
+
+// SetPath gives the guest a new route and restarts its progress tracking.
+func (g *Guest) SetPath(p []image.Point) {
+	g.Path, g.best, g.stuck, g.Phasing = p, math.Inf(1), 0, false
+}
+
+// left is the remaining path length (waypoints are adjacent tile centers).
+func (g *Guest) left() float64 {
+	if len(g.Path) == 0 {
+		return 0
+	}
+	p := g.Path[0]
+	return math.Hypot(float64(p.X)-g.X, float64(p.Y)-g.Y) + float64((len(g.Path)-1)*world.TileSize)
+}
+
+// TrackProgress runs once per frame, after movement and pushes. A walking guest whose remaining path
+// hasn't shrunk for stuckFrames starts Phasing (ignores actor collisions) until it advances one tile.
+func (g *Guest) TrackProgress(stuckFrames int) {
+	if len(g.Path) == 0 {
+		g.stuck, g.Phasing = 0, false
+		return
+	}
+	left := g.left()
+	if left < g.best-0.1 {
+		g.best, g.stuck = left, 0
+	} else {
+		g.stuck++
+	}
+	if g.Phasing && left <= g.phaseEnd {
+		g.Phasing = false
+	}
+	if !g.Phasing && g.stuck >= stuckFrames {
+		g.Phasing, g.phaseEnd, g.stuck = true, left-world.TileSize, 0
+	}
 }

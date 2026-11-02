@@ -6,7 +6,6 @@ import (
 	"image/color"
 	_ "image/png" // tile decoding
 	"math"
-	"time"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -72,8 +71,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
 	}
 	if g.state == StateDay {
-		left := dayDuration - time.Since(g.dayStarted)
-		text(screen, fmt.Sprintf("DAY %02ds", int(left.Seconds())+1), 440, 12, assets.Money)
+		left := dayFrames - (g.tick - g.dayStarted)
+		text(screen, fmt.Sprintf("DAY %02ds", (left+tps-1)/tps), 440, 12, assets.Money)
 	}
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
