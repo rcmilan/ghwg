@@ -1,0 +1,15 @@
+# Normalize text files across Windows and Unix checkouts.
+* text=auto eol=lf
+
+# Keep binary game assets byte-for-byte unchanged.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.zip binary

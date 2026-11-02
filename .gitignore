@@ -1,0 +1,19 @@
+# Go build and test output
+*.exe
+*.test
+*.prof
+*.out
+coverage.*
+
+# Local Go build cache
+.gocache/
+
+# Editor, OS, and local configuration files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.code-workspace
+.env
+.env.*
