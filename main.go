@@ -11,7 +11,11 @@ func main() {
 	ebiten.SetWindowSize(960, 540)
 	ebiten.SetWindowTitle("Ghost Hotel")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	if err := ebiten.RunGame(game.New()); err != nil {
+	g, err := game.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
 }

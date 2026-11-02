@@ -1,10 +1,11 @@
 package entities
 
-import "math"
+import (
+	"image"
+	"math"
+)
 
 type GuestState int
-
-const GuestRadius = 13.0
 
 const (
 	GuestQueued GuestState = iota
@@ -19,18 +20,27 @@ type Guest struct {
 	X, Y       float64
 	State      GuestState
 	RoomIndex  int
-	Waypoint   int
+	Path       []image.Point // remaining waypoints, world px
 	SpawnAt    float64
 	PauseUntil float64
-	Paid       bool
 }
 
-func NewGuest(roomIndex int, x, y, spawnAt float64) Guest {
-	return Guest{X: x, Y: y, State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt}
+func NewGuest(roomIndex int, at image.Point, spawnAt float64) Guest {
+	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt}
 }
 
-// WalkTo returns true after the destination is reached, with no pathfinding dependency
-// needed for this deliberately open first lobby layout.
+// FollowPath walks toward the next waypoint; true once the path is used up.
+func (g *Guest) FollowPath(speed float64) bool {
+	if len(g.Path) == 0 {
+		return true
+	}
+	if p := g.Path[0]; g.WalkTo(float64(p.X), float64(p.Y), speed) {
+		g.Path = g.Path[1:]
+	}
+	return len(g.Path) == 0
+}
+
+// WalkTo moves straight toward (x,y); true once there.
 func (g *Guest) WalkTo(x, y, speed float64) bool {
 	dx, dy := x-g.X, y-g.Y
 	d := math.Hypot(dx, dy)

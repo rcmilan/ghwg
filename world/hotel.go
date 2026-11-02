@@ -21,8 +21,8 @@ const (
 
 var roomOrigins = [...]image.Point{{1, 1}, {18, 1}, {1, 12}, {18, 12}} // Rooms 101-104
 
-// HotelRoom is one Room placed in the hotel.
-type HotelRoom struct {
+// Room is one of the hotel's guest rooms (101-104), built from a Room Type.
+type Room struct {
 	Number string
 	Type   RoomType
 	Origin image.Point // cell of the room's top-left corner
@@ -33,7 +33,7 @@ type HotelRoom struct {
 // Hotel is the built map plus the anchors the game needs. Points are world px.
 type Hotel struct {
 	Map            *Tilemap
-	Rooms          []HotelRoom
+	Rooms          []Room
 	Spawn          image.Point     // on the street below the Entrance; guests also leave here
 	ConciergeStart image.Point     // behind the counter's computer
 	PaySpot        image.Point     // in front of the computer
@@ -102,7 +102,7 @@ func Build(ts *Tileset, types []RoomType, rng *rand.Rand) (*Hotel, error) {
 				}
 			}
 		}
-		h.Rooms = append(h.Rooms, HotelRoom{
+		h.Rooms = append(h.Rooms, Room{
 			Number: strconv.Itoa(101 + i),
 			Type:   t,
 			Origin: o,
