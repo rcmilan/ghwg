@@ -11,7 +11,9 @@ import (
 	"ghosthotel/assets"
 )
 
-func buildHotel(t *testing.T) *Hotel { return buildGrid(t, Cols, Rows) }
+// buildHotel builds a 2×2 grid: the hand-measured coordinates in the pinned tests were taken on it,
+// whatever grid ships (Cols, Rows).
+func buildHotel(t *testing.T) *Hotel { return buildGrid(t, 2, 2) }
 
 func buildGrid(t *testing.T, cols, rows int) *Hotel {
 	t.Helper()
@@ -27,10 +29,10 @@ func buildGrid(t *testing.T, cols, rows int) *Hotel {
 	return h
 }
 
-// forGrids runs f on every Room grid the hotel must support (D54): 2×2 up to 3×3.
+// forGrids runs f on every Room grid the hotel must support (D54): 2×1 up to 3×3.
 func forGrids(t *testing.T, f func(t *testing.T, h *Hotel, l layout)) {
 	for cols := 2; cols <= 3; cols++ {
-		for rows := 2; rows <= 3; rows++ {
+		for rows := 1; rows <= 3; rows++ {
 			t.Run(fmt.Sprintf("%dx%d", cols, rows), func(t *testing.T) { f(t, buildGrid(t, cols, rows), newLayout(cols, rows)) })
 		}
 	}
@@ -38,10 +40,10 @@ func forGrids(t *testing.T, f func(t *testing.T, h *Hotel, l layout)) {
 
 func TestHotelLayout(t *testing.T) {
 	h := buildHotel(t)
-	if h.Map.W != 30 || h.Map.H != 36 {
-		t.Fatalf("map %dx%d, want 30x36", h.Map.W, h.Map.H)
+	if h.Map.W != 22 || h.Map.H != 36 {
+		t.Fatalf("map %dx%d, want 22x36", h.Map.W, h.Map.H)
 	}
-	want := map[string]image.Point{"101": {1, 1}, "102": {16, 1}, "201": {1, 12}, "202": {16, 12}}
+	want := map[string]image.Point{"101": {1, 1}, "102": {12, 1}, "201": {1, 12}, "202": {12, 12}}
 	if len(h.Rooms) != len(want) {
 		t.Fatalf("%d rooms, want 4", len(h.Rooms))
 	}
@@ -51,7 +53,7 @@ func TestHotelLayout(t *testing.T) {
 		}
 	}
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
-		for name, p := range map[string]image.Point{"spawn": h.Spawn, "concierge": h.ConciergeStart, "pay spot": h.PaySpot, "pay exit": h.PayExit, "archway": h.Archway} {
+		for name, p := range map[string]image.Point{"spawn": h.Spawn, "concierge": h.ConciergeStart, "archway": h.Archway} {
 			if h.Map.Solid(p.X/TileSize, p.Y/TileSize) {
 				t.Errorf("%s %v is on a solid cell", name, p)
 			}
@@ -97,10 +99,6 @@ func TestHotelPaths(t *testing.T) {
 					t.Errorf("room %s: path crosses room %s's door", r.Number, other.Number)
 				}
 			}
-			// the way back: Stay Spot -> pay spot -> street
-			if h.Path(r.Stay, h.PaySpot, i) == nil || h.Path(h.PaySpot, h.PayExit, -1) == nil || h.Path(h.PayExit, h.Spawn, -1) == nil {
-				t.Errorf("room %s: no way back to the pay spot and the street", r.Number)
-			}
 			// doors are the only way in: with no door passable, the Stay Spot is unreachable
 			if h.Path(h.Spawn, r.Stay, -1) != nil {
 				t.Errorf("room %s: Stay Spot reachable without its door", r.Number)
@@ -112,9 +110,10 @@ func TestHotelPaths(t *testing.T) {
 // TestHotelASCII prints the built map; compare with index.md "Hotel layout" and preview_hotel.png.
 // go test ./world -run TestHotelASCII -v
 func TestHotelASCII(t *testing.T) {
-	h := buildHotel(t)
-	marks := map[image.Point]byte{h.Spawn.Div(TileSize): '@', h.PaySpot.Div(TileSize): 'P', h.ConciergeStart.Div(TileSize): 'B'}
+	h := buildGrid(t, Cols, Rows) // the shipped grid
+	marks := map[image.Point]byte{h.Spawn.Div(TileSize): '@', h.ConciergeStart.Div(TileSize): 'B'}
 	for _, r := range h.Rooms {
+		marks[r.Pay.Div(TileSize)] = 'P'
 		marks[r.Stay.Div(TileSize)] = 'S'
 	}
 	var b strings.Builder
@@ -154,29 +153,64 @@ func asciiCell(m *Tilemap, x, y int) byte {
 	return '?'
 }
 
-// D29: the Terminal is reachable from both sides of the counter, and guests pay in front of it.
-// D40: walkable ends beside the counter and 2 free rows behind it.
+// D29: the Terminal is reachable from behind the counter. D62: the counter sits just east of the Archway
+// and every Room has its own Pay Spot in front of it. D40: walkable ends and 2 free rows behind it.
 func TestHotelCounterSides(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
-		counterTop, counterFront := l.counter*TileSize, (l.counter+1)*TileSize
-		if h.ConciergeStart.Y >= counterTop || h.PaySpot.Y < counterFront {
-			t.Errorf("concierge start %v should be behind the counter (y < %d), pay spot %v in front (y >= %d)",
-				h.ConciergeStart, counterTop, h.PaySpot, counterFront)
+		if l.counterX != l.archway+archwayWidth || l.counterX+l.counterW > l.w-3 {
+			t.Errorf("counter %d..%d, want it just east of the Archway (ends %d) and inside the hotel", l.counterX, l.counterX+l.counterW-1, l.archway+archwayWidth-1)
 		}
-		for name, p := range map[string]image.Point{"behind": h.ConciergeStart, "in front": h.PaySpot} {
-			if !p.In(h.Terminal) {
-				t.Errorf("terminal zone %v misses the %s spot %v", h.Terminal, name, p)
+		if h.ConciergeStart.Y >= l.counter*TileSize || !h.ConciergeStart.In(h.Terminal) {
+			t.Errorf("concierge start %v should be behind the counter, in the terminal zone %v", h.ConciergeStart, h.Terminal)
+		}
+		seen := map[image.Point]bool{}
+		for _, r := range h.Rooms {
+			c := r.Pay.Div(TileSize)
+			if c.Y != l.counter+1 || c.X < l.counterX || c.X >= l.counterX+l.counterW || h.Map.Solid(c.X, c.Y) || seen[c] {
+				t.Errorf("room %s pays at %v, want its own walkable cell right in front of the counter", r.Number, c)
 			}
+			seen[c] = true
 		}
-		for _, c := range []image.Point{{2, l.counter}, {8, l.counter}} {
-			if h.Map.Solid(c.X, c.Y) {
-				t.Errorf("counter end %v is solid", c)
+		for _, x := range []int{l.counterX - 1, l.counterX + l.counterW} {
+			if h.Map.Solid(x, l.counter) {
+				t.Errorf("counter end (%d,%d) is solid", x, l.counter)
 			}
 		}
 		for y := l.counter - 2; y < l.counter; y++ {
-			for x := 2; x <= 8; x++ {
+			for x := l.counterX - 1; x <= l.counterX+l.counterW; x++ {
 				if h.Map.Solid(x, y) {
 					t.Errorf("cell (%d,%d) behind the counter is solid", x, y)
+				}
+			}
+		}
+	})
+}
+
+// D62: each Room's own lane reaches its Pay Spot and the Street, and a guest's way to pay never crosses
+// the Pay Spot or the way out of a guest who left before it (lower Room index).
+func TestCheckoutLanes(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		cells := func(path []image.Point) map[image.Point]bool {
+			m := map[image.Point]bool{}
+			for _, p := range path {
+				m[p.Div(TileSize)] = true
+			}
+			return m
+		}
+		pays, outs := make([][]image.Point, len(h.Rooms)), make([][]image.Point, len(h.Rooms))
+		for i, r := range h.Rooms {
+			pays[i], outs[i] = h.Checkout(i)
+			if len(pays[i]) == 0 || pays[i][len(pays[i])-1] != r.Pay || len(outs[i]) == 0 || outs[i][len(outs[i])-1] != h.Spawn {
+				t.Fatalf("room %s: lane does not reach its Pay Spot %v and the Street %v", r.Number, r.Pay, h.Spawn)
+			}
+		}
+		for j := range h.Rooms {
+			later := cells(pays[j])
+			for i := range j {
+				for c := range cells(append([]image.Point{h.Rooms[i].Pay}, outs[i]...)) {
+					if later[c] {
+						t.Errorf("room %s's way to pay crosses room %s's Pay Spot or way out at %v", h.Rooms[j].Number, h.Rooms[i].Number, c)
+					}
 				}
 			}
 		}

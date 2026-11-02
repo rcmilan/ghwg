@@ -46,8 +46,9 @@ func TestBlockedBox(t *testing.T) {
 func TestSortY(t *testing.T) {
 	h := buildHotel(t)
 	m := h.Map
-	l := newLayout(Cols, Rows)
+	l := newLayout(2, 2)
 	hallRow, counterRow := l.hall, l.counter
+	seg, comp := l.counterX+1, l.counterX+l.counterW-2 // a counter_mid cell; the computer
 	foot := func(row int) int { return (row + 1) * TileSize }
 	cases := []struct {
 		name string
@@ -57,9 +58,9 @@ func TestSortY(t *testing.T) {
 		{"hall wall face, top row", 5, hallRow, foot(hallRow + 1)},
 		{"hall wall face, bottom row", 5, hallRow + 1, foot(hallRow + 1)},
 		{"Lobby Archway lintel", 15, hallRow, foot(hallRow + 1)},
-		{"counter segment", 4, counterRow, foot(counterRow)},
-		{"computer, top cell", 6, counterRow - 1, foot(counterRow)},
-		{"computer, bottom cell", 6, counterRow, foot(counterRow)},
+		{"counter segment", seg, counterRow, foot(counterRow)},
+		{"computer, top cell", comp, counterRow - 1, foot(counterRow)},
+		{"computer, bottom cell", comp, counterRow, foot(counterRow)},
 	}
 	for _, c := range cases {
 		if got := m.SortY(c.x, c.y); got != c.want {
@@ -68,8 +69,8 @@ func TestSortY(t *testing.T) {
 	}
 	// the deepest foot box behind the counter (on its walkable top half) sorts before it; the shallowest
 	// one in front (just below its solid front strip) sorts after it
-	key := m.SortY(4, counterRow)
-	behind := image.Rect(4*TileSize, counterRow*TileSize+2, 4*TileSize+10, counterRow*TileSize+8)
+	key := m.SortY(seg, counterRow)
+	behind := image.Rect(seg*TileSize, counterRow*TileSize+2, seg*TileSize+10, counterRow*TileSize+8)
 	front := behind.Add(image.Pt(0, TileSize-2))
 	if m.BlockedBox(behind) || m.BlockedBox(front) {
 		t.Fatalf("test foot boxes %v / %v should be walkable", behind, front)
@@ -87,7 +88,7 @@ func TestSortY(t *testing.T) {
 // The face under the line keeps its own sort y.
 func TestTileSortYSideLines(t *testing.T) {
 	m := buildHotel(t).Map
-	l := newLayout(Cols, Rows)
+	l := newLayout(2, 2)
 	hallRow, frontRow := l.hall, l.front
 	cases := []struct {
 		name   string
@@ -96,8 +97,8 @@ func TestTileSortYSideLines(t *testing.T) {
 		bottom int // the run's last row (its corner, on a face's top row)
 	}{
 		{"hotel west wall", 1, []int{2, 10, 21, hallRow + 1, hallRow + 2, frontRow - 1, frontRow}, frontRow},
-		{"room 101's east side", 13, []int{1, 3, 7, 8}, 8},
-		{"room 201's east side", 13, []int{12, 16, 19}, 19},
+		{"room 101's east side", 9, []int{1, 3, 7, 8}, 8},
+		{"room 201's east side", 9, []int{12, 16, 19}, 19},
 	}
 	for _, c := range cases {
 		want := m.SortY(c.x, c.bottom)

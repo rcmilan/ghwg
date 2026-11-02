@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -81,7 +82,10 @@ type Game struct {
 	worldImg                                       *ebiten.Image               // the whole map ×zoom, for the Spin cinematic
 }
 
-func New() (*Game, error) {
+// New builds the shipped grid (world.Cols x world.Rows).
+func New() (*Game, error) { return newGame(world.Cols, world.Rows) }
+
+func newGame(cols, rows int) (*Game, error) {
 	ts, err := world.LoadTileset(assets.FS, "tiles/hotel.tsj")
 	if err != nil {
 		return nil, err
@@ -91,7 +95,7 @@ func New() (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	h, err := world.Build(ts, types, world.Cols, world.Rows, rng)
+	h, err := world.Build(ts, types, cols, rows, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -438,14 +442,25 @@ func (g *Game) beginDepartures() {
 	g.state = StateDepartures
 	g.departuresStarted = g.tick
 	g.message = "Guests are checking out."
+	slices.SortFunc(g.guests, func(a, b *entities.Guest) int { return a.RoomIndex - b.RoomIndex }) // lanes need Room order (D62)
+	// each guest is released so they reach the shared lane (LaneEntry) one guestSpawnEvery after the
+	// one before, however long their own walk to it (D62)
+	join := 0
 	for i, guest := range g.guests {
+		stay := g.hotel.Rooms[guest.RoomIndex].Stay
+		walk := int(float64(len(g.hotel.Path(stay, g.hotel.LaneEntry, guest.RoomIndex))*world.TileSize) / toCounterSpeed)
+		join = max(join+guestSpawnEvery, walk)
+		if i == 0 {
+			join = walk
+		}
 		guest.State = entities.GuestLeavingRoom
-		guest.SpawnAt = i * guestSpawnEvery
-		guest.SetPath(g.hotel.Path(g.hotel.Rooms[guest.RoomIndex].Stay, g.hotel.PaySpot, guest.RoomIndex))
+		guest.SpawnAt = join - walk
+		toPay, _ := g.hotel.Checkout(guest.RoomIndex)
+		guest.SetPath(toPay)
 	}
 }
 
-// updateDepartures: Stay Spot -> pay spot (coin) -> street, along BFS waypoints.
+// updateDepartures: Stay Spot -> own Pay Spot (coin) -> street, along each Room's lane (D62).
 func (g *Game) updateDepartures() {
 	remaining := g.guests[:0]
 	for _, guest := range g.guests {
@@ -463,8 +478,8 @@ func (g *Game) updateDepartures() {
 			if g.tick >= guest.PauseUntil {
 				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y, Value: guest.Rate})
 				guest.State = entities.GuestDeparting
-				h := g.hotel
-				guest.SetPath(append(h.Path(h.PaySpot, h.PayExit, -1), h.Path(h.PayExit, h.Spawn, -1)...))
+				_, toStreet := g.hotel.Checkout(guest.RoomIndex)
+				guest.SetPath(toStreet)
 			}
 		case entities.GuestDeparting:
 			if g.walk(guest, departSpeed) {

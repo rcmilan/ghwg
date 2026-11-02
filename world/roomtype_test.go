@@ -35,11 +35,11 @@ func TestStandardRoomType(t *testing.T) {
 	if std == nil {
 		t.Fatalf("no Standard room type in %d types", len(types))
 	}
-	if std.Rate != 25 || std.DoorCol != 6 {
-		t.Errorf("rate %d door col %d, want 25 and 6", std.Rate, std.DoorCol)
+	if std.Rate != 25 || std.DoorCol != 4 {
+		t.Errorf("rate %d door col %d, want 25 and 4", std.Rate, std.DoorCol)
 	}
-	if cell := std.Stay.Div(TileSize); cell != image.Pt(6, 4) {
-		t.Errorf("stay cell %v, want (6,4)", cell)
+	if cell := std.Stay.Div(TileSize); cell != image.Pt(4, 4) {
+		t.Errorf("stay cell %v, want (4,4)", cell)
 	}
 }
 
@@ -83,9 +83,9 @@ func TestRoomTypeValidation(t *testing.T) {
 		{"no stay", `"stay"`, func(m map[string]any) { layer(m, "markers")["objects"] = []any{} }},
 		{"two door columns", "door columns", func(m map[string]any) {
 			decor := layer(m, "decor")["data"].([]any)
-			decor[7*RoomW+2] = decor[7*RoomW+6] // a second door leaf at col 2
+			decor[7*RoomW+2] = decor[7*RoomW+4] // a second door leaf at col 2
 		}},
-		{"wrong size", "want 13x9", func(m map[string]any) { m["width"] = 12.0 }},
+		{"wrong size", "want 9x9", func(m map[string]any) { m["width"] = 12.0 }},
 		{"no rate", `"rate"`, func(m map[string]any) { m["properties"] = m["properties"].([]any)[:1] }}, // keeps "name"
 		{"stay on a wall", "not on walkable floor", func(m map[string]any) {
 			layer(m, "markers")["objects"].([]any)[0].(map[string]any)["y"] = 8.0 // back face, row 0
@@ -109,7 +109,7 @@ func TestRoomTypesShareDoorColumn(t *testing.T) {
 	moved := mutated(t, func(m map[string]any) {
 		decor := layer(m, "decor")["data"].([]any)
 		for _, row := range []int{7, 8} {
-			decor[row*RoomW+2], decor[row*RoomW+6] = decor[row*RoomW+6], 0.0
+			decor[row*RoomW+2], decor[row*RoomW+4] = decor[row*RoomW+4], 0.0
 		}
 	})
 	std := mutated(t, func(map[string]any) {})

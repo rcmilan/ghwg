@@ -78,7 +78,7 @@ func (h *Hotel) DoorBlocks(r image.Rectangle) bool {
 	return false
 }
 
-// Shell is the Room's whole 13×9 footprint in world px, doorway included.
+// Shell is the Room's whole RoomW×RoomH footprint in world px, doorway included.
 func (r Room) Shell() image.Rectangle {
 	o := r.Origin.Mul(TileSize)
 	return image.Rectangle{o, o.Add(image.Pt(RoomW*TileSize, RoomH*TileSize))}

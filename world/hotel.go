@@ -11,13 +11,13 @@ import (
 
 // The hotel is generated from a grid of Rooms (D54). Cols x Rows is the shipped grid; Build takes any.
 const (
-	Cols, Rows   = 2, 2
+	Cols, Rows   = 3, 1
 	corridor     = 2 // Corridor width: between Room columns, between Room rows and above the Hall Wall (D55)
 	lobbyRows    = 6 // floor rows between the Hall Wall and the front face (D56)
 	behindRows   = 2 // Lobby rows behind the counter (D40)
 	streetRows   = 3
-	counterX     = 3 // counter_left; the counter runs counterX..counterX+4, the computer at counterX+3
 	archwayWidth = 4
+	minCounter   = 5 // counter cells: counter_left, counter_mid..., computer, counter_right
 )
 
 // layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
@@ -25,9 +25,13 @@ type layout struct {
 	cols, rows int
 	w, h       int
 	hall       int // Hall Wall face (2 rows); the Lobby Archway is centered in it
-	counter    int
+	counter    int // counter row; below it: the pay row, the approach row, the exit row (D62)
 	front      int // exterior south face (2 rows); the Entrance is centered in it
 	street     int
+	archway    int // the Archway's west column
+	entrance   int // the Entrance's west column
+	counterX   int // counter_left: just east of the Archway
+	counterW   int // one cell per Room at least, so each Room has its own Pay Spot (D62)
 }
 
 func newLayout(cols, rows int) layout {
@@ -37,6 +41,8 @@ func newLayout(cols, rows int) layout {
 	l.front = l.hall + 2 + lobbyRows
 	l.street = l.front + 2
 	l.h = l.street + streetRows
+	l.archway, l.entrance = l.w/2-archwayWidth/2, l.w/2-1 // centered (D55); one cell left of center on odd widths
+	l.counterX, l.counterW = l.archway+archwayWidth, max(minCounter, cols*rows)
 	return l
 }
 
@@ -52,6 +58,7 @@ type Room struct {
 	Origin image.Point // cell of the room's top-left corner
 	Door   image.Point // cell of the door's top half; the bottom half is Door+(0,1)
 	Stay   image.Point // Stay Spot, world px
+	Pay    image.Point // this Room's own Pay Spot in front of the counter, world px (D62)
 }
 
 // Hotel is the built map plus the anchors the game needs. Points are world px.
@@ -63,10 +70,12 @@ type Hotel struct {
 	Spawn          image.Point     // on the street below the Entrance; guests also leave here
 	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point     // behind the counter's computer
-	PaySpot        image.Point     // in front of the computer
-	PayExit        image.Point     // below the pay spot on the Lobby's last row: paid guests leave via here (D59)
+	LaneEntry      image.Point     // where every Room's lane joins: the Archway's east column, on the approach row (D62)
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
 }
+
+// cellCenter is the world-px center of cell (x,y).
+func cellCenter(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
 
 // Build stamps the whole hotel for a cols x rows grid of Rooms, each Room's type drawn with Draw.
 func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hotel, error) {
@@ -136,7 +145,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		}
 	}
 
-	archway, entrance := l.w/2-archwayWidth/2, l.w/2-1 // centered (D55); one cell left of center on odd widths
+	archway, entrance := l.archway, l.entrance
 	var gaps []int
 	for x := archway; x < archway+archwayWidth; x++ {
 		gaps = append(gaps, x)
@@ -147,9 +156,18 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, entrance+i, l.front, n+"_top")
 		put(LayerDecor, entrance+i, l.front+1, n+"_bottom")
 	}
-	computer := counterX + 3
-	for i, n := range []string{"counter_left", "counter_mid", "counter_mid", "counter_computer_bottom", "counter_right"} {
-		put(LayerDecor, counterX+i, l.counter, n)
+	computer := l.counterX + l.counterW - 2
+	for x := l.counterX; x < l.counterX+l.counterW; x++ {
+		n := "counter_mid"
+		switch x {
+		case l.counterX:
+			n = "counter_left"
+		case computer:
+			n = "counter_computer_bottom"
+		case computer + 1:
+			n = "counter_right"
+		}
+		put(LayerDecor, x, l.counter, n)
 	}
 	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
 	// hotel outer side walls: one unbroken line over every wall that meets them; Rooms never stamp over it
@@ -173,12 +191,13 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		h.Land(i)
 	}
 
-	center := func(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
 	h.Archway = image.Pt((archway+archwayWidth/2)*TileSize, (l.hall+1)*TileSize)
-	h.ConciergeStart = center(computer, l.counter-2)
-	h.PaySpot = center(computer, l.counter+1)
-	h.PayExit = center(computer, l.front-1)
+	h.ConciergeStart = cellCenter(computer, l.counter-2)
+	h.LaneEntry = cellCenter(archway+archwayWidth-1, l.counter+2)
+	for i := range h.Rooms { // the first to leave pays farthest east (D62)
+		h.Rooms[i].Pay = cellCenter(l.counterX+len(h.Rooms)-1-i, l.counter+1)
+	}
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	return h, nil
 }
@@ -216,3 +235,25 @@ func (h *Hotel) Land(i int) {
 
 // OuterLine: column x carries a hotel outer side line in its decor layer. It stays still during a Spin.
 func (h *Hotel) OuterLine(x int) bool { return x == 1 || x == h.l.w-2 }
+
+// Checkout is Room i's own lane out (D62): from its Stay Spot to its Pay Spot, then on to the Street.
+// Below the counter the Lobby has 3 rows: pay, approach, exit. A guest comes down the Archway's east
+// column, walks east along the approach row and steps up into its Pay Spot; after paying it steps down
+// to the exit row and walks west to the Entrance. Guests leave in Room order and Room 0 pays farthest
+// east, so a guest never walks past one still ahead of it: the lanes never meet head-on. The game
+// releases them so they reach LaneEntry in that order, apart: lanes from both sides merge above it.
+func (h *Hotel) Checkout(i int) (toPay, toStreet []image.Point) {
+	l, r := h.l, h.Rooms[i]
+	pay := r.Pay.Div(TileSize)
+	via := func(own int, pts ...image.Point) []image.Point {
+		var path []image.Point
+		for k := 1; k < len(pts); k++ {
+			path = append(path, h.Path(pts[k-1], pts[k], own)...)
+		}
+		return path
+	}
+	approach, exit := l.counter+2, l.counter+3
+	toPay = via(i, r.Stay, h.LaneEntry, cellCenter(pay.X, approach), r.Pay)
+	toStreet = via(-1, r.Pay, cellCenter(pay.X, exit), cellCenter(l.entrance+1, exit), h.Spawn)
+	return toPay, toStreet
+}

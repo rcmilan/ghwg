@@ -10,7 +10,7 @@ import (
 
 // Room Type maps are exactly RoomW×RoomH tiles; the door sits on the south face rows doorRow and doorRow+1.
 const (
-	RoomW   = 13
+	RoomW   = 9
 	RoomH   = 9
 	doorRow = 7
 )
