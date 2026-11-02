@@ -1,0 +1,747 @@
+{
+ "type": "tileset",
+ "version": "1.10",
+ "tiledversion": "1.10.2",
+ "name": "hotel",
+ "tilewidth": 16,
+ "tileheight": 16,
+ "tilecount": 38,
+ "columns": 0,
+ "margin": 0,
+ "spacing": 0,
+ "grid": {
+  "orientation": "orthogonal",
+  "width": 1,
+  "height": 1
+ },
+ "tiles": [
+  {
+   "id": 0,
+   "image": "floor_clay.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 1,
+   "image": "floor_street.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 2,
+   "image": "void.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 3,
+   "image": "wall_left_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 4,
+   "image": "wall_left_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 5,
+   "image": "wall_lintel.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 6,
+   "image": "wall_mid_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 7,
+   "image": "wall_mid_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 8,
+   "image": "wall_right_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 9,
+   "image": "wall_right_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 10,
+   "image": "wall_single_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 11,
+   "image": "wall_single_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 12,
+   "image": "border_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 13,
+   "image": "border_east.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 10,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 14,
+   "image": "border_east_corner.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 10,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 15,
+   "image": "border_east_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 10,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 16,
+   "image": "border_west.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 17,
+   "image": "border_west_corner.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 18,
+   "image": "border_west_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 19,
+   "image": "window_curtain_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 20,
+   "image": "window_curtain_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 21,
+   "image": "window_curtain_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 22,
+   "image": "window_curtain_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 23,
+   "image": "window_curtain_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 24,
+   "image": "window_curtain_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 25,
+   "image": "door_glass_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 26,
+   "image": "door_glass_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 27,
+   "image": "door_plain_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 28,
+   "image": "door_plain_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 29,
+   "image": "entrance_left_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 30,
+   "image": "entrance_left_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 31,
+   "image": "entrance_right_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 32,
+   "image": "entrance_right_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "door",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 33,
+   "image": "counter_computer_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 8,
+      "width": 16,
+      "height": 8
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 34,
+   "image": "counter_computer_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 35,
+   "image": "counter_left.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 8,
+      "width": 16,
+      "height": 8
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 36,
+   "image": "counter_mid.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 8,
+      "width": 16,
+      "height": 8
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 37,
+   "image": "counter_right.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 8,
+      "width": 16,
+      "height": 8
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  }
+ ]
+}
