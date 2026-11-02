@@ -4,6 +4,7 @@ import (
 	"image"
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -37,17 +38,26 @@ const (
 	stuckFrames     = 1 * tps // a walking guest with no progress this long ignores actors for one tile (D22c)
 	coinMagnet      = 27      // px: coins slide toward the Concierge inside this radius
 	coinPickup      = 7       // px
-	coinValue       = 25      // ponytail: flat until S8 (coin = Room Rate)
+	reelFrames      = 60      // one Room's reel roll, ~1 s (D48)
+	reelStagger     = 12      // between consecutive Rooms' reel starts, so they stop ~0.2 s apart
+	spinCamFrames   = 45      // the camera's glide out to all Rooms before the reels, and back after
+	spinHoldFrames  = 30      // all-Rooms view held after the last reel stops
+	spinMargin      = 16      // world px around the Rooms in the all-Rooms view
 )
 
 // guestCast: Guests draw a random character from these; repeats are fine (D25). Bob is the Concierge.
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
-type Money struct{ X, Y float64 }
+// Money is a coin on the floor, worth its guest's Rate at Booking (D53).
+type Money struct {
+	X, Y  float64
+	Value int
+}
 
 type Game struct {
 	state                                          int
 	hotel                                          *world.Hotel
+	types                                          []world.RoomType // every loaded Room Type, drawn from at each Spin
 	cam                                            Camera
 	player                                         entities.Player
 	guests                                         []*entities.Guest
@@ -64,9 +74,18 @@ type Game struct {
 	characters                                     map[string][2]*ebiten.Image // idle_anim, run sheets by name
 	floorImg                                       *ebiten.Image               // the floor layer pre-rendered at 1px per world px
 	props                                          []prop                      // every other static tile, by SortY
+	reelAt                                         int                         // tick the last Spin started
+	landed                                         int                         // Rooms whose reel has stopped, in Room order
+	reels                                          [][2]*ebiten.Image          // per Room: old and new footprint while it rolls
+	cinematic                                      bool                        // the last Spin glides the camera out to the Rooms
+	spinEndAt                                      int                         // tick the cinematic's camera is back on the Concierge
+	worldImg                                       *ebiten.Image               // the whole map ×zoom, for the Spin cinematic
 }
 
-func New() (*Game, error) {
+// New builds the shipped grid (world.Cols x world.Rows).
+func New() (*Game, error) { return newGame(world.Cols, world.Rows) }
+
+func newGame(cols, rows int) (*Game, error) {
 	ts, err := world.LoadTileset(assets.FS, "tiles/hotel.tsj")
 	if err != nil {
 		return nil, err
@@ -76,7 +95,7 @@ func New() (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	h, err := world.Build(ts, types, rng)
+	h, err := world.Build(ts, types, cols, rows, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +107,7 @@ func New() (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, rng: rng, tiles: tiles, characters: chars}, nil
+	return &Game{state: StateTitle, hotel: h, types: types, landed: len(h.Rooms), rng: rng, tiles: tiles, characters: chars}, nil
 }
 
 func (g *Game) mapSize() (int, int) {
@@ -101,7 +120,8 @@ func (g *Game) startShift(keepPlayer bool) {
 	g.resetBookings()
 	g.terminalCursor = 0
 	g.state = StateBooking
-	if !keepPlayer {
+	if !keepPlayer { // a new Run starts with an instant Spin (D46)
+		g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), true)
 		g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 		g.money = 0
 		w, h := g.mapSize()
@@ -141,6 +161,13 @@ func (g *Game) Update() error {
 		g.updateTerminal()
 		return nil
 	}
+	if g.spinning() { // the camera is on the Rooms: the Concierge waits; Space skips (D61)
+		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+			g.skipSpin()
+		}
+		g.step(0, 0)
+		return nil
+	}
 	g.step(entities.ReadMove())
 	if g.state == StateBooking && inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.atTerminal() {
 		g.state = StateTerminal
@@ -153,6 +180,7 @@ func (g *Game) Update() error {
 // rendering: the headless sim drives it directly.
 func (g *Game) step(dx, dy float64) {
 	g.tick++
+	g.landReels(false)
 	g.player.Move(dx, dy, conciergeSpeed, g.blocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	switch g.state {
@@ -375,6 +403,7 @@ func (g *Game) beginArrivals() {
 	g.guests = make([]*entities.Guest, len(g.assignments))
 	for guest, room := range g.assignments {
 		v := entities.NewGuest(room, g.hotel.Spawn, guest*guestSpawnEvery, guestCast[g.rng.IntN(len(guestCast))])
+		v.Rate = g.hotel.Rooms[room].Type.Rate // Booking is final once Arrivals begin (D53)
 		g.guests[guest] = &v
 	}
 	g.arrivalsStarted = g.tick
@@ -413,14 +442,25 @@ func (g *Game) beginDepartures() {
 	g.state = StateDepartures
 	g.departuresStarted = g.tick
 	g.message = "Guests are checking out."
+	slices.SortFunc(g.guests, func(a, b *entities.Guest) int { return a.RoomIndex - b.RoomIndex }) // lanes need Room order (D62)
+	// each guest is released so they reach the shared lane (LaneEntry) one guestSpawnEvery after the
+	// one before, however long their own walk to it (D62)
+	join := 0
 	for i, guest := range g.guests {
+		stay := g.hotel.Rooms[guest.RoomIndex].Stay
+		walk := int(float64(len(g.hotel.Path(stay, g.hotel.LaneEntry, guest.RoomIndex))*world.TileSize) / toCounterSpeed)
+		join = max(join+guestSpawnEvery, walk)
+		if i == 0 {
+			join = walk
+		}
 		guest.State = entities.GuestLeavingRoom
-		guest.SpawnAt = i * guestSpawnEvery
-		guest.SetPath(g.hotel.Path(g.hotel.Rooms[guest.RoomIndex].Stay, g.hotel.PaySpot, guest.RoomIndex))
+		guest.SpawnAt = join - walk
+		toPay, _ := g.hotel.Checkout(guest.RoomIndex)
+		guest.SetPath(toPay)
 	}
 }
 
-// updateDepartures: Stay Spot -> pay spot (coin) -> street, along BFS waypoints.
+// updateDepartures: Stay Spot -> own Pay Spot (coin) -> street, along each Room's lane (D62).
 func (g *Game) updateDepartures() {
 	remaining := g.guests[:0]
 	for _, guest := range g.guests {
@@ -436,9 +476,10 @@ func (g *Game) updateDepartures() {
 			}
 		case entities.GuestPaying:
 			if g.tick >= guest.PauseUntil {
-				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y})
+				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y, Value: guest.Rate})
 				guest.State = entities.GuestDeparting
-				guest.SetPath(g.hotel.Path(g.hotel.PaySpot, g.hotel.Spawn, -1))
+				_, toStreet := g.hotel.Checkout(guest.RoomIndex)
+				guest.SetPath(toStreet)
 			}
 		case entities.GuestDeparting:
 			if g.walk(guest, departSpeed) {
@@ -449,9 +490,108 @@ func (g *Game) updateDepartures() {
 	}
 	g.guests = remaining
 	if len(g.guests) == 0 {
-		g.state = StateBooking
-		g.resetBookings()
-		g.message = "New shift ready. Approach reception to book guests."
+		g.endShift()
+	}
+}
+
+// endShift: the last guest has left the building, ending Shift 2: the Rooms Spin (D46).
+func (g *Game) endShift() {
+	g.state = StateBooking
+	g.resetBookings()
+	g.message = "New shift ready. Approach reception to book guests."
+	g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), false)
+}
+
+// spin gives the Rooms their next types at once (D47, D49). Each Room's cells follow at its reel stop
+// (D48, D50); instant stops them all now (Run start, D46).
+func (g *Game) spin(next []world.RoomType, instant bool) {
+	g.landReels(true) // a Spin mid-roll finishes the last one first
+	g.hotel.Spin(next)
+	g.reelAt, g.landed, g.reels, g.cinematic = g.tick, 0, nil, !instant
+	if !instant {
+		g.reelAt += spinCamFrames // the reels wait for the camera to frame every Room
+	}
+	g.spinEndAt = g.reelStop(len(g.hotel.Rooms)-1) + spinHoldFrames + spinCamFrames
+	g.landReels(instant)
+}
+
+// skipSpin lands every reel now and sends the camera back from wherever it is, as smoothly as it came (D61).
+func (g *Game) skipSpin() {
+	g.landReels(true)
+	out := min(float64(g.tick-g.reelAt+spinCamFrames)/spinCamFrames, 1) // how far out the camera got
+	g.spinEndAt = min(g.spinEndAt, g.tick+int(math.Ceil(out*spinCamFrames)))
+}
+
+// spinning: the Spin cinematic is on; the Concierge waits (camera out, reels, hold, camera back).
+func (g *Game) spinning() bool { return g.cinematic && g.tick < g.spinEnd() }
+
+func (g *Game) spinEnd() int { return g.spinEndAt }
+
+// spinView: how far the camera is out, 0 at the Concierge, 1 framing all Rooms; smoothstep-eased.
+func (g *Game) spinView() float64 {
+	if !g.cinematic {
+		return 0
+	}
+	out := float64(g.tick-g.reelAt+spinCamFrames) / spinCamFrames
+	back := float64(g.spinEnd()-g.tick) / spinCamFrames
+	t := min(max(min(out, back), 0), 1)
+	return t * t * (3 - 2*t)
+}
+
+// roomsView: the world-px center and the zoom (never above the play zoom) that frame every Room.
+func (g *Game) roomsView() (cx, cy, z float64) {
+	rs := g.hotel.Rooms
+	a := rs[0].Origin.Mul(world.TileSize)
+	b := rs[len(rs)-1].Origin.Add(image.Pt(world.RoomW, world.RoomH)).Mul(world.TileSize)
+	w, h := float64(b.X-a.X+2*spinMargin), float64(b.Y-a.Y+2*spinMargin)
+	return float64(a.X+b.X) / 2, float64(a.Y+b.Y) / 2, min(viewW*zoom/w, viewH*zoom/h, zoom)
+}
+
+// reelStop: the tick Room i's reel stops.
+func (g *Game) reelStop(i int) int { return g.reelAt + i*reelStagger + reelFrames }
+
+// reel: how far Room i's reel has rolled, eased out from 0 to 1 (D48), and whether it is rolling.
+func (g *Game) reel(i int) (float64, bool) {
+	t := float64(g.tick-g.reelStop(i)+reelFrames) / reelFrames
+	if i < g.landed || t < 0 {
+		return 0, false
+	}
+	return 1 - math.Pow(1-min(t, 1), 3), true
+}
+
+// landReels stamps each Room whose reel has stopped, in Room order, or all of them now.
+func (g *Game) landReels(now bool) {
+	for g.landed < len(g.hotel.Rooms) && (now || g.tick >= g.reelStop(g.landed)) {
+		g.hotel.Land(g.landed)
+		g.landed++
+		g.floorImg = nil // re-rendered on the next Draw
+		g.unstick()
+	}
+}
+
+// unstick moves the Concierge to the nearest cell center where the foot box fits, if a Spin left them
+// inside something solid (D50).
+// ponytail: BFS by steps through any cell, so a tight Room could drop them past a wall; path-aware if props need it
+func (g *Game) unstick() {
+	if !g.blocked(entities.FootBox(g.player.X, g.player.Y)) {
+		return
+	}
+	m := g.hotel.Map
+	start := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize)
+	seen := map[image.Point]bool{start: true}
+	for queue := []image.Point{start}; len(queue) > 0; queue = queue[1:] {
+		c := queue[0]
+		x, y := float64(c.X*world.TileSize+world.TileSize/2), float64(c.Y*world.TileSize+world.TileSize/2)
+		if !g.blocked(entities.FootBox(x, y)) {
+			g.player.X, g.player.Y = x, y
+			return
+		}
+		for _, d := range [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			if n := c.Add(d); n.X >= 0 && n.Y >= 0 && n.X < m.W && n.Y < m.H && !seen[n] {
+				seen[n] = true
+				queue = append(queue, n)
+			}
+		}
 	}
 }
 
@@ -465,7 +605,7 @@ func (g *Game) updateMoney() {
 			coin.Y += dy / d * math.Min(1.7, .33+d*.12)
 		}
 		if d < coinPickup {
-			g.money += coinValue
+			g.money += coin.Value
 			g.message = "Payment collected."
 			continue
 		}

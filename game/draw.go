@@ -33,16 +33,17 @@ func loadTiles(ts *world.Tileset) ([]*ebiten.Image, error) {
 	return imgs, nil
 }
 
-// renderFloor pre-draws the floor layer. Everything above it is y-sorted with the actors (D11).
-func (g *Game) renderFloor() *ebiten.Image {
-	m := g.hotel.Map
-	img := ebiten.NewImage(m.W*world.TileSize, m.H*world.TileSize)
-	for y := range m.H {
-		for x := range m.W {
-			if id := m.At(world.LayerFloor, x, y); id != 0 {
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(float64(x*world.TileSize), float64(y*world.TileSize))
-				img.DrawImage(g.tiles[id], op)
+// paint pre-draws a w×h-cell block at 1px per world px: layers [from, to) of at(layer, x, y).
+func (g *Game) paint(w, h, from, to int, at func(l, x, y int) world.TileID) *ebiten.Image {
+	img := ebiten.NewImage(w*world.TileSize, h*world.TileSize)
+	for l := from; l < to; l++ {
+		for y := range h {
+			for x := range w {
+				if id := at(l, x, y); id != 0 {
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Translate(float64(x*world.TileSize), float64(y*world.TileSize))
+					img.DrawImage(g.tiles[id], op)
+				}
 			}
 		}
 	}
@@ -53,6 +54,7 @@ func (g *Game) renderFloor() *ebiten.Image {
 // y-sorted pass at its cell's SortY. Door leaves are left out: drawDoors slides them under the actors.
 type prop struct {
 	y, cx, cy int // sort y (world px), cell
+	l         int // layer
 	id        world.TileID
 }
 
@@ -64,7 +66,7 @@ func (g *Game) sortedProps() []prop {
 		for y := range m.H {
 			for x := range m.W {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
-					ps = append(ps, prop{m.TileSortY(l, x, y), x, y, id})
+					ps = append(ps, prop{m.TileSortY(l, x, y), x, y, l, id})
 				}
 			}
 		}
@@ -84,7 +86,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawTitle(screen)
 		return
 	}
-	g.drawWorld(screen)
+	mw, mh := g.mapSize()
+	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	if f := g.spinView(); f > 0 {
+		g.drawSpinView(screen, ox, oy, f)
+	} else {
+		g.drawWorld(screen, ox, oy)
+	}
 	// HUD and terminal: screen space
 	if g.state == StateBooking && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
@@ -106,19 +114,48 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 	text(s, "WASD move / SPACE interact / ESC title or quit", 275, 485, assets.Floor)
 }
 
-// drawWorld draws the camera's view ×zoom (nearest-neighbor) straight onto the screen, at screen-px
-// precision so sub-pixel motion scrolls smoothly.
-func (g *Game) drawWorld(screen *ebiten.Image) {
-	if g.floorImg == nil {
-		g.floorImg, g.props = g.renderFloor(), g.sortedProps()
-	}
+// drawSpinView draws the Spin cinematic (D48): the whole map ×zoom off screen, scaled onto the screen
+// between the camera's view (f=0, origin ox,oy) and the all-Rooms view (f=1). Zoom blends geometrically,
+// the center linearly; linear filtering keeps the scaled pixel art from shimmering.
+func (g *Game) drawSpinView(screen *ebiten.Image, ox, oy int, f float64) {
 	mw, mh := g.mapSize()
-	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	if g.worldImg == nil || g.worldImg.Bounds().Dx() != mw*zoom || g.worldImg.Bounds().Dy() != mh*zoom {
+		g.worldImg = ebiten.NewImage(mw*zoom, mh*zoom)
+	}
+	g.worldImg.Fill(assets.Night)
+	g.drawWorld(g.worldImg, 0, 0)
+	const sw, sh = viewW * zoom, viewH * zoom
+	cx0, cy0 := (float64(ox)+sw/2)/zoom, (float64(oy)+sh/2)/zoom
+	cx1, cy1, z1 := g.roomsView()
+	z := zoom * math.Pow(z1/zoom, f)
+	cx, cy := cx0+(cx1-cx0)*f, cy0+(cy1-cy0)*f
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	op.GeoM.Scale(z/zoom, z/zoom)
+	op.GeoM.Translate(sw/2-cx*z, sh/2-cy*z)
+	screen.DrawImage(g.worldImg, op)
+}
+
+// drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at
+// screen-px precision so sub-pixel motion scrolls smoothly.
+func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
+	if g.floorImg == nil { // only the floor is pre-drawn; everything above it is y-sorted with the actors (D11)
+		m := g.hotel.Map
+		g.floorImg, g.props = g.paint(m.W, m.H, world.LayerFloor, world.LayerFloor+1, m.At), g.sortedProps()
+	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	screen.DrawImage(g.floorImg, op)
-	g.drawDoors(screen, ox, oy)
+	reels := g.drawReels(screen, ox, oy)
+	still := func(p prop) bool { // a rolling Room's tiles roll, except the hotel's outer side line over them
+		for _, r := range reels {
+			if image.Pt(p.cx, p.cy).In(r) {
+				return p.l == world.LayerDecor && g.hotel.OuterLine(p.cx)
+			}
+		}
+		return true
+	}
+	g.drawDoors(screen, ox, oy, reels)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	for _, coin := range g.pickups {
 		x, y := at(coin.X, coin.Y)
@@ -142,6 +179,9 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 	propsUpTo := func(feet float64) {
 		for ; i < len(g.props) && float64(g.props[i].y) <= feet; i++ {
 			p := g.props[i]
+			if !still(p) {
+				continue
+			}
 			op.GeoM.Reset()
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
@@ -156,12 +196,63 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 	propsUpTo(math.Inf(1))
 }
 
+// drawReels draws each rolling Room's whole footprint, clipped to it (D48): the old cells slide out the
+// bottom while the new type comes in from the top. Actors, props outside the reel and the hotel's outer
+// side line still draw over it. Returns each Room's rolling cells, empty when still.
+func (g *Game) drawReels(screen *ebiten.Image, ox, oy int) []image.Rectangle {
+	const ts, rh = world.TileSize, world.RoomH * world.TileSize * zoom
+	m := g.hotel.Map
+	rects := make([]image.Rectangle, len(g.hotel.Rooms))
+	if g.reels == nil {
+		g.reels = make([][2]*ebiten.Image, len(g.hotel.Rooms))
+	}
+	for i, r := range g.hotel.Rooms {
+		f, rolling := g.reel(i)
+		if !rolling {
+			continue
+		}
+		o, t := r.Origin, r.Type
+		if g.reels[i][0] == nil { // the map still holds the old cells until this Room lands
+			line := func(l, x int) bool { return l == world.LayerDecor && g.hotel.OuterLine(o.X+x) } // drawn still, on top
+			g.reels[i] = [2]*ebiten.Image{
+				g.paint(world.RoomW, world.RoomH, 0, world.NumLayers, func(l, x, y int) world.TileID {
+					if line(l, x) {
+						return 0
+					}
+					return m.At(l, o.X+x, o.Y+y)
+				}),
+				g.paint(world.RoomW, world.RoomH, 0, world.NumLayers, func(l, x, y int) world.TileID {
+					if line(l, x) {
+						return 0
+					}
+					return t.Tiles[l][y*world.RoomW+x]
+				}),
+			}
+		}
+		rects[i] = image.Rect(o.X, o.Y, o.X+world.RoomW, o.Y+world.RoomH)
+		px := image.Rectangle{rects[i].Min.Mul(ts * zoom), rects[i].Max.Mul(ts * zoom)}.Sub(image.Pt(ox, oy))
+		clip := screen.SubImage(px).(*ebiten.Image)
+		clip.Fill(assets.Night)
+		dy := math.Round(f * rh)
+		for k, img := range g.reels[i] {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(zoom, zoom)
+			op.GeoM.Translate(float64(o.X*ts*zoom-ox), float64(o.Y*ts*zoom-oy)+dy-float64(k*rh))
+			clip.DrawImage(img, op)
+		}
+	}
+	return rects
+}
+
 // drawDoors draws each door's leaves slid by its Open amount, clipped to their own cells: a Room door
-// slides right; the Entrance's leaves slide apart.
-func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
+// slides right; the Entrance's leaves slide apart. A rolling Room's door rolls with its reel instead.
+func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int, reels []image.Rectangle) {
 	const ts = world.TileSize
 	m := g.hotel.Map
 	for _, d := range g.hotel.Doors {
+		if d.Room >= 0 && !reels[d.Room].Empty() {
+			continue
+		}
 		off := int(math.Round(d.Open() * ts))
 		for y := d.Rect.Min.Y / ts; y < d.Rect.Max.Y/ts; y++ {
 			for x := d.Rect.Min.X / ts; x < d.Rect.Max.X/ts; x++ {
@@ -229,7 +320,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		if g.confirmed[i] {
 			status = "BOOKED"
 		}
-		text(s, fmt.Sprintf("%s GUEST %d -> %s  [%s]", mark, i+1, g.hotel.Rooms[room].Number, status), 280, 205+i*42, assets.Money)
+		r := g.hotel.Rooms[room]
+		text(s, fmt.Sprintf("%s GUEST %d -> %s %s $%d  [%s]", mark, i+1, r.Number, r.Type.Name, r.Type.Rate, status), 280, 205+i*42, assets.Money)
 	}
 	mark := " "
 	if g.terminalCursor == len(g.assignments) {

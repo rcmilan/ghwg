@@ -27,6 +27,7 @@ type Guest struct {
 	PauseUntil int           // frame (game tick) the pay pause ends
 	Phasing    bool          // ignoring actor collisions after getting stuck (D22c)
 	Character  string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
+	Rate       int           // what this guest pays: their Room's Rate at Booking (D53)
 	Anim       Anim
 
 	best     float64 // shortest remaining path seen on this path

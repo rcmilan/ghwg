@@ -10,7 +10,7 @@ import (
 
 // Room Type maps are exactly RoomW×RoomH tiles; the door sits on the south face rows doorRow and doorRow+1.
 const (
-	RoomW   = 13
+	RoomW   = 9
 	RoomH   = 9
 	doorRow = 7
 )
@@ -20,12 +20,14 @@ const (
 	LayerFloor = iota
 	LayerWalls // faces and lintels
 	LayerDecor // drawn over walls: side lines, windows, doors, counter
+	LayerProps // furniture and rugs (D65), over the decor: a bookshelf may cover a window
 	NumLayers
 )
 
-var layerNames = [NumLayers]string{"floor", "walls", "decor"}
+var layerNames = [NumLayers]string{"floor", "walls", "decor", "props"}
 
-// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj).
+// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj). Several files
+// may share a Name: they are that type's variants, one prop layout each (D65).
 type RoomType struct {
 	Name    string
 	Rate    int
@@ -52,6 +54,9 @@ func LoadRoomTypes(fsys fs.FS, ts *Tileset) ([]RoomType, error) {
 		rt, err := ParseRoomType(data, ts)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
+		}
+		if len(types) > 0 && rt.DoorCol != types[0].DoorCol { // D45: Spins never move doors
+			return nil, fmt.Errorf("%s: door column %d, want %d like %s", f, rt.DoorCol, types[0].DoorCol, files[0])
 		}
 		types = append(types, rt)
 	}

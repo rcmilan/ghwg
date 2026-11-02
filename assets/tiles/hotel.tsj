@@ -5,7 +5,7 @@
  "name": "hotel",
  "tilewidth": 16,
  "tileheight": 16,
- "tilecount": 38,
+ "tilecount": 125,
  "columns": 0,
  "margin": 0,
  "spacing": 0,
@@ -90,29 +90,6 @@
    "image": "wall_left_top.png",
    "imagewidth": 16,
    "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 0,
-      "y": 0,
-      "width": 16,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   },
    "properties": [
     {
      "name": "base",
@@ -168,29 +145,6 @@
    "image": "wall_mid_top.png",
    "imagewidth": 16,
    "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 0,
-      "y": 0,
-      "width": 16,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   },
    "properties": [
     {
      "name": "base",
@@ -233,29 +187,6 @@
    "image": "wall_right_top.png",
    "imagewidth": 16,
    "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 0,
-      "y": 0,
-      "width": 16,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   },
    "properties": [
     {
      "name": "base",
@@ -298,29 +229,6 @@
    "image": "wall_single_top.png",
    "imagewidth": 16,
    "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 0,
-      "y": 0,
-      "width": 16,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   },
    "properties": [
     {
      "name": "base",
@@ -397,30 +305,7 @@
    "id": 15,
    "image": "border_east_top.png",
    "imagewidth": 16,
-   "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 10,
-      "y": 0,
-      "width": 6,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   }
+   "imageheight": 16
   },
   {
    "id": 16,
@@ -484,30 +369,7 @@
    "id": 18,
    "image": "border_west_top.png",
    "imagewidth": 16,
-   "imageheight": 16,
-   "objectgroup": {
-    "draworder": "index",
-    "id": 2,
-    "name": "",
-    "objects": [
-     {
-      "id": 1,
-      "name": "",
-      "type": "",
-      "rotation": 0,
-      "visible": true,
-      "x": 0,
-      "y": 0,
-      "width": 6,
-      "height": 16
-     }
-    ],
-    "opacity": 1,
-    "type": "objectgroup",
-    "visible": true,
-    "x": 0,
-    "y": 0
-   }
+   "imageheight": 16
   },
   {
    "id": 19,
@@ -777,6 +639,1553 @@
     "x": 0,
     "y": 0
    }
+  },
+  {
+   "id": 38,
+   "image": "wall_wood_left_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 39,
+   "image": "wall_wood_left_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 40,
+   "image": "wall_wood_mid_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 41,
+   "image": "wall_wood_mid_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 42,
+   "image": "wall_wood_right_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 43,
+   "image": "wall_wood_right_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 44,
+   "image": "wall_wood_single_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 45,
+   "image": "wall_wood_single_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 46,
+   "image": "floor_herringbone.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 47,
+   "image": "prop_bed_white_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 48,
+   "image": "prop_bed_white_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 49,
+   "image": "prop_bed_white_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 50,
+   "image": "prop_bed_white_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 51,
+   "image": "prop_bed_brown_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 52,
+   "image": "prop_bed_brown_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 53,
+   "image": "prop_bed_brown_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 54,
+   "image": "prop_bed_brown_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 55,
+   "image": "prop_bed_brown_mid_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 56,
+   "image": "prop_bed_brown_mid_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 57,
+   "image": "prop_bed_brown_mid_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 58,
+   "image": "prop_bed_brown_mid_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 8,
+      "y": 0,
+      "width": 8,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 59,
+   "image": "prop_bed_brown_mid_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 60,
+   "image": "prop_bed_brown_mid_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 61,
+   "image": "prop_drawer_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 62,
+   "image": "prop_drawer_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 63,
+   "image": "prop_drawer_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 3,
+      "y": 0,
+      "width": 13,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 64,
+   "image": "prop_drawer_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 65,
+   "image": "prop_wardrobe_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 66,
+   "image": "prop_wardrobe_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 67,
+   "image": "prop_wardrobe_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 68,
+   "image": "prop_wardrobe_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 69,
+   "image": "prop_wardrobe_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 2,
+      "y": 0,
+      "width": 14,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 70,
+   "image": "prop_wardrobe_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 13,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 71,
+   "image": "prop_bookshelf_a_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 72,
+   "image": "prop_bookshelf_a_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 73,
+   "image": "prop_bookshelf_a_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 74,
+   "image": "prop_bookshelf_a_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 75,
+   "image": "prop_bookshelf_a_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 76,
+   "image": "prop_bookshelf_a_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 77,
+   "image": "prop_bookshelf_b_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 78,
+   "image": "prop_bookshelf_b_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 79,
+   "image": "prop_bookshelf_b_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 80,
+   "image": "prop_bookshelf_b_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 81,
+   "image": "prop_bookshelf_b_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 82,
+   "image": "prop_bookshelf_b_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 83,
+   "image": "prop_mirror_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 84,
+   "image": "prop_mirror_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 85,
+   "image": "prop_tv_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 86,
+   "image": "prop_tv_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 87,
+   "image": "prop_tv_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 88,
+   "image": "prop_tv_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 89,
+   "image": "prop_tv_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 90,
+   "image": "prop_tv_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 91,
+   "image": "prop_carpet_a_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 92,
+   "image": "prop_carpet_a_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 93,
+   "image": "prop_carpet_a_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 94,
+   "image": "prop_carpet_a_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 95,
+   "image": "prop_carpet_a_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 96,
+   "image": "prop_carpet_a_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 97,
+   "image": "prop_carpet_b_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 98,
+   "image": "prop_carpet_b_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 99,
+   "image": "prop_carpet_b_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 100,
+   "image": "prop_carpet_b_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 101,
+   "image": "prop_carpet_b_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 102,
+   "image": "prop_carpet_b_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 103,
+   "image": "prop_cushion_blue_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 104,
+   "image": "prop_bed_white_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 105,
+   "image": "prop_bed_white_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 106,
+   "image": "prop_bed_brown_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 107,
+   "image": "prop_bed_brown_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 108,
+   "image": "prop_bed_brown_mid_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 8,
+      "y": 0,
+      "width": 8,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 109,
+   "image": "prop_bed_brown_mid_r2c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 110,
+   "image": "prop_bed_brown_mid_r2c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 111,
+   "image": "prop_window_front_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 112,
+   "image": "prop_window_front_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 113,
+   "image": "prop_window_front_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 114,
+   "image": "prop_window_front_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 115,
+   "image": "prop_stairs_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 116,
+   "image": "prop_stairs_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 117,
+   "image": "prop_stairs_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 118,
+   "image": "prop_stairs_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 121,
+   "image": "prop_doormat_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 122,
+   "image": "prop_doormat_r0c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 123,
+   "image": "prop_doormat_r0c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 124,
+   "image": "prop_doormat_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 125,
+   "image": "prop_doormat_r1c1.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
+  },
+  {
+   "id": 126,
+   "image": "prop_doormat_r1c2.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "flat",
+     "type": "bool",
+     "value": true
+    }
+   ]
   }
  ]
 }

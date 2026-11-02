@@ -46,6 +46,9 @@ func TestBlockedBox(t *testing.T) {
 func TestSortY(t *testing.T) {
 	h := buildHotel(t)
 	m := h.Map
+	l := newLayout(2, 2)
+	hallRow, counterRow := l.hall, l.counter
+	seg, comp := l.counterX+1, l.counterX+l.counterW-2 // a counter_mid cell; the computer
 	foot := func(row int) int { return (row + 1) * TileSize }
 	cases := []struct {
 		name string
@@ -55,9 +58,9 @@ func TestSortY(t *testing.T) {
 		{"hall wall face, top row", 5, hallRow, foot(hallRow + 1)},
 		{"hall wall face, bottom row", 5, hallRow + 1, foot(hallRow + 1)},
 		{"Lobby Archway lintel", 15, hallRow, foot(hallRow + 1)},
-		{"counter segment", 4, counterRow, foot(counterRow)},
-		{"computer, top cell", 6, counterRow - 1, foot(counterRow)},
-		{"computer, bottom cell", 6, counterRow, foot(counterRow)},
+		{"counter segment", seg, counterRow, foot(counterRow)},
+		{"computer, top cell", comp, counterRow - 1, foot(counterRow)},
+		{"computer, bottom cell", comp, counterRow, foot(counterRow)},
 	}
 	for _, c := range cases {
 		if got := m.SortY(c.x, c.y); got != c.want {
@@ -66,8 +69,8 @@ func TestSortY(t *testing.T) {
 	}
 	// the deepest foot box behind the counter (on its walkable top half) sorts before it; the shallowest
 	// one in front (just below its solid front strip) sorts after it
-	key := m.SortY(4, counterRow)
-	behind := image.Rect(4*TileSize, counterRow*TileSize+2, 4*TileSize+10, counterRow*TileSize+8)
+	key := m.SortY(seg, counterRow)
+	behind := image.Rect(seg*TileSize, counterRow*TileSize+2, seg*TileSize+10, counterRow*TileSize+8)
 	front := behind.Add(image.Pt(0, TileSize-2))
 	if m.BlockedBox(behind) || m.BlockedBox(front) {
 		t.Fatalf("test foot boxes %v / %v should be walkable", behind, front)
@@ -85,15 +88,17 @@ func TestSortY(t *testing.T) {
 // The face under the line keeps its own sort y.
 func TestTileSortYSideLines(t *testing.T) {
 	m := buildHotel(t).Map
+	l := newLayout(2, 2)
+	hallRow, frontRow := l.hall, l.front
 	cases := []struct {
 		name   string
 		x      int
 		rows   []int
 		bottom int // the run's last row (its corner, on a face's top row)
 	}{
-		{"hotel west wall", 1, []int{2, 10, 21, 24, 25, 32, frontRow}, frontRow},
-		{"room 101's east side", 13, []int{1, 3, 7, 8}, 8},
-		{"room 103's east side", 13, []int{12, 16, 19}, 19},
+		{"hotel west wall", 1, []int{2, 10, 21, hallRow + 1, hallRow + 2, frontRow - 1, frontRow}, frontRow},
+		{"room 101's east side", 9, []int{1, 3, 7, 8}, 8},
+		{"room 201's east side", 9, []int{12, 16, 19}, 19},
 	}
 	for _, c := range cases {
 		want := m.SortY(c.x, c.bottom)
@@ -105,5 +110,45 @@ func TestTileSortYSideLines(t *testing.T) {
 	}
 	if got, want := m.TileSortY(LayerWalls, 1, hallRow), m.SortY(1, hallRow); got != want {
 		t.Errorf("hall wall face under the west line sorts at %d, want its own %d", got, want)
+	}
+}
+
+// D65: a rug (flat tile) sorts under every actor, even one standing just above its cell, whose sprite
+// reaches below its feet into the rug (S7 review: a carpet covered a guest's feet).
+func TestFlatSortsUnderActors(t *testing.T) {
+	ts := loadTileset(t)
+	id, ok := ts.ID("prop_carpet_a_r0c0")
+	if !ok || !ts.Tiles[id].Flat {
+		t.Fatal("prop_carpet_a_r0c0 missing or not flat")
+	}
+	m := NewTilemap(ts, 3, 3)
+	m.Set(LayerProps, 1, 1, id)
+	if got := m.TileSortY(LayerProps, 1, 1); got > 0 {
+		t.Errorf("rug sorts at %d, want 0: under any actor's feet", got)
+	}
+}
+
+// D65: a prop's base belongs to the prop. A bed against the back wall (its top row on a window cell, base
+// 2) leaves the curtain sorting with its wall (S7 review: the Concierge got behind a Deluxe curtain).
+func TestPropBaseStaysOwn(t *testing.T) {
+	ts := loadTileset(t)
+	id := func(n string) TileID {
+		v, ok := ts.ID(n)
+		if !ok {
+			t.Fatalf("no tile %s", n)
+		}
+		return v
+	}
+	m := NewTilemap(ts, 3, 5)
+	m.Set(LayerWalls, 1, 1, id("wall_wood_mid_bottom"))
+	m.Set(LayerDecor, 1, 1, id("window_curtain_r1c0"))
+	curtain := m.TileSortY(LayerDecor, 1, 1)
+	bed := id("prop_bed_brown_r0c0")
+	m.Set(LayerProps, 1, 1, bed)
+	if got := m.TileSortY(LayerDecor, 1, 1); got != curtain {
+		t.Errorf("curtain sorts at %d under a bed's top row, want %d as without it", got, curtain)
+	}
+	if got, want := m.TileSortY(LayerProps, 1, 1), (1+ts.Tiles[bed].Base+1)*TileSize; got != want {
+		t.Errorf("bed's top row sorts at %d, want %d (its own base)", got, want)
 	}
 }
