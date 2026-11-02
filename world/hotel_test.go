@@ -216,3 +216,102 @@ func TestCheckoutLanes(t *testing.T) {
 		}
 	})
 }
+
+// D66: a wall face's top row is walkable, its bottom row solid. An actor walking up to a wall from behind
+// (north) steps into the top row until its feet meet the bottom row: the face hides its lower 16 px, half
+// of a 32 px sprite. From the front the face still blocks at its bottom row.
+func TestBehindWall(t *testing.T) {
+	h := buildHotel(t)
+	o := h.Rooms[0].Origin
+	x, top := o.X+2, o.Y+doorRow // the Room's south face, west of the door
+	foot := func(y int) image.Rectangle { return image.Rect(x*TileSize+3, y-6, x*TileSize+13, y) } // feet box, bottom at y
+	deepest := (top + 1) * TileSize
+	if h.Map.BlockedBox(foot(deepest)) {
+		t.Fatalf("feet in the top row of a wall face at (%d,%d) are blocked", x, top)
+	}
+	if !h.Map.BlockedBox(foot(deepest + 1)) {
+		t.Errorf("feet reach into the face's bottom row at (%d,%d)", x, top+1)
+	}
+	if sy := h.Map.TileSortY(LayerWalls, x, top); deepest-3 >= sy { // feet point: the box's center
+		t.Errorf("an actor with feet at %d sorts in front of the face (sort y %d)", deepest-3, sy)
+	}
+	if h.Path(h.Rooms[0].Stay, cellCenter(x, top), 0) == nil {
+		t.Errorf("the top row of the south face at (%d,%d) is not reachable from the Stay Spot", x, top)
+	}
+}
+
+// D67: windows on the front face, mirrored about the Entrance, clear of it and of the side lines.
+func TestFrontWindows(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		win := func(x int) bool {
+			return strings.HasPrefix(h.Map.TS.Tiles[h.Map.At(LayerDecor, x, l.front)].Name, "prop_window_front")
+		}
+		n := 0
+		for x := range l.w {
+			if !win(x) {
+				continue
+			}
+			n++
+			if x < 2 || x > l.w-3 || x == l.entrance-1 || x == l.entrance+2 || !win(2*l.entrance+1-x) {
+				t.Errorf("window cell at x=%d: touches a side line or the Entrance, or has no mirror", x)
+			}
+		}
+		if n == 0 {
+			t.Error("no windows on the front face")
+		}
+	})
+}
+
+// D66: a side line on a face's top row is walkable too: from behind a Room's back face an actor walks on
+// into the column Corridor. On the south face's top row it still blocks, or it would be a way out of the Room.
+func TestBehindSideLine(t *testing.T) {
+	h := buildHotel(t)
+	o := h.Rooms[2].Origin // 201: below the first Room row, its back face open to the Corridor above
+	x := o.X + RoomW - 1    // its east side line
+	foot := func(y int) image.Rectangle { return image.Rect((x+1)*TileSize-5, y-6, (x+1)*TileSize+5, y) }
+	if h.Map.BlockedBox(foot((o.Y + 1) * TileSize)) {
+		t.Errorf("behind the back face, the side line at (%d,%d) blocks", x, o.Y)
+	}
+	if !h.Map.BlockedBox(foot((o.Y + doorRow + 1) * TileSize)) {
+		t.Errorf("behind the south face, the side line at (%d,%d) lets actors out of the Room", x, o.Y+doorRow)
+	}
+}
+
+// D69: stairs (2x2) fill every column Corridor at the foot of every Room row but the first, and stay walkable.
+func TestStairs(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		var at []image.Point
+		for y := range l.h {
+			for x := range l.w {
+				if strings.HasPrefix(h.Map.TS.Tiles[h.Map.At(LayerDecor, x, y)].Name, "prop_stairs") {
+					at = append(at, image.Pt(x, y))
+					if h.Map.Solid(x, y) {
+						t.Errorf("stair cell (%d,%d) is solid", x, y)
+					}
+				}
+			}
+		}
+		if len(at) != 4*(l.cols-1)*(l.rows-1) {
+			t.Fatalf("%d stair cells, want 4 per column Corridor per Room row below the first", len(at))
+		}
+		for col := 1; col < l.cols; col++ {
+			for r := 1; r < l.rows; r++ {
+				if p := image.Pt(l.origin(col, 0).X-corridor, l.origin(0, r).Y+doorRow); !slices.Contains(at, p) {
+					t.Errorf("no stairs at %v, Corridor %d at the foot of Room row %d", p, col, r)
+				}
+			}
+		}
+	})
+}
+
+// D70: a doormat on the Corridor below every Room's door, walkable.
+func TestDoormats(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		for _, r := range h.Rooms {
+			p := r.Door.Add(image.Pt(0, 2))
+			if n := h.Map.TS.Tiles[h.Map.At(LayerDecor, p.X, p.Y)].Name; !strings.HasPrefix(n, "prop_doormat") || h.Map.Solid(p.X, p.Y) {
+				t.Errorf("room %s: %q at %v below its door, want a walkable doormat", r.Number, n, p)
+			}
+		}
+	})
+}

@@ -112,3 +112,43 @@ func TestTileSortYSideLines(t *testing.T) {
 		t.Errorf("hall wall face under the west line sorts at %d, want its own %d", got, want)
 	}
 }
+
+// D65: a rug (flat tile) sorts under every actor, even one standing just above its cell, whose sprite
+// reaches below its feet into the rug (S7 review: a carpet covered a guest's feet).
+func TestFlatSortsUnderActors(t *testing.T) {
+	ts := loadTileset(t)
+	id, ok := ts.ID("prop_carpet_a_r0c0")
+	if !ok || !ts.Tiles[id].Flat {
+		t.Fatal("prop_carpet_a_r0c0 missing or not flat")
+	}
+	m := NewTilemap(ts, 3, 3)
+	m.Set(LayerProps, 1, 1, id)
+	if got := m.TileSortY(LayerProps, 1, 1); got > 0 {
+		t.Errorf("rug sorts at %d, want 0: under any actor's feet", got)
+	}
+}
+
+// D65: a prop's base belongs to the prop. A bed against the back wall (its top row on a window cell, base
+// 2) leaves the curtain sorting with its wall (S7 review: the Concierge got behind a Deluxe curtain).
+func TestPropBaseStaysOwn(t *testing.T) {
+	ts := loadTileset(t)
+	id := func(n string) TileID {
+		v, ok := ts.ID(n)
+		if !ok {
+			t.Fatalf("no tile %s", n)
+		}
+		return v
+	}
+	m := NewTilemap(ts, 3, 5)
+	m.Set(LayerWalls, 1, 1, id("wall_wood_mid_bottom"))
+	m.Set(LayerDecor, 1, 1, id("window_curtain_r1c0"))
+	curtain := m.TileSortY(LayerDecor, 1, 1)
+	bed := id("prop_bed_brown_r0c0")
+	m.Set(LayerProps, 1, 1, bed)
+	if got := m.TileSortY(LayerDecor, 1, 1); got != curtain {
+		t.Errorf("curtain sorts at %d under a bed's top row, want %d as without it", got, curtain)
+	}
+	if got, want := m.TileSortY(LayerProps, 1, 1), (1+ts.Tiles[bed].Base+1)*TileSize; got != want {
+		t.Errorf("bed's top row sorts at %d, want %d (its own base)", got, want)
+	}
+}

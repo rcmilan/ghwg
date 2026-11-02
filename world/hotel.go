@@ -11,7 +11,7 @@ import (
 
 // The hotel is generated from a grid of Rooms (D54). Cols x Rows is the shipped grid; Build takes any.
 const (
-	Cols, Rows   = 3, 1
+	Cols, Rows   = 3, 3
 	corridor     = 2 // Corridor width: between Room columns, between Room rows and above the Hall Wall (D55)
 	lobbyRows    = 6 // floor rows between the Hall Wall and the front face (D56)
 	behindRows   = 2 // Lobby rows behind the counter (D40)
@@ -156,6 +156,21 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, entrance+i, l.front, n+"_top")
 		put(LayerDecor, entrance+i, l.front+1, n+"_bottom")
 	}
+	for d := 3; entrance-d >= 3; d += 3 { // front windows (D67): 2 cells wide, every 3 cells out from the Entrance
+		for _, x := range []int{entrance - d, entrance + d} {
+			for c := range 4 {
+				put(LayerDecor, x+c%2, l.front+c/2, fmt.Sprintf("prop_window_front_r%dc%d", c/2, c%2))
+			}
+		}
+	}
+	for col := 1; col < cols; col++ { // stairs (D69): in every column Corridor, at the foot of every Room row but the first (the top floor)
+		x := l.origin(col, 0).X - corridor
+		for r := 1; r < rows; r++ {
+			for c := range 4 { // beside the Rooms' south faces, onto the Corridor below
+				put(LayerDecor, x+c%2, l.origin(0, r).Y+doorRow+c/2, fmt.Sprintf("prop_stairs_r%dc%d", c/2, c%2))
+			}
+		}
+	}
 	computer := l.counterX + l.counterW - 2
 	for x := l.counterX; x < l.counterX+l.counterW; x++ {
 		n := "counter_mid"
@@ -179,6 +194,9 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, x, l.front, "border_"+side+"_corner")
 	}
 	for i, r := range h.Rooms {
+		for c := range 6 { // a doormat on the Corridor, flush below the door (D70)
+			put(LayerDecor, r.Door.X-1+c%3, r.Door.Y+2+c/3, fmt.Sprintf("prop_doormat_r%dc%d", c/3, c%3))
+		}
 		top := r.Door.Mul(TileSize)
 		h.Doors = append(h.Doors, Door{Room: i, Rect: image.Rectangle{top, top.Add(image.Pt(TileSize, 2*TileSize))}})
 	}
@@ -202,11 +220,20 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	return h, nil
 }
 
-// Draw picks each Room's next Room Type: independent, equal odds, repeats allowed (D46).
+// Draw picks each Room's next Room Type: independent, equal odds per type name, repeats allowed (D46),
+// then one of that type's variants, equal odds (D65).
 func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
+	var names []string
+	for _, t := range types {
+		if !slices.Contains(names, t.Name) {
+			names = append(names, t.Name)
+		}
+	}
 	next := make([]RoomType, n)
 	for i := range next {
-		next[i] = types[rng.IntN(len(types))]
+		name := names[rng.IntN(len(names))]
+		vs := slices.DeleteFunc(slices.Clone(types), func(t RoomType) bool { return t.Name != name })
+		next[i] = vs[rng.IntN(len(vs))]
 	}
 	return next
 }

@@ -43,17 +43,17 @@ func TestStandardRoomType(t *testing.T) {
 	}
 }
 
-// mutate decodes standard.tmj into generic JSON, applies f, and parses the result.
+// mutate decodes standard_a.tmj into generic JSON, applies f, and parses the result.
 func mutate(t *testing.T, f func(m map[string]any)) error {
 	t.Helper()
 	_, err := ParseRoomType(mutated(t, f), loadTileset(t))
 	return err
 }
 
-// mutated returns standard.tmj with f applied.
+// mutated returns standard_a.tmj with f applied.
 func mutated(t *testing.T, f func(m map[string]any)) []byte {
 	t.Helper()
-	data, err := fs.ReadFile(assets.FS, "rooms/standard.tmj")
+	data, err := fs.ReadFile(assets.FS, "rooms/standard_a.tmj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestRoomTypeValidation(t *testing.T) {
 		{"wrong size", "want 9x9", func(m map[string]any) { m["width"] = 12.0 }},
 		{"no rate", `"rate"`, func(m map[string]any) { m["properties"] = m["properties"].([]any)[:1] }}, // keeps "name"
 		{"stay on a wall", "not on walkable floor", func(m map[string]any) {
-			layer(m, "markers")["objects"].([]any)[0].(map[string]any)["y"] = 8.0 // back face, row 0
+			layer(m, "markers")["objects"].([]any)[0].(map[string]any)["y"] = 24.0 // back face bottom, row 1 (the top row is walkable, D66)
 		}},
 	}
 	for _, c := range cases {
@@ -100,7 +100,7 @@ func TestRoomTypeValidation(t *testing.T) {
 		})
 	}
 	if err := mutate(t, func(map[string]any) {}); err != nil {
-		t.Fatalf("unmodified standard.tmj: %v", err)
+		t.Fatalf("unmodified standard_a.tmj: %v", err)
 	}
 }
 

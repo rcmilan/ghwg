@@ -47,10 +47,10 @@ func (m *Tilemap) Solid(x, y int) bool {
 
 // SortY is the world-px y at which cell (x,y) is drawn among the actors (D11): the lower edge of its
 // footprint, `base` cells down (the largest base among its layers' tiles). An actor whose feet are above
-// it is behind the cell's tiles.
+// it is behind the cell's tiles. Props are their own objects and keep out of it (see TileSortY).
 func (m *Tilemap) SortY(x, y int) int {
 	base := 0
-	for l := range m.Cells {
+	for l := range LayerProps {
 		base = max(base, m.TS.Tiles[m.At(l, x, y)].Base)
 	}
 	return (y + base + 1) * TileSize
@@ -59,7 +59,16 @@ func (m *Tilemap) SortY(x, y int) int {
 // TileSortY is SortY for the tile in layer l of cell (x,y). A side line (`border_*`) is one long wall,
 // so all its cells sort at its south end, where its run of side-line cells ends. Otherwise an actor
 // walking beside it would be split: in front of the cells above its feet, behind the one at its feet.
+// A flat tile (a rug) sorts at 0, under every actor: an actor's sprite reaches below its feet, so even one
+// standing just above a rug's cell overlaps it. Any other prop sorts by its own base only: a bed standing
+// against the back wall must not drag the window above it down to the bed's bottom row, or an actor
+// walking up to the window is drawn behind the curtain.
 func (m *Tilemap) TileSortY(l, x, y int) int {
+	if t := m.TS.Tiles[m.At(l, x, y)]; t.Flat {
+		return 0
+	} else if l == LayerProps {
+		return (y + t.Base + 1) * TileSize
+	}
 	if !m.sideLine(l, x, y) {
 		return m.SortY(x, y)
 	}

@@ -136,7 +136,7 @@ func TestSpinUnsticksConcierge(t *testing.T) {
 // one after another in Room order.
 func TestReelLandsInOrder(t *testing.T) {
 	g := mustNew(t)
-	all := g.types
+	all := []world.RoomType{g.types[0], g.types[len(g.types)-1]} // files sort by name: deluxe_*, then standard_*
 	if all[0].Tiles[world.LayerFloor][0] == all[1].Tiles[world.LayerFloor][0] {
 		t.Fatal("the first two Room Types share a floor; the test can't tell them apart")
 	}

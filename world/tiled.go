@@ -87,6 +87,7 @@ type Tile struct {
 	Solid []image.Rectangle // collision rects, tile-local px
 	Base  int               // cells down to the object's footprint (y-sort)
 	Door  bool              // part of a sliding door; door state decides collision
+	Flat  bool              // lies on the floor (rugs): drawn under any actor standing on it
 }
 
 type Tileset struct {
@@ -134,6 +135,9 @@ func LoadTileset(fsys fs.FS, file string) (*Tileset, error) {
 			return nil, fmt.Errorf("%s: %s: %w", file, t.Image, err)
 		}
 		if _, err := prop(t.Properties, "door", &tile.Door); err != nil {
+			return nil, fmt.Errorf("%s: %s: %w", file, t.Image, err)
+		}
+		if _, err := prop(t.Properties, "flat", &tile.Flat); err != nil {
 			return nil, fmt.Errorf("%s: %s: %w", file, t.Image, err)
 		}
 		ts.Tiles[id] = tile

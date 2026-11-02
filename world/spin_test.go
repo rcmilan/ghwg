@@ -23,14 +23,14 @@ func typeNamed(t *testing.T, name string) RoomType {
 	return RoomType{}
 }
 
-// D46: each Room draws independently, equal odds, repeats allowed.
+// D46: each Room draws independently, equal odds, repeats allowed. D65: odds are per type name, not per variant.
 func TestDraw(t *testing.T) {
-	a, b := RoomType{Name: "A"}, RoomType{Name: "B"}
+	a, a2, b := RoomType{Name: "A"}, RoomType{Name: "A", Rate: 2}, RoomType{Name: "B"}
 	rng := rand.New(rand.NewPCG(3, 4))
 	seen := make([]map[string]int, 4)
-	mixed := 0
+	mixed, variant := 0, 0
 	for range 400 {
-		next := Draw([]RoomType{a, b}, 4, rng)
+		next := Draw([]RoomType{a, a2, b}, 4, rng)
 		if len(next) != 4 {
 			t.Fatalf("drew %d types, want 4", len(next))
 		}
@@ -39,6 +39,9 @@ func TestDraw(t *testing.T) {
 				seen[i] = map[string]int{}
 			}
 			seen[i][rt.Name]++
+			if rt.Rate == 2 {
+				variant++
+			}
 		}
 		if next[0].Name != next[1].Name {
 			mixed++
@@ -48,6 +51,9 @@ func TestDraw(t *testing.T) {
 		if s["A"] < 150 || s["B"] < 150 {
 			t.Errorf("room %d drew %v over 400 Spins, want roughly even odds", i, s)
 		}
+	}
+	if variant < 300 || variant > 500 { // ~400: half of A's ~800 draws
+		t.Errorf("A's second variant drawn %d times over 1600 draws, want ~400", variant)
 	}
 	if mixed < 150 {
 		t.Errorf("rooms 0 and 1 differed in %d of 400 Spins: draws are not independent", mixed)
@@ -115,4 +121,33 @@ func TestLandWholeRoom(t *testing.T) {
 			}
 		}
 	})
+}
+
+// D65: every variant keeps its Stay Spot reachable through its own door, and its furniture blocks.
+func TestVariantsReachable(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := buildGrid(t, 2, 1)
+	solid := 0
+	for _, rt := range types {
+		h.Spin([]RoomType{rt, rt})
+		for i := range h.Rooms {
+			h.Land(i)
+		}
+		for i, r := range h.Rooms {
+			if h.Path(h.Spawn, r.Stay, i) == nil {
+				t.Errorf("%s variant %v: room %s's Stay Spot is unreachable", rt.Name, rt.Stay, r.Number)
+			}
+		}
+		for _, id := range rt.Tiles[LayerProps] {
+			if len(h.Map.TS.Tiles[id].Solid) > 0 {
+				solid++
+			}
+		}
+	}
+	if len(types) < 4 || solid == 0 {
+		t.Errorf("%d room files with %d solid prop cells, want 4+ variants with solid furniture", len(types), solid)
+	}
 }

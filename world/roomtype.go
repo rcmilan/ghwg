@@ -20,12 +20,14 @@ const (
 	LayerFloor = iota
 	LayerWalls // faces and lintels
 	LayerDecor // drawn over walls: side lines, windows, doors, counter
+	LayerProps // furniture and rugs (D65), over the decor: a bookshelf may cover a window
 	NumLayers
 )
 
-var layerNames = [NumLayers]string{"floor", "walls", "decor"}
+var layerNames = [NumLayers]string{"floor", "walls", "decor", "props"}
 
-// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj).
+// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj). Several files
+// may share a Name: they are that type's variants, one prop layout each (D65).
 type RoomType struct {
 	Name    string
 	Rate    int
