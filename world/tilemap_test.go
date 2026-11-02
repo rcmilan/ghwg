@@ -46,6 +46,8 @@ func TestBlockedBox(t *testing.T) {
 func TestSortY(t *testing.T) {
 	h := buildHotel(t)
 	m := h.Map
+	l := newLayout(Cols, Rows)
+	hallRow, counterRow := l.hall, l.counter
 	foot := func(row int) int { return (row + 1) * TileSize }
 	cases := []struct {
 		name string
@@ -85,15 +87,17 @@ func TestSortY(t *testing.T) {
 // The face under the line keeps its own sort y.
 func TestTileSortYSideLines(t *testing.T) {
 	m := buildHotel(t).Map
+	l := newLayout(Cols, Rows)
+	hallRow, frontRow := l.hall, l.front
 	cases := []struct {
 		name   string
 		x      int
 		rows   []int
 		bottom int // the run's last row (its corner, on a face's top row)
 	}{
-		{"hotel west wall", 1, []int{2, 10, 21, 24, 25, 32, frontRow}, frontRow},
+		{"hotel west wall", 1, []int{2, 10, 21, hallRow + 1, hallRow + 2, frontRow - 1, frontRow}, frontRow},
 		{"room 101's east side", 13, []int{1, 3, 7, 8}, 8},
-		{"room 103's east side", 13, []int{12, 16, 19}, 19},
+		{"room 201's east side", 13, []int{12, 16, 19}, 19},
 	}
 	for _, c := range cases {
 		want := m.SortY(c.x, c.bottom)

@@ -9,19 +9,43 @@ import (
 	"strconv"
 )
 
-// Hotel layout, in map cells (context/01-tileset/index.md -> "Hotel layout").
+// The hotel is generated from a grid of Rooms (D54). Cols x Rows is the shipped grid; Build takes any.
 const (
-	MapW       = 32
-	MapH       = 38
-	hallRow    = 23 // Hall Wall face; Lobby Archway at cols 14-17
-	frontRow   = 33 // exterior south face; Entrance at cols 15-16
-	streetRow  = 35
-	counterRow = 28
+	Cols, Rows   = 2, 2
+	corridor     = 2 // Corridor width: between Room columns, between Room rows and above the Hall Wall (D55)
+	lobbyRows    = 6 // floor rows between the Hall Wall and the front face (D56)
+	behindRows   = 2 // Lobby rows behind the counter (D40)
+	streetRows   = 3
+	counterX     = 3 // counter_left; the counter runs counterX..counterX+4, the computer at counterX+3
+	archwayWidth = 4
 )
 
-var roomOrigins = [...]image.Point{{1, 1}, {18, 1}, {1, 12}, {18, 12}} // Rooms 101-104
+// layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
+type layout struct {
+	cols, rows int
+	w, h       int
+	hall       int // Hall Wall face (2 rows); the Lobby Archway is centered in it
+	counter    int
+	front      int // exterior south face (2 rows); the Entrance is centered in it
+	street     int
+}
 
-// Room is one of the hotel's guest rooms (101-104), built from a Room Type.
+func newLayout(cols, rows int) layout {
+	l := layout{cols: cols, rows: rows, w: 2 + cols*RoomW + (cols-1)*corridor} // +2: the void margin columns
+	l.hall = 1 + rows*(RoomH+corridor)
+	l.counter = l.hall + 2 + behindRows
+	l.front = l.hall + 2 + lobbyRows
+	l.street = l.front + 2
+	l.h = l.street + streetRows
+	return l
+}
+
+// origin is the top-left cell of the Room at grid column c, row r; Rooms sit flush against the outer walls.
+func (l layout) origin(c, r int) image.Point {
+	return image.Pt(1+c*(RoomW+corridor), 1+r*(RoomH+corridor))
+}
+
+// Room is one of the hotel's guest rooms, numbered row = hundreds (D57), built from a Room Type.
 type Room struct {
 	Number string
 	Type   RoomType
@@ -36,13 +60,16 @@ type Hotel struct {
 	Rooms          []Room
 	Doors          []Door          // one per Room (same index), then the Entrance
 	Spawn          image.Point     // on the street below the Entrance; guests also leave here
+	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point     // behind the counter's computer
 	PaySpot        image.Point     // in front of the computer
+	PayExit        image.Point     // below the pay spot on the Lobby's last row: paid guests leave via here (D59)
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
 }
 
-// Build stamps the whole hotel. Each Room gets a Room Type drawn from types with rng (repeats allowed).
-func Build(ts *Tileset, types []RoomType, rng *rand.Rand) (*Hotel, error) {
+// Build stamps the whole hotel for a cols x rows grid of Rooms. Each Room gets a Room Type drawn from
+// types with rng (repeats allowed).
+func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hotel, error) {
 	if len(types) == 0 {
 		return nil, errors.New("world: no room types")
 	}
@@ -54,7 +81,8 @@ func Build(ts *Tileset, types []RoomType, rng *rand.Rand) (*Hotel, error) {
 		}
 		return t
 	}
-	m := NewTilemap(ts, MapW, MapH)
+	l := newLayout(cols, rows)
+	m := NewTilemap(ts, l.w, l.h)
 	put := func(l, x, y int, name string) { m.Set(l, x, y, id(name)) }
 	// face: a 2-row wall face over cols x0..x1; gaps are openings (lintel on top, floor below).
 	face := func(x0, x1, y int, gaps ...int) {
@@ -79,70 +107,83 @@ func Build(ts *Tileset, types []RoomType, rng *rand.Rand) (*Hotel, error) {
 		}
 	}
 
-	for y := range MapH {
-		for x := range MapW {
+	for y := range l.h {
+		for x := range l.w {
 			n := "floor_clay"
 			switch {
-			case y >= streetRow:
+			case y >= l.street:
 				n = "floor_street" // full width, margin included
-			case y == 0 || x == 0 || x == MapW-1:
+			case y == 0 || x == 0 || x == l.w-1:
 				n = "void"
 			}
 			put(LayerFloor, x, y, n)
 		}
 	}
-	face(14, 17, 1) // alcove: hotel north wall between 101 and 102
+	for c := 1; c < cols; c++ { // the hotel's north wall atop each column Corridor (D55)
+		x := l.origin(c, 0).X - corridor
+		face(x, x+corridor-1, 1)
+	}
 
 	h := &Hotel{Map: m}
-	for i, o := range roomOrigins {
-		t := types[rng.IntN(len(types))]
-		for l, cells := range t.Tiles {
-			for c, tid := range cells {
-				if tid != 0 {
-					m.Set(l, o.X+c%RoomW, o.Y+c/RoomW, tid)
+	for r := range rows {
+		for c := range cols {
+			o, t := l.origin(c, r), types[rng.IntN(len(types))]
+			for layer, cells := range t.Tiles {
+				for i, tid := range cells {
+					if tid != 0 {
+						m.Set(layer, o.X+i%RoomW, o.Y+i/RoomW, tid)
+					}
 				}
 			}
+			h.Rooms = append(h.Rooms, Room{
+				Number: strconv.Itoa((r+1)*100 + c + 1),
+				Type:   t,
+				Origin: o,
+				Door:   o.Add(image.Pt(t.DoorCol, doorRow)),
+				Stay:   o.Mul(TileSize).Add(t.Stay),
+			})
 		}
-		h.Rooms = append(h.Rooms, Room{
-			Number: strconv.Itoa(101 + i),
-			Type:   t,
-			Origin: o,
-			Door:   o.Add(image.Pt(t.DoorCol, doorRow)),
-			Stay:   o.Mul(TileSize).Add(t.Stay),
-		})
 	}
 
-	face(1, 30, hallRow, 14, 15, 16, 17) // Hall Wall + Lobby Archway
-	face(1, 30, frontRow, 15, 16)        // exterior face + Entrance
-	for x, n := range map[int]string{15: "entrance_left", 16: "entrance_right"} {
-		put(LayerDecor, x, frontRow, n+"_top")
-		put(LayerDecor, x, frontRow+1, n+"_bottom")
+	archway, entrance := l.w/2-archwayWidth/2, l.w/2-1 // centered (D55); one cell left of center on odd widths
+	var gaps []int
+	for x := archway; x < archway+archwayWidth; x++ {
+		gaps = append(gaps, x)
 	}
-	for x, n := range map[int]string{3: "counter_left", 4: "counter_mid", 5: "counter_mid", 6: "counter_computer_bottom", 7: "counter_right"} {
-		put(LayerDecor, x, counterRow, n)
+	face(1, l.w-2, l.hall, gaps...)               // Hall Wall + Lobby Archway
+	face(1, l.w-2, l.front, entrance, entrance+1) // exterior face + Entrance
+	for i, n := range []string{"entrance_left", "entrance_right"} {
+		put(LayerDecor, entrance+i, l.front, n+"_top")
+		put(LayerDecor, entrance+i, l.front+1, n+"_bottom")
 	}
-	put(LayerDecor, 6, counterRow-1, "counter_computer_top")
+	computer := counterX + 3
+	for i, n := range []string{"counter_left", "counter_mid", "counter_mid", "counter_computer_bottom", "counter_right"} {
+		put(LayerDecor, counterX+i, l.counter, n)
+	}
+	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
 	// hotel outer side walls: one unbroken line over every wall that meets them (overwrites the rooms' own)
-	for x, side := range map[int]string{1: "west", MapW - 2: "east"} {
+	for x, side := range map[int]string{1: "west", l.w - 2: "east"} {
 		put(LayerDecor, x, 1, "border_"+side+"_top")
-		for y := 2; y < frontRow; y++ {
+		for y := 2; y < l.front; y++ {
 			put(LayerDecor, x, y, "border_"+side)
 		}
-		put(LayerDecor, x, frontRow, "border_"+side+"_corner")
+		put(LayerDecor, x, l.front, "border_"+side+"_corner")
 	}
 	for i, r := range h.Rooms {
 		top := r.Door.Mul(TileSize)
 		h.Doors = append(h.Doors, Door{Room: i, Rect: image.Rectangle{top, top.Add(image.Pt(TileSize, 2*TileSize))}})
 	}
-	h.Doors = append(h.Doors, Door{Room: -1, Rect: image.Rect(15*TileSize, frontRow*TileSize, 17*TileSize, (frontRow+2)*TileSize)})
+	h.Doors = append(h.Doors, Door{Room: -1, Rect: image.Rect(entrance*TileSize, l.front*TileSize, (entrance+2)*TileSize, (l.front+2)*TileSize)})
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}
 
 	center := func(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
-	h.Spawn = image.Pt(MapW/2*TileSize, (streetRow+1)*TileSize+TileSize/2) // on the center line
-	h.ConciergeStart = center(6, counterRow-2)
-	h.PaySpot = center(6, counterRow+1)
-	h.Terminal = image.Rect(5*TileSize, (counterRow-2)*TileSize, 8*TileSize, (counterRow+2)*TileSize)
+	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
+	h.Archway = image.Pt((archway+archwayWidth/2)*TileSize, (l.hall+1)*TileSize)
+	h.ConciergeStart = center(computer, l.counter-2)
+	h.PaySpot = center(computer, l.counter+1)
+	h.PayExit = center(computer, l.front-1)
+	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	return h, nil
 }

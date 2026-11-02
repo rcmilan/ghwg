@@ -12,13 +12,15 @@ import (
 // within a frame budget, even with the Concierge pinned where Guests have to pass (D22 anti-lock).
 // Left alone, Guests must never need the stuck fallback: they sidestep each other instead.
 func TestSimShift(t *testing.T) {
-	const budget = 2400 // frames per phase; a free run needs ~1300 for Arrivals and ~1760 for Departures
+	// frames per phase, scaled by the Guest count. A free run's max frames over 10 runs (Arrivals / Departures):
+	// 2x2 1217/1631, 3x2 1793/2520, 2x3 1577/2018, 3x3 2333/3060.
+	budget := 600 * len(mustNew(t).hotel.Rooms)
 	cases := []struct {
 		name string
 		pin  func(g *Game) image.Point // where the Concierge is held every frame; nil = left alone
 	}{
 		{"free", nil},
-		{"concierge pinned in the Lobby Archway", func(g *Game) image.Point { return image.Pt(256, 384) }},
+		{"concierge pinned in the Lobby Archway", func(g *Game) image.Point { return g.hotel.Archway }},
 		{"concierge pinned on room 101's route, in the corridor", func(g *Game) image.Point {
 			r := g.hotel.Rooms[0]
 			path := g.hotel.Path(g.hotel.Spawn, r.Stay, 0)
@@ -36,10 +38,7 @@ func TestSimShift(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g, err := New()
-			if err != nil {
-				t.Fatal(err)
-			}
+			g := mustNew(t)
 			g.startShift(false)
 			for i := range g.confirmed {
 				g.confirmed[i] = true
@@ -78,6 +77,15 @@ func TestSimShift(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustNew(t *testing.T) *Game {
+	t.Helper()
+	g, err := New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return g
 }
 
 func where(gs []*entities.Guest) string {

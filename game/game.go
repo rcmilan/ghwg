@@ -76,7 +76,7 @@ func New() (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
-	h, err := world.Build(ts, types, rng)
+	h, err := world.Build(ts, types, world.Cols, world.Rows, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +438,8 @@ func (g *Game) updateDepartures() {
 			if g.tick >= guest.PauseUntil {
 				g.pickups = append(g.pickups, Money{X: guest.X, Y: guest.Y})
 				guest.State = entities.GuestDeparting
-				guest.SetPath(g.hotel.Path(g.hotel.PaySpot, g.hotel.Spawn, -1))
+				h := g.hotel
+				guest.SetPath(append(h.Path(h.PaySpot, h.PayExit, -1), h.Path(h.PayExit, h.Spawn, -1)...))
 			}
 		case entities.GuestDeparting:
 			if g.walk(guest, departSpeed) {

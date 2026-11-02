@@ -51,7 +51,8 @@ func TestHotelDoors(t *testing.T) {
 		}
 	}
 	e := h.Doors[len(h.Rooms)]
-	if want := image.Rect(15*TileSize, 33*TileSize, 17*TileSize, 35*TileSize); e.Rect != want || e.Room != -1 {
+	l := newLayout(Cols, Rows)
+	if want := image.Rect(14*TileSize, l.front*TileSize, 16*TileSize, (l.front+2)*TileSize); e.Rect != want || e.Room != -1 {
 		t.Errorf("entrance %+v, want rect %v", e, want)
 	}
 	if !h.DoorBlocks(e.Rect.Inset(4)) {
