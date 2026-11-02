@@ -53,6 +53,9 @@ func LoadRoomTypes(fsys fs.FS, ts *Tileset) ([]RoomType, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", f, err)
 		}
+		if len(types) > 0 && rt.DoorCol != types[0].DoorCol { // D45: Spins never move doors
+			return nil, fmt.Errorf("%s: door column %d, want %d like %s", f, rt.DoorCol, types[0].DoorCol, files[0])
+		}
 		types = append(types, rt)
 	}
 	return types, nil

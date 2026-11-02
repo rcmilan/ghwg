@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"ghosthotel/assets"
 )
@@ -45,6 +46,13 @@ func TestStandardRoomType(t *testing.T) {
 // mutate decodes standard.tmj into generic JSON, applies f, and parses the result.
 func mutate(t *testing.T, f func(m map[string]any)) error {
 	t.Helper()
+	_, err := ParseRoomType(mutated(t, f), loadTileset(t))
+	return err
+}
+
+// mutated returns standard.tmj with f applied.
+func mutated(t *testing.T, f func(m map[string]any)) []byte {
+	t.Helper()
 	data, err := fs.ReadFile(assets.FS, "rooms/standard.tmj")
 	if err != nil {
 		t.Fatal(err)
@@ -55,8 +63,7 @@ func mutate(t *testing.T, f func(m map[string]any)) error {
 	}
 	f(m)
 	out, _ := json.Marshal(m)
-	_, err = ParseRoomType(out, loadTileset(t))
-	return err
+	return out
 }
 
 func layer(m map[string]any, name string) map[string]any {
@@ -95,4 +102,35 @@ func TestRoomTypeValidation(t *testing.T) {
 	if err := mutate(t, func(map[string]any) {}); err != nil {
 		t.Fatalf("unmodified standard.tmj: %v", err)
 	}
+}
+
+// D45: Spins never move doors, so every Room Type keeps the same door column.
+func TestRoomTypesShareDoorColumn(t *testing.T) {
+	moved := mutated(t, func(m map[string]any) {
+		decor := layer(m, "decor")["data"].([]any)
+		for _, row := range []int{7, 8} {
+			decor[row*RoomW+2], decor[row*RoomW+6] = decor[row*RoomW+6], 0.0
+		}
+	})
+	std := mutated(t, func(map[string]any) {})
+	fsys := fstest.MapFS{"rooms/a.tmj": {Data: std}, "rooms/b.tmj": {Data: moved}}
+	if _, err := LoadRoomTypes(fsys, loadTileset(t)); err == nil || !strings.Contains(err.Error(), "door column") {
+		t.Fatalf("got %v, want a door column error", err)
+	}
+}
+
+func TestDeluxeRoomType(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rt := range types {
+		if rt.Name == "Deluxe" {
+			if rt.Rate != 40 {
+				t.Errorf("Deluxe rate %d, want 40", rt.Rate)
+			}
+			return
+		}
+	}
+	t.Fatalf("no Deluxe in %d types", len(types))
 }

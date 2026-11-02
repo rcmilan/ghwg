@@ -5,7 +5,7 @@ A hotel-management game: a concierge books guests into rooms, waits out the day,
 ## Hotel
 
 **Room**:
-One of the fixed guest-room slots in the hotel, identified by a number (101–104).
+One of the guest-room slots in the hotel's grid, numbered by grid row and column: the first row is 101, 102, …, the second row 201, 202, …
 _Avoid_: slot, ROOM A
 
 **Room Type**:
@@ -13,7 +13,7 @@ The template a Room is built from: its look, its rate, and (later) its props. Au
 _Avoid_: prefab (in player-facing text), room template
 
 **Rate**:
-What a guest pays at checkout for one stay in a Room; defined by the Room Type.
+What a guest pays at checkout for one stay in a Room: the Rate of the Room's Room Type when the Booking was made.
 _Avoid_: price, fee
 
 **Stay Spot**:
@@ -72,11 +72,15 @@ A visitor booked into one Room for one Shift.
 ## Time
 
 **Run**:
-One playthrough, from the title screen until returning to it. Money and Room Types reset per Run.
+One playthrough, from the title screen until returning to it. Money resets and a Spin happens when a Run starts.
 _Avoid_: game, session
 
 **Shift**:
 One cycle of Booking → Arrivals → Day → Departures within a Run.
+
+**Spin**:
+The moment every Room re-draws its Room Type at random, like the reels of a slot machine. It happens when a Run starts and after every second Shift.
+_Avoid_: reroll, shuffle
 
 **Day**:
 The timed phase of a Shift during which guests stay in their Rooms.
