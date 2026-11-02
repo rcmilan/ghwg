@@ -16,9 +16,14 @@ func FootBox(x, y float64) image.Rectangle {
 	return image.Rect(x0, y0, x0+FootW, y0+FootH)
 }
 
-type Player struct{ X, Y float64 }
+type Player struct {
+	X, Y float64
+	Anim Anim
+}
 
-func NewPlayer(start image.Point) Player { return Player{X: float64(start.X), Y: float64(start.Y)} }
+func NewPlayer(start image.Point) Player {
+	return Player{X: float64(start.X), Y: float64(start.Y), Anim: NewAnim()}
+}
 
 // ReadMove returns the WASD direction, each axis -1, 0 or 1.
 func ReadMove() (dx, dy float64) {

@@ -1,11 +1,13 @@
 package game
 
 import (
+	"cmp"
 	"fmt"
 	"image"
 	"image/color"
 	_ "image/png" // tile decoding
 	"math"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -108,14 +110,22 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 		x, y := at(coin.X, coin.Y)
 		rect(screen, x-2*zoom, y-2*zoom, 4*zoom, 3*zoom, assets.Money)
 	}
+	type actor struct {
+		x, y float64 // foot box center; y sorts (T039)
+		name string
+		anim entities.Anim
+	}
+	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim}}
 	for _, guest := range g.guests {
 		if guest.State != entities.GuestQueued {
-			x, y := at(guest.X, guest.Y)
-			drawPerson(screen, x, y, assets.Guest)
+			actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim})
 		}
 	}
-	x, y := at(g.player.X, g.player.Y)
-	drawPerson(screen, x, y, assets.Ghost)
+	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
+	for _, a := range actors {
+		x, y := at(a.x, a.y)
+		g.drawCharacter(screen, x, y, a.name, a.anim)
+	}
 	screen.DrawImage(g.overImg, op) // ponytail: only lintels go over actors; S7's y-sort generalizes depth
 }
 
@@ -145,11 +155,38 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 	}
 }
 
-// drawPerson: placeholder body standing on its foot box (feet at y+FootH/2), in screen px, until S6 sprites.
-func drawPerson(s *ebiten.Image, x, y int, c color.Color) {
-	feet := y + entities.FootH/2*zoom
-	rect(s, x-4*zoom, feet-14*zoom, 8*zoom, 14*zoom, c)
-	rect(s, x-3*zoom, feet-19*zoom, 6*zoom, 5*zoom, c)
+// Character frames are 16x32; strips hold 4 facings x 6 frames (D26).
+const charW, charH = 16, 32
+
+// loadCharacters decodes the idle_anim and run sheets of every character, by name.
+func loadCharacters(names ...string) (map[string][2]*ebiten.Image, error) {
+	m := map[string][2]*ebiten.Image{}
+	for _, name := range names {
+		var sheets [2]*ebiten.Image // idle, run
+		for i, kind := range [...]string{"idle_anim", "run"} {
+			img, _, err := ebitenutil.NewImageFromFileSystem(assets.FS, "characters/"+name+"_"+kind+"_16x16.png")
+			if err != nil {
+				return nil, fmt.Errorf("character %s: %w", name, err)
+			}
+			sheets[i] = img
+		}
+		m[name] = sheets
+	}
+	return m, nil
+}
+
+// drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
+// (x,y) is the foot box center in screen px.
+func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim) {
+	sheet := g.characters[name][0]
+	if a.Moving {
+		sheet = g.characters[name][1]
+	}
+	f := a.Frame()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
+	s.DrawImage(sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op)
 }
 
 func (g *Game) drawTerminal(s *ebiten.Image) {

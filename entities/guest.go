@@ -26,14 +26,17 @@ type Guest struct {
 	SpawnAt    int           // frames after the phase starts
 	PauseUntil int           // frame (game tick) the pay pause ends
 	Phasing    bool          // ignoring actor collisions after getting stuck (D22c)
+	Character  string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
+	Anim       Anim
 
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
 	phaseEnd float64 // remaining path at which Phasing ends
 }
 
-func NewGuest(roomIndex int, at image.Point, spawnAt int) Guest {
-	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt}
+func NewGuest(roomIndex int, at image.Point, spawnAt int, character string) Guest {
+	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt,
+		Character: character, Anim: NewAnim()}
 }
 
 // FollowPath walks toward the next waypoint; true once the path is used up.

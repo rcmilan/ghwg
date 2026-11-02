@@ -40,6 +40,9 @@ const (
 	coinValue       = 25      // ponytail: flat until S8 (coin = Room Rate)
 )
 
+// guestCast: Guests draw a random character from these; repeats are fine (D25). Bob is the Concierge.
+var guestCast = [...]string{"Adam", "Amelia", "Alex"}
+
 type Money struct{ X, Y float64 }
 
 type Game struct {
@@ -56,8 +59,10 @@ type Game struct {
 	money                                          int
 	pickups                                        []Money
 	message                                        string
-	tiles                                          []*ebiten.Image // by world.TileID
-	mapImg, overImg                                *ebiten.Image   // pre-rendered at 1px per world px: under / over the actors
+	rng                                            *rand.Rand
+	tiles                                          []*ebiten.Image             // by world.TileID
+	characters                                     map[string][2]*ebiten.Image // idle_anim, run sheets by name
+	mapImg, overImg                                *ebiten.Image               // pre-rendered at 1px per world px: under / over the actors
 }
 
 func New() (*Game, error) {
@@ -69,7 +74,8 @@ func New() (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	h, err := world.Build(ts, types, rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64())))
+	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
+	h, err := world.Build(ts, types, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +83,11 @@ func New() (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, tiles: tiles}, nil
+	chars, err := loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
+	if err != nil {
+		return nil, err
+	}
+	return &Game{state: StateTitle, hotel: h, rng: rng, tiles: tiles, characters: chars}, nil
 }
 
 func (g *Game) mapSize() (int, int) {
@@ -155,6 +165,12 @@ func (g *Game) step(dx, dy float64) {
 		g.updateDepartures()
 	}
 	g.separate()
+	g.player.Anim.Update(g.player.X, g.player.Y)
+	for _, guest := range g.guests {
+		if guest.State != entities.GuestQueued {
+			guest.Anim.Update(guest.X, guest.Y)
+		}
+	}
 	w, h := g.mapSize()
 	g.cam.Follow(g.player.X, g.player.Y, w, h)
 	g.updateMoney()
@@ -357,7 +373,7 @@ func (g *Game) cycleRoom(delta int) {
 func (g *Game) beginArrivals() {
 	g.guests = make([]*entities.Guest, len(g.assignments))
 	for guest, room := range g.assignments {
-		v := entities.NewGuest(room, g.hotel.Spawn, guest*guestSpawnEvery)
+		v := entities.NewGuest(room, g.hotel.Spawn, guest*guestSpawnEvery, guestCast[g.rng.IntN(len(guestCast))])
 		g.guests[guest] = &v
 	}
 	g.arrivalsStarted = g.tick
