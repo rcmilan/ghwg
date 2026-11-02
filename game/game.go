@@ -62,7 +62,8 @@ type Game struct {
 	rng                                            *rand.Rand
 	tiles                                          []*ebiten.Image             // by world.TileID
 	characters                                     map[string][2]*ebiten.Image // idle_anim, run sheets by name
-	mapImg, overImg                                *ebiten.Image               // pre-rendered at 1px per world px: under / over the actors
+	floorImg                                       *ebiten.Image               // the floor layer pre-rendered at 1px per world px
+	props                                          []prop                      // every other static tile, by SortY
 }
 
 func New() (*Game, error) {

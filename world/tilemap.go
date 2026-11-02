@@ -1,6 +1,9 @@
 package world
 
-import "image"
+import (
+	"image"
+	"strings"
+)
 
 // Tilemap is a grid of tiles in NumLayers layers. Collision in a cell is the union of its layers' rects.
 type Tilemap struct {
@@ -40,6 +43,34 @@ func (m *Tilemap) Solid(x, y int) bool {
 		}
 	}
 	return false
+}
+
+// SortY is the world-px y at which cell (x,y) is drawn among the actors (D11): the lower edge of its
+// footprint, `base` cells down (the largest base among its layers' tiles). An actor whose feet are above
+// it is behind the cell's tiles.
+func (m *Tilemap) SortY(x, y int) int {
+	base := 0
+	for l := range m.Cells {
+		base = max(base, m.TS.Tiles[m.At(l, x, y)].Base)
+	}
+	return (y + base + 1) * TileSize
+}
+
+// TileSortY is SortY for the tile in layer l of cell (x,y). A side line (`border_*`) is one long wall,
+// so all its cells sort at its south end, where its run of side-line cells ends. Otherwise an actor
+// walking beside it would be split: in front of the cells above its feet, behind the one at its feet.
+func (m *Tilemap) TileSortY(l, x, y int) int {
+	if !m.sideLine(l, x, y) {
+		return m.SortY(x, y)
+	}
+	for m.sideLine(l, x, y+1) {
+		y++
+	}
+	return m.SortY(x, y)
+}
+
+func (m *Tilemap) sideLine(l, x, y int) bool {
+	return strings.HasPrefix(m.TS.Tiles[m.At(l, x, y)].Name, "border_")
 }
 
 // BlockedBox reports whether the world-px box r overlaps any collision rect or leaves the map.

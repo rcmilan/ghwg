@@ -33,17 +33,13 @@ func loadTiles(ts *world.Tileset) ([]*ebiten.Image, error) {
 	return imgs, nil
 }
 
-// renderMap pre-draws the map tiles for which keep is true, all layers in order.
-func (g *Game) renderMap(keep func(world.Tile) bool) *ebiten.Image {
+// renderFloor pre-draws the floor layer. Everything above it is y-sorted with the actors (D11).
+func (g *Game) renderFloor() *ebiten.Image {
 	m := g.hotel.Map
 	img := ebiten.NewImage(m.W*world.TileSize, m.H*world.TileSize)
-	for l := range world.NumLayers {
-		for y := range m.H {
-			for x := range m.W {
-				id := m.At(l, x, y)
-				if id == 0 || !keep(m.TS.Tiles[id]) {
-					continue
-				}
+	for y := range m.H {
+		for x := range m.W {
+			if id := m.At(world.LayerFloor, x, y); id != 0 {
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(float64(x*world.TileSize), float64(y*world.TileSize))
 				img.DrawImage(g.tiles[id], op)
@@ -53,8 +49,29 @@ func (g *Game) renderMap(keep func(world.Tile) bool) *ebiten.Image {
 	return img
 }
 
-// isLintel: the wall top over a doorway, archway or the Entrance. Actors pass under it.
-func isLintel(t world.Tile) bool { return t.Name == "wall_lintel" }
+// prop is one static tile above the floor (wall face, lintel, side line, window, counter), drawn in the
+// y-sorted pass at its cell's SortY. Door leaves are left out: drawDoors slides them under the actors.
+type prop struct {
+	y, cx, cy int // sort y (world px), cell
+	id        world.TileID
+}
+
+// sortedProps lists the props by sort y; within a cell, layers keep their order.
+func (g *Game) sortedProps() []prop {
+	m := g.hotel.Map
+	var ps []prop
+	for l := world.LayerFloor + 1; l < world.NumLayers; l++ {
+		for y := range m.H {
+			for x := range m.W {
+				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
+					ps = append(ps, prop{m.TileSortY(l, x, y), x, y, id})
+				}
+			}
+		}
+	}
+	slices.SortStableFunc(ps, func(a, b prop) int { return cmp.Compare(a.y, b.y) })
+	return ps
+}
 
 func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 	ebitenutil.DrawRect(s, float64(x), float64(y), float64(w), float64(h), c)
@@ -92,20 +109,17 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // drawWorld draws the camera's view ×zoom (nearest-neighbor) straight onto the screen, at screen-px
 // precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image) {
-	if g.mapImg == nil {
-		// door leaves are skipped (drawDoors slides them), lintels go over the actors
-		g.mapImg = g.renderMap(func(t world.Tile) bool { return !t.Door && !isLintel(t) })
-		g.overImg = g.renderMap(isLintel)
+	if g.floorImg == nil {
+		g.floorImg, g.props = g.renderFloor(), g.sortedProps()
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
-	screen.DrawImage(g.mapImg, op)
+	screen.DrawImage(g.floorImg, op)
 	g.drawDoors(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	// ponytail: actors draw above all tiles until S7's y-sort
 	for _, coin := range g.pickups {
 		x, y := at(coin.X, coin.Y)
 		rect(screen, x-2*zoom, y-2*zoom, 4*zoom, 3*zoom, assets.Money)
@@ -122,11 +136,24 @@ func (g *Game) drawWorld(screen *ebiten.Image) {
 		}
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
+	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
+	// sort y is drawn over it
+	i := 0
+	propsUpTo := func(feet float64) {
+		for ; i < len(g.props) && float64(g.props[i].y) <= feet; i++ {
+			p := g.props[i]
+			op.GeoM.Reset()
+			op.GeoM.Scale(zoom, zoom)
+			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+			screen.DrawImage(g.tiles[p.id], op)
+		}
+	}
 	for _, a := range actors {
+		propsUpTo(a.y)
 		x, y := at(a.x, a.y)
 		g.drawCharacter(screen, x, y, a.name, a.anim)
 	}
-	screen.DrawImage(g.overImg, op) // ponytail: only lintels go over actors; S7's y-sort generalizes depth
+	propsUpTo(math.Inf(1))
 }
 
 // drawDoors draws each door's leaves slid by its Open amount, clipped to their own cells: a Room door

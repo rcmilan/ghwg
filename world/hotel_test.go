@@ -123,3 +123,18 @@ func asciiCell(m *Tilemap, x, y int) byte {
 	}
 	return '?'
 }
+
+// D29: the Terminal is reachable from both sides of the counter, and guests pay in front of it.
+func TestHotelCounterSides(t *testing.T) {
+	h := buildHotel(t)
+	counterTop, counterFront := counterRow*TileSize, (counterRow+1)*TileSize
+	if h.ConciergeStart.Y >= counterTop || h.PaySpot.Y < counterFront {
+		t.Errorf("concierge start %v should be behind the counter (y < %d), pay spot %v in front (y >= %d)",
+			h.ConciergeStart, counterTop, h.PaySpot, counterFront)
+	}
+	for name, p := range map[string]image.Point{"behind": h.ConciergeStart, "in front": h.PaySpot} {
+		if !p.In(h.Terminal) {
+			t.Errorf("terminal zone %v misses the %s spot %v", h.Terminal, name, p)
+		}
+	}
+}
