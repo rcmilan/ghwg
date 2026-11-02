@@ -3,7 +3,15 @@
 // the game rules or entities.
 package assets
 
-import "image/color"
+import (
+	"embed"
+	"image/color"
+)
+
+// FS holds the Tiled data: tiles/*.png + tiles/hotel.tsj (tileset) and rooms/*.tmj (Room Types).
+//
+//go:embed tiles rooms
+var FS embed.FS
 
 var (
 	Night     = color.RGBA{18, 22, 35, 255}
