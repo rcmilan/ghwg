@@ -94,12 +94,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawWorld(screen, ox, oy)
 	}
 	// HUD and terminal: screen space
-	if g.state == StateBooking && g.atTerminal() {
+	if g.state == StatePlay && !g.spinning() && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
-	}
-	if g.state == StateDay {
-		left := dayFrames - (g.tick - g.dayStarted)
-		text(screen, fmt.Sprintf("DAY %02ds", (left+tps-1)/tps), 440, 12, assets.Money)
 	}
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
@@ -110,8 +106,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) drawTitle(s *ebiten.Image) {
 	text(s, "G H O S T   H O T E L", 345, 195, assets.Ghost)
-	text(s, "[ SPACE ] begin shift", 370, 335, assets.Money)
-	text(s, "WASD move / SPACE interact / ESC title or quit", 275, 485, assets.Floor)
+	text(s, "[ SPACE ] open the hotel", 362, 335, assets.Money)
+	text(s, "WASD move / SPACE terminal / ESC title or quit", 275, 485, assets.Floor)
 }
 
 // drawSpinView draws the Spin cinematic (D48): the whole map ×zoom off screen, scaled onto the screen
@@ -157,20 +153,14 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	g.drawDoors(screen, ox, oy, reels)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	for _, coin := range g.pickups {
-		x, y := at(coin.X, coin.Y)
-		rect(screen, x-2*zoom, y-2*zoom, 4*zoom, 3*zoom, assets.Money)
-	}
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
 		name string
 		anim entities.Anim
 	}
 	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim}}
-	for _, guest := range g.guests {
-		if guest.State != entities.GuestQueued {
-			actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim})
-		}
+	for _, guest := range g.guests() {
+		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim})
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
@@ -194,6 +184,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawCharacter(screen, x, y, a.name, a.anim)
 	}
 	propsUpTo(math.Inf(1))
+	for _, f := range g.floaters { // "+$X" rising over the door (D87)
+		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
+		text(screen, f.text, x-3*len(f.text), y, assets.Money)
+	}
 }
 
 // drawReels draws each rolling Room's whole footprint, clipped to it (D48): the old cells slide out the
@@ -305,27 +299,4 @@ func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	s.DrawImage(sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op)
-}
-
-func (g *Game) drawTerminal(s *ebiten.Image) {
-	rect(s, 220, 85, 520, 340, assets.Ink)
-	rect(s, 228, 93, 504, 324, assets.Wall)
-	text(s, "RECEPTION TERMINAL", 365, 125, assets.Ghost)
-	text(s, "W/S SELECT   A/D UNLOCKED ROOM   SPACE LOCK/UNLOCK", 255, 155, assets.Accent)
-	for i, room := range g.assignments {
-		mark, status := " ", "UNBOOKED"
-		if i == g.terminalCursor {
-			mark = ">"
-		}
-		if g.confirmed[i] {
-			status = "BOOKED"
-		}
-		r := g.hotel.Rooms[room]
-		text(s, fmt.Sprintf("%s GUEST %d -> %s %s $%d  [%s]", mark, i+1, r.Number, r.Type.Name, r.Type.Rate, status), 280, 205+i*42, assets.Money)
-	}
-	mark := " "
-	if g.terminalCursor == len(g.assignments) {
-		mark = ">"
-	}
-	text(s, mark+" BEGIN ARRIVALS", 280, 375, assets.Ghost)
 }

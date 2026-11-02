@@ -16,8 +16,9 @@ const (
 	lobbyRows    = 6 // floor rows between the Hall Wall and the front face (D56)
 	behindRows   = 2 // Lobby rows behind the counter (D40)
 	streetRows   = 3
-	archwayWidth = 4
-	minCounter   = 5 // counter cells: counter_left, counter_mid..., computer, counter_right
+	archwayWidth = 4 // on even map widths; 5 on odd ones, so it stays centered (D55)
+	counterW     = 5 // counter cells: counter_left, counter_mid..., computer, counter_right (D87)
+	queueLanes   = 3 // the Queue: parallel lanes in front of the counter, one Party each (D78)
 )
 
 // layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
@@ -25,13 +26,13 @@ type layout struct {
 	cols, rows int
 	w, h       int
 	hall       int // Hall Wall face (2 rows); the Lobby Archway is centered in it
-	counter    int // counter row; below it: the pay row, the approach row, the exit row (D62)
+	counter    int // counter row; the Queue starts on the row below it (D78)
 	front      int // exterior south face (2 rows); the Entrance is centered in it
 	street     int
 	archway    int // the Archway's west column
+	archwayW   int
 	entrance   int // the Entrance's west column
 	counterX   int // counter_left: just east of the Archway
-	counterW   int // one cell per Room at least, so each Room has its own Pay Spot (D62)
 }
 
 func newLayout(cols, rows int) layout {
@@ -41,8 +42,9 @@ func newLayout(cols, rows int) layout {
 	l.front = l.hall + 2 + lobbyRows
 	l.street = l.front + 2
 	l.h = l.street + streetRows
-	l.archway, l.entrance = l.w/2-archwayWidth/2, l.w/2-1 // centered (D55); one cell left of center on odd widths
-	l.counterX, l.counterW = l.archway+archwayWidth, max(minCounter, cols*rows)
+	l.archwayW = archwayWidth + l.w%2
+	l.archway, l.entrance = (l.w-l.archwayW)/2, l.w/2-1 // centered (D55); the Entrance sits one cell left of center on odd widths
+	l.counterX = l.archway + l.archwayW
 	return l
 }
 
@@ -51,27 +53,27 @@ func (l layout) origin(c, r int) image.Point {
 	return image.Pt(1+c*(RoomW+corridor), 1+r*(RoomH+corridor))
 }
 
-// Room is one of the hotel's guest rooms, numbered row = hundreds (D57), built from a Room Type.
+// Room is one of the hotel's guest rooms, numbered floor = hundreds from the front (D57, amended in 03's
+// S1 review): the row nearest the Entrance is 101, 102, …, the back row the highest. Built from a Room Type.
 type Room struct {
 	Number string
 	Type   RoomType
-	Origin image.Point // cell of the room's top-left corner
-	Door   image.Point // cell of the door's top half; the bottom half is Door+(0,1)
-	Stay   image.Point // Stay Spot, world px
-	Pay    image.Point // this Room's own Pay Spot in front of the counter, world px (D62)
+	Origin image.Point   // cell of the room's top-left corner
+	Door   image.Point   // cell of the door's top half; the bottom half is Door+(0,1)
+	Stays  []image.Point // Stay Spots, world px; len is the Room's capacity (D80)
 }
 
 // Hotel is the built map plus the anchors the game needs. Points are world px.
 type Hotel struct {
 	l              layout
 	Map            *Tilemap
-	Rooms          []Room
+	Rooms          []Room          // in map order, back row first: the Terminal draws them as they stand
 	Doors          []Door          // one per Room (same index), then the Entrance
 	Spawn          image.Point     // on the street below the Entrance; guests also leave here
 	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point     // behind the counter's computer
-	LaneEntry      image.Point     // where every Room's lane joins: the Archway's east column, on the approach row (D62)
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
+	Queue          []image.Point   // the Queue's lanes: the cell in front of the counter where each lane starts, east first (D78)
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -138,7 +140,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		for c := range cols {
 			o := l.origin(c, r)
 			h.Rooms = append(h.Rooms, Room{
-				Number: strconv.Itoa((r+1)*100 + c + 1),
+				Number: strconv.Itoa((rows-r)*100 + c + 1),
 				Origin: o,
 				Door:   o.Add(image.Pt(types[0].DoorCol, doorRow)), // every type shares it (D45)
 			})
@@ -147,7 +149,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 
 	archway, entrance := l.archway, l.entrance
 	var gaps []int
-	for x := archway; x < archway+archwayWidth; x++ {
+	for x := archway; x < archway+l.archwayW; x++ {
 		gaps = append(gaps, x)
 	}
 	face(1, l.w-2, l.hall, gaps...)               // Hall Wall + Lobby Archway
@@ -171,8 +173,8 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 			}
 		}
 	}
-	computer := l.counterX + l.counterW - 2
-	for x := l.counterX; x < l.counterX+l.counterW; x++ {
+	computer := l.counterX + counterW - 2
+	for x := l.counterX; x < l.counterX+counterW; x++ {
 		n := "counter_mid"
 		switch x {
 		case l.counterX:
@@ -210,11 +212,10 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	}
 
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
-	h.Archway = image.Pt((archway+archwayWidth/2)*TileSize, (l.hall+1)*TileSize)
+	h.Archway = image.Pt(archway*TileSize+l.archwayW*TileSize/2, (l.hall+1)*TileSize)
 	h.ConciergeStart = cellCenter(computer, l.counter-2)
-	h.LaneEntry = cellCenter(archway+archwayWidth-1, l.counter+2)
-	for i := range h.Rooms { // the first to leave pays farthest east (D62)
-		h.Rooms[i].Pay = cellCenter(l.counterX+len(h.Rooms)-1-i, l.counter+1)
+	for k := range queueLanes { // one free cell between lanes: room to step out of the line
+		h.Queue = append(h.Queue, cellCenter(l.counterX+counterW-1-2*k, l.counter+1))
 	}
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	return h, nil
@@ -243,7 +244,10 @@ func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
 func (h *Hotel) Spin(next []RoomType) {
 	for i := range h.Rooms {
 		r := &h.Rooms[i]
-		r.Type, r.Stay = next[i], r.Origin.Mul(TileSize).Add(next[i].Stay)
+		r.Type, r.Stays = next[i], nil
+		for _, p := range next[i].Stays {
+			r.Stays = append(r.Stays, r.Origin.Mul(TileSize).Add(p))
+		}
 	}
 }
 
@@ -263,24 +267,5 @@ func (h *Hotel) Land(i int) {
 // OuterLine: column x carries a hotel outer side line in its decor layer. It stays still during a Spin.
 func (h *Hotel) OuterLine(x int) bool { return x == 1 || x == h.l.w-2 }
 
-// Checkout is Room i's own lane out (D62): from its Stay Spot to its Pay Spot, then on to the Street.
-// Below the counter the Lobby has 3 rows: pay, approach, exit. A guest comes down the Archway's east
-// column, walks east along the approach row and steps up into its Pay Spot; after paying it steps down
-// to the exit row and walks west to the Entrance. Guests leave in Room order and Room 0 pays farthest
-// east, so a guest never walks past one still ahead of it: the lanes never meet head-on. The game
-// releases them so they reach LaneEntry in that order, apart: lanes from both sides merge above it.
-func (h *Hotel) Checkout(i int) (toPay, toStreet []image.Point) {
-	l, r := h.l, h.Rooms[i]
-	pay := r.Pay.Div(TileSize)
-	via := func(own int, pts ...image.Point) []image.Point {
-		var path []image.Point
-		for k := 1; k < len(pts); k++ {
-			path = append(path, h.Path(pts[k-1], pts[k], own)...)
-		}
-		return path
-	}
-	approach, exit := l.counter+2, l.counter+3
-	toPay = via(i, r.Stay, h.LaneEntry, cellCenter(pay.X, approach), r.Pay)
-	toStreet = via(-1, r.Pay, cellCenter(pay.X, exit), cellCenter(l.entrance+1, exit), h.Spawn)
-	return toPay, toStreet
-}
+// Grid is the hotel's Room grid, cols × rows.
+func (h *Hotel) Grid() (cols, rows int) { return h.l.cols, h.l.rows }

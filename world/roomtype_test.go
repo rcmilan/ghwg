@@ -38,8 +38,8 @@ func TestStandardRoomType(t *testing.T) {
 	if std.Rate != 25 || std.DoorCol != 4 {
 		t.Errorf("rate %d door col %d, want 25 and 4", std.Rate, std.DoorCol)
 	}
-	if cell := std.Stay.Div(TileSize); cell != image.Pt(4, 4) {
-		t.Errorf("stay cell %v, want (4,4)", cell)
+	if len(std.Stays) != 1 || std.Stays[0].Div(TileSize) != image.Pt(4, 4) {
+		t.Errorf("stays %v, want one in cell (4,4)", std.Stays)
 	}
 }
 

@@ -67,7 +67,7 @@ func TestSpin(t *testing.T) {
 	std, dlx := typeNamed(t, "Standard"), typeNamed(t, "Deluxe")
 	doors := append([]Door(nil), h.Doors...)
 	floorAt := func(r Room) string {
-		s := r.Stay.Div(TileSize)
+		s := r.Stays[0].Div(TileSize)
 		return h.Map.TS.Tiles[h.Map.At(LayerFloor, s.X, s.Y)].Name
 	}
 	for _, rt := range []RoomType{dlx, std, dlx} {
@@ -137,8 +137,10 @@ func TestVariantsReachable(t *testing.T) {
 			h.Land(i)
 		}
 		for i, r := range h.Rooms {
-			if h.Path(h.Spawn, r.Stay, i) == nil {
-				t.Errorf("%s variant %v: room %s's Stay Spot is unreachable", rt.Name, rt.Stay, r.Number)
+			for _, s := range r.Stays {
+				if h.Path(h.Spawn, s, i) == nil {
+					t.Errorf("%s variant %v: room %s's Stay Spot %v is unreachable", rt.Name, rt.Stays, r.Number, s)
+				}
 			}
 		}
 		for _, id := range rt.Tiles[LayerProps] {

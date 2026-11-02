@@ -32,7 +32,7 @@ type RoomType struct {
 	Name    string
 	Rate    int
 	Tiles   [NumLayers][]TileID // RoomW*RoomH each, row-major
-	Stay    image.Point         // Stay Spot, room-local px
+	Stays   []image.Point       // Stay Spots, room-local px: one per bed, so the Room's capacity (D80)
 	DoorCol int
 }
 
@@ -131,7 +131,7 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 	}
 	rt.DoorCol = cols[0]
 
-	// exactly one "stay" point, on walkable floor
+	// one "stay" point per bed, each on walkable floor
 	markers := findLayer(m.Layers, "markers", "objectgroup")
 	if markers == nil {
 		return rt, fmt.Errorf("missing object layer \"markers\"")
@@ -142,13 +142,15 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 			stays = append(stays, image.Pt(int(o.X), int(o.Y)))
 		}
 	}
-	if len(stays) != 1 {
-		return rt, fmt.Errorf("found %d \"stay\" points in the markers layer, want exactly 1", len(stays))
+	if len(stays) == 0 {
+		return rt, fmt.Errorf("found no \"stay\" points in the markers layer, want one per bed")
 	}
-	rt.Stay = stays[0]
-	if !rt.walkable(ts, rt.Stay) {
-		return rt, fmt.Errorf("\"stay\" point at (%d,%d) px is not on walkable floor", rt.Stay.X, rt.Stay.Y)
+	for _, p := range stays {
+		if !rt.walkable(ts, p) {
+			return rt, fmt.Errorf("\"stay\" point at (%d,%d) px is not on walkable floor", p.X, p.Y)
+		}
 	}
+	rt.Stays = stays
 	return rt, nil
 }
 

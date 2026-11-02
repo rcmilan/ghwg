@@ -7,37 +7,21 @@ import (
 	"ghosthotel/world"
 )
 
-type GuestState int
-
-const (
-	GuestQueued GuestState = iota
-	GuestArriving
-	GuestStaying
-	GuestLeavingRoom
-	GuestPaying
-	GuestDeparting
-)
-
 type Guest struct {
-	X, Y       float64
-	State      GuestState
-	RoomIndex  int
-	Path       []image.Point // remaining waypoints, world px; set with SetPath
-	SpawnAt    int           // frames after the phase starts
-	PauseUntil int           // frame (game tick) the pay pause ends
-	Phasing    bool          // ignoring actor collisions after getting stuck (D22c)
-	Character  string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
-	Rate       int           // what this guest pays: their Room's Rate at Booking (D53)
-	Anim       Anim
+	X, Y      float64
+	RoomIndex int           // the Room its Party is booked into, whose door opens for it; -1 before Booking
+	Path      []image.Point // remaining waypoints, world px; set with SetPath
+	Phasing   bool          // ignoring actor collisions after getting stuck (D22c)
+	Character string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
+	Anim      Anim
 
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
 	phaseEnd float64 // remaining path at which Phasing ends
 }
 
-func NewGuest(roomIndex int, at image.Point, spawnAt int, character string) Guest {
-	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt,
-		Character: character, Anim: NewAnim()}
+func NewGuest(at image.Point, character string) Guest {
+	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, Anim: NewAnim()}
 }
 
 // FollowPath walks toward the next waypoint; true once the path is used up.

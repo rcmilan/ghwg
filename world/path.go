@@ -8,8 +8,9 @@ import (
 // Path finds a 4-directional route on the cell grid from `from` to `to` (world px).
 // It returns tile-center waypoints after the start cell, the last one replaced by `to`; nil when unreachable.
 // Cells with any collision rect are avoided. Room doors are solid except the door of Rooms[own]
-// (own < 0: every room door is solid). The Entrance is open to everyone.
-func (h *Hotel) Path(from, to image.Point, own int) []image.Point {
+// (own < 0: every room door is solid). The Entrance is open to everyone. The cells of the avoid points
+// (world px) are solid too: a Queue guest standing there.
+func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []image.Point {
 	m := h.Map
 	start, goal := from.Div(TileSize), to.Div(TileSize)
 	if !m.inside(start.X, start.Y) || !m.inside(goal.X, goal.Y) {
@@ -20,6 +21,9 @@ func (h *Hotel) Path(from, to image.Point, own int) []image.Point {
 		if i != own {
 			closed[r.Door], closed[r.Door.Add(image.Pt(0, 1))] = true, true
 		}
+	}
+	for _, p := range avoid {
+		closed[p.Div(TileSize)] = true
 	}
 	idx := func(p image.Point) int { return p.Y*m.W + p.X }
 	prev := make([]int, m.W*m.H)
