@@ -2,6 +2,7 @@ package world
 
 import (
 	"math/rand/v2"
+	"strings"
 	"testing"
 
 	"ghosthotel/assets"
@@ -68,7 +69,14 @@ func TestSpin(t *testing.T) {
 		for i := range next {
 			next[i] = rt
 		}
+		before := floorAt(h.Rooms[0])
 		h.Spin(next)
+		if h.Rooms[0].Type.Name != rt.Name || floorAt(h.Rooms[0]) != before {
+			t.Errorf("Spin to %s: type %s, floor %s; want the type now, the cells at Land (D49)", rt.Name, h.Rooms[0].Type.Name, floorAt(h.Rooms[0]))
+		}
+		for i := range h.Rooms {
+			h.Land(i)
+		}
 		want := map[string]string{"Standard": "floor_clay", "Deluxe": "floor_herringbone"}[rt.Name]
 		for i, r := range h.Rooms {
 			if r.Type.Name != rt.Name || floorAt(r) != want {
@@ -82,4 +90,29 @@ func TestSpin(t *testing.T) {
 			t.Errorf("hotel west line at (1,5) is %q after a Spin, want border_west", n)
 		}
 	}
+}
+
+// D48: a Room is one whole: Land stamps every cell of its footprint from its type, including the
+// columns under the hotel's outer side lines, which alone stay (and stay still while it rolls).
+func TestLandWholeRoom(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		for _, r := range h.Rooms {
+			for layer, cells := range r.Type.Tiles {
+				for c, want := range cells {
+					x, y := r.Origin.X+c%RoomW, r.Origin.Y+c/RoomW
+					got := h.Map.At(layer, x, y)
+					if layer == LayerDecor && h.OuterLine(x) {
+						if n := h.Map.TS.Tiles[got].Name; !strings.HasPrefix(n, "border_") {
+							t.Errorf("room %s (%d,%d): outer side line is %q", r.Number, x, y, n)
+						}
+					} else if got != want {
+						t.Errorf("room %s (%d,%d) layer %d: tile %d, want its type's %d", r.Number, x, y, layer, got, want)
+					}
+				}
+			}
+			if h.OuterLine(r.Origin.X+1) || h.OuterLine(r.Origin.X+RoomW-2) {
+				t.Errorf("room %s: an outer side line runs inside it, not on its edge", r.Number)
+			}
+		}
+	})
 }

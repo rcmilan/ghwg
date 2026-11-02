@@ -67,7 +67,7 @@ _Avoid_: player (in game text), ghost
 A future state of the Concierge with its own look and rules; not defined yet.
 
 **Guest**:
-A visitor booked into one Room for one Shift.
+A visitor booked into one Room from Shift 1 until they leave in Shift 2.
 
 ## Time
 
@@ -76,10 +76,10 @@ One playthrough, from the title screen until returning to it. Money resets and a
 _Avoid_: game, session
 
 **Shift**:
-One cycle of Booking → Arrivals → Day → Departures within a Run.
+Half of the hotel's loop within a Run. **Shift 1** is Booking → Arrivals; **Shift 2** is Day → Departures (guest care). After Shift 2 comes a Spin, then Shift 1 again.
 
 **Spin**:
-The moment every Room re-draws its Room Type at random, like the reels of a slot machine. It happens when a Run starts and after every second Shift.
+The moment every Room re-draws its Room Type at random, like the reels of a slot machine. It happens when a Run starts and whenever the last Guest leaves the building at the end of Shift 2. An occupied Room keeps its Room Type.
 _Avoid_: reroll, shuffle
 
 **Day**:

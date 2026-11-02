@@ -152,8 +152,13 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, counterX+i, l.counter, n)
 	}
 	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
-	for _, n := range []string{"border_west_top", "border_west", "border_west_corner", "border_east_top", "border_east", "border_east_corner"} {
-		id(n) // checked here so Spin's outer lines never miss
+	// hotel outer side walls: one unbroken line over every wall that meets them; Rooms never stamp over it
+	for x, side := range map[int]string{1: "west", l.w - 2: "east"} {
+		put(LayerDecor, x, 1, "border_"+side+"_top")
+		for y := 2; y < l.front; y++ {
+			put(LayerDecor, x, y, "border_"+side)
+		}
+		put(LayerDecor, x, l.front, "border_"+side+"_corner")
 	}
 	for i, r := range h.Rooms {
 		top := r.Door.Mul(TileSize)
@@ -164,6 +169,9 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}
 	h.Spin(Draw(types, len(h.Rooms), rng))
+	for i := range h.Rooms {
+		h.Land(i)
+	}
 
 	center := func(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
@@ -184,25 +192,27 @@ func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
 	return next
 }
 
-// Spin gives every Room its next Room Type (D47), one per Room, and re-stamps their cells. Doors never
-// move (D45), so the Doors and every anchor stay valid.
+// Spin gives every Room its next Room Type (D47), one per Room. Type, Rate and Stay Spot change at once
+// (D49); the cells follow when each Room Lands, at its reel stop (D50).
 func (h *Hotel) Spin(next []RoomType) {
 	for i := range h.Rooms {
-		r, t := &h.Rooms[i], next[i]
-		for layer, cells := range t.Tiles {
-			for c, tid := range cells {
-				h.Map.Set(layer, r.Origin.X+c%RoomW, r.Origin.Y+c/RoomW, tid)
-			}
-		}
-		r.Type, r.Stay = t, r.Origin.Mul(TileSize).Add(t.Stay)
-	}
-	// hotel outer side walls: one unbroken line over every wall that meets them (overwrites the rooms' own)
-	for x, side := range map[int]string{1: "west", h.l.w - 2: "east"} {
-		id := func(n string) TileID { t, _ := h.Map.TS.ID("border_" + side + n); return t } // checked by Build
-		h.Map.Set(LayerDecor, x, 1, id("_top"))
-		for y := 2; y < h.l.front; y++ {
-			h.Map.Set(LayerDecor, x, y, id(""))
-		}
-		h.Map.Set(LayerDecor, x, h.l.front, id("_corner"))
+		r := &h.Rooms[i]
+		r.Type, r.Stay = next[i], r.Origin.Mul(TileSize).Add(next[i].Stay)
 	}
 }
+
+// Land stamps Room i's cells, tiles and collisions, from its Type, under the hotel's outer side lines.
+// Doors never move (D45), so the Doors and every anchor stay valid.
+func (h *Hotel) Land(i int) {
+	r := h.Rooms[i]
+	for layer, cells := range r.Type.Tiles {
+		for c, tid := range cells {
+			if x := r.Origin.X + c%RoomW; layer != LayerDecor || !h.OuterLine(x) {
+				h.Map.Set(layer, x, r.Origin.Y+c/RoomW, tid)
+			}
+		}
+	}
+}
+
+// OuterLine: column x carries a hotel outer side line in its decor layer. It stays still during a Spin.
+func (h *Hotel) OuterLine(x int) bool { return x == 1 || x == h.l.w-2 }
