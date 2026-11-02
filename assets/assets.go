@@ -3,7 +3,16 @@
 // the game rules or entities.
 package assets
 
-import "image/color"
+import (
+	"embed"
+	"image/color"
+)
+
+// FS holds the Tiled data: tiles/*.png + tiles/hotel.tsj (tileset) and rooms/*.tmj (Room Types),
+// plus the LimeZu character sheets: characters/<Name>_{idle_anim,run}_16x16.png (D26).
+//
+//go:embed tiles rooms characters
+var FS embed.FS
 
 var (
 	Night     = color.RGBA{18, 22, 35, 255}

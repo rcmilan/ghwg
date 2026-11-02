@@ -1,19 +1,32 @@
 package entities
 
 import (
-	"ghosthotel/world"
+	"image"
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-type Player struct{ X, Y float64 }
+// Actor positions are the center of their foot box, in world px.
+const FootW, FootH = 10, 6
 
-const PlayerRadius = 14.0
+// FootBox is the collision box of an actor standing at (x,y).
+func FootBox(x, y float64) image.Rectangle {
+	x0, y0 := int(math.Floor(x-FootW/2)), int(math.Floor(y-FootH/2))
+	return image.Rect(x0, y0, x0+FootW, y0+FootH)
+}
 
-func NewPlayer() Player { return Player{X: 180, Y: 430} }
+type Player struct {
+	X, Y float64
+	Anim Anim
+}
 
-// Move permits free lobby movement but refuses a locked room's doorway/interior.
-func (p *Player) Move(layout world.Layout, rooms []world.Room) {
-	var dx, dy float64
+func NewPlayer(start image.Point) Player {
+	return Player{X: float64(start.X), Y: float64(start.Y), Anim: NewAnim()}
+}
+
+// ReadMove returns the WASD direction, each axis -1, 0 or 1.
+func ReadMove() (dx, dy float64) {
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
 		dx--
 	}
@@ -26,19 +39,20 @@ func (p *Player) Move(layout world.Layout, rooms []world.Room) {
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
 		dy++
 	}
-	if dx == 0 && dy == 0 {
-		return
-	}
-	speed := 3.0
+	return dx, dy
+}
+
+// Move walks in direction (dx,dy) one axis at a time, so walls stop one axis and the other slides.
+// blocked reports whether a foot box would hit a wall or a shut door.
+func (p *Player) Move(dx, dy, speed float64, blocked func(image.Rectangle) bool) {
 	if dx != 0 && dy != 0 {
-		speed = 2.12
+		speed *= math.Sqrt2 / 2
 	}
-	nx, ny := p.X+dx*speed, p.Y+dy*speed
-	if layout.IsBlocked(nx, ny, rooms) {
-		return
+	if nx := p.X + dx*speed; dx != 0 && !blocked(FootBox(nx, p.Y)) {
+		p.X = nx
 	}
-	if nx > float64(layout.InteriorBounds.Min.X) && nx < float64(layout.InteriorBounds.Max.X) && ny > float64(layout.InteriorBounds.Min.Y) && ny < float64(layout.InteriorBounds.Max.Y) {
-		p.X, p.Y = nx, ny
+	if ny := p.Y + dy*speed; dy != 0 && !blocked(FootBox(p.X, ny)) {
+		p.Y = ny
 	}
 }
 
