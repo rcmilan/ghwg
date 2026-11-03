@@ -93,19 +93,25 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		rect(s, x, y, tw, th, bg)
 		text(s, room.Number+" "+room.Type.Name, x+6, y+4, assets.Ghost)
 		text(s, fmt.Sprintf("$%d/night", room.Type.Rate), x+6, y+20, assets.Ghost)
-		caps := make([]string, len(room.Stays))
-		for k := range caps {
-			caps[k] = guestCast[0]
+		heads := make([]string, len(room.Stays)) // Vacant: the capacity, as Adam's heads
+		for k := range heads {
+			heads[k] = guestCast[0]
 		}
-		g.drawHeads(s, x+6, y+40, caps...)
 		if i == g.terminalPick {
 			text(s, "PICKED", x+6, y+56, assets.Accent)
 		}
 		for _, p := range g.parties {
-			if p.Occupies(i) {
-				text(s, fmt.Sprintf("BOOKED  OUT DAY %d", day(p.Checkout)), x+6, y+56, assets.Ghost)
+			if p.Occupies(i) { // Booked: its own Party's heads, side by side, only while it's in the Room (S2 review)
+				heads = heads[:0]
+				if lead := p.Guests[0]; p.state != out && image.Pt(int(lead.X), int(lead.Y)).In(room.Shell()) {
+					for _, guest := range p.Guests {
+						heads = append(heads, guest.Character)
+					}
+				}
+				text(s, fmt.Sprintf("CHECKOUT DAY %d", day(p.Checkout)), x+6, y+56, assets.Ghost)
 			}
 		}
+		g.drawHeads(s, x+6, y+40, heads...)
 	}
 
 	text(s, fmt.Sprintf("QUEUE %d/%d", len(g.queue), len(g.hotel.Queue)), cardX, cardY, assets.Ghost)
@@ -120,6 +126,7 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		text(s, "NEXT GUEST", cardX, cardY+32, assets.Ghost)
 		g.drawHeads(s, cardX, cardY+52, names...)
 		text(s, fmt.Sprintf("NIGHTS  %d", p.Nights), cardX, cardY+74, assets.Ghost)
+		text(s, "ROUTINE "+p.Routine.String(), cardX, cardY+90, assets.Ghost)
 		i := g.terminalCursor
 		if g.terminalPick >= 0 {
 			i = g.terminalPick

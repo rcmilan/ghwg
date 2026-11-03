@@ -29,7 +29,7 @@ const (
 	departSpeed    = 0.75
 	conciergeGive  = 0.8     // share of a push the Concierge takes against a moving guest (D22b),
 	guestGive      = 0.2     // and the moving guest takes; guest vs guest splits evenly; idle guests don't budge
-	stuckFrames    = 1 * tps // a walking guest with no progress this long ignores actors for one tile (D22c)
+	stuckFrames    = 2 * tps // a walking guest with no progress this long ignores actors for one tile: the anti-softlock fallback (D22c, D89)
 	reelFrames     = 60      // one Room's reel roll, ~1 s (D48)
 	reelStagger    = 12      // between consecutive Rooms' reel starts, so they stop ~0.2 s apart
 	spinCamFrames  = 45      // the camera's glide out to all Rooms before the reels, and back after
@@ -55,6 +55,7 @@ type Game struct {
 	clock          int      // game time (clock.go)
 	fast           bool     // T held: the clock runs ×10
 	money          int
+	walkIns        int // Walk-ins this Run
 	floaters       []floater
 	message        string
 	rng            *rand.Rand
@@ -105,7 +106,7 @@ func (g *Game) mapSize() (int, int) {
 
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant, an instant Spin (D46), no money.
 func (g *Game) startRun() {
-	g.parties, g.queue, g.floaters = nil, nil, nil
+	g.parties, g.queue, g.floaters, g.walkIns = nil, nil, nil, 0
 	cols, rows := g.hotel.Grid()
 	g.clock, g.money, g.terminalCursor = runStart, 0, (rows-1)*cols // the cursor starts on 101
 	g.state = StatePlay
@@ -156,7 +157,7 @@ func (g *Game) step(dx, dy float64) {
 	g.tick++
 	g.landReels(false)
 	g.advanceClock()
-	g.player.Move(dx, dy, conciergeSpeed, g.blocked)
+	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
 	g.separate()
@@ -174,14 +175,23 @@ func (g *Game) blocked(r image.Rectangle) bool {
 	return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r)
 }
 
+// conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
+// can't slip in behind a Party.
+func (g *Game) conciergeBlocked(r image.Rectangle) bool {
+	return g.blocked(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
+		return d.Room >= 0 && g.occupied(d.Room) && d.Rect.Overlaps(r)
+	})
+}
+
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
 func (g *Game) separate() {
 	type body struct {
-		x, y *float64
-		give float64
+		x, y    *float64
+		give    float64
+		blocked func(image.Rectangle) bool
 	}
-	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive}}
+	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked}}
 	for _, guest := range g.guests() {
 		if guest.Phasing {
 			continue
@@ -190,10 +200,10 @@ func (g *Game) separate() {
 		if len(guest.Path) > 0 {
 			give = guestGive
 		}
-		bodies = append(bodies, body{&guest.X, &guest.Y, give})
+		bodies = append(bodies, body{&guest.X, &guest.Y, give, g.blocked})
 	}
 	nudge := func(b body, dx, dy float64) {
-		if !g.blocked(entities.FootBox(*b.x+dx, *b.y+dy)) {
+		if !b.blocked(entities.FootBox(*b.x+dx, *b.y+dy)) {
 			*b.x += dx
 			*b.y += dy
 		}
@@ -244,15 +254,23 @@ func (g *Game) occupied(room int) bool { return !g.vacant(room) }
 // ahead, so two guests meeting head-on pass each other.
 func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	if !guest.Phasing && g.yields(guest) {
+		return false
+	}
 	x, y, path := guest.X, guest.Y, guest.Path
 	done := guest.FollowPath(speed)
 	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
 		guest.X, guest.Y, guest.Path = x, y, path
 		return false
 	}
-	if hx, hy := guest.X-x, guest.Y-y; !guest.Phasing && g.bumpsAhead(guest, hx, hy) {
+	hx, hy := guest.X-x, guest.Y-y
+	if bx, by, bump := g.bumpsAhead(guest, hx, hy); !guest.Phasing && bump {
 		guest.X, guest.Y, guest.Path = x, y, path
-		for _, s := range [...]float64{1, -1} { // right of the heading (y points down), then left
+		sides := [...]float64{1, -1}  // right of the heading (y points down), then left,
+		if (bx-x)*-hy+(by-y)*hx > 0 { // unless the one bumped is on the right
+			sides = [...]float64{-1, 1}
+		}
+		for _, s := range sides {
 			if nx, ny := x-s*hy, y+s*hx; !g.blocked(entities.FootBox(nx, ny)) {
 				guest.X, guest.Y = nx, ny
 				break
@@ -266,21 +284,68 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	return done
 }
 
-// bumpsAhead: the guest's foot box overlaps another actor lying ahead along heading (hx,hy).
-func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) bool {
+// yieldAhead: how many waypoints ahead a guest looks for a choke point. It waits a cell or two short of
+// it, which leaves the way out clear.
+const yieldAhead = 3
+
+// yields (D89): a guest about to pass a 1-cell choke point (a Room doorway) waits while another guest
+// coming the other way is on that stretch and nearer the choke: the nearer one goes first, so two never
+// wait on each other. The Concierge is left to the sidestep and the push give (D22b).
+func (g *Game) yields(guest *entities.Guest) bool {
+	ahead := guest.Path[:min(len(guest.Path), yieldAhead)]
+	i := slices.IndexFunc(ahead, func(p image.Point) bool { return g.hotel.Choke(p.Div(world.TileSize)) })
+	if i < 0 {
+		return false
+	}
+	c := ahead[i].Div(world.TileSize).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
+	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
+	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
+	for _, o := range g.guests() {
+		if o == guest || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
+			continue
+		}
+		on := image.Pt(int(o.X), int(o.Y)).Div(world.TileSize)
+		if slices.ContainsFunc(ahead, func(p image.Point) bool { return p.Div(world.TileSize) == on }) &&
+			(float64(o.Path[0].X)-o.X)*hx+(float64(o.Path[0].Y)-o.Y)*hy < 0 { // on the stretch, coming the other way
+			return true
+		}
+	}
+	return false
+}
+
+// bumpsAhead: the guest's foot box overlaps another actor, at (x,y), lying ahead along heading (hx,hy).
+// When two walking guests each have the other ahead (converging on one cell), only the one without the
+// right of way stops, so they never wait on each other.
+func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, bump bool) {
 	box := entities.FootBox(guest.X, guest.Y)
 	hit := func(x, y float64) bool {
 		return entities.FootBox(x, y).Overlaps(box) && (x-guest.X)*hx+(y-guest.Y)*hy > 0
 	}
 	if hit(g.player.X, g.player.Y) {
-		return true
+		return g.player.X, g.player.Y, true
 	}
 	for _, o := range g.guests() {
-		if o != guest && !o.Phasing && hit(o.X, o.Y) {
-			return true
+		if o == guest || o.Phasing || !hit(o.X, o.Y) {
+			continue
 		}
+		if len(o.Path) > 0 && rightOfWay(guest, o) {
+			ox, oy := float64(o.Path[0].X)-o.X, float64(o.Path[0].Y)-o.Y
+			if (guest.X-o.X)*ox+(guest.Y-o.Y)*oy > 0 { // o has this guest ahead too, and waits for it
+				continue
+			}
+		}
+		return o.X, o.Y, true
 	}
-	return false
+	return 0, 0, false
+}
+
+// rightOfWay: guest a goes before b when they bump into each other. A booked guest goes before a Walk-in
+// still heading for the Queue, which would push it back into the lanes; otherwise the one nearer its goal.
+func rightOfWay(a, b *entities.Guest) bool {
+	if booked := a.RoomIndex >= 0; booked != (b.RoomIndex >= 0) {
+		return booked
+	}
+	return a.Left() < b.Left()
 }
 
 func (g *Game) atTerminal() bool {

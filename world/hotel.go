@@ -69,7 +69,8 @@ type Hotel struct {
 	Map            *Tilemap
 	Rooms          []Room          // in map order, back row first: the Terminal draws them as they stand
 	Doors          []Door          // one per Room (same index), then the Entrance
-	Spawn          image.Point     // on the street below the Entrance; guests also leave here
+	Spawn          image.Point     // on the street below the Entrance, where guests appear
+	Exit           image.Point     // where guests leave, a cell west of Spawn: the southbound lane, keeping right (D89)
 	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point     // behind the counter's computer
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
@@ -158,7 +159,12 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, entrance+i, l.front, n+"_top")
 		put(LayerDecor, entrance+i, l.front+1, n+"_bottom")
 	}
-	for d := 3; entrance-d >= 3; d += 3 { // front windows (D67): 2 cells wide, every 3 cells out from the Entrance
+	// front windows (D67, S2 review): 2 cells wide, 2 per side, mirrored about the Entrance and evenly
+	// spaced along the wall between the side line (x=1) and the Entrance; a spare cell widens the middle gap
+	spare := entrance - 2 - 2*2 // free wall cells in x=2..entrance-1, around the 2 windows
+	a := 2 + spare/3
+	b := a + 2 + spare - 2*(spare/3)
+	for _, d := range []int{entrance - a, entrance - b} {
 		for _, x := range []int{entrance - d, entrance + d} {
 			for c := range 4 {
 				put(LayerDecor, x+c%2, l.front+c/2, fmt.Sprintf("prop_window_front_r%dc%d", c/2, c%2))
@@ -212,6 +218,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	}
 
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
+	h.Exit = h.Spawn.Sub(image.Pt(TileSize, 0))
 	h.Archway = image.Pt(archway*TileSize+l.archwayW*TileSize/2, (l.hall+1)*TileSize)
 	h.ConciergeStart = cellCenter(computer, l.counter-2)
 	for k := range queueLanes { // one free cell between lanes: room to step out of the line

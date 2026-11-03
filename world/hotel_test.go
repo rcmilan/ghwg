@@ -222,7 +222,8 @@ func TestBehindWall(t *testing.T) {
 	}
 }
 
-// D67: windows on the front face, mirrored about the Entrance, clear of it and of the side lines.
+// D67: 2 windows on each side of the front face, mirrored about the Entrance, clear of it and of the side
+// lines (S2 review).
 func TestFrontWindows(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
 		win := func(x int) bool {
@@ -238,8 +239,8 @@ func TestFrontWindows(t *testing.T) {
 				t.Errorf("window cell at x=%d: touches a side line or the Entrance, or has no mirror", x)
 			}
 		}
-		if n == 0 {
-			t.Error("no windows on the front face")
+		if n != 4*2 {
+			t.Errorf("%d window cells on the front face, want 4 windows of 2", n)
 		}
 	})
 }

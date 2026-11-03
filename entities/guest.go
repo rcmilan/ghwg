@@ -24,10 +24,17 @@ func NewGuest(at image.Point, character string) Guest {
 	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, Anim: NewAnim()}
 }
 
+// waypointSlack: a guest this close to a waypoint with more after it (world px) has reached it, so a
+// push a little past it never turns the guest back into whoever walks behind (D89).
+const waypointSlack = 4
+
 // FollowPath walks toward the next waypoint; true once the path is used up.
 func (g *Guest) FollowPath(speed float64) bool {
 	if len(g.Path) == 0 {
 		return true
+	}
+	if p := g.Path[0]; len(g.Path) > 1 && math.Hypot(float64(p.X)-g.X, float64(p.Y)-g.Y) <= waypointSlack {
+		g.Path = g.Path[1:]
 	}
 	if p := g.Path[0]; g.WalkTo(float64(p.X), float64(p.Y), speed) {
 		g.Path = g.Path[1:]
@@ -53,8 +60,8 @@ func (g *Guest) SetPath(p []image.Point) {
 	g.Path, g.best, g.stuck, g.Phasing = p, math.Inf(1), 0, false
 }
 
-// left is the remaining path length (waypoints are adjacent tile centers).
-func (g *Guest) left() float64 {
+// Left is the remaining path length (waypoints are adjacent tile centers).
+func (g *Guest) Left() float64 {
 	if len(g.Path) == 0 {
 		return 0
 	}
@@ -69,7 +76,7 @@ func (g *Guest) TrackProgress(stuckFrames int) {
 		g.stuck, g.Phasing = 0, false
 		return
 	}
-	left := g.left()
+	left := g.Left()
 	if left < g.best-0.1 {
 		g.best, g.stuck = left, 0
 	} else {

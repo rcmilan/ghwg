@@ -159,3 +159,90 @@ func arrive(t *testing.T, g *Game) {
 	}
 	t.Fatal("the front Walk-in never reached the counter")
 }
+
+// D88, T017: each Party draws 1–3 nights, Homebody or Tourist 50/50, and jittered times; the first
+// Walk-in of a Run stays 1 night, so a Room frees up for Day 2's Spin.
+func TestScheduleDraw(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	g.rng = rand.New(rand.NewPCG(3, 4))
+	nights, tourists := map[int]int{}, 0
+	const n = 400
+	for i := range n {
+		g.queue = nil // keep a lane free
+		g.walkIn()
+		p := g.parties[len(g.parties)-1]
+		if i == 0 && p.Nights != 1 {
+			t.Errorf("the first Walk-in of a Run stays %d nights, want 1", p.Nights)
+		}
+		nights[p.Nights]++
+		if p.Routine == tourist {
+			tourists++
+		}
+		for _, w := range []struct {
+			name     string
+			at, from int
+			span     int
+		}{{"out", p.outAt, outHour, outJitter}, {"back", p.backAt, backHour, backJitter}, {"checkout", p.checkoutAt, checkoutHour, checkoutJitter}} {
+			if w.at < w.from*hourFrames || w.at >= w.from*hourFrames+w.span {
+				t.Fatalf("%s time %s, want %02d:00 + under %d min", w.name, clockText(w.at), w.from, w.span/minuteFrames)
+			}
+		}
+	}
+	if len(nights) != 3 || nights[1] == 0 || nights[2] == 0 || nights[3] == 0 {
+		t.Errorf("nights drawn %v, want 1–3", nights)
+	}
+	if tourists < n*2/5 || tourists > n*3/5 {
+		t.Errorf("%d Tourists in %d, want about half", tourists, n)
+	}
+}
+
+// D88: a Tourist is out between its out and back times on every day of its routine but the checkout
+// day; booked after 10:00, its routine starts the next day.
+func TestTouristDays(t *testing.T) {
+	at := func(d, h, m int) int { return (d-1)*dayFrames + h*hourFrames + m*minuteFrames }
+	b := Booking{Nights: 3, Routine: tourist, outAt: 9 * hourFrames, backAt: 20 * hourFrames, checkoutAt: 11 * hourFrames}
+	b.schedule(at(1, 15, 0))
+	if b.Checkout != at(4, 11, 0) {
+		t.Errorf("checkout %s, want DAY 4  11:00", clockText(b.Checkout))
+	}
+	for _, c := range []struct {
+		at  int
+		out bool
+	}{
+		{at(1, 16, 0), false}, {at(2, 8, 59), false}, {at(2, 9, 0), true}, {at(2, 19, 59), true},
+		{at(2, 20, 0), false}, {at(3, 12, 0), true}, {at(4, 9, 30), false}, {at(4, 12, 0), false},
+	} {
+		if b.Out(c.at) != c.out {
+			t.Errorf("Out at %s = %v, want %v", clockText(c.at), !c.out, c.out)
+		}
+	}
+	early := b
+	early.schedule(at(1, 8, 30))
+	if !early.Out(at(1, 9, 30)) {
+		t.Error("a Tourist booked at 08:30 isn't out at 09:30 the same day")
+	}
+	home := b
+	home.Routine = homebody
+	if home.Out(at(2, 12, 0)) {
+		t.Error("a Homebody went out")
+	}
+}
+
+// D91: the Concierge can't get through an Occupied Room's doorway, open or not, so it can't tailgate.
+func TestConciergeKeptOut(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	door := g.hotel.Doors[0].Rect
+	if g.conciergeBlocked(door) != g.blocked(door) { // a shut door blocks anyone
+		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
+	}
+	g.walkIn()
+	arrive(t, g)
+	if why := g.book(0); why != "" {
+		t.Fatal(why)
+	}
+	if !g.conciergeBlocked(door) {
+		t.Error("the Concierge can enter an Occupied Room's doorway")
+	}
+}
