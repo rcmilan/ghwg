@@ -29,7 +29,7 @@ A point inside a Room where one Guest stays, one per bed.
 The common area between the Hall Wall and the Entrance, where the Reception Counter stands.
 
 **Corridor**:
-Walkable common space between Rooms and between the Rooms and the Lobby. Column Corridors are 3 cells wide, row Corridors 2.
+Walkable common space between Rooms and between the Rooms and the Lobby. Corridors are 2 cells wide.
 _Avoid_: hallway, passage
 
 **Hall Wall**:
