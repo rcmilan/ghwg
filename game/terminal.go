@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"image"
+	"strings"
 
 	"ghosthotel/assets"
 
@@ -112,6 +113,7 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			}
 		}
 		g.drawHeads(s, x+6, y+40, heads...)
+		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Ghost) // Twin vs Double as text (D97)
 	}
 
 	text(s, fmt.Sprintf("QUEUE %d/%d", len(g.queue), len(g.hotel.Queue)), cardX, cardY, assets.Ghost)
@@ -127,6 +129,11 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		g.drawHeads(s, cardX, cardY+52, names...)
 		text(s, fmt.Sprintf("NIGHTS  %d", p.Nights), cardX, cardY+74, assets.Ghost)
 		text(s, "ROUTINE "+p.Routine.String(), cardX, cardY+90, assets.Ghost)
+		wish := "ANY BED"
+		if p.Wish != "" {
+			wish = strings.ToUpper(p.Wish)
+		}
+		text(s, "WISH    "+wish, cardX, cardY+106, assets.Ghost)
 		i := g.terminalCursor
 		if g.terminalPick >= 0 {
 			i = g.terminalPick
@@ -134,10 +141,13 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		room := g.hotel.Rooms[i]
 		payout := "-"
 		if g.fits(i) == "" {
-			payout = fmt.Sprintf("$%d", room.Type.Rate*p.Nights)
+			payout = fmt.Sprintf("$%d", p.rateIn(room)*p.Nights)
+			if p.rateIn(room) < room.Type.Rate {
+				payout += " (-50%: not " + strings.ToUpper(p.Wish) + ")"
+			}
 		}
-		text(s, "ROOM    "+room.Number, cardX, cardY+106, assets.Ghost)
-		text(s, "PAYOUT  "+payout, cardX, cardY+122, assets.Ghost)
+		text(s, "ROOM    "+room.Number, cardX, cardY+122, assets.Ghost)
+		text(s, "PAYOUT  "+payout, cardX, cardY+138, assets.Ghost)
 	}
 	text(s, "WASD SELECT   SPACE PICK   OK CONFIRM", termX+24, termY+termH-30, assets.Accent)
 	const okW, okH = 80, 28

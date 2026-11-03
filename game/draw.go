@@ -142,6 +142,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	screen.DrawImage(g.floorImg, op)
+	g.drawFogFloor(screen, ox, oy)
 	reels := g.drawReels(screen, ox, oy)
 	still := func(p prop) bool { // a rolling Room's tiles roll, except the hotel's outer side line over them
 		for _, r := range reels {
@@ -157,10 +158,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		x, y float64 // foot box center; y sorts (T039)
 		name string
 		anim entities.Anim
+		fog  float64
 	}
-	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim}}
+	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0}}
 	for _, guest := range g.guests() {
-		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim})
+		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y)))})
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
@@ -175,13 +177,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			op.GeoM.Reset()
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
-			screen.DrawImage(g.tiles[p.id], op)
+			drawFogged(screen, g.tiles[p.id], op, g.propFog(p))
 		}
 	}
 	for _, a := range actors {
 		propsUpTo(a.y)
 		x, y := at(a.x, a.y)
-		g.drawCharacter(screen, x, y, a.name, a.anim)
+		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
 	}
 	propsUpTo(math.Inf(1))
 	for _, f := range g.floaters { // "+$X" rising over the door (D87)
@@ -288,8 +290,8 @@ func loadCharacters(names ...string) (map[string][2]*ebiten.Image, error) {
 }
 
 // drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
-// (x,y) is the foot box center in screen px.
-func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim) {
+// (x,y) is the foot box center in screen px; inside a fogged Room it fades out with the fog (D92).
+func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64) {
 	sheet := g.characters[name][0]
 	if a.Moving {
 		sheet = g.characters[name][1]
@@ -298,5 +300,6 @@ func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
+	op.ColorScale.ScaleAlpha(float32(1 - fog))
 	s.DrawImage(sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op)
 }

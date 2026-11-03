@@ -17,7 +17,7 @@ import (
 // walking one leg for too long), on any phasing while the Concierge stands at the Terminal (D89: keep-right,
 // yielding and paths around the Concierge must suffice), on money banked without a Checkout or twice for one, on a Booking that
 // never pays or pays on another day than its last (D88), on a Midnight that rolls a Room it shouldn't
-// (D85), on a run where no Tourist goes out, and on a first night with no Spin (rampDays).
+// (D85), on a run where no Tourist goes out, and on a first Midnight with no Vacant Room (rampDays).
 func TestSimClock(t *testing.T) {
 	cases := []struct {
 		name string
@@ -41,22 +41,25 @@ func TestSimClock(t *testing.T) {
 			return d.Min.Add(d.Max).Div(2)
 		}},
 	}
-	outings := 0
+	outings, pairs := 0, 0
 	for cols := 2; cols <= 3; cols++ {
 		for rows := 1; rows <= 3; rows++ {
 			for i, c := range cases {
-				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) { outings += simClock(t, cols, rows, c.days, c.pin, i == 0) })
+				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) {
+					o, p := simClock(t, cols, rows, c.days, c.pin, i == 0)
+					outings, pairs = outings+o, pairs+p
+				})
 			}
 		}
 	}
-	if outings == 0 {
-		t.Error("no Tourist went out on any grid")
+	if outings == 0 || pairs == 0 { // one grid's seed can draw neither
+		t.Errorf("%d Tourist outings and %d pairs booked across the grids, want both", outings, pairs)
 	}
 }
 
-// simClock runs one grid for days and returns the Tourist outings. pin holds the Concierge; strict fails
+// simClock runs one grid for days and returns the Tourist outings and the pairs booked. pin holds the Concierge; strict fails
 // on any phasing, for a pin out of the guests' way.
-func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point, strict bool) int {
+func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point, strict bool) (int, int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g, err := newGame(cols, rows)
 	if err != nil {
@@ -72,12 +75,15 @@ func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point,
 	legs := map[*Party]leg{}
 	var booked []*Party
 	counted := map[*Party]bool{}
-	nights, outings := map[int]int{}, 0
+	nights, outings, pairs := map[int]int{}, 0, 0
 	for end := g.clock + days*dayFrames; g.clock < end; {
 		if len(g.queue) > 0 && len(g.queue[0].Guests[0].Path) == 0 {
 			for i := range g.hotel.Rooms {
 				if p := g.queue[0]; g.book(i) == "" {
 					booked = append(booked, p)
+					if len(p.Guests) == 2 {
+						pairs++
+					}
 					break
 				}
 			}
@@ -92,13 +98,21 @@ func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point,
 				}
 			}
 		}
+		if midnight && day(g.clock) == 1 {
+			vacant := 0
+			for i := range g.hotel.Rooms {
+				if g.vacant(i) {
+					vacant++
+				}
+			}
+			if vacant == 0 {
+				t.Fatal("every Room was booked by the first Midnight (rampDays)")
+			}
+		}
 		money := g.money
 		g.step(0, 0)
 		if midnight && !slices.Equal(g.spinRooms, eligible) && (g.spinning() || len(eligible) > 0) {
 			t.Fatalf("%s: Midnight rolled Rooms %v, want the eligible %v", clockText(g.clock), g.spinRooms, eligible)
-		}
-		if g.clock == dayFrames && !g.spinning() {
-			t.Fatal("no Spin on the first night: every Room was booked")
 		}
 		for _, guest := range g.guests() {
 			if strict && guest.Phasing {
@@ -131,13 +145,14 @@ func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point,
 				legs[p] = leg{p.state, p.slot, g.tick}
 				continue
 			}
-			if walking := p.state != staying && len(p.Guests[0].Path) > 0; walking && g.tick-l.from > legBudget {
+			walking := p.state != staying && slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return len(guest.Path) > 0 })
+			if walking && g.tick-l.from > legBudget {
 				t.Fatalf("%s: a Party (state %d, room %d) has walked one leg for %d frames: %s",
 					clockText(g.clock), p.state, p.Room, g.tick-l.from, where(p.Guests))
 			}
 		}
 	}
-	t.Logf("%d Bookings, %d paid (by nights %v), %d Tourist outings, $%d banked", len(booked), len(counted), nights, outings, g.money)
+	t.Logf("%d Bookings (%d pairs), %d paid (by nights %v), %d Tourist outings, $%d banked", len(booked), pairs, len(counted), nights, outings, g.money)
 	if len(booked) == 0 {
 		t.Fatal("no Bookings in the whole run")
 	}
@@ -146,7 +161,7 @@ func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point,
 			t.Errorf("room %d's Booking never paid: checkout was %s, now %s", p.Room, clockText(p.Checkout), clockText(g.clock))
 		}
 	}
-	return outings
+	return outings, pairs
 }
 
 func mustNew(t *testing.T) *Game {

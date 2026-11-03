@@ -26,10 +26,14 @@ const (
 
 var layerNames = [NumLayers]string{"floor", "walls", "decor", "props"}
 
-// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj). Several files
-// may share a Name: they are that type's variants, one prop layout each (D65).
+// Bed layouts (D80) and the Stay Spots each holds: a Room's capacity.
+var bedCapacity = map[string]int{"Single": 1, "Twin": 2, "Double": 2}
+
+// RoomType is the template a Room is built from, authored in Tiled (assets/rooms/*.tmj): a tier (Name)
+// times a bed layout (Beds, D80). Several files may share both: they are variants, one prop layout each (D65).
 type RoomType struct {
-	Name    string
+	Name    string // the tier: Standard or Deluxe
+	Beds    string // Single, Twin or Double
 	Rate    int
 	Tiles   [NumLayers][]TileID // RoomW*RoomH each, row-major
 	Stays   []image.Point       // Stay Spots, room-local px: one per bed, so the Room's capacity (D80)
@@ -82,6 +86,9 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 	}
 	if _, err := prop(m.Properties, "rate", &rt.Rate); err != nil || rt.Rate <= 0 {
 		return rt, fmt.Errorf("map property \"rate\" must be a positive int")
+	}
+	if _, err := prop(m.Properties, "beds", &rt.Beds); err != nil || bedCapacity[rt.Beds] == 0 {
+		return rt, fmt.Errorf("map property \"beds\" must be Single, Twin or Double")
 	}
 
 	first := uint32(m.Tilesets[0].FirstGID)
@@ -142,8 +149,8 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 			stays = append(stays, image.Pt(int(o.X), int(o.Y)))
 		}
 	}
-	if len(stays) == 0 {
-		return rt, fmt.Errorf("found no \"stay\" points in the markers layer, want one per bed")
+	if len(stays) != bedCapacity[rt.Beds] {
+		return rt, fmt.Errorf("found %d \"stay\" points in the markers layer, want %d for %s (one per guest)", len(stays), bedCapacity[rt.Beds], rt.Beds)
 	}
 	for _, p := range stays {
 		if !rt.walkable(ts, p) {

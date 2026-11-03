@@ -5,7 +5,7 @@
  "name": "hotel",
  "tilewidth": 16,
  "tileheight": 16,
- "tilecount": 125,
+ "tilecount": 131,
  "columns": 0,
  "margin": 0,
  "spacing": 0,
@@ -2186,6 +2186,162 @@
      "value": true
     }
    ]
+  },
+  {
+   "id": 127,
+   "image": "prop_bed_white_single_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 128,
+   "image": "prop_bed_white_single_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 129,
+   "image": "prop_bed_white_single_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 130,
+   "image": "prop_bed_brown_single_r0c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": 131,
+   "image": "prop_bed_brown_single_r1c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ],
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
+  },
+  {
+   "id": 132,
+   "image": "prop_bed_brown_single_r2c0.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0,
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ]
+   }
   }
  ]
 }

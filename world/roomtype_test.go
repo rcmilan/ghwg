@@ -2,7 +2,6 @@ package world
 
 import (
 	"encoding/json"
-	"image"
 	"io/fs"
 	"strings"
 	"testing"
@@ -20,40 +19,44 @@ func loadTileset(t *testing.T) *Tileset {
 	return ts
 }
 
-func TestStandardRoomType(t *testing.T) {
-	ts := loadTileset(t)
-	types, err := LoadRoomTypes(assets.FS, ts)
+// D80-D84: one file per tier × bed layout, with the D82 Rates and one Stay Spot per guest it sleeps.
+func TestRoomTypeTable(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var std *RoomType
-	for i := range types {
-		if types[i].Name == "Standard" {
-			std = &types[i]
+	want := map[[2]string]int{
+		{"Standard", "Single"}: 25, {"Standard", "Twin"}: 40, {"Standard", "Double"}: 40,
+		{"Deluxe", "Single"}: 40, {"Deluxe", "Twin"}: 64, {"Deluxe", "Double"}: 64,
+	}
+	seen := map[[2]string]bool{}
+	for _, rt := range types {
+		k := [2]string{rt.Name, rt.Beds}
+		rate, ok := want[k]
+		if !ok || rt.Rate != rate || rt.DoorCol != 4 {
+			t.Errorf("%v: rate %d door col %d, want %d and 4", k, rt.Rate, rt.DoorCol, rate)
 		}
+		if len(rt.Stays) != bedCapacity[rt.Beds] {
+			t.Errorf("%v: %d Stay Spots, want %d", k, len(rt.Stays), bedCapacity[rt.Beds])
+		}
+		seen[k] = true
 	}
-	if std == nil {
-		t.Fatalf("no Standard room type in %d types", len(types))
-	}
-	if std.Rate != 25 || std.DoorCol != 4 {
-		t.Errorf("rate %d door col %d, want 25 and 4", std.Rate, std.DoorCol)
-	}
-	if len(std.Stays) != 1 || std.Stays[0].Div(TileSize) != image.Pt(4, 4) {
-		t.Errorf("stays %v, want one in cell (4,4)", std.Stays)
+	if len(seen) != len(want) {
+		t.Errorf("tier × beds combinations %v, want all %d", seen, len(want))
 	}
 }
 
-// mutate decodes standard_a.tmj into generic JSON, applies f, and parses the result.
+// mutate decodes standard_single.tmj into generic JSON, applies f, and parses the result.
 func mutate(t *testing.T, f func(m map[string]any)) error {
 	t.Helper()
 	_, err := ParseRoomType(mutated(t, f), loadTileset(t))
 	return err
 }
 
-// mutated returns standard_a.tmj with f applied.
+// mutated returns standard_single.tmj with f applied.
 func mutated(t *testing.T, f func(m map[string]any)) []byte {
 	t.Helper()
-	data, err := fs.ReadFile(assets.FS, "rooms/standard_a.tmj")
+	data, err := fs.ReadFile(assets.FS, "rooms/standard_single.tmj")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +84,10 @@ func TestRoomTypeValidation(t *testing.T) {
 		f          func(m map[string]any)
 	}{
 		{"no stay", `"stay"`, func(m map[string]any) { layer(m, "markers")["objects"] = []any{} }},
+		{"no beds", `"beds"`, func(m map[string]any) { m["properties"] = m["properties"].([]any)[:2] }}, // keeps name, rate
+		{"a Twin with one stay", "want 2 for Twin", func(m map[string]any) {
+			m["properties"].([]any)[2].(map[string]any)["value"] = "Twin"
+		}},
 		{"two door columns", "door columns", func(m map[string]any) {
 			decor := layer(m, "decor")["data"].([]any)
 			decor[7*RoomW+2] = decor[7*RoomW+4] // a second door leaf at col 2
@@ -100,7 +107,7 @@ func TestRoomTypeValidation(t *testing.T) {
 		})
 	}
 	if err := mutate(t, func(map[string]any) {}); err != nil {
-		t.Fatalf("unmodified standard_a.tmj: %v", err)
+		t.Fatalf("unmodified standard_single.tmj: %v", err)
 	}
 }
 
@@ -117,20 +124,4 @@ func TestRoomTypesShareDoorColumn(t *testing.T) {
 	if _, err := LoadRoomTypes(fsys, loadTileset(t)); err == nil || !strings.Contains(err.Error(), "door column") {
 		t.Fatalf("got %v, want a door column error", err)
 	}
-}
-
-func TestDeluxeRoomType(t *testing.T) {
-	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, rt := range types {
-		if rt.Name == "Deluxe" {
-			if rt.Rate != 40 {
-				t.Errorf("Deluxe rate %d, want 40", rt.Rate)
-			}
-			return
-		}
-	}
-	t.Fatalf("no Deluxe in %d types", len(types))
 }

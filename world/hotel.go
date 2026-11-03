@@ -228,19 +228,22 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	return h, nil
 }
 
-// Draw picks each Room's next Room Type: independent, equal odds per type name, repeats allowed (D46),
-// then one of that type's variants, equal odds (D65).
+// Draw picks each Room's next Room Type, independently, repeats allowed (D46): a tier, then a bed layout
+// of that tier, then one of its variants, equal odds at each step (D84).
 func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
-	var names []string
-	for _, t := range types {
-		if !slices.Contains(names, t.Name) {
-			names = append(names, t.Name)
+	pick := func(ts []RoomType, key func(RoomType) string) []RoomType { // the types sharing a random key
+		var keys []string
+		for _, t := range ts {
+			if !slices.Contains(keys, key(t)) {
+				keys = append(keys, key(t))
+			}
 		}
+		k := keys[rng.IntN(len(keys))]
+		return slices.DeleteFunc(slices.Clone(ts), func(t RoomType) bool { return key(t) != k })
 	}
 	next := make([]RoomType, n)
 	for i := range next {
-		name := names[rng.IntN(len(names))]
-		vs := slices.DeleteFunc(slices.Clone(types), func(t RoomType) bool { return t.Name != name })
+		vs := pick(pick(types, func(t RoomType) string { return t.Name }), func(t RoomType) string { return t.Beds })
 		next[i] = vs[rng.IntN(len(vs))]
 	}
 	return next

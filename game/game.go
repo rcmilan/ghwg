@@ -57,6 +57,7 @@ type Game struct {
 	money          int
 	walkIns        int // Walk-ins this Run
 	floaters       []floater
+	fog            []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message        string
 	rng            *rand.Rand
 	tiles          []*ebiten.Image             // by world.TileID
@@ -106,7 +107,7 @@ func (g *Game) mapSize() (int, int) {
 
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant, an instant Spin (D46), no money.
 func (g *Game) startRun() {
-	g.parties, g.queue, g.floaters, g.walkIns = nil, nil, nil, 0
+	g.parties, g.queue, g.floaters, g.walkIns, g.fog = nil, nil, nil, 0, nil
 	cols, rows := g.hotel.Grid()
 	g.clock, g.money, g.terminalCursor = runStart, 0, (rows-1)*cols // the cursor starts on 101
 	g.state = StatePlay
@@ -161,6 +162,7 @@ func (g *Game) step(dx, dy float64) {
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
 	g.separate()
+	g.updateFog()
 	g.player.Anim.Update(g.player.X, g.player.Y)
 	for _, guest := range g.guests() {
 		guest.Anim.Update(guest.X, guest.Y)
@@ -190,8 +192,9 @@ func (g *Game) separate() {
 		x, y    *float64
 		give    float64
 		blocked func(image.Rectangle) bool
+		guest   *entities.Guest // nil: the Concierge
 	}
-	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked}}
+	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil}}
 	for _, guest := range g.guests() {
 		if guest.Phasing {
 			continue
@@ -200,7 +203,7 @@ func (g *Game) separate() {
 		if len(guest.Path) > 0 {
 			give = guestGive
 		}
-		bodies = append(bodies, body{&guest.X, &guest.Y, give, g.blocked})
+		bodies = append(bodies, body{&guest.X, &guest.Y, give, g.blocked, guest})
 	}
 	nudge := func(b body, dx, dy float64) {
 		if !b.blocked(entities.FootBox(*b.x+dx, *b.y+dy)) {
@@ -210,6 +213,9 @@ func (g *Game) separate() {
 	}
 	for i, a := range bodies {
 		for _, b := range bodies[i+1:] {
+			if a.guest != nil && b.guest.Mate(a.guest) { // a Party walks as one (D90)
+				continue
+			}
 			dx, dy := *b.x-*a.x, *b.y-*a.y
 			ox, oy := entities.FootW-math.Abs(dx), entities.FootH-math.Abs(dy)
 			if ox <= 0 || oy <= 0 {
@@ -301,7 +307,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
 	for _, o := range g.guests() {
-		if o == guest || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
+		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
 		on := image.Pt(int(o.X), int(o.Y)).Div(world.TileSize)
@@ -317,7 +323,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 // When two walking guests each have the other ahead (converging on one cell), only the one without the
 // right of way stops, so they never wait on each other.
 func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, bump bool) {
-	box := entities.FootBox(guest.X, guest.Y)
+	box := entities.FootBox(guest.X, guest.Y).Inset(-1) // touching counts: boxes snap to whole px, so one could step into a gap and never see the bump
 	hit := func(x, y float64) bool {
 		return entities.FootBox(x, y).Overlaps(box) && (x-guest.X)*hx+(y-guest.Y)*hy > 0
 	}
@@ -325,7 +331,7 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 		return g.player.X, g.player.Y, true
 	}
 	for _, o := range g.guests() {
-		if o == guest || o.Phasing || !hit(o.X, o.Y) {
+		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}
 		if len(o.Path) > 0 && rightOfWay(guest, o) {
