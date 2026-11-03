@@ -101,7 +101,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawTerminal(screen)
 	}
 	text(screen, g.message, 28, 518, assets.Accent)
-	text(screen, fmt.Sprintf("$%02d", g.money), 880, 518, assets.Money)
 }
 
 func (g *Game) drawTitle(s *ebiten.Image) {
@@ -186,6 +185,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
 	}
 	propsUpTo(math.Inf(1))
+	g.drawDarkness(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87)
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		text(screen, f.text, x-3*len(f.text), y, assets.Money)

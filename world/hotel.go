@@ -75,6 +75,8 @@ type Hotel struct {
 	ConciergeStart image.Point     // behind the counter's computer
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
 	Queue          []image.Point   // the Queue's lanes: the cell in front of the counter where each lane starts, east first (D78)
+	Lights         []image.Point   // ceiling lights over the Corridors (D95)
+	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -224,6 +226,17 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	for k := range queueLanes { // one free cell between lanes: room to step out of the line
 		h.Queue = append(h.Queue, cellCenter(l.counterX+counterW-1-2*k, l.counter+1))
 	}
+	// ceiling lights (D95), on the grid: one in the Corridor below each Room and in the column Corridor beside it
+	for c := range cols {
+		for r := range rows {
+			o := l.origin(c, r).Mul(TileSize)
+			h.Lights = append(h.Lights, o.Add(image.Pt(RoomW*TileSize/2, (RoomH+corridor/2)*TileSize)))
+			if c > 0 {
+				h.Lights = append(h.Lights, o.Add(image.Pt(-corridor*TileSize/2, RoomH*TileSize/2)))
+			}
+		}
+	}
+	h.Lobby = image.Rect(TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	return h, nil
 }

@@ -71,6 +71,8 @@ type Game struct {
 	cinematic      bool                        // the last Spin glides the camera out to the Rooms
 	spinEndAt      int                         // tick the cinematic's camera is back on the Concierge
 	worldImg       *ebiten.Image               // the whole map ×zoom, for the Spin cinematic
+	dark           *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
+	pool, glow     *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
 }
 
 // New builds the shipped grid (world.Cols x world.Rows).
@@ -115,7 +117,6 @@ func (g *Game) startRun() {
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
-	g.message = "Guests walk in and queue at reception. Book them at the terminal."
 }
 
 func (g *Game) Update() error {

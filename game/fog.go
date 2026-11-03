@@ -18,8 +18,8 @@ const (
 	fogAlpha  = 0.95    // the veil's Night tone at full fog
 )
 
-// updateFog fades each Room's veil toward 1 while its whole Party is inside with the door shut, and
-// toward 0 from the moment the door opens (D92).
+// updateFog fades each Room's veil toward 1 while its door is shut with its whole Party inside, or
+// once the Party has settled in, even while it's out (S6 review); toward 0 while the door is open (D92).
 func (g *Game) updateFog() {
 	if len(g.fog) != len(g.hotel.Rooms) {
 		g.fog = make([]float64, len(g.hotel.Rooms))
@@ -40,7 +40,7 @@ func (g *Game) fogged(room int) bool {
 	shell := g.hotel.Rooms[room].Shell()
 	for _, p := range g.parties {
 		if p.Occupies(room) {
-			return p.state != out && !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {
+			return p.settled || !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {
 				return !image.Pt(int(guest.X), int(guest.Y)).In(shell)
 			})
 		}

@@ -103,6 +103,7 @@ type Party struct {
 	patience int           // clock frame it gives up queueing (D79)
 	goals    []image.Point // where each member is headed this leg
 	peeled   bool          // this leg's leader has arrived and the follower heads for its own goal
+	settled  bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
 	Booking
 }
 
@@ -345,7 +346,7 @@ func (g *Game) updateParty(p *Party) bool {
 		g.walkParty(p, arriveSpeed)
 	case checkingIn:
 		if g.walkParty(p, arriveSpeed) {
-			p.state = staying
+			p.state, p.settled = staying, true
 		}
 	case staying:
 		switch {

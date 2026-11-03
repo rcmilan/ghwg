@@ -46,6 +46,43 @@ func TestFog(t *testing.T) {
 	if g.fog[room] != 1 {
 		t.Fatalf("fog %.2f %d frames after the door shut, want 1", g.fog[room], fogFrames+1)
 	}
+	// a day out (S6 review): the fog clears while the door lets them out, is back once it shuts, and
+	// holds while they're away and walking back, until the door opens for them again
+	for p.state != staying {
+		g.step(0, 0)
+	}
+	p.state = goingOut
+	g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
+	away := false
+	for range 120 * tps {
+		before := g.fog[room]
+		g.step(0, 0)
+		if p.state == out {
+			if away = true; g.fog[room] != 1 {
+				t.Fatalf("fog %.2f while the Party is out", g.fog[room])
+			}
+		}
+		if away && door.Open() > 0 {
+			if before != 1 {
+				t.Fatalf("fog %.2f just before the door opened for the Party coming back", before)
+			}
+			break
+		}
+	}
+	if !away {
+		t.Fatal("the Party never went out")
+	}
+	for range 60 * tps {
+		if g.step(0, 0); p.state == staying && door.Open() == 0 {
+			break
+		}
+	}
+	for range fogFrames {
+		g.step(0, 0)
+	}
+	if g.fog[room] != 1 {
+		t.Fatalf("fog %.2f once back in with the door shut, want 1", g.fog[room])
+	}
 	p.Checkout = g.clock
 	for range 60 * tps {
 		if g.step(0, 0); door.Open() > 0 {

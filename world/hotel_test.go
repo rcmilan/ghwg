@@ -298,3 +298,23 @@ func TestDoormats(t *testing.T) {
 		}
 	})
 }
+
+// D95, T039: ceiling lights sit over every Corridor, on floor, never in a Room.
+func TestLights(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		if want := l.cols*l.rows + (l.cols-1)*l.rows; len(h.Lights) != want {
+			t.Errorf("%d lights, want %d", len(h.Lights), want)
+		}
+		for _, p := range h.Lights {
+			x, y := p.X/TileSize, p.Y/TileSize
+			if h.Map.At(LayerFloor, x, y) == 0 || h.Map.Solid(x, y) || y >= l.hall {
+				t.Errorf("light %v is not over the floor inside the hotel", p)
+			}
+			for _, r := range h.Rooms {
+				if p.In(r.Shell()) {
+					t.Errorf("light %v is in Room %s", p, r.Number)
+				}
+			}
+		}
+	})
+}
