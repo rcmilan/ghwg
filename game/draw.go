@@ -97,6 +97,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.state == StatePlay && !g.spinning() && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
 	}
+	if room := g.atPanel(); g.state == StatePlay && !g.spinning() && room >= 0 {
+		to := "AUTO"
+		if g.autoRoom[room] {
+			to = "MANUAL"
+		}
+		text(screen, "[SPACE] SET ROOM "+g.hotel.Rooms[room].Number+" "+to, 28, 498, assets.Money)
+	}
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
 	}
@@ -153,19 +160,24 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	g.drawDoors(screen, ox, oy, reels)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	type actor struct {
-		x, y float64 // foot box center; y sorts (T039)
-		name string
-		anim entities.Anim
-		fog  float64
+	type drawable struct {
+		y    float64 // world px; sorts with the props (T039): an actor's feet, a panel's wall row
+		draw func()
 	}
-	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0}}
+	character := func(x, y float64, name string, a entities.Anim, fog float64) drawable {
+		return drawable{y, func() { sx, sy := at(x, y); g.drawCharacter(screen, sx, sy, name, a, fog) }}
+	}
+	ds := []drawable{character(g.player.X, g.player.Y, "Bob", g.player.Anim, 0)}
 	for _, guest := range g.guests() {
-		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y)))})
+		ds = append(ds, character(guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y)))))
 	}
-	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
-	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
-	// sort y is drawn over it
+	for i, r := range g.hotel.Rooms {
+		p := r.Panel()
+		ds = append(ds, drawable{float64(g.hotel.Map.SortY(p.X, p.Y)), func() { g.drawPanel(screen, p, g.autoRoom[i], ox, oy) }})
+	}
+	slices.SortStableFunc(ds, func(a, b drawable) int { return cmp.Compare(a.y, b.y) })
+	// y-sorted pass (D11): merge the props and the drawables; one whose y is on or below a prop's sort y is
+	// drawn over it
 	i := 0
 	propsUpTo := func(feet float64) {
 		for ; i < len(g.props) && float64(g.props[i].y) <= feet; i++ {
@@ -179,10 +191,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			drawFogged(screen, g.tiles[p.id], op, g.propFog(p))
 		}
 	}
-	for _, a := range actors {
-		propsUpTo(a.y)
-		x, y := at(a.x, a.y)
-		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
+	for _, d := range ds {
+		propsUpTo(d.y)
+		d.draw()
 	}
 	propsUpTo(math.Inf(1))
 	g.drawDarkness(screen, ox, oy)
@@ -190,6 +201,23 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		text(screen, f.text, x-3*len(f.text), y, assets.Money)
 	}
+}
+
+// Door Panel, in world px within its wall cell (04 D117): a dark plate with a light near its top.
+const panelX, panelY, panelW, panelH, panelLight = 5, 3, 6, 9, 2
+
+// drawPanel draws a Room's Door Panel on its wall cell: green while the Room is auto, amber while manual.
+func (g *Game) drawPanel(s *ebiten.Image, cell image.Point, auto bool, ox, oy int) {
+	x, y := (cell.X*world.TileSize+panelX)*zoom-ox, (cell.Y*world.TileSize+panelY)*zoom-oy
+	rect(s, x, y, panelW*zoom, panelH*zoom, assets.Ink)
+	rect(s, x+(panelW-panelLight)/2*zoom, y+2*zoom, panelLight*zoom, panelLight*zoom, panelColor(auto))
+}
+
+func panelColor(auto bool) color.RGBA {
+	if auto {
+		return assets.Green
+	}
+	return assets.Amber
 }
 
 // drawReels draws each rolling Room's whole footprint, clipped to it (D48): the old cells slide out the

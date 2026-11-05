@@ -25,4 +25,6 @@ var (
 	Ink       = color.RGBA{15, 17, 28, 255}
 	Locked    = color.RGBA{208, 91, 107, 255}
 	Money     = color.RGBA{247, 216, 101, 255}
+	Green     = color.RGBA{96, 230, 110, 255} // a Door Panel on auto
+	Amber     = color.RGBA{255, 168, 40, 255} // a Door Panel on manual
 )

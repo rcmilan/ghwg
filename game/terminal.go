@@ -92,6 +92,7 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			bg = assets.Ink // grayed: Booked
 		}
 		rect(s, x, y, tw, th, bg)
+		rect(s, x+tw-12, y+4, 8, 8, panelColor(g.autoRoom[i])) // its Door Panel, read-only (04 D114)
 		text(s, room.Number+" "+room.Type.Name, x+6, y+4, assets.Pale)
 		text(s, fmt.Sprintf("$%d/night", room.Type.Rate), x+6, y+20, assets.Pale)
 		heads := make([]string, len(room.Stays)) // Vacant: the capacity, as Adam's heads

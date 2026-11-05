@@ -63,6 +63,12 @@ type Room struct {
 	Stays  []image.Point // Stay Spots, world px; len is the Room's capacity (D80)
 }
 
+// Panel is the cell of the Room's Door Panel (04 D113): the wall face just east of the door's bottom half.
+func (r Room) Panel() image.Point { return r.Door.Add(image.Pt(1, 1)) }
+
+// PanelSpot is where the Concierge stands to flip the Door Panel: the center of the Corridor cell below it.
+func (r Room) PanelSpot() image.Point { p := r.Panel(); return cellCenter(p.X, p.Y+1) }
+
 // Hotel is the built map plus the anchors the game needs. Points are world px.
 type Hotel struct {
 	l              layout

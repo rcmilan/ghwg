@@ -17,6 +17,21 @@ type Strategy interface {
 var Strategies = map[string]Strategy{
 	"bestrate": stand{atTerminal, bestRate},
 	"idle":     stand{atTerminal, nil},
+	"autoall":  autoAll{},
+}
+
+// autoAll sets every Room auto at its Door Panel, then stands at the Terminal booking nothing: the
+// zero-manual baseline (04 D122).
+type autoAll struct{}
+
+func (autoAll) Act(v View, p *Pilot) {
+	for i, r := range v.Rooms {
+		if !r.Auto {
+			p.SetAuto(i, true)
+			return
+		}
+	}
+	stand{atTerminal, nil}.Act(v, p)
 }
 
 // stand keeps the Concierge at a spot; with a chooser, it books the front Party into the Room chosen

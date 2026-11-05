@@ -25,6 +25,7 @@ type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
+	Auto               bool // an Auto Room: its Door Panel is green, as the Terminal shows (04 D114)
 }
 
 // Front is the Party at the counter: its size is on screen; the rest is on the Terminal's card, so it is
@@ -52,7 +53,7 @@ func (g *Game) view() View {
 		Terminal: TerminalView{g.state == StateTerminal, g.terminalCursor, g.terminalOK, g.terminalPick, g.message},
 	}
 	for i, r := range g.hotel.Rooms {
-		v.Rooms = append(v.Rooms, RoomView{r.Number, r.Type.Name, r.Type.Beds, g.vacant(i), len(r.Stays), r.Type.Rate})
+		v.Rooms = append(v.Rooms, RoomView{r.Number, r.Type.Name, r.Type.Beds, g.vacant(i), len(r.Stays), r.Type.Rate, g.autoRoom[i]})
 	}
 	if g.atCounter() {
 		p := g.queue[0]

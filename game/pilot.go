@@ -194,6 +194,23 @@ func (p *Pilot) Book(room int) {
 	})
 }
 
+// SetAuto walks to the Room's Door Panel and flips it with SPACE, unless it is already as asked (04 D113).
+func (p *Pilot) SetAuto(room int, on bool) {
+	p.GoTo(p.hotel.Rooms[room].PanelSpot())
+	tapped := false
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case v.Rooms[room].Auto == on:
+			return true, true
+		case tapped: // pressed, and it did not take
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			tapped = true
+		}
+		return false, false
+	})
+}
+
 // Close shuts the open Terminal with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {
