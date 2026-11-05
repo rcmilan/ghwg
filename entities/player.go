@@ -3,8 +3,6 @@ package entities
 import (
 	"image"
 	"math"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Actor positions are the center of their foot box, in world px.
@@ -23,23 +21,6 @@ type Player struct {
 
 func NewPlayer(start image.Point) Player {
 	return Player{X: float64(start.X), Y: float64(start.Y), Anim: NewAnim()}
-}
-
-// ReadMove returns the WASD direction, each axis -1, 0 or 1.
-func ReadMove() (dx, dy float64) {
-	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		dx--
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		dx++
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		dy--
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) {
-		dy++
-	}
-	return dx, dy
 }
 
 // Move walks in direction (dx,dy) one axis at a time, so walls stop one axis and the other slides.
