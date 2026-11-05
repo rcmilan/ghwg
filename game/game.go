@@ -11,7 +11,6 @@ import (
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 // The Spin cinematic plays on top of StatePlay (spinning).
@@ -44,6 +43,7 @@ type Game struct {
 	state          int
 	hotel          *world.Hotel
 	types          []world.RoomType // every loaded Room Type, drawn from at each Spin
+	ts             *world.Tileset
 	cam            Camera
 	player         entities.Player
 	parties        []*Party // every Party on the map
@@ -60,6 +60,9 @@ type Game struct {
 	fog            []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message        string
 	rng            *rand.Rand
+	in             input                       // the keys (input.go)
+	headless       bool                        // no window: step skips what only drawing needs
+	auto           *autopilot                  // a Strategy plays instead of a person (sim.go)
 	tiles          []*ebiten.Image             // by world.TileID
 	characters     map[string][2]*ebiten.Image // idle_anim, run sheets by name
 	floorImg       *ebiten.Image               // the floor layer pre-rendered at 1px per world px
@@ -75,10 +78,19 @@ type Game struct {
 	pool, glow     *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
 }
 
-// New builds the shipped grid (world.Cols x world.Rows).
-func New() (*Game, error) { return newGame(world.Cols, world.Rows) }
+// New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
+func New() (*Game, error) {
+	g, err := newWorld(world.Cols, world.Rows, rand.Uint64())
+	if err != nil {
+		return nil, err
+	}
+	g.in, g.headless = keyboard{}, false
+	return g, g.loadImages()
+}
 
-func newGame(cols, rows int) (*Game, error) {
+// newWorld builds a cols x rows hotel with every random draw seeded from seed, and no images: a headless
+// Run, fed keys by a script.
+func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	ts, err := world.LoadTileset(assets.FS, "tiles/hotel.tsj")
 	if err != nil {
 		return nil, err
@@ -87,20 +99,20 @@ func newGame(cols, rows int) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	rng := rand.New(rand.NewPCG(rand.Uint64(), rand.Uint64()))
+	rng := rand.New(rand.NewPCG(seed, seed))
 	h, err := world.Build(ts, types, cols, rows, rng)
 	if err != nil {
 		return nil, err
 	}
-	tiles, err := loadTiles(ts)
-	if err != nil {
-		return nil, err
+	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, ts: ts, in: &script{}, headless: true}, nil
+}
+
+func (g *Game) loadImages() (err error) {
+	if g.tiles, err = loadTiles(g.ts); err != nil {
+		return err
 	}
-	chars, err := loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
-	if err != nil {
-		return nil, err
-	}
-	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, tiles: tiles, characters: chars}, nil
+	g.characters, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
+	return err
 }
 
 func (g *Game) mapSize() (int, int) {
@@ -120,7 +132,10 @@ func (g *Game) startRun() {
 }
 
 func (g *Game) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if g.auto != nil {
+		g.auto.drive(g)
+	}
+	if g.in.JustPressed(ebiten.KeyEscape) {
 		switch g.state {
 		case StateTitle:
 			return ebiten.Termination
@@ -133,20 +148,20 @@ func (g *Game) Update() error {
 	}
 	switch {
 	case g.state == StateTitle:
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if g.in.JustPressed(ebiten.KeySpace) {
 			g.startRun()
 		}
 	case g.state == StateTerminal: // the world and the Clock wait (D73)
 		g.updateTerminal()
 	case g.spinning(): // the camera is on the Rooms: the Concierge waits; Space skips (D61)
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		if g.in.JustPressed(ebiten.KeySpace) {
 			g.skipSpin()
 		}
 		g.step(0, 0)
 	default:
-		g.fast = ebiten.IsKeyPressed(ebiten.KeyT)
-		g.step(entities.ReadMove())
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) && g.atTerminal() {
+		g.fast = g.in.Pressed(ebiten.KeyT)
+		g.step(move(g.in))
+		if g.in.JustPressed(ebiten.KeySpace) && g.atTerminal() {
 			g.openTerminal()
 		}
 	}
@@ -164,12 +179,14 @@ func (g *Game) step(dx, dy float64) {
 	g.updateParties()
 	g.separate()
 	g.updateFog()
-	g.player.Anim.Update(g.player.X, g.player.Y)
-	for _, guest := range g.guests() {
-		guest.Anim.Update(guest.X, guest.Y)
+	if !g.headless {
+		g.player.Anim.Update(g.player.X, g.player.Y)
+		for _, guest := range g.guests() {
+			guest.Anim.Update(guest.X, guest.Y)
+		}
+		w, h := g.mapSize()
+		g.cam.Follow(g.player.X, g.player.Y, w, h)
 	}
-	w, h := g.mapSize()
-	g.cam.Follow(g.player.X, g.player.Y, w, h)
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
 }
 

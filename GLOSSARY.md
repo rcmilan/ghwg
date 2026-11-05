@@ -127,3 +127,18 @@ The darkness layer over the hotel. Its tint follows the Clock, and Light Sources
 
 **Light Source**:
 A lamp, ceiling light, street lamp or Terminal screen that cuts a glow out of the Lightmap at night.
+
+## Development
+
+**Simulation**:
+Many Runs played headless and in parallel by Strategies, to compare outcomes across seeds. A development tool, not part of the game.
+
+**Strategy**:
+A rule that plays a Run in place of a human: which Room to book, when to act. It may do only what a player can do, and sees only the View unless it declares itself a cheat.
+
+**Pilot**:
+What turns a Strategy's intent into key presses at a human pace: walking the Concierge, opening the Terminal, moving its cursor. The only way a Strategy touches the game.
+
+**View**:
+Everything a player can see at one moment: the Terminal's readout, the guests on screen, the Fog, the Clock. The Strategy's input.
+_Avoid_: state, snapshot

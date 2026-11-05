@@ -8,7 +8,6 @@ import (
 	"ghosthotel/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 // openTerminal pauses the world on the Terminal (D73); with nobody at the counter, OK is selected.
@@ -23,9 +22,9 @@ func (g *Game) openTerminal() {
 func (g *Game) updateTerminal() {
 	if g.terminalOK {
 		switch {
-		case inpututil.IsKeyJustPressed(ebiten.KeyW):
+		case g.in.JustPressed(ebiten.KeyW):
 			g.terminalOK = false
-		case inpututil.IsKeyJustPressed(ebiten.KeySpace):
+		case g.in.JustPressed(ebiten.KeySpace):
 			if g.terminalPick >= 0 {
 				g.book(g.terminalPick)
 			}
@@ -36,16 +35,16 @@ func (g *Game) updateTerminal() {
 	cols, rows := g.hotel.Grid()
 	c, r := g.terminalCursor%cols, g.terminalCursor/cols
 	switch {
-	case inpututil.IsKeyJustPressed(ebiten.KeyA):
+	case g.in.JustPressed(ebiten.KeyA):
 		c = (c + cols - 1) % cols
-	case inpututil.IsKeyJustPressed(ebiten.KeyD):
+	case g.in.JustPressed(ebiten.KeyD):
 		c = (c + 1) % cols
-	case inpututil.IsKeyJustPressed(ebiten.KeyW):
+	case g.in.JustPressed(ebiten.KeyW):
 		r = max(r-1, 0)
-	case inpututil.IsKeyJustPressed(ebiten.KeyS):
+	case g.in.JustPressed(ebiten.KeyS):
 		g.terminalOK = r == rows-1
 		r = min(r+1, rows-1)
-	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
+	case g.in.JustPressed(ebiten.KeySpace):
 		if g.message = g.fits(g.terminalCursor); g.message == "" {
 			g.terminalPick = g.terminalCursor
 			g.message = "Picked room " + g.hotel.Rooms[g.terminalCursor].Number + ". OK to confirm."
