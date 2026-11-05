@@ -184,6 +184,7 @@ func (g *Game) step(dx, dy float64) {
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
+	g.autoBook()
 	g.separate()
 	g.updateFog()
 	if !g.headless {
