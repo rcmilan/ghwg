@@ -6,8 +6,8 @@ import (
 	"math"
 	"slices"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 )
 
 // Walk-in tunables (D77–D79). Rates are Walk-ins per game hour, rolled once per game minute.

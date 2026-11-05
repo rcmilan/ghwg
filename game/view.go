@@ -3,7 +3,7 @@ package game
 import (
 	"image"
 
-	"ghosthotel/world"
+	"shift/world"
 )
 
 // View is what a player sees, nothing more (D105): a Strategy decides from it and the Pilot steers by it.

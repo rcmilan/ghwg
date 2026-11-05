@@ -18,7 +18,7 @@ import (
 	"sync"
 	"text/tabwriter"
 
-	"ghosthotel/game"
+	"shift/game"
 )
 
 func main() {

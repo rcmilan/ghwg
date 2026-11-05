@@ -5,8 +5,8 @@ import (
 	"image"
 	"slices"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

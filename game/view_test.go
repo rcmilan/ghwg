@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"ghosthotel/world"
+	"shift/world"
 )
 
 // T052: the View shows what the Terminal and the screen show, and no more.

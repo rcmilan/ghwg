@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"ghosthotel/assets"
+	"shift/assets"
 )
 
 // buildHotel builds a 2×2 grid: the hand-measured coordinates in the pinned tests were taken on it,

@@ -4,8 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 )
 
 // D89, T023: at a Room doorway, a guest walking in waits for the one walking out, which goes first

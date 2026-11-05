@@ -9,9 +9,9 @@ import (
 	"math"
 	"slices"
 
-	"ghosthotel/assets"
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/assets"
+	"shift/entities"
+	"shift/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -104,7 +104,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) drawTitle(s *ebiten.Image) {
-	text(s, "G H O S T   H O T E L", 345, 195, assets.Ghost)
+	text(s, "S H I F T", 381, 195, assets.Pale)
 	text(s, "[ SPACE ] open the hotel", 362, 335, assets.Money)
 	text(s, "WASD move / SPACE terminal / ESC title or quit", 275, 485, assets.Floor)
 }

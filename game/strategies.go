@@ -3,7 +3,7 @@ package game
 import (
 	"image"
 
-	"ghosthotel/world"
+	"shift/world"
 )
 
 // Strategy decides what the Concierge does next, from what a player sees (D105), through the Pilot

@@ -5,7 +5,7 @@ import (
 	"image"
 	"strings"
 
-	"ghosthotel/assets"
+	"shift/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -76,8 +76,8 @@ func (g *Game) drawHeads(s *ebiten.Image, x, y int, names ...string) {
 func (g *Game) drawTerminal(s *ebiten.Image) {
 	rect(s, termX, termY, termW, termH, assets.Ink)
 	rect(s, termX+8, termY+8, termW-16, termH-16, assets.Wall)
-	text(s, "RECEPTION TERMINAL", termX+24, termY+18, assets.Ghost)
-	text(s, clockText(g.clock), termX+termW-24-6*len(clockText(g.clock)), termY+18, assets.Ghost)
+	text(s, "RECEPTION TERMINAL", termX+24, termY+18, assets.Pale)
+	text(s, clockText(g.clock), termX+termW-24-6*len(clockText(g.clock)), termY+18, assets.Pale)
 	text(s, fmt.Sprintf("$%d", g.money), termX+termW/2, termY+18, assets.Money)
 
 	cols, rows := g.hotel.Grid()
@@ -92,8 +92,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			bg = assets.Ink // grayed: Booked
 		}
 		rect(s, x, y, tw, th, bg)
-		text(s, room.Number+" "+room.Type.Name, x+6, y+4, assets.Ghost)
-		text(s, fmt.Sprintf("$%d/night", room.Type.Rate), x+6, y+20, assets.Ghost)
+		text(s, room.Number+" "+room.Type.Name, x+6, y+4, assets.Pale)
+		text(s, fmt.Sprintf("$%d/night", room.Type.Rate), x+6, y+20, assets.Pale)
 		heads := make([]string, len(room.Stays)) // Vacant: the capacity, as Adam's heads
 		for k := range heads {
 			heads[k] = guestCast[0]
@@ -109,31 +109,31 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 						heads = append(heads, guest.Character)
 					}
 				}
-				text(s, fmt.Sprintf("CHECKOUT DAY %d", day(p.Checkout)), x+6, y+56, assets.Ghost)
+				text(s, fmt.Sprintf("CHECKOUT DAY %d", day(p.Checkout)), x+6, y+56, assets.Pale)
 			}
 		}
 		g.drawHeads(s, x+6, y+40, heads...)
-		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Ghost) // Twin vs Double as text (D97)
+		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Pale) // Twin vs Double as text (D97)
 	}
 
-	text(s, fmt.Sprintf("QUEUE %d/%d", len(g.queue), len(g.hotel.Queue)), cardX, cardY, assets.Ghost)
+	text(s, fmt.Sprintf("QUEUE %d/%d", len(g.queue), len(g.hotel.Queue)), cardX, cardY, assets.Pale)
 	if !g.atCounter() {
-		text(s, "no guests at the counter", cardX, cardY+32, assets.Ghost)
+		text(s, "no guests at the counter", cardX, cardY+32, assets.Pale)
 	} else {
 		p := g.queue[0]
 		var names []string
 		for _, guest := range p.Guests {
 			names = append(names, guest.Character)
 		}
-		text(s, "NEXT GUEST", cardX, cardY+32, assets.Ghost)
+		text(s, "NEXT GUEST", cardX, cardY+32, assets.Pale)
 		g.drawHeads(s, cardX, cardY+52, names...)
-		text(s, fmt.Sprintf("NIGHTS  %d", p.Nights), cardX, cardY+74, assets.Ghost)
-		text(s, "ROUTINE "+p.Routine.String(), cardX, cardY+90, assets.Ghost)
+		text(s, fmt.Sprintf("NIGHTS  %d", p.Nights), cardX, cardY+74, assets.Pale)
+		text(s, "ROUTINE "+p.Routine.String(), cardX, cardY+90, assets.Pale)
 		wish := "ANY BED"
 		if p.Wish != "" {
 			wish = strings.ToUpper(p.Wish)
 		}
-		text(s, "WISH    "+wish, cardX, cardY+106, assets.Ghost)
+		text(s, "WISH    "+wish, cardX, cardY+106, assets.Pale)
 		i := g.terminalCursor
 		if g.terminalPick >= 0 {
 			i = g.terminalPick
@@ -146,8 +146,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 				payout += " (-50%: not " + strings.ToUpper(p.Wish) + ")"
 			}
 		}
-		text(s, "ROOM    "+room.Number, cardX, cardY+122, assets.Ghost)
-		text(s, "PAYOUT  "+payout, cardX, cardY+138, assets.Ghost)
+		text(s, "ROOM    "+room.Number, cardX, cardY+122, assets.Pale)
+		text(s, "PAYOUT  "+payout, cardX, cardY+138, assets.Pale)
 	}
 	text(s, "WASD SELECT   SPACE PICK   OK CONFIRM", termX+24, termY+termH-30, assets.Accent)
 	const okW, okH = 80, 28
@@ -156,5 +156,5 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		rect(s, okX-3, okY-3, okW+6, okH+6, assets.Accent)
 	}
 	rect(s, okX, okY, okW, okH, assets.Floor)
-	text(s, "OK", okX+okW/2-6, okY+okH/2-8, assets.Ghost)
+	text(s, "OK", okX+okW/2-6, okY+okH/2-8, assets.Pale)
 }

@@ -1,4 +1,4 @@
-# Ghost Hotel — vertical slice
+# SHIFT — vertical slice
 
 Run from this directory:
 
@@ -21,3 +21,5 @@ go run ./cmd/sim -strategy bestrate,idle -runs 100 -days 7 -grid 3x3 -seed 1 -re
 ```
 
 `-react` and `-keygap` set the Pilot's pace in frames (`0` `0` is frame-perfect), `-nocheck` skips the invariants, `-csv` writes one row per Run. Run `i` uses seed `seed+i` for every Strategy. Any row replays on screen with `go run . -play bestrate -seed 7 -grid 3x3` (watch mode).
+
+`go run . -play autoall -seed 7 -shot out.png -at 3000` fast-forwards to frame 3000 (600 frames are one game hour), saves the screen as a PNG and quits: a print for reviews. It also works without `-play`.

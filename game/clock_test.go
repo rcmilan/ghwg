@@ -3,7 +3,7 @@ package game
 import (
 	"testing"
 
-	"ghosthotel/world"
+	"shift/world"
 )
 
 // D71–D74: a Run starts on Day 1 at 08:00, an hour is 600 frames, and the cinematic pauses the Clock.

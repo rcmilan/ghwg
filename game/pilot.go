@@ -5,7 +5,7 @@ import (
 	"math"
 	"strings"
 
-	"ghosthotel/world"
+	"shift/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

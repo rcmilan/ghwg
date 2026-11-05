@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 )
 
 // D86, D87, D91, D53: a Booking pays Rate × nights at its door, with the Rate locked when booked, and
