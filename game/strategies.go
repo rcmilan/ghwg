@@ -2,6 +2,8 @@ package game
 
 import (
 	"image"
+	"slices"
+	"strconv"
 
 	"shift/world"
 )
@@ -15,9 +17,44 @@ type Strategy interface {
 
 // Strategies are the ones the CLI and the watch mode know by name (D106).
 var Strategies = map[string]Strategy{
-	"bestrate": stand{atTerminal, bestRate},
-	"idle":     stand{atTerminal, nil},
-	"autoall":  autoAll{},
+	"bestrate":    stand{atTerminal, bestRate},
+	"idle":        stand{atTerminal, nil},
+	"autoall":     autoAll{},
+	"hybrid":      desk{auto: true},
+	"roamer":      desk{away: true},
+	"roamer-auto": desk{away: true, auto: true},
+}
+
+// desk books by hand with bestRate, in the Rooms left manual (04 D122). auto: it keeps the Standard
+// Rooms auto and the Deluxe ones manual, re-flipping a panel when the Spin changes a Room's tier. away:
+// it leaves the desk 2 of every 4 game hours for the back Corridor, like a player busy elsewhere.
+type desk struct{ auto, away bool }
+
+func (d desk) Act(v View, p *Pilot) {
+	if d.auto && !v.Terminal.Open {
+		for i, r := range v.Rooms {
+			if want := r.Type == "Standard"; r.Auto != want {
+				p.SetAuto(i, want)
+				return
+			}
+		}
+	}
+	if h, _ := strconv.Atoi(v.Clock[len(v.Clock)-5 : len(v.Clock)-3]); d.away && h%4 >= 2 {
+		stand{func(h *world.Hotel) image.Point { return h.Rooms[0].PanelSpot() }, nil}.Act(v, p)
+		return
+	}
+	stand{atTerminal, manual(bestRate)}.Act(v, p)
+}
+
+// manual: the chooser, offered only the Rooms on manual.
+func manual(choose func(View) (int, int)) func(View) (int, int) {
+	return func(v View) (int, int) {
+		v.Rooms = slices.Clone(v.Rooms)
+		for i := range v.Rooms {
+			v.Rooms[i].Vacant = v.Rooms[i].Vacant && !v.Rooms[i].Auto
+		}
+		return choose(v)
+	}
 }
 
 // autoAll sets every Room auto at its Door Panel, then stands at the Terminal booking nothing: the

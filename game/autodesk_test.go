@@ -173,3 +173,32 @@ func TestSimAutoAll(t *testing.T) {
 		t.Fatalf("%+v; want only auto Bookings, some paid with fees, no failures", r)
 	}
 }
+
+// T079, T080: hybrid and roamer-auto book through Standard Auto Rooms and by hand; roamer only by hand.
+func TestSimDesk(t *testing.T) {
+	for _, name := range []string{"hybrid", "roamer", "roamer-auto"} {
+		r := RunSim(Config{Cols: 3, Rows: 3, Days: 4, Seed: 3, Strategy: Strategies[name], React: 30, KeyGap: 6})
+		manual := r.Bookings - r.Auto
+		if len(r.Failures) > 0 || manual == 0 || (name == "roamer") != (r.Auto == 0) {
+			t.Errorf("%s: %+v; want manual Bookings, auto ones unless roamer, no failures", name, r)
+		}
+	}
+}
+
+// D90 as documented: the leader waits outside the door for its follower only going out. Checking in, a
+// follower that got into the Room first must not stop its leader (softlock found by roamer, seed 38).
+func TestLeaderNeverWaitsCheckingIn(t *testing.T) {
+	g, ps := autoHotel(t, []string{"Twin"}, 2)
+	p := ps[0]
+	g.bookParty(p, 0, false)
+	in := g.hotel.Rooms[0].Stays[0]
+	p.Guests[1].X, p.Guests[1].Y, p.Guests[1].Path = float64(in.X), float64(in.Y), nil // the follower is in first
+	lead := p.Guests[0]
+	x, y := lead.X, lead.Y
+	for range 30 {
+		g.step(0, 0)
+	}
+	if lead.X == x && lead.Y == y {
+		t.Fatal("the leader stood still outside while its follower was in the Room")
+	}
+}

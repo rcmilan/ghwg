@@ -51,7 +51,7 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter. Here the Concierge books the front Party of the Queue into a Room and sees every Room's status and the Clock. The world pauses while it is open.
+The computer on the Reception Counter. Here the Concierge books a Party standing at the counter into a Room and sees every Room's status and the Clock. The world pauses while it is open.
 
 **Queue**:
 The waiting Walk-ins at the Reception Counter: 3 parallel lanes, one Party each. Any Party standing in its lane may be booked, not only the one that arrived first.

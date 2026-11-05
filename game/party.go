@@ -294,7 +294,7 @@ func (g *Game) walkParty(p *Party, speed float64) bool {
 	in := func(guest *entities.Guest) bool {
 		return p.Room >= 0 && image.Pt(int(guest.X), int(guest.Y)).In(g.hotel.Rooms[p.Room].Shell())
 	}
-	waits := !in(lead) && slices.ContainsFunc(p.Guests[1:], in)
+	waits := p.state != checkingIn && !in(lead) && slices.ContainsFunc(p.Guests[1:], in) // going out only (D90)
 	if len(lead.Path) > 0 && !waits {
 		g.walk(lead, speed)
 	}
