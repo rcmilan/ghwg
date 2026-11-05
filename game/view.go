@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 
 	"shift/world"
 )
@@ -14,7 +15,7 @@ type View struct {
 	Day       int
 	Money     int
 	Rooms     []RoomView    // in the Terminal's order
-	Front     *Front        // the front Party, standing at the counter; nil if nobody is
+	Counter   []Front       // the Parties standing at the counter, in arrival order (04 D119)
 	Guests    []image.Point // every guest's cell not hidden by the Fog
 	Concierge image.Point   // world px
 	Terminal  TerminalView
@@ -28,7 +29,7 @@ type RoomView struct {
 	Auto               bool // an Auto Room: its Door Panel is green, as the Terminal shows (04 D114)
 }
 
-// Front is the Party at the counter: its size is on screen; the rest is on the Terminal's card, so it is
+// Front is a Party at the counter: its size is on screen; the rest is on the Terminal's list, so it is
 // filled only while the Terminal is open.
 type Front struct {
 	Size    int
@@ -41,7 +42,9 @@ type TerminalView struct {
 	Open    bool
 	Cursor  int  // the selected Room
 	OK      bool // the OK button is selected instead
+	List    bool // the list of Parties at the counter is focused instead
 	Pick    int  // the picked Room, -1 if none
+	Party   int  // the Party picked for it, by its place in Counter; -1 if none
 	Message string
 }
 
@@ -50,17 +53,18 @@ func (g *Game) view() View {
 		Title: g.state == StateTitle, Spinning: g.spinning(),
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money,
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.terminalCursor, g.terminalOK, g.terminalPick, g.message},
+		Terminal: TerminalView{g.state == StateTerminal, g.terminalCursor, g.terminalOK, g.terminalList, g.terminalPick,
+			slices.Index(g.counter(), g.terminalParty), g.message},
 	}
 	for i, r := range g.hotel.Rooms {
 		v.Rooms = append(v.Rooms, RoomView{r.Number, r.Type.Name, r.Type.Beds, g.vacant(i), len(r.Stays), r.Type.Rate, g.autoRoom[i]})
 	}
-	if g.atCounter() {
-		p := g.queue[0]
-		v.Front = &Front{Size: len(p.Guests)}
+	for _, p := range g.counter() {
+		f := Front{Size: len(p.Guests)}
 		if v.Terminal.Open {
-			v.Front.Nights, v.Front.Routine, v.Front.Wish = p.Nights, p.Routine.String(), p.Wish
+			f.Nights, f.Routine, f.Wish = p.Nights, p.Routine.String(), p.Wish
 		}
+		v.Counter = append(v.Counter, f)
 	}
 	for _, guest := range g.guests() {
 		if at := image.Pt(int(guest.X), int(guest.Y)); g.fogAt(at) < 1 {

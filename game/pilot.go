@@ -149,9 +149,10 @@ func (p *Pilot) OpenTerminal() {
 }
 
 // Book, on the open Terminal, moves the cursor to the Room by the Terminal's own rules (A/D wrap, W/S
-// clamp, S from the bottom row reaches OK), picks it with SPACE and confirms on OK. A refused pick
-// closes the Terminal with ESC and fails.
-func (p *Pilot) Book(room int) {
+// clamp, S from the bottom row reaches OK) and picks it with SPACE; then the Party, by its place in
+// View.Counter: W/S in the list and SPACE, unless the Terminal went straight to OK; then SPACE on OK
+// (04 D119). A refused pick closes the Terminal with ESC and fails.
+func (p *Pilot) Book(room, party int) {
 	confirmed, refused := false, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
@@ -160,16 +161,25 @@ func (p *Pilot) Book(room int) {
 		}
 		cols, _ := p.hotel.Grid()
 		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
+		picked := t.Pick == room && t.Party == party
 		var k ebiten.Key
 		switch {
-		case refused || !t.OK && t.Cursor == room && t.Message != "" && !strings.HasPrefix(t.Message, "Picked"):
+		case refused || !t.OK && !t.List && t.Cursor == room && t.Message != "" && !strings.HasPrefix(t.Message, "Picked"):
 			k = ebiten.KeyEscape
-		case t.Pick == room && t.OK:
+		case t.OK && picked:
 			k = ebiten.KeySpace
-		case t.Pick == room:
-			k = ebiten.KeyS
 		case t.OK:
 			k = ebiten.KeyW
+		case t.List && t.Pick != room:
+			k = ebiten.KeyA
+		case t.List && t.Party < party:
+			k = ebiten.KeyS
+		case t.List && t.Party > party:
+			k = ebiten.KeyW
+		case t.List:
+			k = ebiten.KeySpace
+		case picked:
+			k = ebiten.KeyS
 		case c != tc && (tc-c+cols)%cols <= cols/2:
 			k = ebiten.KeyD
 		case c != tc:

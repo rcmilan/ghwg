@@ -50,7 +50,9 @@ type Game struct {
 	queue           []*Party // the Queue, front first (D78)
 	terminalCursor  int      // the selected Room
 	terminalOK      bool     // the Terminal's OK button is selected instead
-	terminalPick    int      // the Room picked for the front Party, -1 if none; booked on OK
+	terminalPick    int      // the Room picked, -1 if none; booked on OK
+	terminalParty   *Party   // the Party picked for it, among those at the counter (04 D119)
+	terminalList    bool     // the focus is on the list of Parties at the counter
 	tick            int      // simulation frames since launch
 	clock           int      // game time (clock.go)
 	fast            bool     // T held: the clock runs ×10
