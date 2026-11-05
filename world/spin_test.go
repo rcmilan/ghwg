@@ -67,7 +67,7 @@ func TestSpin(t *testing.T) {
 	std, dlx := typeNamed(t, "Standard"), typeNamed(t, "Deluxe")
 	doors := append([]Door(nil), h.Doors...)
 	floorAt := func(r Room) string {
-		s := r.Stay.Div(TileSize)
+		s := r.Stays[0].Div(TileSize)
 		return h.Map.TS.Tiles[h.Map.At(LayerFloor, s.X, s.Y)].Name
 	}
 	for _, rt := range []RoomType{dlx, std, dlx} {
@@ -123,7 +123,7 @@ func TestLandWholeRoom(t *testing.T) {
 	})
 }
 
-// D65: every variant keeps its Stay Spot reachable through its own door, and its furniture blocks.
+// D65, T028: every variant keeps every Stay Spot reachable through its own door, and its furniture blocks.
 func TestVariantsReachable(t *testing.T) {
 	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
 	if err != nil {
@@ -137,8 +137,10 @@ func TestVariantsReachable(t *testing.T) {
 			h.Land(i)
 		}
 		for i, r := range h.Rooms {
-			if h.Path(h.Spawn, r.Stay, i) == nil {
-				t.Errorf("%s variant %v: room %s's Stay Spot is unreachable", rt.Name, rt.Stay, r.Number)
+			for _, s := range r.Stays {
+				if h.Path(h.Spawn, s, i) == nil {
+					t.Errorf("%s variant %v: room %s's Stay Spot %v is unreachable", rt.Name, rt.Stays, r.Number, s)
+				}
 			}
 		}
 		for _, id := range rt.Tiles[LayerProps] {
@@ -147,7 +149,28 @@ func TestVariantsReachable(t *testing.T) {
 			}
 		}
 	}
-	if len(types) < 4 || solid == 0 {
-		t.Errorf("%d room files with %d solid prop cells, want 4+ variants with solid furniture", len(types), solid)
+	if len(types) < 6 || solid == 0 {
+		t.Errorf("%d room files with %d solid prop cells, want 6+ variants with solid furniture", len(types), solid)
+	}
+}
+
+// D84, T029: the draw goes tier → beds → variant, equal odds at each step, however many files each has.
+func TestDrawTierBedsVariant(t *testing.T) {
+	types := []RoomType{
+		{Name: "A", Beds: "Single"}, {Name: "A", Beds: "Twin"}, {Name: "A", Beds: "Twin", Rate: 2}, {Name: "A", Beds: "Double"},
+		{Name: "B", Beds: "Single"},
+	}
+	key := func(rt RoomType) [3]any { return [3]any{rt.Name, rt.Beds, rt.Rate} }
+	n := map[[3]any]int{}
+	for _, rt := range Draw(types, 12000, rand.New(rand.NewPCG(5, 6))) {
+		n[key(rt)]++
+	}
+	for _, c := range []struct {
+		rt   RoomType
+		want int // of 12000: B 1/2; A's Single and Double 1/6; each Twin variant 1/12
+	}{{types[4], 6000}, {types[0], 2000}, {types[3], 2000}, {types[1], 1000}, {types[2], 1000}} {
+		if d := n[key(c.rt)] - c.want; d < -c.want/8 || d > c.want/8 {
+			t.Errorf("%v drawn %d times of 12000, want ~%d", key(c.rt), n[key(c.rt)], c.want)
+		}
 	}
 }

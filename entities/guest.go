@@ -7,43 +7,47 @@ import (
 	"ghosthotel/world"
 )
 
-type GuestState int
-
-const (
-	GuestQueued GuestState = iota
-	GuestArriving
-	GuestStaying
-	GuestLeavingRoom
-	GuestPaying
-	GuestDeparting
-)
-
 type Guest struct {
-	X, Y       float64
-	State      GuestState
-	RoomIndex  int
-	Path       []image.Point // remaining waypoints, world px; set with SetPath
-	SpawnAt    int           // frames after the phase starts
-	PauseUntil int           // frame (game tick) the pay pause ends
-	Phasing    bool          // ignoring actor collisions after getting stuck (D22c)
-	Character  string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
-	Rate       int           // what this guest pays: their Room's Rate at Booking (D53)
-	Anim       Anim
+	X, Y      float64
+	RoomIndex int           // the Room its Party is booked into, whose door opens for it; -1 before Booking
+	Path      []image.Point // remaining waypoints, world px; set with SetPath
+	Phasing   bool          // ignoring actor collisions after getting stuck (D22c)
+	Character string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
+	Leader    *Guest        // the Party leader this guest trails (D90); nil for a leader
+	Anim      Anim
 
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
 	phaseEnd float64 // remaining path at which Phasing ends
 }
 
-func NewGuest(roomIndex int, at image.Point, spawnAt int, character string) Guest {
-	return Guest{X: float64(at.X), Y: float64(at.Y), State: GuestQueued, RoomIndex: roomIndex, SpawnAt: spawnAt,
-		Character: character, Anim: NewAnim()}
+func NewGuest(at image.Point, character string) Guest {
+	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, Anim: NewAnim()}
 }
+
+// Mate: a and b are in one Party. Mates never bump, push or yield to each other: the Party walks as one.
+func (g *Guest) Mate(o *Guest) bool { return g.Leader == o || o.Leader == g }
+
+// waypointSlack (world px): a guest this close to a waypoint with more after it, or past it along the
+// next leg and this close to that leg's line, has reached it. So a push past it never turns the guest
+// back into whoever walks behind (D89), and a corner is never cut.
+const waypointSlack = 4
 
 // FollowPath walks toward the next waypoint; true once the path is used up.
 func (g *Guest) FollowPath(speed float64) bool {
 	if len(g.Path) == 0 {
 		return true
+	}
+	if len(g.Path) > 1 {
+		p, q := g.Path[0], g.Path[1]
+		dx, dy := g.X-float64(p.X), g.Y-float64(p.Y)
+		ux, uy := float64(q.X-p.X), float64(q.Y-p.Y)
+		if n := math.Hypot(ux, uy); n > 0 {
+			ux, uy = ux/n, uy/n
+		}
+		if math.Hypot(dx, dy) <= waypointSlack || dx*ux+dy*uy > 0 && math.Abs(dx*uy-dy*ux) <= waypointSlack {
+			g.Path = g.Path[1:]
+		}
 	}
 	if p := g.Path[0]; g.WalkTo(float64(p.X), float64(p.Y), speed) {
 		g.Path = g.Path[1:]
@@ -69,8 +73,8 @@ func (g *Guest) SetPath(p []image.Point) {
 	g.Path, g.best, g.stuck, g.Phasing = p, math.Inf(1), 0, false
 }
 
-// left is the remaining path length (waypoints are adjacent tile centers).
-func (g *Guest) left() float64 {
+// Left is the remaining path length (waypoints are adjacent tile centers).
+func (g *Guest) Left() float64 {
 	if len(g.Path) == 0 {
 		return 0
 	}
@@ -85,7 +89,7 @@ func (g *Guest) TrackProgress(stuckFrames int) {
 		g.stuck, g.Phasing = 0, false
 		return
 	}
-	left := g.left()
+	left := g.Left()
 	if left < g.best-0.1 {
 		g.best, g.stuck = left, 0
 	} else {

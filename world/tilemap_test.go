@@ -48,7 +48,7 @@ func TestSortY(t *testing.T) {
 	m := h.Map
 	l := newLayout(2, 2)
 	hallRow, counterRow := l.hall, l.counter
-	seg, comp := l.counterX+1, l.counterX+l.counterW-2 // a counter_mid cell; the computer
+	seg, comp := l.counterX+1, l.counterX+counterW-2 // a counter_mid cell; the computer
 	foot := func(row int) int { return (row + 1) * TileSize }
 	cases := []struct {
 		name string

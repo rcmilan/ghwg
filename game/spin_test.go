@@ -38,96 +38,54 @@ func allNamed(g *Game, name string) bool {
 	return true
 }
 
-// D46: a Spin at Run start, then each time the last guest leaves (the end of Shift 2).
+// D46, D85: a Spin at Run start, then at every Midnight.
 func TestSpinCadence(t *testing.T) {
 	g := mustNew(t)
 	g.types = fakeTypes(g, map[string]int{"A": 10})
-	g.startShift(false) // a new Run
+	g.startRun()
 	if !allNamed(g, "A") {
 		t.Fatalf("Run start did not Spin: %v", roomTypeNames(g))
 	}
 	for cycle := 1; cycle <= 3; cycle++ {
 		next := string(rune('A' + cycle))
 		g.types = fakeTypes(g, map[string]int{next: 10})
-		g.endShift()
-		if !allNamed(g, next) {
-			t.Fatalf("after Shift 2 of cycle %d: rooms %v, want all %s", cycle, roomTypeNames(g), next)
+		g.clock = cycle*dayFrames - 1
+		g.step(0, 0)
+		if !allNamed(g, next) || !g.spinning() {
+			t.Fatalf("Midnight of day %d: rooms %v, spinning %v; want all %s", cycle, roomTypeNames(g), g.spinning(), next)
+		}
+		for g.spinning() {
+			g.step(0, 0)
 		}
 	}
 	g.types = fakeTypes(g, map[string]int{"Z": 10})
-	g.startShift(false) // back to a new Run: Spins at once
+	g.startRun() // back to a new Run: Spins at once
 	if !allNamed(g, "Z") {
 		t.Fatalf("a new Run did not Spin: %v", roomTypeNames(g))
-	}
-}
-
-// D53: a coin pays the Rate of the guest's Room when it was booked, even if the type changes later.
-func TestCoinIsRateAtBooking(t *testing.T) {
-	g := mustNew(t)
-	g.types = fakeTypes(g, map[string]int{"Cheap": 10, "Dear": 30})
-	g.startShift(false)
-	booked := map[int]int{} // room index -> Rate at Booking
-	for i, r := range g.hotel.Rooms {
-		booked[i] = r.Type.Rate
-	}
-	for i := range g.confirmed {
-		g.confirmed[i] = true
-	}
-	g.beginArrivals()
-	g.spin(world.Draw(fakeTypes(g, map[string]int{"Changed": 99}), len(g.hotel.Rooms), g.rng), true) // a mid-stay change must not reach the coins
-	for f := 0; g.state != StateBooking; f++ {
-		if f == 20000 {
-			t.Fatal("Shift never ended")
-		}
-		g.player.X, g.player.Y = float64(g.hotel.ConciergeStart.X), float64(g.hotel.ConciergeStart.Y) // out of coin reach
-		g.step(0, 0)
-	}
-	if len(g.pickups) != len(g.hotel.Rooms) {
-		t.Fatalf("%d coins, want %d", len(g.pickups), len(g.hotel.Rooms))
-	}
-	want, got := []int{}, []int{}
-	for _, room := range g.assignments {
-		want = append(want, booked[room])
-	}
-	for _, c := range g.pickups {
-		got = append(got, c.Value)
-	}
-	slices.Sort(want)
-	slices.Sort(got)
-	if !slices.Equal(got, want) {
-		t.Errorf("coin values %v, want the booked Rates %v", got, want)
-	}
-	g.money = 0
-	g.pickups = g.pickups[:1]
-	g.player.X, g.player.Y = g.pickups[0].X, g.pickups[0].Y
-	v := g.pickups[0].Value
-	g.updateMoney()
-	if g.money != v {
-		t.Errorf("picking up a %d coin gave $%d", v, g.money)
 	}
 }
 
 // D50: after a Spin, a Concierge standing where the new type is solid is moved to the nearest open spot.
 func TestSpinUnsticksConcierge(t *testing.T) {
 	g := mustNew(t)
-	g.startShift(false)
+	g.startRun()
 	r := g.hotel.Rooms[0]
-	g.player.X, g.player.Y = float64(r.Stay.X), float64(r.Stay.Y)
+	g.player.X, g.player.Y = float64(r.Stays[0].X), float64(r.Stays[0].Y)
 	walled := g.types[0]
 	walled.Tiles[world.LayerWalls] = slices.Clone(walled.Tiles[world.LayerWalls])
 	wall, _ := g.hotel.Map.TS.ID("wall_mid_bottom")
-	stay := walled.Stay.Div(world.TileSize)
+	stay := walled.Stays[0].Div(world.TileSize)
 	walled.Tiles[world.LayerWalls][stay.Y*world.RoomW+stay.X] = wall
 	next := make([]world.RoomType, len(g.hotel.Rooms))
 	for i := range next {
 		next[i] = g.types[0]
 	}
 	next[0] = walled
-	g.spin(next, true)
+	g.spin(next, nil, true)
 	if g.blocked(entities.FootBox(g.player.X, g.player.Y)) {
 		t.Fatalf("Concierge left inside a solid at (%.0f,%.0f)", g.player.X, g.player.Y)
 	}
-	if d := image.Pt(int(g.player.X), int(g.player.Y)).Sub(r.Stay); d.X*d.X+d.Y*d.Y > 2*world.TileSize*world.TileSize {
+	if d := image.Pt(int(g.player.X), int(g.player.Y)).Sub(r.Stays[0]); d.X*d.X+d.Y*d.Y > 2*world.TileSize*world.TileSize {
 		t.Errorf("Concierge moved %v from the Stay Spot, want the nearest open cell", d)
 	}
 }
@@ -141,8 +99,8 @@ func TestReelLandsInOrder(t *testing.T) {
 		t.Fatal("the first two Room Types share a floor; the test can't tell them apart")
 	}
 	g.types = all[:1]
-	g.startShift(false)
-	g.spin(world.Draw(all[1:2], len(g.hotel.Rooms), g.rng), false)
+	g.startRun()
+	g.spin(world.Draw(all[1:2], len(g.hotel.Rooms), g.rng), nil, false)
 	start := g.reelAt
 	if !allNamed(g, all[1].Name) {
 		t.Fatalf("types after an animated Spin: %v, want all %s at once (D49)", roomTypeNames(g), all[1].Name)
@@ -167,11 +125,11 @@ func TestReelLandsInOrder(t *testing.T) {
 // then glides back; the Concierge waits throughout. Run-start Spins skip it.
 func TestSpinCinematic(t *testing.T) {
 	g := mustNew(t)
-	g.startShift(false)
+	g.startRun()
 	if g.spinning() || g.spinView() != 0 {
 		t.Fatal("the Run-start Spin played the cinematic")
 	}
-	g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), false)
+	g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), nil, false)
 	prev := 0.0
 	for g.tick < g.reelAt { // out: rises, reels still
 		if f := g.spinView(); f < prev || g.landed > 0 {
@@ -215,8 +173,8 @@ func TestSpinSkip(t *testing.T) {
 	}{{"mid-glide", spinCamFrames / 2}, {"framed", spinCamFrames + reelFrames/2}} {
 		t.Run(at.name, func(t *testing.T) {
 			g := mustNew(t)
-			g.startShift(false)
-			g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), false)
+			g.startRun()
+			g.spin(world.Draw(g.types, len(g.hotel.Rooms), g.rng), nil, false)
 			for range at.after {
 				g.step(0, 0)
 			}

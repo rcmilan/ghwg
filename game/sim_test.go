@@ -3,26 +3,32 @@ package game
 import (
 	"fmt"
 	"image"
+	"math/rand/v2"
+	"slices"
 	"testing"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
-// Headless Shifts (no rendering, no input): every Guest must reach its Stay Spot and then the street
-// within a frame budget, even with the Concierge pinned where Guests have to pass (D22 anti-lock).
-// Left alone, Guests must never need the stuck fallback: they sidestep each other instead. Runs on every
-// grid the hotel supports (D54), not just the shipped one.
-func TestSimShift(t *testing.T) {
+// TestSimClock (D100) runs whole days headless on every grid the hotel supports (D54): the Concierge books
+// the front Party into the first Room that fits as soon as it stands in its Queue slot, and is either
+// left alone or pinned where guests must pass (02's anti-lock cases). It fails on a softlock (a Party
+// walking one leg for too long), on any phasing while the Concierge stands at the Terminal (D89: keep-right,
+// yielding and paths around the Concierge must suffice), on money banked without a Checkout or twice for one, on a Booking that
+// never pays or pays on another day than its last (D88), on a Midnight that rolls a Room it shouldn't
+// (D85), on a run where no Tourist goes out, and on a first Midnight with no Vacant Room (rampDays).
+func TestSimClock(t *testing.T) {
 	cases := []struct {
 		name string
-		pin  func(g *Game) image.Point // where the Concierge is held every frame; nil = left alone
+		days int
+		pin  func(g *Game) image.Point // where the Concierge is held every frame
 	}{
-		{"free", nil},
-		{"concierge pinned in the Lobby Archway", func(g *Game) image.Point { return g.hotel.Archway }},
-		{"concierge pinned on room 101's route, in the corridor", func(g *Game) image.Point {
+		{"at the Terminal", 4, func(g *Game) image.Point { return g.hotel.ConciergeStart }}, // where it books; held, as the guests' pushes would drift an idle one into the Corridors
+		{"pinned in the Lobby Archway", 2, func(g *Game) image.Point { return g.hotel.Archway }},
+		{"pinned on the first Room's route, in the Corridor", 2, func(g *Game) image.Point {
 			r := g.hotel.Rooms[0]
-			path := g.hotel.Path(g.hotel.Spawn, r.Stay, 0)
+			path := g.hotel.Path(g.hotel.Spawn, r.Stays[0], 0)
 			for i, p := range path {
 				if p.Div(world.TileSize) == r.Door.Add(image.Pt(0, 1)) {
 					return path[i-3]
@@ -30,66 +36,132 @@ func TestSimShift(t *testing.T) {
 			}
 			panic("route misses the door")
 		}},
-		{"concierge pinned in room 101's doorway", func(g *Game) image.Point {
+		{"pinned in the first Room's doorway", 2, func(g *Game) image.Point {
 			d := g.hotel.Doors[0].Rect
 			return d.Min.Add(d.Max).Div(2)
 		}},
 	}
+	outings, pairs := 0, 0
 	for cols := 2; cols <= 3; cols++ {
 		for rows := 1; rows <= 3; rows++ {
-			for _, c := range cases {
-				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) { simShift(t, cols, rows, c.pin) })
+			for i, c := range cases {
+				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) {
+					o, p := simClock(t, cols, rows, c.days, c.pin, i == 0)
+					outings, pairs = outings+o, pairs+p
+				})
 			}
 		}
 	}
+	if outings == 0 || pairs == 0 { // one grid's seed can draw neither
+		t.Errorf("%d Tourist outings and %d pairs booked across the grids, want both", outings, pairs)
+	}
 }
 
-// simShift plays one Shift on a cols x rows hotel; pin holds the Concierge (nil: left alone).
-func simShift(t *testing.T, cols, rows int, pin func(g *Game) image.Point) {
-	// frames per phase, scaled by the Guest count. A free run's max frames over 10 runs (Arrivals / Departures),
-	// with the Room lanes (D62): 2x1 857/1016, 2x2 1217/1647, 2x3 1577/2278, 3x1 1253/1371, 3x2 1793/2182,
-	// 3x3 2333/2993.
-	budget := 800 * cols * rows
+// simClock runs one grid for days and returns the Tourist outings and the pairs booked. pin holds the Concierge; strict fails
+// on any phasing, for a pin out of the guests' way.
+func simClock(t *testing.T, cols, rows, days int, pin func(g *Game) image.Point, strict bool) (int, int) {
+	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g, err := newGame(cols, rows)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g.startShift(false)
-	for i := range g.confirmed {
-		g.confirmed[i] = true
+	g.rng = rand.New(rand.NewPCG(uint64(cols), uint64(rows)))
+	g.startRun()
+	pinAt := pin(g) // the hotel's cells never move, so neither does the pin
+	type leg struct {
+		state      partyState
+		slot, from int // from: the tick this leg began
 	}
-	g.beginArrivals()
-	frame := func() {
-		if pin != nil {
-			p := pin(g)
-			g.player.X, g.player.Y = float64(p.X), float64(p.Y)
+	legs := map[*Party]leg{}
+	var booked []*Party
+	counted := map[*Party]bool{}
+	nights, outings, pairs := map[int]int{}, 0, 0
+	for end := g.clock + days*dayFrames; g.clock < end; {
+		if len(g.queue) > 0 && len(g.queue[0].Guests[0].Path) == 0 {
+			for i := range g.hotel.Rooms {
+				if p := g.queue[0]; g.book(i) == "" {
+					booked = append(booked, p)
+					if len(p.Guests) == 2 {
+						pairs++
+					}
+					break
+				}
+			}
 		}
+		g.player.X, g.player.Y = float64(pinAt.X), float64(pinAt.Y)
+		var eligible []int // the Rooms this frame's Midnight may roll
+		midnight := g.clock%dayFrames == dayFrames-1 && !g.spinning()
+		if midnight {
+			for i := range g.hotel.Rooms {
+				if g.flips(i) {
+					eligible = append(eligible, i)
+				}
+			}
+		}
+		if midnight && day(g.clock) == 1 {
+			vacant := 0
+			for i := range g.hotel.Rooms {
+				if g.vacant(i) {
+					vacant++
+				}
+			}
+			if vacant == 0 {
+				t.Fatal("every Room was booked by the first Midnight (rampDays)")
+			}
+		}
+		money := g.money
 		g.step(0, 0)
-		for _, guest := range g.guests {
-			if pin == nil && guest.Phasing {
-				t.Fatalf("tick %d: guest of room %d got stuck at (%.0f,%.0f) with nobody in the way",
-					g.tick, guest.RoomIndex, guest.X, guest.Y)
+		if midnight && !slices.Equal(g.spinRooms, eligible) && (g.spinning() || len(eligible) > 0) {
+			t.Fatalf("%s: Midnight rolled Rooms %v, want the eligible %v", clockText(g.clock), g.spinRooms, eligible)
+		}
+		for _, guest := range g.guests() {
+			if strict && guest.Phasing {
+				for _, p := range g.parties {
+					t.Logf("party room %d state %d slot %d %s path %v", p.Room, p.state, p.slot, where(p.Guests), p.Guests[0].Path[:min(3, len(p.Guests[0].Path))])
+				}
+				t.Fatalf("%s: a guest of room %d phased at %v with the Concierge at the Terminal",
+					clockText(g.clock), guest.RoomIndex, image.Pt(int(guest.X), int(guest.Y)))
+			}
+		}
+		banked := 0
+		for _, p := range booked {
+			if p.Paid && !counted[p] {
+				counted[p], banked = true, banked+p.Payout()
+				nights[p.Nights]++
+				if day(g.clock) != day(p.Checkout) {
+					t.Errorf("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
+				}
+			}
+		}
+		if g.money-money != banked {
+			t.Fatalf("%s: money went up %d, but Checkouts paid %d", clockText(g.clock), g.money-money, banked)
+		}
+		for _, p := range g.parties {
+			l, ok := legs[p]
+			if p.state == out && l.state != out {
+				outings++
+			}
+			if !ok || l.state != p.state || l.slot != p.slot {
+				legs[p] = leg{p.state, p.slot, g.tick}
+				continue
+			}
+			walking := p.state != staying && slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return len(guest.Path) > 0 })
+			if walking && g.tick-l.from > legBudget {
+				t.Fatalf("%s: a Party (state %d, room %d) has walked one leg for %d frames: %s",
+					clockText(g.clock), p.state, p.Room, g.tick-l.from, where(p.Guests))
 			}
 		}
 	}
-	for f := 0; g.state == StateArrivals; f++ {
-		if f == budget {
-			t.Fatalf("Arrivals still running after %d frames: %s", budget, where(g.guests))
+	t.Logf("%d Bookings (%d pairs), %d paid (by nights %v), %d Tourist outings, $%d banked", len(booked), pairs, len(counted), nights, outings, g.money)
+	if len(booked) == 0 {
+		t.Fatal("no Bookings in the whole run")
+	}
+	for _, p := range booked {
+		if !p.Paid && g.clock > p.Checkout+2*hourFrames {
+			t.Errorf("room %d's Booking never paid: checkout was %s, now %s", p.Room, clockText(p.Checkout), clockText(g.clock))
 		}
-		frame()
 	}
-	for g.state == StateDay {
-		frame()
-	}
-	for f := 0; g.state == StateDepartures; f++ {
-		if f == budget {
-			t.Fatalf("Departures still running after %d frames: %s", budget, where(g.guests))
-		}
-		frame()
-	}
-	if g.state != StateBooking || len(g.guests) != 0 {
-		t.Fatalf("Shift ended in state %d with %d guests left", g.state, len(g.guests))
-	}
+	return outings, pairs
 }
 
 func mustNew(t *testing.T) *Game {
