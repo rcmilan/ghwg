@@ -20,9 +20,11 @@ var (
 	Floor     = color.RGBA{78, 83, 100, 255}
 	FloorLine = color.RGBA{63, 68, 84, 255}
 	Accent    = color.RGBA{91, 217, 186, 255}
-	Ghost     = color.RGBA{199, 239, 255, 255}
+	Pale      = color.RGBA{199, 239, 255, 255}
 	Guest     = color.RGBA{255, 184, 113, 255}
 	Ink       = color.RGBA{15, 17, 28, 255}
 	Locked    = color.RGBA{208, 91, 107, 255}
 	Money     = color.RGBA{247, 216, 101, 255}
+	Green     = color.RGBA{96, 230, 110, 255} // a Door Panel on auto
+	Amber     = color.RGBA{255, 168, 40, 255} // a Door Panel on manual
 )

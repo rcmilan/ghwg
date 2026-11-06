@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 )
 
 // fakeTypes: copies of the first loaded Room Type (same tiles) under new names and Rates.

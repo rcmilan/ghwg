@@ -18,7 +18,7 @@ import (
 	"sync"
 	"text/tabwriter"
 
-	"ghosthotel/game"
+	"shift/game"
 )
 
 func main() {
@@ -66,11 +66,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tlost\trefused\tbookings\tfailures\t")
+	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tlost\trefused\tbookings\tauto\tfee/day\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, lost, refused, bookings, failed int
+		var sold, avail, lost, refused, bookings, auto, fees, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -79,6 +79,7 @@ func main() {
 			}
 			perDay = append(perDay, float64(total)/float64(*days))
 			sold, avail, lost, refused, bookings = sold+r.Sold, avail+r.Available, lost+r.Lost, refused+r.Refused, bookings+r.Bookings
+			auto, fees = auto+r.Auto, fees+r.Fees
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
 				failed++
@@ -91,8 +92,9 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(lost)/n, float64(refused)/n, float64(bookings)/n, failed)
+		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
+			100*float64(sold)/float64(max(avail, 1)), float64(lost)/n, float64(refused)/n, float64(bookings)/n, float64(auto)/n,
+			float64(fees)/n/float64(*days), failed)
 	}
 	w.Flush()
 	if len(failures) > 0 {
@@ -121,7 +123,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "lost", "refused", "bookings", "paid", "pairs", "outings", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "lost", "refused", "bookings", "auto", "fees", "paid", "pairs", "outings", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -134,7 +136,7 @@ func writeCSV(path string, results [][]game.Result) error {
 			}
 			w.Write([]string{r.Strategy, strconv.FormatUint(r.Seed, 10), strconv.FormatBool(r.Cheat), strings.Join(money, ";"),
 				strconv.Itoa(r.Sold), strconv.Itoa(r.Available), strconv.Itoa(r.Lost), strconv.Itoa(r.Refused),
-				strconv.Itoa(r.Bookings), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings), failure})
+				strconv.Itoa(r.Bookings), strconv.Itoa(r.Auto), strconv.Itoa(r.Fees), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings), failure})
 		}
 	}
 	w.Flush()

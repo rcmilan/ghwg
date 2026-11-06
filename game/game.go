@@ -6,9 +6,9 @@ import (
 	"math/rand/v2"
 	"slices"
 
-	"ghosthotel/assets"
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/assets"
+	"shift/entities"
+	"shift/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -40,42 +40,45 @@ const (
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
 type Game struct {
-	state          int
-	hotel          *world.Hotel
-	types          []world.RoomType // every loaded Room Type, drawn from at each Spin
-	ts             *world.Tileset
-	cam            Camera
-	player         entities.Player
-	parties        []*Party // every Party on the map
-	queue          []*Party // the Queue, front first (D78)
-	terminalCursor int      // the selected Room
-	terminalOK     bool     // the Terminal's OK button is selected instead
-	terminalPick   int      // the Room picked for the front Party, -1 if none; booked on OK
-	tick           int      // simulation frames since launch
-	clock          int      // game time (clock.go)
-	fast           bool     // T held: the clock runs ×10
-	money          int
-	walkIns        int // Walk-ins this Run
-	floaters       []floater
-	fog            []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
-	message        string
-	rng            *rand.Rand
-	in             input                       // the keys (input.go)
-	headless       bool                        // no window: step skips what only drawing needs
-	auto           *autopilot                  // a Strategy plays instead of a person (sim.go)
-	tiles          []*ebiten.Image             // by world.TileID
-	characters     map[string][2]*ebiten.Image // idle_anim, run sheets by name
-	floorImg       *ebiten.Image               // the floor layer pre-rendered at 1px per world px
-	props          []prop                      // every other static tile, by SortY
-	reelAt         int                         // tick the last Spin started
-	spinRooms      []int                       // the Rooms rolling in the last Spin, in Room order
-	landed         int                         // of spinRooms, whose reel has stopped
-	reels          [][2]*ebiten.Image          // per Room: old and new footprint while it rolls
-	cinematic      bool                        // the last Spin glides the camera out to the Rooms
-	spinEndAt      int                         // tick the cinematic's camera is back on the Concierge
-	worldImg       *ebiten.Image               // the whole map ×zoom, for the Spin cinematic
-	dark           *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
-	pool, glow     *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
+	state           int
+	hotel           *world.Hotel
+	types           []world.RoomType // every loaded Room Type, drawn from at each Spin
+	ts              *world.Tileset
+	cam             Camera
+	player          entities.Player
+	parties         []*Party // every Party on the map
+	queue           []*Party // the Queue, front first (D78)
+	terminalCursor  int      // the selected Room
+	terminalOK      bool     // the Terminal's OK button is selected instead
+	terminalPick    int      // the Room picked, -1 if none; booked on OK
+	terminalParty   *Party   // the Party picked for it, among those at the counter (04 D119)
+	terminalList    bool     // the focus is on the list of Parties at the counter
+	tick            int      // simulation frames since launch
+	clock           int      // game time (clock.go)
+	fast            bool     // T held: the clock runs ×10
+	money           int
+	autoRoom        []bool // per Room: an Auto Room, flipped at its Door Panel (04 D113)
+	walkIns         int    // Walk-ins this Run
+	floaters        []floater
+	fog             []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
+	message         string
+	rng             *rand.Rand
+	in              input                       // the keys (input.go)
+	headless        bool                        // no window: step skips what only drawing needs
+	auto            *autopilot                  // a Strategy plays instead of a person (sim.go)
+	tiles           []*ebiten.Image             // by world.TileID
+	characters      map[string][2]*ebiten.Image // idle_anim, run sheets by name
+	floorImg        *ebiten.Image               // the floor layer pre-rendered at 1px per world px
+	props           []prop                      // every other static tile, by SortY
+	reelAt          int                         // tick the last Spin started
+	spinRooms       []int                       // the Rooms rolling in the last Spin, in Room order
+	landed          int                         // of spinRooms, whose reel has stopped
+	reels           [][2]*ebiten.Image          // per Room: old and new footprint while it rolls
+	cinematic       bool                        // the last Spin glides the camera out to the Rooms
+	spinEndAt       int                         // tick the cinematic's camera is back on the Concierge
+	worldImg        *ebiten.Image               // the whole map ×zoom, for the Spin cinematic
+	dark            *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
+	pool, glow, dot *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow, a Door Panel's light
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -104,7 +107,8 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, ts: ts, in: &script{}, headless: true}, nil
+	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, ts: ts, in: &script{}, headless: true,
+		autoRoom: make([]bool, len(h.Rooms))}, nil
 }
 
 func (g *Game) loadImages() (err error) {
@@ -122,6 +126,7 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant, an instant Spin (D46), no money.
 func (g *Game) startRun() {
 	g.parties, g.queue, g.floaters, g.walkIns, g.fog = nil, nil, nil, 0, nil
+	g.autoRoom = make([]bool, len(g.hotel.Rooms)) // every Room manual (D116)
 	cols, rows := g.hotel.Grid()
 	g.clock, g.money, g.terminalCursor = runStart, 0, (rows-1)*cols // the cursor starts on 101
 	g.state = StatePlay
@@ -161,8 +166,12 @@ func (g *Game) Update() error {
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
-		if g.in.JustPressed(ebiten.KeySpace) && g.atTerminal() {
-			g.openTerminal()
+		if g.in.JustPressed(ebiten.KeySpace) {
+			if room := g.atPanel(); g.atTerminal() {
+				g.openTerminal()
+			} else if room >= 0 {
+				g.autoRoom[room] = !g.autoRoom[room]
+			}
 		}
 	}
 	return nil
@@ -177,6 +186,7 @@ func (g *Game) step(dx, dy float64) {
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
+	g.autoBook()
 	g.separate()
 	g.updateFog()
 	if !g.headless {

@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 
-	"ghosthotel/entities"
-	"ghosthotel/world"
+	"shift/entities"
+	"shift/world"
 )
 
 // D92, T035: a Room fogs once its whole Party is in with the door shut, fading in over ~0.5 s, and
