@@ -5,8 +5,8 @@ import (
 	"image"
 	"slices"
 
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -75,8 +75,6 @@ type Result struct {
 	Lost       int   // Walk-ins that gave up queueing (Patience)
 	Refused    int   // picks the Terminal refused
 	Bookings   int
-	Auto       int // Bookings made by Auto Rooms (04)
-	Fees       int // what auto Bookings paid gives up: 15% of Rate × nights
 	Paid       int
 	Pairs      int // Bookings of two
 	Outings    int // Tourist days out
@@ -149,8 +147,7 @@ func (s *sim) frame() bool {
 			}
 		}
 	}
-	clock, money, title, tick := g.clock, g.money, g.state == StateTitle, g.tick
-	auto := slices.Clone(g.autoRoom) // the panels as auto-booking saw them: a flip lands after the step
+	clock, money, title := g.clock, g.money, g.state == StateTitle
 	g.Update()
 	if title {
 		return true
@@ -179,12 +176,6 @@ func (s *sim) frame() bool {
 			if len(p.Guests) == 2 {
 				s.res.Pairs++
 			}
-			if p.Auto {
-				s.res.Auto++
-				if !s.cfg.NoCheck && !auto[p.Room] {
-					s.fail("an auto Booking landed in Room %s, which is manual", g.hotel.Rooms[p.Room].Number)
-				}
-			}
 		}
 		if p.Room < 0 && p.state == leaving && !s.lost[p] {
 			s.lost[p] = true
@@ -193,14 +184,6 @@ func (s *sim) frame() bool {
 		if p.Paid && !s.paid[p] {
 			s.paid[p], banked = true, banked+p.Payout()
 			s.res.Paid++
-			want := p.Rate * p.Nights
-			if p.Auto {
-				want = want * 85 / 100
-				s.res.Fees += p.Rate*p.Nights - want
-			}
-			if !s.cfg.NoCheck && p.Payout() != want {
-				s.fail("a Booking (auto %v) paid %d, want %d", p.Auto, p.Payout(), want)
-			}
 			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
@@ -215,15 +198,14 @@ func (s *sim) frame() bool {
 	}
 	s.res.Refused = s.a.pilot.Refused
 	if !s.cfg.NoCheck {
-		s.check(money, banked, auto, g.tick != tick && g.state == StatePlay)
+		s.check(money, banked)
 	}
 	return len(s.res.Failures) == 0
 }
 
 // check asserts D108's per-frame invariants: money moves only on a Checkout, no guest starts phasing
-// while the Concierge stands at the computer, no leg is walked over legBudget; and, if the world ran this
-// frame, no Party is left at the counter that a Vacant Auto Room (as the step saw it) fits (04 D118).
-func (s *sim) check(money, banked int, auto []bool, ran bool) {
+// while the Concierge stands at the computer, no leg is walked over legBudget.
+func (s *sim) check(money, banked int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g := s.g
 	if g.money-money != banked {
@@ -236,13 +218,6 @@ func (s *sim) check(money, banked int, auto []bool, ran bool) {
 				guest.RoomIndex, image.Pt(int(guest.X), int(guest.Y)))
 		}
 		s.phased[guest] = guest.Phasing
-	}
-	for _, p := range g.queue {
-		for i := range g.hotel.Rooms {
-			if ran && auto[i] && g.fitsParty(p, i) == "" {
-				s.fail("Room %s is auto and fits a Party left at the counter", g.hotel.Rooms[i].Number)
-			}
-		}
 	}
 	for _, p := range g.parties {
 		l, ok := s.legs[p]

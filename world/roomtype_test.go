@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"shift/assets"
+	"ghosthotel/assets"
 )
 
 func loadTileset(t *testing.T) *Tileset {

@@ -1,4 +1,4 @@
-# SHIFT
+# Ghost Hotel
 
 A hotel-management game. The Concierge books walk-in Parties into Rooms on a real-time clock. Each Party pays when it leaves for good.
 
@@ -51,21 +51,13 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter. Here the Concierge books a Party standing at the counter into a Room and sees every Room's status and the Clock. The world pauses while it is open.
+The computer on the Reception Counter. Here the Concierge books the front Party of the Queue into a Room and sees every Room's status and the Clock. The world pauses while it is open.
 
 **Queue**:
-The waiting Walk-ins at the Reception Counter: 3 parallel lanes, one Party each. Any Party standing in its lane may be booked, not only the one that arrived first.
+The waiting Walk-ins at the Reception Counter: 3 parallel lanes, one Party each. The Party that arrived first is booked first.
 
 **Booking**:
-Assigning a Party to a Room, at the Terminal or by an Auto Room. It is instant and final, and lasts until the Party checks out.
-
-**Auto Room**:
-A Room set to book itself: when a Party it fits reaches the counter, it is booked there with no Terminal visit, for 85% of the payout. A Room is either auto or manual; it keeps the setting through the Spin.
-_Avoid_: Auto-Desk (in game text), self check-in
-
-**Door Panel**:
-The small switch on the wall beside a Room's door that sets the Room auto (green light) or manual (amber light).
-_Avoid_: lamp, door terminal
+Assigning a Party to a Room at the Terminal. It is instant and final, and lasts until the Party checks out.
 
 **Vacant**:
 A Room with no Booking; the Concierge may enter it.
@@ -83,6 +75,9 @@ _Avoid_: fog of war (in player-facing text)
 **Concierge**:
 The living hotel worker the player controls.
 _Avoid_: player (in game text), ghost
+
+**Ghost Mode**:
+A future state of the Concierge with its own look and rules; not defined yet.
 
 **Guest**:
 One member of a Party.

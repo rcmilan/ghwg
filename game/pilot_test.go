@@ -27,12 +27,12 @@ func TestPilot(t *testing.T) {
 			g, _ := headless(t, grid[0], grid[1], 7)
 			a := g.autopilot(nop{}, 30, 6)
 			p := a.pilot
-			front := func() bool { return g.state == StatePlay && len(g.view().Counter) > 0 }
+			front := func() bool { return g.state == StatePlay && g.view().Front != nil }
 			run(t, g, 2*dayFrames, front)
-			room, party := firstFit(g.view())
+			room := firstFit(g.view())
 			p.GoTo(g.hotel.Archway) // walk away first, so OpenTerminal has to walk back
 			p.OpenTerminal()
-			p.Book(room, party)
+			p.Book(room)
 			last, minGap := p.lastTap, 1<<30
 			run(t, g, 60*tps, func() bool {
 				if p.lastTap != last {
@@ -49,7 +49,7 @@ func TestPilot(t *testing.T) {
 
 			// nobody at the counter now: the pick is refused
 			p.OpenTerminal()
-			p.Book(room, 0)
+			p.Book(room)
 			run(t, g, 60*tps, p.Idle)
 			if v := g.view(); v.Terminal.Open || p.Refused != 1 {
 				t.Fatalf("Book with nobody at the counter: Terminal open %v, refused %d; want it shut and 1 refused", v.Terminal.Open, p.Refused)
@@ -91,17 +91,15 @@ func TestBestRate(t *testing.T) {
 		{Beds: "Twin", Vacant: false, Capacity: 2, Rate: 90},
 	}
 	for _, c := range []struct {
-		counter     []Front
-		room, party int
+		front Front
+		want  int
 	}{
-		{[]Front{{Size: 1}}, 1, 0},
-		{[]Front{{Size: 2, Wish: "Double"}}, 1, 0},
-		{[]Front{{Size: 2, Wish: "Twin"}}, 2, 0},                            // 50 beats 60/2
-		{[]Front{{Size: 2, Wish: "Twin"}, {Size: 2, Wish: "Double"}}, 1, 1}, // the second pair pays 60 in the Double
-		{[]Front{{Size: 1}, {Size: 1}}, 1, 0},                               // a tie goes to the Party that came first
+		{Front{Size: 1}, 1},
+		{Front{Size: 2, Wish: "Double"}, 1},
+		{Front{Size: 2, Wish: "Twin"}, 2}, // 50 beats 60/2
 	} {
-		if room, party := bestRate(View{Rooms: rooms, Counter: c.counter}); room != c.room || party != c.party {
-			t.Errorf("counter %+v: Room %d for Party %d, want %d for %d", c.counter, room, party, c.room, c.party)
+		if got := bestRate(View{Rooms: rooms, Front: &c.front}); got != c.want {
+			t.Errorf("front %+v: Room %d, want %d", c.front, got, c.want)
 		}
 	}
 }

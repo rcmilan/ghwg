@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"shift/world"
+	"ghosthotel/world"
 )
 
 // TestSimClock (D100, D109) runs whole days headless on every grid the hotel supports (D54), played by

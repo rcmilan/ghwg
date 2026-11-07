@@ -6,8 +6,8 @@ import (
 	"math"
 	"slices"
 
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 )
 
 // Walk-in tunables (D77–D79). Rates are Walk-ins per game hour, rolled once per game minute.
@@ -65,8 +65,7 @@ type Booking struct {
 	Nights   int
 	Routine  routine
 	Rate     int
-	Auto     bool // booked by an Auto Room: it pays autoShare % (04 D120)
-	Checkout int  // clock frame the Party leaves its Room for good
+	Checkout int // clock frame the Party leaves its Room for good
 	Paid     bool
 	// The Party's own times of day, in frames (D88's jitter), and a Tourist's first day out.
 	outAt, backAt, checkoutAt, firstOut int
@@ -89,16 +88,8 @@ func (b Booking) Out(c int) bool {
 	return b.Routine == tourist && d >= b.firstOut && d < b.Checkout/dayFrames && t >= b.outAt && t < b.backAt
 }
 
-// autoShare is the % of the payout an auto Booking banks: the rest is the fee (04 D120).
-const autoShare = 85
-
-// Payout is what the Party banks at Checkout (D86): Rate × nights, 85% of it rounded down if auto.
-func (b Booking) Payout() int {
-	if b.Auto {
-		return b.Rate * b.Nights * autoShare / 100
-	}
-	return b.Rate * b.Nights
-}
+// Payout is what the Party banks at Checkout (D86).
+func (b Booking) Payout() int { return b.Rate * b.Nights }
 
 // Occupies: the Room is Occupied from Booking until the Party pays at its door (D91).
 func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid }
@@ -211,53 +202,36 @@ func (g *Game) walkIn() *Party {
 	return p
 }
 
-// standing: the Party stands in its Queue lane, at the counter (04 D118). A Walk-in still on its way
-// can't be booked.
-func (p *Party) standing() bool { return p.state == queuing && len(p.Guests[0].Path) == 0 }
-
-// atCounter: the front Party stands in its lane.
-func (g *Game) atCounter() bool { return len(g.queue) > 0 && g.queue[0].standing() }
+// atCounter: the front Party stands in its lane. A Walk-in still on its way can't be booked.
+func (g *Game) atCounter() bool { return len(g.queue) > 0 && len(g.queue[0].Guests[0].Path) == 0 }
 
 // fits: the front Party can be booked into the Room. "" if so, else why not.
 func (g *Game) fits(room int) string {
-	if len(g.queue) == 0 {
-		return "No guests at the counter."
-	}
-	return g.fitsParty(g.queue[0], room)
-}
-
-// fitsParty: the Party, queued, can be booked into the Room. "" if so, else why not.
-func (g *Game) fitsParty(p *Party, room int) string {
 	switch {
-	case !p.standing():
+	case !g.atCounter():
 		return "No guests at the counter."
 	case !g.vacant(room):
 		return "That room is booked."
-	case len(p.Guests) > len(g.hotel.Rooms[room].Stays):
+	case len(g.queue[0].Guests) > len(g.hotel.Rooms[room].Stays):
 		return "That room is too small."
 	}
 	return ""
 }
 
-// book books the front Party into the Room at the Terminal (D98). "" if booked, else why not.
+// book books the front Party into the Room (D98) and sends it there. "" if booked, else why not.
 func (g *Game) book(room int) string {
 	if why := g.fits(room); why != "" {
 		return why
 	}
-	g.bookParty(g.queue[0], room, false)
-	return ""
-}
-
-// bookParty books a queued Party that fits the Room, by hand or by an Auto Room, and sends it there.
-func (g *Game) bookParty(p *Party, room int, auto bool) {
-	i := slices.Index(g.queue, p)
-	g.queue = slices.Delete(g.queue, i, i+1)
-	p.Room, p.Rate, p.Auto = room, p.rateIn(g.hotel.Rooms[room]), auto
+	p := g.queue[0]
+	g.queue = g.queue[1:]
+	p.Room, p.Rate = room, p.rateIn(g.hotel.Rooms[room])
 	p.schedule(g.clock)
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
 	g.checkIn(p)
+	return ""
 }
 
 // checkIn sends the Party to its Stay Spots, one each: from the Queue, or back in from the Street after
@@ -294,7 +268,7 @@ func (g *Game) walkParty(p *Party, speed float64) bool {
 	in := func(guest *entities.Guest) bool {
 		return p.Room >= 0 && image.Pt(int(guest.X), int(guest.Y)).In(g.hotel.Rooms[p.Room].Shell())
 	}
-	waits := p.state != checkingIn && !in(lead) && slices.ContainsFunc(p.Guests[1:], in) // going out only (D90)
+	waits := !in(lead) && slices.ContainsFunc(p.Guests[1:], in)
 	if len(lead.Path) > 0 && !waits {
 		g.walk(lead, speed)
 	}

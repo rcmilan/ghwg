@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"shift/assets"
+	"ghosthotel/assets"
 )
 
 func typeNamed(t *testing.T, name string) RoomType {

@@ -5,9 +5,9 @@ import (
 	"image/color"
 	"slices"
 
-	"shift/assets"
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/assets"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"

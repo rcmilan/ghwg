@@ -4,7 +4,7 @@ import (
 	"image"
 	"math"
 
-	"shift/world"
+	"ghosthotel/world"
 )
 
 type Guest struct {

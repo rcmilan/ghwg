@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"shift/assets"
+	"ghosthotel/assets"
 )
 
 // buildHotel builds a 2×2 grid: the hand-measured coordinates in the pinned tests were taken on it,
@@ -314,34 +314,6 @@ func TestLights(t *testing.T) {
 				if p.In(r.Shell()) {
 					t.Errorf("light %v is in Room %s", p, r.Number)
 				}
-			}
-		}
-	})
-}
-
-// 04 D113: every Room's Door Panel hangs on a wall cell beside its door, the same in every Room Type, and
-// the Concierge reaches it from an open Corridor cell below.
-func TestDoorPanels(t *testing.T) {
-	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, rt := range types {
-		if rt.Tiles[LayerWalls][(doorRow+1)*RoomW+rt.DoorCol+1] == 0 {
-			t.Errorf("%s: no wall east of the door for the panel", rt.Name)
-		}
-	}
-	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
-		for _, r := range h.Rooms {
-			p, spot := r.Panel(), r.PanelSpot()
-			if p != r.Door.Add(image.Pt(1, 1)) || !h.Map.Solid(p.X, p.Y) {
-				t.Errorf("room %s panel %v: want the solid wall cell east of the door bottom %v", r.Number, p, r.Door.Add(image.Pt(0, 1)))
-			}
-			if spot.Div(TileSize) != p.Add(image.Pt(0, 1)) || h.Map.Solid(spot.X/TileSize, spot.Y/TileSize) {
-				t.Errorf("room %s panel spot %v: want the open cell below the panel", r.Number, spot)
-			}
-			if h.Path(h.ConciergeStart, spot, -1) == nil {
-				t.Errorf("room %s panel spot %v is out of reach", r.Number, spot)
 			}
 		}
 	})
