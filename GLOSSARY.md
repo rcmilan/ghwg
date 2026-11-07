@@ -1,6 +1,6 @@
 # Ghost Hotel
 
-A hotel-management game. The Concierge books walk-in Parties into Rooms on a real-time clock. Each Party pays when it leaves for good.
+A haunted-hotel management game on a real-time clock. Parties arrive already booked and pay when they leave for good. The Concierge, a living host who can see ghosts, Shifts the whole hotel between the real and the ghost Dimension.
 
 ## Hotel
 
@@ -53,6 +53,9 @@ _Avoid_: desk, reception
 **Terminal**:
 The computer on the Reception Counter. Here the Concierge reads every Room's status, the money and the Clock. The world pauses while it is open.
 
+**Mirror**:
+The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shifts the hotel.
+
 **Booking**:
 A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out.
 
@@ -64,8 +67,18 @@ A Room with a Booking, from the moment its Party arrives until it checks out. It
 _Avoid_: locked (as a room state)
 
 **Fog**:
-The dark veil over an Occupied Room's interior while its Party is inside. It fades in and out.
+The dark veil over an Occupied Room's interior while its Party is inside, in the real Dimension only; the ghost Dimension sees through it. It fades in and out.
 _Avoid_: fog of war (in player-facing text)
+
+## Dimensions
+
+**Dimension**:
+The state the whole hotel is in: **real** (the hotel as Guests see it) or **ghost** (the same hotel in an arcade palette, where the Fog hides nothing). The hotel runs the same in both; only what is drawn and what the Concierge can do differ.
+_Avoid_: mode, world, ghost mode
+
+**Shift**:
+Flipping the whole hotel to the other Dimension, at the Mirror, at any time. The game's one meaning of the word.
+_Avoid_: flip (in player-facing text), toggle
 
 ## People
 

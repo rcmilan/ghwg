@@ -73,6 +73,8 @@ type Hotel struct {
 	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point     // behind the counter's computer
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
+	Mirror         image.Point     // where the Concierge stands to shift dimensions: below the Lobby mirror (D142)
+	MirrorSpot     image.Rectangle // where SPACE shifts: the cells in front of the mirror and either side
 	Lights         []image.Point   // ceiling lights over the Corridors (D95)
 	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
 }
@@ -193,6 +195,9 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 		put(LayerDecor, x, l.counter, n)
 	}
 	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
+	mirror := archway - 2 // on the Hall Wall face, west of the Archway (D142)
+	put(LayerDecor, mirror, l.hall, "prop_mirror_r0c0")
+	put(LayerDecor, mirror, l.hall+1, "prop_mirror_r1c0")
 	// hotel outer side walls: one unbroken line over every wall that meets them; Rooms never stamp over it
 	for x, side := range map[int]string{1: "west", l.w - 2: "east"} {
 		put(LayerDecor, x, 1, "border_"+side+"_top")
@@ -230,6 +235,8 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	}
 	h.Lobby = image.Rect(TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
+	h.Mirror = cellCenter(mirror, l.hall+2)
+	h.MirrorSpot = image.Rect((mirror-1)*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
 	return h, nil
 }
 

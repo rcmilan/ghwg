@@ -82,6 +82,9 @@ func text(s *ebiten.Image, v string, x, y int, _ color.Color) { ebitenutil.Debug
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(assets.Night)
+	if g.ghost && g.state != StateTitle {
+		screen.Fill(color.Black)
+	}
 	if g.state == StateTitle {
 		g.drawTitle(screen)
 		return
@@ -92,6 +95,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// HUD and terminal: screen space
 	if g.state == StatePlay && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
+	}
+	if g.state == StatePlay && g.atMirror() {
+		to := "GHOST"
+		if g.ghost {
+			to = "REAL"
+		}
+		text(screen, "[SPACE] SHIFT TO "+to, 28, 498, assets.Money)
 	}
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
@@ -115,7 +125,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
-	screen.DrawImage(g.floorImg, op)
+	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
@@ -139,7 +149,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			op.GeoM.Reset()
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
-			drawFogged(screen, g.tiles[p.id], op, g.propFog(p))
+			if f := g.propFog(p); f > 0 {
+				drawFogged(screen, g.tiles[p.id], op, f)
+			} else if maze(g.ts.Tiles[p.id].Name) {
+				g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil)
+			} else {
+				g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil)
+			}
 		}
 	}
 	for _, a := range actors {
@@ -148,7 +164,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
 	}
 	propsUpTo(math.Inf(1))
-	g.drawDarkness(screen, ox, oy)
+	if !g.ghost { // the palette replaces the day and night (D160)
+		g.drawDarkness(screen, ox, oy)
+	}
 	for _, f := range g.floaters { // "+$X" rising over the door (D87)
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		text(screen, f.text, x-3*len(f.text), y, assets.Money)
@@ -175,7 +193,7 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(zoom, zoom)
 				op.GeoM.Translate(float64((x*ts+dx)*zoom-ox), float64(y*ts*zoom-oy))
-				screen.DrawImage(g.tiles[id].SubImage(src).(*ebiten.Image), op)
+				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil)
 			}
 		}
 	}
@@ -213,5 +231,5 @@ func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1 - fog))
-	s.DrawImage(sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op)
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[name])
 }

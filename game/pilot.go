@@ -67,10 +67,12 @@ func (p *Pilot) tap(k ebiten.Key) bool {
 
 // GoTo walks the Concierge to world point `to` along a path around the guests in sight, holding WASD;
 // it re-paths when it makes no progress for stuckFrames, and gives up after 3 paths.
-func (p *Pilot) GoTo(to image.Point) {
+func (p *Pilot) GoTo(to image.Point) { p.do(goTo(to)) }
+
+func goTo(to image.Point) action {
 	var path []image.Point
 	best, stuck, tries := math.Inf(1), 0, 0
-	p.do(func(p *Pilot, v View) (bool, bool) {
+	return func(p *Pilot, v View) (bool, bool) {
 		at := v.Concierge
 		if path == nil {
 			if tries++; tries > 3 {
@@ -105,7 +107,7 @@ func (p *Pilot) GoTo(to image.Point) {
 			p.keys = append(p.keys, ebiten.KeyW)
 		}
 		return false, false
-	})
+	}
 }
 
 // route: a path from at to `to` around the guests in sight; through them if they wall it off. A Room's
@@ -138,6 +140,29 @@ func (p *Pilot) OpenTerminal() {
 		case v.Terminal.Open:
 			return true, true
 		case taps >= 3 || !v.Concierge.In(p.hotel.Terminal):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Flip walks to the Mirror and presses SPACE, unless the hotel is already in that dimension: then it
+// does nothing at all.
+func (p *Pilot) Flip(ghost bool) {
+	walk, walked, taps := goTo(p.hotel.Mirror), false, 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case v.Ghost == ghost:
+			return true, true
+		case !walked:
+			done, ok := walk(p, v)
+			if done && !ok {
+				return true, false
+			}
+			walked = done
+		case taps >= 3 || !v.Concierge.In(p.hotel.MirrorSpot):
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++

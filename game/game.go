@@ -45,7 +45,8 @@ type Game struct {
 	clock      int      // game time (clock.go)
 	fast       bool     // T held: the clock runs ×10
 	money      int
-	walkIns    int // Walk-ins this Run
+	ghost      bool // the whole hotel is in the ghost dimension (D141); else the real one
+	walkIns    int  // Walk-ins this Run
 	floaters   []floater
 	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
@@ -59,6 +60,7 @@ type Game struct {
 	props      []prop                      // every other static tile, by SortY
 	dark       *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
 	pool, glow *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
+	palette    *ebiten.Shader              // the ghost dimension's arcade palette (ghost.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -106,7 +108,7 @@ func (g *Game) mapSize() (int, int) {
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog = nil, nil, 0, nil
-	g.clock, g.money = runStart, 0
+	g.clock, g.money, g.ghost = runStart, 0, false
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw
@@ -140,8 +142,12 @@ func (g *Game) Update() error {
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
-		if g.in.JustPressed(ebiten.KeySpace) && g.atTerminal() {
+		switch {
+		case !g.in.JustPressed(ebiten.KeySpace):
+		case g.atTerminal():
 			g.openTerminal()
+		case g.atMirror():
+			g.flip()
 		}
 	}
 	return nil
@@ -346,6 +352,20 @@ func rightOfWay(a, b *entities.Guest) bool { return a.Left() < b.Left() }
 
 func (g *Game) atTerminal() bool {
 	return image.Pt(int(g.player.X), int(g.player.Y)).In(g.hotel.Terminal)
+}
+
+func (g *Game) atMirror() bool {
+	return image.Pt(int(g.player.X), int(g.player.Y)).In(g.hotel.MirrorSpot)
+}
+
+// flip shifts the whole hotel to the other dimension (D141). Only what is drawn and what the Concierge
+// can do changes; the hotel runs on the same (D143).
+func (g *Game) flip() { g.ghost = !g.ghost }
+
+// Start begins a Run at once, skipping the title, in the ghost dimension if ghost: main's -shot prints.
+func (g *Game) Start(ghost bool) {
+	g.startRun()
+	g.ghost = ghost
 }
 
 func (g *Game) Layout(_, _ int) (int, int) { return viewW * zoom, viewH * zoom }
