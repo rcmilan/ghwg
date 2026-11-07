@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/png"
 	"log"
 	"os"
 
+	"ghosthotel/assets"
 	"ghosthotel/game"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,6 +29,13 @@ func main() {
 	ebiten.SetWindowSize(960, 540)
 	ebiten.SetWindowTitle("Ghost Hotel")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	if f, err := assets.FS.Open("characters/Adam_idle_anim_16x16.png"); err == nil { // the window's icon: a Shadow Person's black head (D169), as icon.ico
+		if sheet, err := png.Decode(f); err == nil {
+			icon := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+			draw.DrawMask(icon, image.Rect(0, 1, 16, 14), image.Black, image.Point{}, sheet, image.Pt(18*16, 9), draw.Src)
+			ebiten.SetWindowIcon([]image.Image{icon})
+		}
+	}
 	var g *game.Game
 	var err error
 	if *play == "" {
