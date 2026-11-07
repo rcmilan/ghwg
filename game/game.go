@@ -60,6 +60,7 @@ type Game struct {
 	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
 	rng        *rand.Rand
+	chat       *rand.Rand                  // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
 	in         input                       // the keys (input.go)
 	headless   bool                        // no window: step skips what only drawing needs
 	auto       *autopilot                  // a Strategy plays instead of a person (sim.go)
@@ -103,7 +104,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, ts: ts, in: &script{}, headless: true}, nil
+	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}, nil
 }
 
 func (g *Game) loadImages() (err error) {
@@ -186,6 +187,7 @@ func (g *Game) step(dx, dy float64) {
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
+	g.updateTalk()
 	g.updatePriests()
 	g.separate()
 	g.updateFog()

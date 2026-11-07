@@ -110,6 +110,8 @@ type Party struct {
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	askEnded   int           // the clock its last request was served, expired or lapsed
 	fledAt     int           // the tick it fled (D164)
+	greet      greeting      // owed once the Concierge hears it (D165)
+	talk       []line        // its lines showing or about to (D165)
 	Booking
 }
 
@@ -225,7 +227,10 @@ func (g *Game) walkIn() *Party {
 
 // checkIn sends the Party to its Stay Spots, one each: from the Street, on arrival or after an outing.
 func (g *Game) checkIn(p *Party) {
-	p.state = checkingIn
+	p.state, p.greet = checkingIn, greetHello
+	if p.settled {
+		p.greet = greetBack
+	}
 	g.sendParty(p, g.hotel.Rooms[p.Room].Stays...)
 }
 
@@ -321,7 +326,7 @@ func (g *Game) updateParty(p *Party) bool {
 			p.state = checkingOut
 			g.sendParty(p, exit...)
 		case p.Out(g.clock): // a Tourist's day out (D88)
-			p.state = goingOut
+			p.state, p.greet = goingOut, greetOut
 			g.sendParty(p, exit...)
 		}
 	case goingOut:

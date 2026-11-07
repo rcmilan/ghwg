@@ -36,6 +36,12 @@ func TestServe(t *testing.T) {
 	if p.Guests[0].Comfort != comfortMax {
 		t.Fatalf("Comfort %d, want capped at %d", p.Guests[0].Comfort, comfortMax)
 	}
+	for _, c := range []struct{ spook, gain int }{{spookLimit / 2, (comfortStep + 1) / 2}, {spookLimit, 0}} {
+		p.Guests[0].Comfort, p.asked, g.roomSpook[p.Room] = 0, g.clock, c.spook
+		if g.serve(p.Room); p.Guests[0].Comfort != c.gain {
+			t.Errorf("served at once at Room Spook %d: Comfort %d, want %d", c.spook, p.Guests[0].Comfort, c.gain)
+		}
+	}
 }
 
 // D163: an unanswered request expires after askMinutes and costs Comfort; one whose Party leaves its
@@ -125,7 +131,7 @@ func TestServeSims(t *testing.T) {
 	}
 }
 
-// D163: the balloon's tail points at its Guest from the side of the box that faces them, slid toward them.
+// D163: the balloon's tail points at its Guest from under or over the box, never a side, slid toward them.
 func TestTailTowardGuest(t *testing.T) {
 	const x, y, bw, bh = 100, 100, balloonW * balloonScale, balloonH * balloonScale
 	for _, c := range []struct {
@@ -135,8 +141,8 @@ func TestTailTowardGuest(t *testing.T) {
 	}{
 		{"below", x - 20, y + bh + 50, func(px, py float64) bool { return py > y+bh && px < x+bw/2 }},
 		{"above, right", x + bw + 80, y - 300, func(px, py float64) bool { return py < y && px > x+bw/2 }},
-		{"left", x - 300, y + 20, func(px, py float64) bool { return px < x }},
-		{"right", x + bw + 300, y + 20, func(px, py float64) bool { return px > x+bw }},
+		{"beside, high", x - 300, y + 10, func(px, py float64) bool { return py < y && px < x+bw/2 }},
+		{"beside, low", x + bw + 300, y + bh - 10, func(px, py float64) bool { return py > y+bh && px > x+bw/2 }},
 	} {
 		m := tailGeoM(x, y, balloonW, balloonH, c.hx, c.hy)
 		if px, py := m.Apply(balloonTail-0.5, balloonTail+0.5); !c.ok(px, py) { // the tip pixel's center

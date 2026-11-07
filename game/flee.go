@@ -7,17 +7,14 @@ import (
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // The flee (D164) and hearing Guests (D165). Placeholders.
 const (
-	hopFrames    = 30 // a fleeing Guest's hop in place
-	hopHeight    = 10 // world px at its top
-	fleeSpeed    = 3 * departSpeed
-	screamFrames = 90 // "AAAH!" shows this long from the flee
-	hearRange    = 6  // tiles from the Concierge a Guest is heard
+	hopFrames = 30 // a fleeing Guest's hop in place
+	hopHeight = 10 // world px at its top
+	fleeSpeed = 3 * departSpeed
+	hearRange = 8 // tiles from the Concierge a Guest is heard: a whole Room from its door
 )
 
 // lift: how high a fleeing Guest is in its hop, world px.
@@ -30,25 +27,29 @@ func (g *Game) lift(guest *entities.Guest) float64 {
 	return 0
 }
 
-// hears (D165): the Concierge hears a Guest within hearRange; in real, not one inside a Room.
+// hears (D165): the Concierge hears a Guest within hearRange; in real, only one outside the Rooms with no
+// wall between them.
 func (g *Game) hears(guest *entities.Guest) bool {
 	if math.Hypot(guest.X-g.player.X, guest.Y-g.player.Y) > hearRange*world.TileSize {
 		return false
 	}
-	at := image.Pt(int(guest.X), int(guest.Y))
-	return g.ghost || !slices.ContainsFunc(g.hotel.Rooms, func(r world.Room) bool { return at.In(r.Shell()) })
+	return g.ghost || !g.indoors(guest) && g.sight(image.Pt(int(guest.X), int(guest.Y)), image.Pt(int(g.player.X), int(g.player.Y)))
 }
 
-// drawScreams: "AAAH!" by each fleeing Guest the Concierge hears, for screamFrames from its flee.
-func (g *Game) drawScreams(s *ebiten.Image, ox, oy int) {
-	for _, p := range g.parties {
-		if !p.Fled || g.tick-p.fledAt >= screamFrames {
-			continue
-		}
-		for _, guest := range p.Guests {
-			if len(guest.Path) > 0 && g.hears(guest) { // no Path: gone out of the Exit
-				g.say(s, "AAAH!", guest, ox, oy)
-			}
+// indoors: the guest is inside a Room.
+func (g *Game) indoors(guest *entities.Guest) bool {
+	at := image.Pt(int(guest.X), int(guest.Y))
+	return slices.ContainsFunc(g.hotel.Rooms, func(r world.Room) bool { return at.In(r.Shell()) })
+}
+
+// sight: no wall cell between world points a and b, checked every 4 px; their own cells don't count.
+func (g *Game) sight(a, b image.Point) bool {
+	n := max(1, int(math.Hypot(float64(b.X-a.X), float64(b.Y-a.Y)))/4)
+	for i := 1; i < n; i++ {
+		c := a.Add(b.Sub(a).Mul(i).Div(n)).Div(world.TileSize)
+		if c != a.Div(world.TileSize) && c != b.Div(world.TileSize) && g.hotel.Map.Wall(c.X, c.Y) {
+			return false
 		}
 	}
+	return true
 }

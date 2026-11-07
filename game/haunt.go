@@ -71,7 +71,10 @@ func (g *Game) scare() {
 
 // flee: the Party runs for the Exit, unpaid, after a hop in place (D164); its Room is Vacant at once.
 func (g *Game) flee(p *Party) {
-	p.Fled, p.state, p.fledAt = true, leaving, g.tick
+	p.Fled, p.state, p.fledAt, p.greet, p.talk = true, leaving, g.tick, noGreeting, nil
+	for i := range p.Guests {
+		p.talk = append(p.talk, line{i, "AAAH!", g.tick})
+	}
 	g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
 }
 

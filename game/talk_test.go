@@ -1,0 +1,132 @@
+package game
+
+import (
+	"image"
+	"slices"
+	"testing"
+)
+
+// T117, D165: a walk-in says "Hello!" as it passes the Concierge, and nothing far from it.
+func TestHello(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.player.X = -1000 // far
+	p := g.walkIn()
+	for range 30 {
+		g.step(0, 0)
+	}
+	if len(p.talk) > 0 || p.greet != greetHello {
+		t.Fatalf("said %v far from the Concierge", p.talk)
+	}
+	g.player.X, g.player.Y = p.Guests[0].X+16, p.Guests[0].Y
+	g.step(0, 0)
+	if len(p.talk) != 1 || p.talk[0].text != "Hello!" || p.talk[0].who != 0 {
+		t.Fatalf("near the Concierge: said %v, want the leader's \"Hello!\"", p.talk)
+	}
+}
+
+// T117, D165: going out in the morning, a single says "Good morning!"; a pair's leader says it too, then
+// an outing line to its follower, who answers.
+func TestGreetPair(t *testing.T) {
+	g, _, p := settled(t)
+	g.clock = (g.clock/dayFrames+1)*dayFrames + 9*hourFrames
+	spot := center(g.hotel.Rooms[p.Room].Spot())
+	g.player.X, g.player.Y = float64(spot.X+16), float64(spot.Y)
+	lead := p.Guests[0]
+	lead.X, lead.Y = float64(spot.X), float64(spot.Y)
+	lead.Path = []image.Point{g.hotel.Exit} // walking out
+	p.Guests, p.state, p.greet = p.Guests[:1], goingOut, greetOut
+	in := center(g.hotel.Rooms[p.Room].Shell())
+	lead.X, lead.Y, g.ghost = float64(in.X), float64(in.Y), true
+	g.player.X, g.player.Y = float64(in.X+16), float64(in.Y)
+	g.updateTalk()
+	if len(p.talk) > 0 || p.greet != greetOut {
+		t.Fatalf("still inside its Room, in ghost, said %v", p.talk)
+	}
+	lead.X, lead.Y, g.ghost = float64(spot.X), float64(spot.Y), false
+	g.player.X, g.player.Y = float64(spot.X+16), float64(spot.Y)
+	g.updateTalk()
+	if len(p.talk) != 1 || p.talk[0].text != "Good morning!" {
+		t.Fatalf("a single going out at 09:00 said %v", p.talk)
+	}
+	mate := *lead
+	p.Guests, p.talk, p.greet = append(p.Guests, &mate), nil, greetOut
+	g.updateTalk()
+	if len(p.talk) != 3 || p.talk[0].text != "Good morning!" || p.talk[1].who != 0 || p.talk[1].at != g.tick+answerFrames ||
+		!slices.ContainsFunc(outLines, func(x [2]string) bool { return x == [2]string{p.talk[1].text, p.talk[2].text} }) ||
+		p.talk[2].who != 1 || p.talk[2].at != g.tick+2*answerFrames {
+		t.Fatalf("a pair going out at 09:00 said %v", p.talk)
+	}
+	g.clock += 11 * hourFrames // 20:00
+	p.talk, p.greet, p.state = nil, greetBack, checkingIn
+	g.updateTalk()
+	if len(p.talk) != 3 || p.talk[0].text != "Good evening!" {
+		t.Fatalf("a pair back at 20:00 said %v", p.talk)
+	}
+}
+
+// T118, D165: in its Room a Party talks now and then: comfy unhaunted, creepy in a spooky Room, the top
+// scared lines at high Fear or high Room Spook, and nothing while asking. A single never says a pair's
+// line; a pair says some.
+func TestRoomTalk(t *testing.T) {
+	g, _, p := settled(t)
+	said := func(minutes int) []string {
+		var lines []string
+		for range minutes {
+			g.clock += minuteFrames
+			g.tick += minuteFrames
+			g.updateTalk()
+			g.updateRoomTalk()
+			for _, l := range p.talk {
+				if l.at == g.tick {
+					lines = append(lines, l.text)
+				}
+			}
+		}
+		return lines
+	}
+	g.clock = (g.clock/dayFrames+1)*dayFrames + 9*hourFrames
+	p.Guests = p.Guests[:1]
+	lines := said(10 * 60)
+	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(calmLines[0][0], l) }) {
+		t.Fatalf("a single, unhaunted from 09:00 to 19:00, said %v; want a few of %v", lines, calmLines[0][0])
+	}
+	mate := *p.Guests[0]
+	p.Guests = append(p.Guests, &mate)
+	var pair []string
+	for range 4 { // 4 awake days
+		pair = append(pair, said(14*60)...)
+		g.clock += 10 * hourFrames
+	}
+	if !slices.ContainsFunc(pair, func(l string) bool { return slices.Contains(calmLines[0][1], l) }) {
+		t.Fatalf("a pair over 4 days said %v, never one of %v", pair, calmLines[0][1])
+	}
+	p.Guests = p.Guests[:1]
+	g.clock = (g.clock/dayFrames+1)*dayFrames + 9*hourFrames
+	g.roomSpook[p.Room] = spookLimit - 1
+	lines = said(10 * 60)
+	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(calmLines[2][0], l) }) {
+		t.Fatalf("a single, unhaunted in a spooky Room, said %v; want a few of %v", lines, calmLines[2][0])
+	}
+	g.haunt(p.Room)
+	g.haunted[p.Room] = g.clock + dayFrames
+	p.Guests[0].Fear = 0
+	lines = said(30)
+	if len(lines) == 0 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(scaredLines[2][0], l) }) {
+		t.Fatalf("a single unafraid, haunted in a spooky Room, said %v; want some of %v", lines, scaredLines[2][0])
+	}
+	g.roomSpook[p.Room] = 0
+	g.haunt(p.Room)
+	g.haunted[p.Room] = g.clock + dayFrames
+	for _, guest := range p.Guests {
+		guest.Fear = fearLimit - 1
+	}
+	lines = said(5 * 60)
+	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(scaredLines[2][0], l) }) {
+		t.Fatalf("a single haunted near the Fear limit, said %v; want a few of %v", lines, scaredLines[2][0])
+	}
+	p.asked = g.clock
+	if lines := said(askMinutes - 1); len(lines) > 0 {
+		t.Fatalf("asking, said %v", lines)
+	}
+}

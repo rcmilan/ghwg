@@ -34,6 +34,7 @@ func (g *Game) advanceClock() {
 		}
 		g.scare()
 		g.updateAsks()
+		g.updateRoomTalk()
 		g.maybeWalkIn()
 	}
 }

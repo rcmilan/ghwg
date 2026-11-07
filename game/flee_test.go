@@ -39,7 +39,7 @@ func TestFleeHop(t *testing.T) {
 	}
 }
 
-// T115, D165: a Guest is heard near the Concierge; in real, not from inside a Room.
+// T115, D165: a Guest is heard near the Concierge; in real, not from inside a Room nor through a wall.
 func TestHears(t *testing.T) {
 	g, _, p := settled(t)
 	guest, r := p.Guests[0], g.hotel.Rooms[p.Room]
@@ -52,9 +52,13 @@ func TestHears(t *testing.T) {
 		{"near, outside", center(r.Spot()).X, center(r.Spot()).Y, 2 * world.TileSize, true, true},
 		{"near, inside", center(r.Shell()).X, center(r.Shell()).Y, 2 * world.TileSize, false, true},
 		{"far", center(r.Spot()).X, center(r.Spot()).Y, (hearRange + 1) * world.TileSize, false, false},
+		{"behind a wall", center(r.Spot()).X, center(r.Spot()).Y, 0, false, true}, // the Concierge in the Lobby, below the corridor's wall
 	} {
 		guest.X, guest.Y = float64(c.x), float64(c.y)
 		g.player.X, g.player.Y = float64(c.x+c.dx), float64(c.y)
+		if c.dx == 0 {
+			g.player.Y += 5 * world.TileSize
+		}
 		for _, ghost := range []bool{false, true} {
 			g.ghost = ghost
 			if want := c.real && !ghost || c.inGhost && ghost; g.hears(guest) != want {

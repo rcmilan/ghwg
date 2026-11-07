@@ -179,7 +179,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawDarkness(screen, ox, oy)
 	}
 	g.drawRequests(screen, ox, oy)
-	g.drawScreams(screen, ox, oy)
+	g.drawTalk(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {

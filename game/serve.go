@@ -50,19 +50,20 @@ func (g *Game) updateAsks() {
 }
 
 // serve answers the Room's request (D163): every Guest of its Party inside gains Comfort, comfortStep
-// if served at once, falling to 0 as the request nears expiry, up to comfortMax, and a heart pops over
-// the door for each. Fear is untouched. False when the Room's Party isn't asking.
+// if served at once, falling to 0 as the request nears expiry and as the Room Spook nears spookLimit, up
+// to comfortMax, and a heart pops over the door for each that gained. Fear is untouched. False when the
+// Room's Party isn't asking.
 func (g *Game) serve(room int) bool {
 	r := g.hotel.Rooms[room]
 	for _, p := range g.parties {
 		if !p.Occupies(room) || !p.asking() || p.state != staying {
 			continue
 		}
-		wait := askMinutes * minuteFrames
-		gain := (comfortStep*(wait-(g.clock-p.asked)) + wait - 1) / wait // rounded up: a serve is never worth 0
+		wait, calm := askMinutes*minuteFrames, max(0, spookLimit-g.roomSpook[room])
+		gain := (comfortStep*(wait-(g.clock-p.asked))*calm + wait*spookLimit - 1) / (wait * spookLimit) // rounded up: worth 0 only in a Closed Room
 		n := 0
 		for _, guest := range p.Guests {
-			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
+			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) && gain > 0 {
 				guest.Comfort = min(comfortMax, guest.Comfort+gain)
 				n++
 			}
@@ -149,31 +150,19 @@ func balloonImages() (box, tail *ebiten.Image) {
 	return box, tail
 }
 
-// tailGeoM places the tail on the side of the w×h box (balloon px) at (x,y) that faces the head at
-// (hx,hy), screen px, slid along that side toward the head.
+// tailGeoM places the tail under the w×h box (balloon px) at (x,y), or over it when the head at (hx,hy),
+// screen px, is higher than the box's middle; slid along that edge toward the head. Never on a side.
 func tailGeoM(x, y, w, h, hx, hy int) ebiten.GeoM {
 	const c, s = balloonTail - 1, balloonScale
 	along := func(v, from, n int) float64 { // the tail's first column, kept off the round corners
 		return float64(min(max((v-from)/s, balloonR+c), n-1-balloonR-c) - c)
 	}
 	var m ebiten.GeoM
-	switch {
-	case hy >= y+h*s: // below
-		m.Translate(along(hx, x, w), float64(h-1))
-	case hy < y: // above
+	if hy < y+h*s/2 { // above
 		m.Scale(1, -1)
 		m.Translate(along(hx, x, w), 1)
-	default: // beside: the tail turned on its side
-		m.SetElement(0, 0, 0)
-		m.SetElement(0, 1, 1)
-		m.SetElement(1, 0, 1)
-		m.SetElement(1, 1, 0)
-		if hx < x+w*s/2 {
-			m.Scale(-1, 1)
-			m.Translate(1, along(hy, y, h))
-		} else {
-			m.Translate(float64(w-1), along(hy, y, h))
-		}
+	} else {
+		m.Translate(along(hx, x, w), float64(h-1))
 	}
 	m.Scale(s, s)
 	m.Translate(float64(x), float64(y))
@@ -218,7 +207,7 @@ func (g *Game) drawBalloon(s, box *ebiten.Image, guest *entities.Guest, ox, oy i
 
 // A speech balloon (D165) is the request balloon's box sized to its line, the text black at 1×, 6 px a
 // character in the debug font.
-const sayH, sayPad = 8, 4 // balloon px tall; screen px around the text
+const sayH, sayPad = 8, 8 // balloon px tall; screen px each side of the text, its 3-px edge included
 
 // say draws line in a speech balloon by the guest's head.
 func (g *Game) say(s *ebiten.Image, line string, guest *entities.Guest, ox, oy int) {
