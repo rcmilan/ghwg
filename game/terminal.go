@@ -13,17 +13,33 @@ import (
 // openTerminal pauses the world on the Terminal (D73) on its Room list. ESC closes it.
 func (g *Game) openTerminal() { g.state, g.message, g.termRoom = StateTerminal, "", -1 }
 
-// updateTerminal (D151): WASD moves across the Room grid and SPACE opens a Room's Priest menu; there,
-// W/S picks Father K (weak) or Father M (strong, D166) and SPACE calls him, back to the list with what
-// happened.
+// The Room menu's picks, top to bottom.
+const (
+	pickWeak = iota
+	pickStrong
+	pickShadow
+	picks
+)
+
+// updateTerminal (D151): WASD moves across the Room grid and SPACE opens a Room's menu; there, W/S picks
+// Father K (weak), Father M (strong, D166) or a Shadow Person (D169), and SPACE pays, back to the list
+// with what happened.
 func (g *Game) updateTerminal() {
 	if g.termRoom >= 0 {
+		n := g.hotel.Rooms[g.termRoom].Number
 		switch {
-		case g.in.JustPressed(ebiten.KeyW), g.in.JustPressed(ebiten.KeyS):
-			g.termStrong = !g.termStrong
+		case g.in.JustPressed(ebiten.KeyW):
+			g.termPick = (g.termPick + picks - 1) % picks
+		case g.in.JustPressed(ebiten.KeyS):
+			g.termPick = (g.termPick + 1) % picks
+		case g.in.JustPressed(ebiten.KeySpace) && g.termPick == pickShadow:
+			if g.message = g.buyShadow(g.termRoom); g.message == "" {
+				g.message = "A SHADOW LURKS IN ROOM " + n
+			}
+			g.termRoom = -1
 		case g.in.JustPressed(ebiten.KeySpace):
-			if g.message = g.callPriest(g.termRoom, g.termStrong); g.message == "" {
-				g.message = strings.ToUpper(g.priests[len(g.priests)-1].Character) + " CALLED TO ROOM " + g.hotel.Rooms[g.termRoom].Number
+			if g.message = g.callPriest(g.termRoom, g.termPick == pickStrong); g.message == "" {
+				g.message = strings.ToUpper(g.priests[len(g.priests)-1].Character) + " CALLED TO ROOM " + n
 			}
 			g.termRoom = -1
 		}
@@ -41,7 +57,7 @@ func (g *Game) updateTerminal() {
 	case g.in.JustPressed(ebiten.KeyS):
 		r = min(r+1, rows-1)
 	case g.in.JustPressed(ebiten.KeySpace):
-		g.termRoom, g.termStrong, g.message = g.termCursor, false, ""
+		g.termRoom, g.termPick, g.message = g.termCursor, pickWeak, ""
 	}
 	g.termCursor = r*cols + c
 }
@@ -59,10 +75,16 @@ var head = image.Rect(18*charW, 9, 19*charW, 22)
 // drawHeads draws one shrunk head per character, left to right from (x,y).
 func (g *Game) drawHeads(s *ebiten.Image, x, y int, names ...string) {
 	for i, name := range names {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(x+i*(head.Dx()+2)), float64(y))
-		s.DrawImage(g.sheet(name)[0].SubImage(head).(*ebiten.Image), op)
+		g.drawHead(s, x+i*(head.Dx()+2), y, name, 1)
 	}
+}
+
+// drawHead draws a character's head at (x,y), its colors scaled by c: 0 is a Shadow's black (D169).
+func (g *Game) drawHead(s *ebiten.Image, x, y int, name string, c float32) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x), float64(y))
+	op.ColorScale.Scale(c, c, c, 1)
+	s.DrawImage(g.sheet(name)[0].SubImage(head).(*ebiten.Image), op)
 }
 
 func (g *Game) drawTerminal(s *ebiten.Image) {
@@ -70,7 +92,7 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 	rect(s, termX+8, termY+8, termW-16, termH-16, assets.Wall)
 	text(s, "RECEPTION TERMINAL", termX+24, termY+18, assets.Ghost)
 	text(s, clockText(g.clock), termX+termW-24-6*len(clockText(g.clock)), termY+18, assets.Ghost)
-	cur := fmt.Sprintf("$%d", g.money) // each dimension shows its own currency (D152)
+	cur := fmt.Sprintf("$%d  SPOOK %d", g.money, g.spook) // ghost shows only its own currency (D152); real both (D169)
 	if g.ghost {
 		cur = fmt.Sprintf("SPOOK %d", g.spook)
 	}
@@ -112,6 +134,11 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			text(s, "CLOSED", sx, y+72, assets.Accent)
 			sx += 6 * len("CLOSED ")
 		}
+		if sh := g.shades[i]; sh != nil {
+			g.drawHead(s, sx, y+72, sh.name, 0)
+			text(s, "SHADOW", sx+head.Dx()+4, y+72, assets.Accent)
+			sx += head.Dx() + 4 + 6*len("SHADOW ")
+		}
 		for _, pr := range g.priests {
 			if pr.RoomIndex == i && !pr.done { // a Priest's name follows his head, as the Guests' heads (S8 review)
 				g.drawHeads(s, sx, y+72, pr.Character)
@@ -119,19 +146,20 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			}
 		}
 		if i == g.termRoom {
-			for k, o := range [...]string{fmt.Sprintf("FATHER K $%d: HALVES SPOOK", priestWeak), fmt.Sprintf("FATHER M $%d: CLEARS IT", priestStrong)} {
-				if (k == 1) == g.termStrong {
+			for k, o := range [picks]string{fmt.Sprintf("FATHER K $%d: HALVES SPOOK", priestWeak),
+				fmt.Sprintf("FATHER M $%d: CLEARS IT, BANISHES A SHADOW", priestStrong), fmt.Sprintf("SHADOW PERSON: %d SPOOK", shadowPrice)} {
+				if k == g.termPick {
 					text(s, ">", x+6, y+92+k*18, assets.Ghost)
 				}
-				g.drawHeads(s, x+16, y+92+k*18, [...]string{fatherK.name, fatherM.name}[k])
+				g.drawHead(s, x+16, y+92+k*18, [picks]string{fatherK.name, fatherM.name, "Adam"}[k], [picks]float32{1, 1, 0}[k])
 				text(s, o, x+16+head.Dx()+4, y+92+k*18, assets.Ghost)
 			}
 		}
 	}
 
-	help := "WASD SELECT   SPACE CALL A PRIEST   ESC CLOSE"
+	help := "WASD SELECT   SPACE PRIESTS AND GHOSTS   ESC CLOSE"
 	if g.termRoom >= 0 {
-		help = "W/S FATHER K OR M   SPACE PAY   ESC CLOSE"
+		help = "W/S PICK   SPACE PAY   ESC CLOSE"
 	}
 	text(s, help, termX+24, termY+termH-30, assets.Accent)
 }

@@ -179,6 +179,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		} else {
 			g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
 		}
+		if p.l == world.LayerWalls {
+			g.drawShadow(screen, p, ox, oy)
+		}
 	}
 	i := 0
 	propsUpTo := func(y float64) {

@@ -39,23 +39,24 @@ func (g *Game) haunt(room int) {
 
 func (g *Game) haunting(room int) bool { return room < len(g.haunted) && g.clock < g.haunted[room] }
 
-// scare runs each game minute: every Guest inside a haunted Room gains Fear, and the hotel as much Spook.
-// A Party with a member at fearLimit flees.
+// scare runs each game minute: every Guest inside a haunted Room gains Fear, and the hotel as much Spook;
+// in a Room with a Shadow (D169), 1 every shadowEvery minutes, never to fearLimit. A Party with a member
+// at fearLimit flees.
 func (g *Game) scare() {
 	for _, p := range g.parties {
-		if p.state == out || p.Fled || p.Paid || !g.haunting(p.Room) {
+		if p.state == out || p.Fled || p.Paid {
 			continue
 		}
-		r, gained := g.hotel.Rooms[p.Room], 0
+		r := g.hotel.Rooms[p.Room]
 		for _, guest := range p.Guests {
-			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
-				guest.Fear += fearPerMinute
-				gained += fearPerMinute
+			switch in := image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()); {
+			case in && g.haunting(p.Room):
+				g.frighten(p, guest, fearPerMinute, fearLimit)
+			case in && g.shaded(p.Room) && g.clock/minuteFrames%shadowEvery == 0:
+				g.frighten(p, guest, 1, fearLimit-1)
 			}
 		}
-		g.spook += gained
-		g.roomSpook[p.Room] += gained
-		if p.spookShown += gained; p.spookShown > 0 && g.clock/minuteFrames%spookEvery == 0 {
+		if p.spookShown > 0 && g.clock/minuteFrames%spookEvery == 0 {
 			door := r.Door.Mul(world.TileSize)
 			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+%d", p.spookShown), g.tick, floatSpook})
 			p.spookShown = 0

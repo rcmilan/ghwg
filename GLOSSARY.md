@@ -28,6 +28,10 @@ A point inside a Room where one Guest stays, one per bed, at its foot. From 23:0
 **Activity Spot**:
 Where a Guest stands to use one of its Room's props (a window, the TV, a bookshelf, a wardrobe, a drawer, the mirror, a cushion), facing it. Found from the Room Type's tiles: the free floor cell in front of the prop, or on it for a cushion.
 
+**Shadow Person**:
+A ghost bought with Spook at the Terminal, one per Room, for the Run. While its Room's Guests are inside it runs along the back wall from one side wall to the other, more often the higher the Room's Spook, frightening them (never into fleeing). A Strong Priest banishes it.
+_Avoid_: shadow ghost
+
 **Lobby**:
 The common area between the Hall Wall and the Entrance, where the Reception Counter stands.
 

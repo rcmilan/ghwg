@@ -231,7 +231,7 @@ func (s *sim) frame() bool {
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
 		if g.spook > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
-			s.fail("Spook rose %d with no haunted Room holding its Party", g.spook-spook)
+			s.fail("Spook rose %d with no haunted or shadowed Room holding its Party", g.spook-spook)
 		}
 	}
 	return len(s.res.Failures) == 0
@@ -266,10 +266,12 @@ func (s *sim) check(money, banked, spent int) {
 	}
 }
 
-// scaring: some Room is haunted with its Party in the hotel.
+// scaring: some Room is haunted, or has a Shadow (D169), with its Party in the hotel.
 func (s *sim) scaring() bool {
 	g := s.g
-	return slices.ContainsFunc(g.parties, func(p *Party) bool { return !p.Paid && p.state != out && g.haunting(p.Room) })
+	return slices.ContainsFunc(g.parties, func(p *Party) bool {
+		return !p.Paid && p.state != out && (g.haunting(p.Room) || g.shaded(p.Room))
+	})
 }
 
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.

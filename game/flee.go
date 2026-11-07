@@ -17,14 +17,14 @@ const (
 	hearRange = 8 // tiles from the Concierge a Guest is heard: a whole Room from its door
 )
 
-// lift: how high a fleeing Guest is in its hop, world px.
+// lift: how high a fleeing Guest is in its hop, or one startled by a Shadow (D169), world px.
 func (g *Game) lift(guest *entities.Guest) float64 {
 	for _, p := range g.parties {
 		if t := g.tick - p.fledAt; p.Fled && t < hopFrames && slices.Contains(p.Guests, guest) {
 			return hopHeight * math.Sin(math.Pi*float64(t)/hopFrames)
 		}
 	}
-	return 0
+	return g.startle(guest)
 }
 
 // hears (D165): the Concierge hears a Guest within hearRange; in real, only one outside the Rooms with no

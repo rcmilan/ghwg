@@ -83,7 +83,7 @@ func (g *Game) updatePriests() {
 			pr.until = g.clock + priestMinutes*minuteFrames
 		case g.clock >= pr.until:
 			if g.roomSpook[pr.RoomIndex] /= 2; pr.strong {
-				g.roomSpook[pr.RoomIndex] = 0
+				g.roomSpook[pr.RoomIndex], g.shades[pr.RoomIndex] = 0, nil // Father M also banishes a Shadow (D169)
 			}
 			pr.done = true
 			pr.SetPath(g.hotel.Path(image.Pt(int(pr.X), int(pr.Y)), g.hotel.Exit, pr.RoomIndex))

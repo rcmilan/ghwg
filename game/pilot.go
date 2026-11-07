@@ -214,12 +214,27 @@ func (p *Pilot) Serve(room int) {
 // CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
 // Terminal refuses (no money, or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int, strong bool) {
+	pick := pickWeak
+	if strong {
+		pick = pickStrong
+	}
+	p.order(room, pick, func(r RoomView) bool { return r.Priest })
+}
+
+// BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
+// Terminal refuses (no Spook, or one is already there).
+func (p *Pilot) BuyShadow(room int) {
+	p.order(room, pickShadow, func(r RoomView) bool { return r.Shadow })
+}
+
+// order opens the Terminal, picks the Room and the menu's pick, pays, and closes it; ok if got holds then.
+func (p *Pilot) order(room, pick int, got func(RoomView) bool) {
 	p.OpenTerminal()
 	paid := false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
-			return true, paid && v.Rooms[room].Priest
+			return true, paid && got(v.Rooms[room])
 		}
 		cols, _ := p.hotel.Grid()
 		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
@@ -227,7 +242,7 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 		switch {
 		case paid || t.Menu >= 0 && t.Menu != room:
 			k = ebiten.KeyEscape
-		case t.Menu == room && t.Strong != strong:
+		case t.Menu == room && t.Pick != pick:
 			k = ebiten.KeyS
 		case t.Menu == room:
 			k = ebiten.KeySpace

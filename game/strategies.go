@@ -108,8 +108,10 @@ func toServe(v View) int {
 	return -1
 }
 
-// smart serves whenever a Room asks, haunts each Party once (so none flees), and calls a Weak Priest to a
-// Closed Room: Spook for the least money. Fear shows only in ghost, so it shifts to look before it haunts.
+// smart serves whenever a Room asks, haunts each Party once (so none flees), calls a Weak Priest to a
+// Closed Room (Spook for the least money), and buys a Shadow for each Room once it has the Spook (D169),
+// leaving a Room with one to its Shadow: a haunt on top makes its Party flee. Fear shows only in ghost, so
+// it shifts to look before it haunts.
 type smart struct{}
 
 func (smart) Act(v View, p *Pilot) {
@@ -122,13 +124,17 @@ func (smart) Act(v View, p *Pilot) {
 			p.CallPriest(i, false)
 			return
 		}
+		if !r.Shadow && v.Spook >= shadowPrice {
+			p.BuyShadow(i)
+			return
+		}
 	}
 	if i := toServe(v); i >= 0 {
 		p.Serve(i)
 		return
 	}
 	for i, r := range v.Rooms {
-		if r.Vacant || r.Away || r.Haunted {
+		if r.Vacant || r.Away || r.Haunted || r.Shadow {
 			continue
 		}
 		switch {

@@ -52,10 +52,11 @@ type Game struct {
 	serves     int   // requests answered this Run (serve.go)
 	expired    int   // requests left to expire this Run
 	priests    []*priest
-	termCursor int  // the Terminal's selected Room
-	termRoom   int  // the Room whose Priest menu is open, or -1
-	termStrong bool // the menu's Strong Priest is selected, else the Weak one
-	walkIns    int  // Walk-ins this Run
+	shades     []*shade // per Room: its Shadow Person, nil if none (D169, shadow.go)
+	termCursor int      // the Terminal's selected Room
+	termRoom   int      // the Room whose menu is open, or -1
+	termPick   int      // the menu's pick: pickWeak, pickStrong or pickShadow
+	walkIns    int      // Walk-ins this Run
 	floaters   []floater
 	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
@@ -136,7 +137,7 @@ func (g *Game) mapSize() (int, int) {
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), 0, 0
+	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.money, g.spook, g.ghost, g.shifting = runStart, 0, 0, false, nil
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
@@ -199,6 +200,7 @@ func (g *Game) step(dx, dy float64) {
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
+	g.updateShadows()
 	g.separate()
 	g.updateFog()
 	if !g.headless {
