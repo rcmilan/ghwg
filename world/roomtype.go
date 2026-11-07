@@ -39,7 +39,21 @@ type RoomType struct {
 	Tiles   [NumLayers][]TileID // RoomW*RoomH each, row-major
 	Stays   []image.Point       // Stay Spots, room-local px: one per bed, so the Room's capacity (D80)
 	Lanes   []image.Rectangle   // each Stay Spot's bed, room-local px: its cells straight above the Spot (D167)
+	Spots   []Spot              // one in front of each activity prop (D168)
 	DoorCol int
+}
+
+// Spot is where a Guest stands to use a prop (D168), room-local px (world px on a Room): its feet At,
+// facing Prop (the prop's middle; At itself for a prop it stands on, so it faces down), doing Verb.
+type Spot struct {
+	At, Prop image.Point
+	Verb     string
+}
+
+// activityVerbs: the activity props by tile name prefix, and what a Guest does at each (D168).
+var activityVerbs = [...][2]string{
+	{"window_", "look out"}, {"prop_tv_", "watch TV"}, {"prop_bookshelf_", "browse"}, {"prop_wardrobe_", "open"},
+	{"prop_drawer_", "open"}, {"prop_mirror_", "look in"}, {"prop_cushion_", "sit"},
 }
 
 // LoadRoomTypes loads every rooms/*.tmj, sorted by file name.
@@ -171,7 +185,79 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 		}
 		rt.Lanes = append(rt.Lanes, image.Rect(c.X*TileSize, top*TileSize, (c.X+1)*TileSize, c.Y*TileSize))
 	}
+	rt.spots(ts)
 	return rt, nil
+}
+
+// spots finds each activity prop (its 4-connected cells of one kind, on the decor or props layer) and puts
+// its Spot on the free floor cell nearest the middle of the row in front of it, or on the prop itself when
+// it lies flat on the floor. A cell is free when it's Room floor with nothing on it but a rug, above the
+// doorway, and isn't a Stay Spot's or an earlier Spot's (D168).
+func (rt *RoomType) spots(ts *Tileset) {
+	kind := func(l, i int) int {
+		name := ts.Tiles[rt.Tiles[l][i]].Name
+		return slices.IndexFunc(activityVerbs[:], func(v [2]string) bool { return strings.HasPrefix(name, v[0]) })
+	}
+	taken := map[image.Point]bool{}
+	for _, p := range rt.Stays {
+		taken[p.Div(TileSize)] = true
+	}
+	free := func(c image.Point) bool {
+		i := c.Y*RoomW + c.X
+		if c.Y >= doorRow || rt.Tiles[LayerFloor][i] == 0 || rt.Tiles[LayerWalls][i] != 0 || taken[c] { // not a wall's walkable top row
+			return false
+		}
+		if p := ts.Tiles[rt.Tiles[LayerProps][i]]; p.Name != "" && !p.Flat { // under a tall prop's top
+			return false
+		}
+		return !slices.ContainsFunc(rt.Tiles[:], func(l []TileID) bool { return len(ts.Tiles[l[i]].Solid) > 0 })
+	}
+	mid := func(c image.Point) image.Point { return c.Mul(TileSize).Add(image.Pt(TileSize/2, TileSize/2)) }
+	seen := map[[2]int]bool{}
+	for _, l := range []int{LayerDecor, LayerProps} {
+		for i := range rt.Tiles[l] {
+			k := kind(l, i)
+			if k < 0 || seen[[2]int{l, i}] {
+				continue
+			}
+			var box image.Rectangle // the prop, in cells
+			seen[[2]int{l, i}] = true
+			for stack := []int{i}; len(stack) > 0; {
+				j := stack[len(stack)-1]
+				stack = stack[:len(stack)-1]
+				c := image.Pt(j%RoomW, j/RoomW)
+				box = box.Union(image.Rectangle{c, c.Add(image.Pt(1, 1))})
+				for _, d := range [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+					n := c.Add(d)
+					if m := n.Y*RoomW + n.X; n.In(image.Rect(0, 0, RoomW, RoomH)) && !seen[[2]int{l, m}] && kind(l, m) == k {
+						seen[[2]int{l, m}] = true
+						stack = append(stack, m)
+					}
+				}
+			}
+			prop := box.Min.Add(box.Max).Mul(TileSize).Div(2)
+			aim := image.Pt(prop.X, box.Max.Y*TileSize+TileSize/2) // the row in front of it
+			if ts.Tiles[rt.Tiles[l][i]].Flat {                     // on the floor: used from on top
+				aim = prop
+			}
+			best, dist := image.Pt(-1, -1), 0
+			for c := range RoomW * RoomH {
+				cell := image.Pt(c%RoomW, c/RoomW)
+				if d := mid(cell).Sub(aim); free(cell) && (best.X < 0 || d.X*d.X+d.Y*d.Y < dist) {
+					best, dist = cell, d.X*d.X+d.Y*d.Y
+				}
+			}
+			if best.X < 0 {
+				continue
+			}
+			taken[best] = true
+			s := Spot{mid(best), prop, activityVerbs[k][1]}
+			if aim == prop {
+				s.Prop = s.At
+			}
+			rt.Spots = append(rt.Spots, s)
+		}
+	}
 }
 
 // walkable: p (room-local px) is inside the room, over a floor tile, and outside every collision rect.

@@ -107,6 +107,7 @@ type Party struct {
 	peeled     bool          // this leg's leader has arrived and the follower heads for its own goal
 	settled    bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
 	abed       bool          // its Guests are in bed or on their way (D167)
+	acts       []act         // what each Guest is doing in the Room by day (D168)
 	spookShown int           // Spook gained since its Room's last "+N" floater
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	askEnded   int           // the clock its last request was served, expired or lapsed
@@ -241,7 +242,7 @@ func (g *Game) checkIn(p *Party) {
 func (g *Game) sendParty(p *Party, goals ...image.Point) {
 	p.goals, p.peeled = goals, false
 	lead := p.Guests[0]
-	g.send(p, lead, goals[0])
+	g.send(lead, goals[0])
 	for _, f := range p.Guests[1:] {
 		at := image.Pt(int(f.X), int(f.Y))
 		if i := slices.IndexFunc(lead.Path, func(w image.Point) bool { return w.Div(world.TileSize) == at.Div(world.TileSize) }); i >= 0 {
@@ -251,7 +252,7 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its foot instead (D167)
 				to = lead.Path[0]
 			}
-			f.SetPath(append(g.hotel.Path(at, to, p.Room), lead.Path...))
+			f.SetPath(append(g.route(f, to), lead.Path...))
 		}
 	}
 }
@@ -273,7 +274,7 @@ func (g *Game) walkParty(p *Party, speed float64) bool {
 	if len(lead.Path) == 0 && !p.peeled {
 		p.peeled = true
 		for i, f := range p.Guests[1:] {
-			g.send(p, f, p.goals[min(i+1, len(p.goals)-1)])
+			g.send(f, p.goals[min(i+1, len(p.goals)-1)])
 		}
 	}
 	arrived := len(lead.Path) == 0
@@ -295,11 +296,10 @@ func (p *Party) outside(r world.Room) bool {
 
 // send gives a guest a path to `to`, around the Concierge where it stands now; straight through if the
 // Concierge walls it off.
-func (g *Game) send(p *Party, guest *entities.Guest, to image.Point) {
-	from := image.Pt(int(guest.X), int(guest.Y))
-	path := g.hotel.Path(from, to, p.Room, image.Pt(int(g.player.X), int(g.player.Y)))
+func (g *Game) send(guest *entities.Guest, to image.Point) {
+	path := g.route(guest, to, image.Pt(int(g.player.X), int(g.player.Y)))
 	if path == nil {
-		path = g.hotel.Path(from, to, p.Room)
+		path = g.route(guest, to)
 	}
 	guest.SetPath(path)
 }

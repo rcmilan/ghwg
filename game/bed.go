@@ -43,24 +43,52 @@ func (g *Game) inLane(r image.Rectangle) bool {
 	return false
 }
 
-// bedtime: at sleepHour each Guest of the staying Party walks from its Stay Spot up its bed's lane; at
-// wakeHour back down to the Spot. In bed it faces down.
+// route: a guest's path to `to` (Hotel.Path in its own Room, around avoid). From a bed it first walks
+// down to the bed's foot, never off its side.
+func (g *Game) route(guest *entities.Guest, to image.Point, avoid ...image.Point) []image.Point {
+	from, foot := image.Pt(int(guest.X), int(guest.Y)), []image.Point(nil)
+	if b, ok := g.bedAt(guest.X, guest.Y); ok {
+		from = image.Pt((b.Min.X+b.Max.X)/2, b.Max.Y+world.TileSize/2)
+		foot = []image.Point{from}
+	}
+	path := g.hotel.Path(from, to, guest.RoomIndex, avoid...)
+	if path == nil {
+		return nil
+	}
+	return append(foot, path...)
+}
+
+// toBed: a path into the Guest's own bed (lane i of its Room): up from the bed's foot, or along it when
+// already lying in it.
+func (g *Game) toBed(guest *entities.Guest, r world.Room, i int) []image.Point {
+	if b, ok := g.bedAt(guest.X, guest.Y); ok && b == r.Lanes[i] {
+		return []image.Point{sleepSpot(b)}
+	}
+	return append(g.route(guest, r.Stays[i]), sleepSpot(r.Lanes[i]))
+}
+
+// bedtime: at sleepHour each Guest of the staying Party walks into its bed, facing down; at wakeHour it
+// gets up to its Stay Spot, and its day of activities (D168) runs until bed again.
 func (g *Game) bedtime(p *Party) {
 	r := g.hotel.Rooms[p.Room]
 	if night := asleep(g.clock); night != p.abed {
 		p.abed = night
 		for i, guest := range p.Guests {
-			path := []image.Point{r.Stays[i]}
 			if night {
-				path = append(g.hotel.Path(image.Pt(int(guest.X), int(guest.Y)), r.Stays[i], p.Room), sleepSpot(r.Lanes[i]))
+				guest.SetPath(g.toBed(guest, r, i))
+			} else {
+				g.idle(p, i)
 			}
-			guest.SetPath(path)
 		}
+	}
+	if !p.abed {
+		g.pastime(p)
+		return
 	}
 	for _, guest := range p.Guests {
 		if len(guest.Path) > 0 {
 			g.walk(guest, arriveSpeed)
-		} else if p.abed {
+		} else {
 			guest.Anim.Facing = entities.FaceDown
 		}
 	}

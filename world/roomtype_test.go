@@ -54,6 +54,47 @@ func TestRoomTypeTable(t *testing.T) {
 	}
 }
 
+// T150, D168: a Spot in front of each activity prop, on its own free floor cell, facing the prop: up at
+// the windows and the furniture against the walls, down on the cushion.
+func TestActivitySpots(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[[2]string]string{
+		{"Standard", "Single"}: "look out,look out,open", {"Standard", "Twin"}: "look out,look out,open",
+		{"Standard", "Double"}: "look out,look out,look in,open",
+		{"Deluxe", "Single"}:   "look out,look out,watch TV,browse", {"Deluxe", "Double"}: "look out,look out,watch TV,browse",
+		{"Deluxe", "Twin"}: "look out,look out,open,sit",
+	}
+	for _, rt := range types {
+		k := [2]string{rt.Name, rt.Beds}
+		var verbs []string
+		cells := map[image.Point]bool{}
+		for _, p := range rt.Stays {
+			cells[p.Div(TileSize)] = true
+		}
+		for _, s := range rt.Spots {
+			verbs = append(verbs, s.Verb)
+			c := s.At.Div(TileSize)
+			ts := loadTileset(t)
+			if p := ts.Tiles[rt.Tiles[LayerProps][c.Y*RoomW+c.X]]; cells[c] || !rt.walkable(ts, s.At) || p.Name != "" && !p.Flat ||
+				s.At != c.Mul(TileSize).Add(image.Pt(TileSize/2, TileSize/2)) {
+				t.Errorf("%v: %s spot %v is taken, blocked, hidden under a prop or off its cell's middle", k, s.Verb, s.At)
+			}
+			cells[c] = true
+			if up := s.Prop.Y < s.At.Y && abs(s.Prop.X-s.At.X) <= s.At.Y-s.Prop.Y; up == (s.Verb == "sit") || s.Verb == "sit" && s.Prop != s.At {
+				t.Errorf("%v: %s spot %v faces the prop at %v the wrong way", k, s.Verb, s.At, s.Prop)
+			}
+		}
+		if got := strings.Join(verbs, ","); got != want[k] {
+			t.Errorf("%v: spots %q, want %q", k, got, want[k])
+		}
+	}
+}
+
+func abs(x int) int { return max(x, -x) }
+
 // mutate decodes standard_single.tmj into generic JSON, applies f, and parses the result.
 func mutate(t *testing.T, f func(m map[string]any)) error {
 	t.Helper()

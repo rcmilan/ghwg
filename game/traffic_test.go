@@ -25,7 +25,9 @@ func TestYieldAtDoorway(t *testing.T) {
 		g.parties = append(g.parties, &Party{Guests: []*entities.Guest{&guest}, state: checkingIn, Booking: Booking{Room: 0, Checkout: 1 << 30}})
 		return &guest
 	}
+	forGood := leaving
 	leaving := party(center(r.Door), center(out))
+	g.parties[0].state = forGood // out for good: once out it doesn't head back in for an activity (D168)
 	coming := party(center(r.Door.Add(image.Pt(0, 3))), r.Stays[0])
 	if !g.yields(coming) || g.yields(leaving) {
 		t.Fatalf("yields: coming %v, leaving %v; want only the guest coming in to wait", g.yields(coming), g.yields(leaving))
