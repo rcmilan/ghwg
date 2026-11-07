@@ -273,3 +273,29 @@ func TestPairFollows(t *testing.T) {
 		t.Errorf("paid with a member still in the Room: %s", where(p.Guests))
 	}
 }
+
+// S5 review: a follower that slipped into the Room ahead of its leader while checking in must not hold the
+// leader out (the wait is for leaving the Room only).
+func TestFollowerAhead(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	room := g.freeRoom(2)
+	if room < 0 {
+		t.Skip("no 2-Guest Room on this seed")
+	}
+	r := g.hotel.Rooms[room]
+	lead := entities.NewGuest(g.hotel.Spawn, "Adam")
+	mate := entities.NewGuest(r.Stays[1], "Alex")
+	mate.Leader, lead.RoomIndex, mate.RoomIndex = &lead, room, room
+	p := &Party{Guests: []*entities.Guest{&lead, &mate}, Booking: Booking{Room: room, Nights: 1}}
+	p.schedule(g.clock)
+	g.parties = append(g.parties, p)
+	g.checkIn(p)
+	mate.SetPath(nil) // already in, ahead of its leader
+	for i := 0; p.state != staying; i++ {
+		if i > 60*tps {
+			t.Fatalf("the leader never got in: %s", where(p.Guests))
+		}
+		g.step(0, 0)
+	}
+}

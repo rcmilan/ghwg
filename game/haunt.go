@@ -57,7 +57,7 @@ func (g *Game) scare() {
 		g.roomSpook[p.Room] += gained
 		if p.spookShown += gained; p.spookShown > 0 && g.clock/minuteFrames%spookEvery == 0 {
 			door := r.Door.Mul(world.TileSize)
-			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+%d", p.spookShown), g.tick, true})
+			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+%d", p.spookShown), g.tick, floatSpook})
 			p.spookShown = 0
 		}
 		for _, guest := range p.Guests {

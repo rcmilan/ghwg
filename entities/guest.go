@@ -15,6 +15,7 @@ type Guest struct {
 	Character string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
 	Leader    *Guest        // the Party leader this guest trails (D90); nil for a leader
 	Fear      int           // from haunts (D146); never decays
+	Comfort   int           // from serves (D146, D149); never decays
 	Anim      Anim
 
 	best     float64 // shortest remaining path seen on this path

@@ -177,13 +177,16 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
-	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only
+	g.drawRequests(screen, ox, oy)
+	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {
-		case !f.spook:
+		case f.kind == floatMoney:
 			text(screen, f.text, x-3*len(f.text), y, assets.Money)
-		case g.ghost:
+		case f.kind == floatSpook && g.ghost:
 			g.cyan(screen, f.text, x-3*len(f.text), y)
+		case f.kind == floatHeart && !g.ghost:
+			g.drawHeart(screen, x, y)
 		}
 	}
 }

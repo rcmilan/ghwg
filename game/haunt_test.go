@@ -59,7 +59,8 @@ func TestHaunt(t *testing.T) {
 	if g.haunting(p.Room) {
 		t.Fatal("the haunt outlasted hauntMinutes")
 	}
-	other := 1 - p.Room // Vacant: nothing to haunt
+	other := 1 - p.Room     // Vacant: nothing to haunt
+	g.parties = []*Party{p} // Day 1 lets a second Party in (D163)
 	press(g, s, center(g.hotel.Rooms[other].Spot()))
 	if g.haunting(other) {
 		t.Fatal("a Vacant Room was haunted")

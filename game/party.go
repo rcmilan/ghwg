@@ -20,7 +20,7 @@ var walkInsPerHour = [24]float64{
 }
 
 const (
-	rampDays         = 3 // Day d lets in Guests for up to d/rampDays of the Rooms (at least 1): the hotel fills gradually
+	rampDays         = 3 // Day d lets in Guests for up to d/rampDays of the Rooms (at least 2): a bigger hotel fills gradually
 	maxNights        = 3
 	checkoutHour     = 10 // checkout is 10:00–12:00 on the final day (D88)
 	checkoutJitter   = 120 * minuteFrames
@@ -86,8 +86,15 @@ func (b Booking) Out(c int) bool {
 	return b.Routine == tourist && d >= b.firstOut && d < b.Checkout/dayFrames && t >= b.outAt && t < b.backAt
 }
 
-// Payout is what the Party banks at Checkout (D86).
-func (b Booking) Payout() int { return b.Rate * b.Nights }
+// Payout is what the Party banks at Checkout (D86): Rate × Nights, raised comfortBonus% per point of its
+// Guests' mean Comfort (T110).
+func (p *Party) Payout() int {
+	c := 0
+	for _, guest := range p.Guests {
+		c += guest.Comfort
+	}
+	return p.Rate * p.Nights * (100*len(p.Guests) + comfortBonus*c) / (100 * len(p.Guests))
+}
 
 // Occupies: the Room is Occupied from the Party's arrival until it pays at its door (D91) or flees.
 func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid && !b.Fled }
@@ -100,16 +107,27 @@ type Party struct {
 	peeled     bool          // this leg's leader has arrived and the follower heads for its own goal
 	settled    bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
 	spookShown int           // Spook gained since its Room's last "+N" floater
+	asked      int           // the clock it asked for service, 0 when not asking (D163)
+	askEnded   int           // the clock its last request was served, expired or lapsed
 	Booking
 }
 
-// floater is a "+$X" rising over a door after a Checkout (D87), or a ghost-only "+N" of Spook.
+// floater rises and fades: a "+$X" over a door after a Checkout (D87), a ghost-only "+N" of Spook, or a
+// real-only heart over a served Guest.
 type floater struct {
-	x, y  float64 // world px
-	text  string
-	at    int // tick
-	spook bool
+	x, y float64 // world px
+	text string
+	at   int // tick
+	kind floaterKind
 }
+
+type floaterKind int
+
+const (
+	floatMoney floaterKind = iota
+	floatSpook
+	floatHeart
+)
 
 // guests: everyone on the map. A member walking out of the Entrance is gone once it reaches the Exit,
 // so it never blocks the Street while its mate catches up.
@@ -138,7 +156,7 @@ func (g *Game) vacant(room int) bool {
 // the hotel.
 func (g *Game) demand() int {
 	n := len(g.hotel.Rooms)
-	return min(n, max(1, n*day(g.clock)/rampDays))
+	return min(n, max(2, n*day(g.clock)/rampDays))
 }
 
 // maybeWalkIn rolls this game minute's Walk-in on the hourly curve (D77), unless the Day's demand is met
@@ -227,7 +245,7 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 	}
 }
 
-// walkParty advances the Party one frame; true once every member has arrived. Going out, the leader
+// walkParty advances the Party one frame; true once every member has arrived. Leaving the Room, the leader
 // waits outside the door while its follower is still in the Room (D90); the follower waits while it is
 // within a tile of its leader, unless that leader is waiting for it. Nobody else waits on a mate: that could close a loop with a guest
 // that cut in between them.
@@ -237,7 +255,7 @@ func (g *Game) walkParty(p *Party, speed float64) bool {
 	in := func(guest *entities.Guest) bool {
 		return p.Room >= 0 && image.Pt(int(guest.X), int(guest.Y)).In(g.hotel.Rooms[p.Room].Shell())
 	}
-	waits := !in(lead) && slices.ContainsFunc(p.Guests[1:], in)
+	waits := p.state != checkingIn && !in(lead) && slices.ContainsFunc(p.Guests[1:], in) // checking in, a follower that slipped ahead must not hold its leader out
 	if len(lead.Path) > 0 && !waits {
 		g.walk(lead, speed)
 	}
@@ -334,5 +352,5 @@ func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
 	g.money += p.Payout()
 	door := r.Door.Mul(world.TileSize)
-	g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+$%d", p.Payout()), g.tick, false})
+	g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+$%d", p.Payout()), g.tick, floatMoney})
 }

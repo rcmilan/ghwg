@@ -49,6 +49,8 @@ type Game struct {
 	haunted    []int // per Room: the clock its haunt ends (haunt.go)
 	spook      int   // the currency haunting earns (D148)
 	roomSpook  []int // per Room: its Spook level (D147, priest.go)
+	serves     int   // requests answered this Run (serve.go)
+	expired    int   // requests left to expire this Run
 	priests    []*priest
 	termCursor int  // the Terminal's selected Room
 	termRoom   int  // the Room whose Priest menu is open, or -1
@@ -69,6 +71,9 @@ type Game struct {
 	pool, glow *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
 	palette    *ebiten.Shader              // the ghost dimension's arcade palette (ghost.go)
 	ink        *ebiten.Image               // scratch for tinted text (haunt.go)
+	heart      *ebiten.Image               // the serve pop (serve.go)
+	balloon    *ebiten.Image               // a Guest's request (serve.go)
+	tail       *ebiten.Image               // the balloon's tail, pointing down
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -121,7 +126,7 @@ func (g *Game) mapSize() (int, int) {
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook = make([]int, len(g.hotel.Rooms))
+	g.roomSpook, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.money, g.spook, g.ghost = runStart, 0, 0, false
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
@@ -162,8 +167,11 @@ func (g *Game) Update() error {
 			g.openTerminal()
 		case g.atMirror():
 			g.flip()
-		case g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
+		case g.atDoor() < 0 || !g.occupied(g.atDoor()):
+		case g.ghost:
 			g.haunt(g.atDoor())
+		default:
+			g.serve(g.atDoor())
 		}
 	}
 	return nil

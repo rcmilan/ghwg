@@ -18,6 +18,8 @@ var Strategies = map[string]Strategy{
 	"never":        stand{atTerminal}, // never haunts: stays real at the Terminal
 	"haunter":      haunter{},
 	"haunt-priest": hauntPriest{},
+	"server":       server{},
+	"smart":        smart{},
 }
 
 // stand keeps the Concierge at a spot, closing the Terminal if it is open.
@@ -76,6 +78,64 @@ func (hauntPriest) Act(v View, p *Pilot) {
 	}
 	for i, r := range v.Rooms {
 		if !r.Vacant && !r.Haunted && r.Fear+hauntMinutes*fearPerMinute < fearLimit {
+			p.Haunt(i)
+			return
+		}
+	}
+	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
+		p.GoTo(v.Hotel.Mirror)
+	}
+}
+
+// server stays real and serves every Room that asks; it waits at the Terminal in between.
+type server struct{}
+
+func (server) Act(v View, p *Pilot) {
+	if i := toServe(v); i >= 0 && !v.Terminal.Open {
+		p.Serve(i)
+		return
+	}
+	stand{atTerminal}.Act(v, p)
+}
+
+// toServe: the first Room a serve would land on, or -1.
+func toServe(v View) int {
+	for i, r := range v.Rooms {
+		if r.Asking {
+			return i
+		}
+	}
+	return -1
+}
+
+// smart serves whenever a Room asks, haunts each Party once (so none flees), and calls a Weak Priest to a
+// Closed Room: Spook for the least money. Fear shows only in ghost, so it shifts to look before it haunts.
+type smart struct{}
+
+func (smart) Act(v View, p *Pilot) {
+	if v.Terminal.Open {
+		p.Close()
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Closed && !r.Priest && v.Money >= priestWeak {
+			p.CallPriest(i, false)
+			return
+		}
+	}
+	if i := toServe(v); i >= 0 {
+		p.Serve(i)
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Vacant || r.Away || r.Haunted {
+			continue
+		}
+		switch {
+		case !v.Ghost:
+			p.Flip(true)
+			return
+		case r.Fear+hauntMinutes*fearPerMinute < fearLimit:
 			p.Haunt(i)
 			return
 		}

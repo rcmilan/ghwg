@@ -111,6 +111,19 @@ _Avoid_: blocked, locked
 A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its Room Spook and leaves. A **Weak** Priest halves it; a **Strong** one clears it.
 _Avoid_: exorcist, cleaner
 
+## Serving
+
+**Serve**:
+What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once, and a heart pops over the door for each. A Party that isn't asking can't be served.
+_Avoid_: tend, room service (as the term)
+
+**Comfort**:
+How well looked after a Guest is. It rises with each serve, up to a cap, and never falls. It doesn't lower Fear. At Checkout the Party pays more the more Comfort its Guests have.
+
+**Request**:
+A Party in its Room asking to be served, once or twice an awake day: a "!!" balloon by its leader's head, always on screen. It ends when served, when the Party leaves the Room, or after an hour unanswered, when it expires and its Guests lose Comfort.
+_Avoid_: call, order
+
 ## People
 
 **Concierge**:
@@ -143,7 +156,7 @@ The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, R
 One 24-hour turn of the Clock, counted from Day 1.
 
 **Checkout**:
-A Party leaving its Room for good on its final Day. It pays Rate × nights at the Room's door, the money is banked at once, and the Room becomes Vacant.
+A Party leaving its Room for good on its final Day. It pays Rate × nights, raised by its Guests' Comfort, at the Room's door, the money is banked at once, and the Room becomes Vacant.
 
 ## Light
 

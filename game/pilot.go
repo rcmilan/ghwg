@@ -190,6 +190,26 @@ func (p *Pilot) Haunt(room int) {
 	})
 }
 
+// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered. It
+// fails when the request is gone before then.
+func (p *Pilot) Serve(room int) {
+	p.Flip(false)
+	spot := p.hotel.Rooms[room].Spot()
+	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2)))
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case taps > 0 && !v.Rooms[room].Asking:
+			return true, true
+		case taps >= 3 || !v.Rooms[room].Asking || !v.Concierge.In(spot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
 // CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
 // Terminal refuses (no money, or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int, strong bool) {

@@ -79,6 +79,8 @@ type Result struct {
 	Fled        int // Parties that ran from a haunt
 	Spook       int // at the end of the Run
 	Haunts      int // haunts started or restarted
+	Serves      int // requests answered
+	Expired     int // requests left to expire
 	Priests     int // called and paid
 	PriestSpend int // $ paid for them
 	ClosedHours int // Room-hours spent Closed
@@ -149,7 +151,7 @@ func (s *sim) frame() bool {
 			}
 		}
 	}
-	clock, money, spook, title := g.clock, g.money, g.spook, g.state == StateTitle
+	clock, money, spook, title, scaring := g.clock, g.money, g.spook, g.state == StateTitle, s.scaring()
 	haunted, roomSpook := slices.Clone(g.haunted), slices.Clone(g.roomSpook)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -166,8 +168,8 @@ func (s *sim) frame() bool {
 			}
 		}
 		s.res.Available += len(g.hotel.Rooms)
-		if !s.cfg.NoCheck && day(clock) == 1 && vacant == 0 {
-			s.fail("every Room was booked by the first Midnight (rampDays)")
+		if n := len(g.hotel.Rooms); !s.cfg.NoCheck && day(clock) == 1 && n-vacant > min(n, max(2, n/rampDays)) {
+			s.fail("%d Rooms were booked by the first Midnight (rampDays)", n-vacant)
 		}
 	}
 	for i, end := range g.haunted {
@@ -228,7 +230,7 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.spook > spook && !s.scaring() {
+		if g.spook > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
 			s.fail("Spook rose %d with no haunted Room holding its Party", g.spook-spook)
 		}
 	}
@@ -264,7 +266,7 @@ func (s *sim) check(money, banked, spent int) {
 	}
 }
 
-// scaring: some Room is haunted with its Party in the hotel (one that fled this frame counts).
+// scaring: some Room is haunted with its Party in the hotel.
 func (s *sim) scaring() bool {
 	g := s.g
 	return slices.ContainsFunc(g.parties, func(p *Party) bool { return !p.Paid && p.state != out && g.haunting(p.Room) })
@@ -272,7 +274,7 @@ func (s *sim) scaring() bool {
 
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
-	s.res.Spook, s.res.ClosedHours = s.g.spook, s.closed/hourFrames
+	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = s.g.spook, s.closed/hourFrames, s.g.serves, s.g.expired
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && s.g.clock > p.Checkout+2*hourFrames {
