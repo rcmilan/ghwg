@@ -57,13 +57,13 @@ The computer on the Reception Counter. Here the Concierge reads every Room's sta
 The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shifts the hotel.
 
 **Booking**:
-A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out.
+A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out or flees.
 
 **Vacant**:
 A Room with no Booking; the Concierge may enter it.
 
 **Occupied**:
-A Room with a Booking, from the moment its Party arrives until it checks out. Its door opens only for its own Party, even while that Party is out.
+A Room with a Booking, from the moment its Party arrives until it checks out or flees. Its door opens only for its own Party, even while that Party is out.
 _Avoid_: locked (as a room state)
 
 **Fog**:
@@ -79,6 +79,26 @@ _Avoid_: mode, world, ghost mode
 **Shift**:
 Flipping the whole hotel to the other Dimension, at the Mirror, at any time. The game's one meaning of the word.
 _Avoid_: flip (in player-facing text), toggle
+
+## Haunting
+
+**Haunt**:
+What the Concierge does to an Occupied Room in the ghost Dimension, with SPACE in front of its door. A haunt lasts an hour of the Clock; haunting again restarts it.
+_Avoid_: scare (as the verb), attack
+
+**Poltergeist**:
+The haunt there is so far: the Room's furniture shakes, and its Guests gain Fear while they're inside.
+
+**Fear**:
+How frightened a Guest is. It rises while the Guest is inside a haunted Room and never falls. It shows only in the ghost Dimension, as a red glow.
+
+**Flee**:
+A Party leaving for good, unpaid, the moment one of its Guests reaches the Fear limit. Its Room is Vacant at once.
+_Avoid_: escape, check out (a fled Party never checks out)
+
+**Spook**:
+The currency haunting earns: one point for each point of Fear a haunt adds. Shown in the ghost Dimension, on the Terminal and as cyan "+N" over the door. It buys nothing yet.
+_Avoid_: scare points, ectoplasm
 
 ## People
 

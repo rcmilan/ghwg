@@ -76,9 +76,6 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	if t[3] == 0 {
 		return
 	}
-	if g.pool == nil {
-		g.pool, g.glow = lightPool(lightRadius), lightPool(glowRadius)
-	}
 	b := dst.Bounds()
 	if g.dark == nil || g.dark.Bounds().Size() != b.Size() {
 		g.dark = ebiten.NewImage(b.Dx(), b.Dy())

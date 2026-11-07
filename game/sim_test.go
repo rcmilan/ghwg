@@ -60,11 +60,11 @@ func TestSimClock(t *testing.T) {
 	}
 }
 
-// T055: with Parties booked before they arrive (D139), even idle's money is its paid Bookings.
+// T055: with Parties booked before they arrive (D139), even never's money is its paid Bookings.
 func TestRunSim(t *testing.T) {
-	r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: 1, Strategy: Strategies["idle"], React: 30, KeyGap: 6})
+	r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: 1, Strategy: Strategies["never"], React: 30, KeyGap: 6})
 	if r.Bookings == 0 || r.Paid == 0 || sum(r.MoneyByDay) == 0 || len(r.Failures) > 0 || r.Sold == 0 || r.Available != 4*2 {
-		t.Fatalf("idle: %+v; want paid Bookings, money, Room-nights sold of 8, no failures", r)
+		t.Fatalf("never: %+v; want paid Bookings, money, Room-nights sold of 8, no failures", r)
 	}
 }
 
@@ -88,7 +88,7 @@ func (s *thief) Cheat(g *Game) {
 
 // T058: a Run is a function of its Config.
 func TestSimDeterministic(t *testing.T) {
-	c := Config{Cols: 2, Rows: 1, Days: 3, Seed: 42, Strategy: Strategies["idle"], React: 30, KeyGap: 6}
+	c := Config{Cols: 2, Rows: 1, Days: 3, Seed: 42, Strategy: Strategies["never"], React: 30, KeyGap: 6}
 	if a, b := RunSim(c), RunSim(c); !reflect.DeepEqual(a, b) {
 		t.Fatalf("same seed, different Runs:\n%+v\n%+v", a, b)
 	}

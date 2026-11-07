@@ -43,7 +43,11 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 	rect(s, termX+8, termY+8, termW-16, termH-16, assets.Wall)
 	text(s, "RECEPTION TERMINAL", termX+24, termY+18, assets.Ghost)
 	text(s, clockText(g.clock), termX+termW-24-6*len(clockText(g.clock)), termY+18, assets.Ghost)
-	text(s, fmt.Sprintf("$%d", g.money), termX+termW/2, termY+18, assets.Money)
+	cur := fmt.Sprintf("$%d", g.money) // each dimension shows its own currency (D152)
+	if g.ghost {
+		cur = fmt.Sprintf("SPOOK %d", g.spook)
+	}
+	text(s, cur, termX+termW/2, termY+18, assets.Money)
 
 	cols, rows := g.hotel.Grid()
 	tw, th := (gridW-(cols-1)*tileGap)/cols, (gridH-(rows-1)*tileGap)/rows

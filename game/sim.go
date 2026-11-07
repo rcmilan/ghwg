@@ -76,6 +76,9 @@ type Result struct {
 	Paid       int
 	Pairs      int // Bookings of two
 	Outings    int // Tourist days out
+	Fled       int // Parties that ran from a haunt
+	Spook      int // at the end of the Run
+	Haunts     int // haunts started or restarted
 	Failures   []Failure
 }
 
@@ -88,6 +91,7 @@ type sim struct {
 	booked []*Party
 	seen   map[*Party]partyState // each Party's state last frame
 	paid   map[*Party]bool
+	fled   map[*Party]bool
 	phased map[*entities.Guest]bool
 	legs   map[*Party]leg
 }
@@ -114,7 +118,7 @@ func newSim(cfg Config) (*sim, error) {
 		return nil, err
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
-		seen: map[*Party]partyState{}, paid: map[*Party]bool{},
+		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
@@ -140,7 +144,8 @@ func (s *sim) frame() bool {
 			}
 		}
 	}
-	clock, money, title := g.clock, g.money, g.state == StateTitle
+	clock, money, spook, title := g.clock, g.money, g.spook, g.state == StateTitle
+	haunted := slices.Clone(g.haunted)
 	g.Update()
 	if title {
 		return true
@@ -154,6 +159,11 @@ func (s *sim) frame() bool {
 		s.res.Available += len(g.hotel.Rooms)
 		if !s.cfg.NoCheck && day(clock) == 1 && vacant == 0 {
 			s.fail("every Room was booked by the first Midnight (rampDays)")
+		}
+	}
+	for i, end := range g.haunted {
+		if i >= len(haunted) || end != haunted[i] {
+			s.res.Haunts++
 		}
 	}
 	banked := 0
@@ -172,6 +182,13 @@ func (s *sim) frame() bool {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
 		}
+		if p.Fled && !s.fled[p] {
+			s.fled[p] = true
+			s.res.Fled++
+		}
+		if !s.cfg.NoCheck && p.Fled && p.Paid {
+			s.fail("a fled Party (room %d) paid", p.Room)
+		}
 		if prev, ok := s.seen[p]; ok && p.state == out && prev != out {
 			s.res.Outings++
 		}
@@ -182,6 +199,9 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked)
+		if g.spook > spook && !s.scaring() {
+			s.fail("Spook rose %d with no haunted Room holding its Party", g.spook-spook)
+		}
 	}
 	return len(s.res.Failures) == 0
 }
@@ -215,11 +235,18 @@ func (s *sim) check(money, banked int) {
 	}
 }
 
-// finish: a Booking past its checkout by 2 h that never paid fails the Run.
+// scaring: some Room is haunted with its Party in the hotel (one that fled this frame counts).
+func (s *sim) scaring() bool {
+	g := s.g
+	return slices.ContainsFunc(g.parties, func(p *Party) bool { return !p.Paid && p.state != out && g.haunting(p.Room) })
+}
+
+// finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
+	s.res.Spook = s.g.spook
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
-			if !p.Paid && s.g.clock > p.Checkout+2*hourFrames {
+			if !p.Paid && !p.Fled && s.g.clock > p.Checkout+2*hourFrames {
 				s.fail("room %d's Booking never paid: checkout was %s", p.Room, clockText(p.Checkout))
 			}
 		}

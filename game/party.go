@@ -64,6 +64,7 @@ type Booking struct {
 	Rate     int
 	Checkout int // clock frame the Party leaves its Room for good
 	Paid     bool
+	Fled     bool // ran from a haunt (D146): never pays
 	// The Party's own times of day, in frames (D88's jitter), and a Tourist's first day out.
 	outAt, backAt, checkoutAt, firstOut int
 }
@@ -88,24 +89,26 @@ func (b Booking) Out(c int) bool {
 // Payout is what the Party banks at Checkout (D86).
 func (b Booking) Payout() int { return b.Rate * b.Nights }
 
-// Occupies: the Room is Occupied from the Party's arrival until it pays at its door (D91).
-func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid }
+// Occupies: the Room is Occupied from the Party's arrival until it pays at its door (D91) or flees.
+func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid && !b.Fled }
 
 // Party is 1–2 Guests on one Booking (D76): Guests[0] leads, the other trails it (D90).
 type Party struct {
-	Guests  []*entities.Guest
-	state   partyState
-	goals   []image.Point // where each member is headed this leg
-	peeled  bool          // this leg's leader has arrived and the follower heads for its own goal
-	settled bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
+	Guests     []*entities.Guest
+	state      partyState
+	goals      []image.Point // where each member is headed this leg
+	peeled     bool          // this leg's leader has arrived and the follower heads for its own goal
+	settled    bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
+	spookShown int           // Spook gained since its Room's last "+N" floater
 	Booking
 }
 
-// floater is a "+$X" rising over a door after a Checkout (D87).
+// floater is a "+$X" rising over a door after a Checkout (D87), or a ghost-only "+N" of Spook.
 type floater struct {
-	x, y float64 // world px
-	text string
-	at   int // tick
+	x, y  float64 // world px
+	text  string
+	at    int // tick
+	spook bool
 }
 
 // guests: everyone on the map. A member walking out of the Entrance is gone once it reaches the Exit,
@@ -331,5 +334,5 @@ func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
 	g.money += p.Payout()
 	door := r.Door.Mul(world.TileSize)
-	g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+$%d", p.Payout()), g.tick})
+	g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+$%d", p.Payout()), g.tick, false})
 }

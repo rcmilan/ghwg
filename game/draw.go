@@ -134,10 +134,12 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		name string
 		anim entities.Anim
 		fog  float64
+		fear float64 // of fearLimit
 	}
-	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0}}
+	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0}}
 	for _, guest := range g.guests() {
-		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y)))})
+		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
+			min(1, float64(guest.Fear)/fearLimit)})
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
@@ -148,7 +150,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			p := g.props[i]
 			op.GeoM.Reset()
 			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+			op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
 			if f := g.propFog(p); f > 0 {
 				drawFogged(screen, g.tiles[p.id], op, f)
 			} else if maze(g.ts.Tiles[p.id].Name) {
@@ -161,15 +163,23 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for _, a := range actors {
 		propsUpTo(a.y)
 		x, y := at(a.x, a.y)
+		if g.ghost && a.fear > 0 {
+			g.drawFear(screen, x, y, a.fear)
+		}
 		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
 	}
 	propsUpTo(math.Inf(1))
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
-	for _, f := range g.floaters { // "+$X" rising over the door (D87)
+	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
-		text(screen, f.text, x-3*len(f.text), y, assets.Money)
+		switch {
+		case !f.spook:
+			text(screen, f.text, x-3*len(f.text), y, assets.Money)
+		case g.ghost:
+			g.cyan(screen, f.text, x-3*len(f.text), y)
+		}
 	}
 }
 

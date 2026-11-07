@@ -171,6 +171,25 @@ func (p *Pilot) Flip(ghost bool) {
 	})
 }
 
+// Haunt flips to ghost, walks to the Room's door spot and presses SPACE until the Room is haunted.
+func (p *Pilot) Haunt(room int) {
+	p.Flip(true)
+	spot := p.hotel.Rooms[room].Spot()
+	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2))) // the cell off the doorway
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case taps > 0 && v.Rooms[room].Haunted:
+			return true, true
+		case taps >= 3 || v.Rooms[room].Vacant || !v.Concierge.In(spot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
 // Close shuts the open Terminal with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {

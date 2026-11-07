@@ -45,8 +45,10 @@ type Game struct {
 	clock      int      // game time (clock.go)
 	fast       bool     // T held: the clock runs ×10
 	money      int
-	ghost      bool // the whole hotel is in the ghost dimension (D141); else the real one
-	walkIns    int  // Walk-ins this Run
+	ghost      bool  // the whole hotel is in the ghost dimension (D141); else the real one
+	haunted    []int // per Room: the clock its haunt ends (haunt.go)
+	spook      int   // the currency haunting earns (D148)
+	walkIns    int   // Walk-ins this Run
 	floaters   []floater
 	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
@@ -61,6 +63,7 @@ type Game struct {
 	dark       *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
 	pool, glow *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
 	palette    *ebiten.Shader              // the ghost dimension's arcade palette (ghost.go)
+	ink        *ebiten.Image               // scratch for tinted text (haunt.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -96,6 +99,7 @@ func (g *Game) loadImages() (err error) {
 	if g.tiles, err = loadTiles(g.ts); err != nil {
 		return err
 	}
+	g.pool, g.glow = lightPool(lightRadius), lightPool(glowRadius)
 	g.characters, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
 	return err
 }
@@ -107,8 +111,8 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
-	g.parties, g.floaters, g.walkIns, g.fog = nil, nil, 0, nil
-	g.clock, g.money, g.ghost = runStart, 0, false
+	g.parties, g.floaters, g.walkIns, g.fog, g.haunted = nil, nil, 0, nil, nil
+	g.clock, g.money, g.spook, g.ghost = runStart, 0, 0, false
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw
@@ -148,6 +152,8 @@ func (g *Game) Update() error {
 			g.openTerminal()
 		case g.atMirror():
 			g.flip()
+		case g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
+			g.haunt(g.atDoor())
 		}
 	}
 	return nil

@@ -21,7 +21,7 @@ func clockText(c int) string {
 }
 
 // advanceClock runs the Clock one frame (fastClock frames while T is held); the Terminal pauses it by not
-// stepping the world at all (D73). Each new game minute may bring a Walk-in.
+// stepping the world at all (D73). Each new game minute scares the haunted (haunt.go) and may bring a Walk-in.
 func (g *Game) advanceClock() {
 	n := 1
 	if g.fast {
@@ -32,6 +32,7 @@ func (g *Game) advanceClock() {
 		if g.clock%minuteFrames != 0 {
 			continue
 		}
+		g.scare()
 		g.maybeWalkIn()
 	}
 }

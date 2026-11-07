@@ -14,6 +14,7 @@ type Guest struct {
 	Phasing   bool          // ignoring actor collisions after getting stuck (D22c)
 	Character string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
 	Leader    *Guest        // the Party leader this guest trails (D90); nil for a leader
+	Fear      int           // from haunts (D146); never decays
 	Anim      Anim
 
 	best     float64 // shortest remaining path seen on this path

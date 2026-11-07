@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. idle")
+	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. haunter")
 	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
 	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
