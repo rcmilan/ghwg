@@ -67,7 +67,8 @@ var ghostTints = map[string][]float32{
 	"Adam":   {1, 0, 0},
 	"Amelia": {1, .72, 1},
 	"Alex":   {0, 1, 1},
-	"Priest": {1, .72, .32},
+	"Father K": {1, .72, .32},
+	"Father M": {1, .72, .32},
 }
 
 // maze: the tile draws as the maze (floor, walls, side lines) in the ghost dimension.

@@ -201,7 +201,7 @@ func (g *Game) walkIn() *Party {
 	if room < 0 {
 		return nil
 	}
-	guest := entities.NewGuest(g.hotel.Spawn, guestCast[g.rng.IntN(len(guestCast))])
+	guest := entities.NewGuest(g.hotel.Spawn, g.dressed(guestCast[g.rng.IntN(len(guestCast))]))
 	p := &Party{Guests: []*entities.Guest{&guest},
 		Booking: Booking{Nights: 1 + g.rng.IntN(maxNights), Routine: routine(g.rng.IntN(2)),
 			outAt:      outHour*hourFrames + g.rng.IntN(outJitter),
@@ -209,7 +209,7 @@ func (g *Game) walkIn() *Party {
 			checkoutAt: checkoutHour*hourFrames + g.rng.IntN(checkoutJitter)}}
 	if g.rng.Float64() < pairOdds {
 		if r := g.freeRoom(2); r >= 0 {
-			mate := entities.NewGuest(g.hotel.Spawn, guestCast[g.rng.IntN(len(guestCast))])
+			mate := entities.NewGuest(g.hotel.Spawn, g.dressed(guestCast[g.rng.IntN(len(guestCast))]))
 			mate.Leader = &guest
 			p.Guests, room = append(p.Guests, &mate), r
 		}

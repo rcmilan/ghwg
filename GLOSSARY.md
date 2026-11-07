@@ -108,7 +108,7 @@ A Room at the Room Spook limit. No new Party comes to it; a Party already in it 
 _Avoid_: blocked, locked
 
 **Priest**:
-A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its Room Spook and leaves. A **Weak** Priest halves it; a **Strong** one clears it.
+A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its Room Spook and leaves. A **Weak** Priest, Father K, halves it; a **Strong** one, Father M, clears it. Both wear a black cassock with a white collar.
 _Avoid_: exorcist, cleaner
 
 ## Serving

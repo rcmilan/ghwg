@@ -7,7 +7,10 @@ import (
 	"image/color"
 	_ "image/png" // tile decoding
 	"math"
+	"math/rand/v2"
 	"slices"
+	"strconv"
+	"strings"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -144,7 +147,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			min(1, float64(guest.Fear)/fearLimit), g.lift(guest)})
 	}
 	for _, pr := range g.priests {
-		actors = append(actors, actor{pr.X, pr.Y, "Priest", pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
+		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
@@ -222,34 +225,64 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 // Character frames are 16x32; strips hold 4 facings x 6 frames (D26).
 const charW, charH = 16, 32
 
-// loadCharacters decodes the idle_anim and run sheets of every character, by name.
-func loadCharacters(names ...string) (map[string][2]*ebiten.Image, error) {
-	m := map[string][2]*ebiten.Image{}
+// loadCharacters decodes the idle_anim and run sheets of every character, by name, as pixels to recolor
+// (D166).
+func loadCharacters(names ...string) (map[string][2]*image.RGBA, error) {
+	m := map[string][2]*image.RGBA{}
 	for _, name := range names {
-		var sheets [2]*ebiten.Image // idle, run
+		var sheets [2]*image.RGBA // idle, run
 		for i, kind := range [...]string{"idle_anim", "run"} {
-			img, _, err := ebitenutil.NewImageFromFileSystem(assets.FS, "characters/"+name+"_"+kind+"_16x16.png")
+			f, err := assets.FS.Open("characters/" + name + "_" + kind + "_16x16.png")
 			if err != nil {
 				return nil, fmt.Errorf("character %s: %w", name, err)
 			}
-			sheets[i] = img
+			img, _, err := image.Decode(f)
+			f.Close()
+			if err != nil {
+				return nil, fmt.Errorf("character %s: %w", name, err)
+			}
+			sheets[i] = image.NewRGBA(img.Bounds())
+			for y := range img.Bounds().Dy() {
+				for x := range img.Bounds().Dx() {
+					sheets[i].Set(x, y, img.At(x, y))
+				}
+			}
 		}
 		m[name] = sheets
 	}
 	return m, nil
 }
 
+// dress: a character's sheets recolored to l, as images.
+func dress(sheets [2]*image.RGBA, pal map[uint32][2]region, l look) [2]*ebiten.Image {
+	return [2]*ebiten.Image{ebiten.NewImageFromImage(recolor(sheets[0], pal, l)), ebiten.NewImageFromImage(recolor(sheets[1], pal, l))}
+}
+
+// sheet: name's idle and run sheets. A Guest's name is its base character, "#" and its look's seed
+// (D166); its sheets are recolored on first use.
+// ponytail: a Guest's sheets are never freed; a Run makes a few dozen 384x32 pairs.
+func (g *Game) sheet(name string) [2]*ebiten.Image {
+	s, ok := g.characters[name]
+	if !ok {
+		base, key, _ := strings.Cut(name, "#")
+		seed, _ := strconv.ParseUint(key, 10, 64)
+		s = dress(g.bases[base], palettes[base], randomLook(rand.New(rand.NewPCG(seed, 0))))
+		g.characters[name] = s
+	}
+	return s
+}
+
 // drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
 // (x,y) is the foot box center in screen px; inside a fogged Room it fades out with the fog (D92).
 func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64) {
-	sheet := g.characters[name][0]
+	sheet := g.sheet(name)[0]
 	if a.Moving {
-		sheet = g.characters[name][1]
+		sheet = g.sheet(name)[1]
 	}
 	f := a.Frame()
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1 - fog))
-	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[name], 0)
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[strings.Split(name, "#")[0]], 0)
 }

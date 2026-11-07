@@ -65,7 +65,8 @@ type Game struct {
 	headless   bool                        // no window: step skips what only drawing needs
 	auto       *autopilot                  // a Strategy plays instead of a person (sim.go)
 	tiles      []*ebiten.Image             // by world.TileID
-	characters map[string][2]*ebiten.Image // idle_anim, run sheets by name
+	characters map[string][2]*ebiten.Image // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
+	bases      map[string][2]*image.RGBA   // each character's sheets as drawn, to recolor (D166)
 	floorImg   *ebiten.Image               // the floor layer pre-rendered at 1px per world px
 	props      []prop                      // every other static tile, by SortY
 	dark       *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
@@ -112,11 +113,15 @@ func (g *Game) loadImages() (err error) {
 		return err
 	}
 	g.pool, g.glow = lightPool(lightRadius), lightPool(glowRadius)
-	if g.characters, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...); err != nil {
+	if g.bases, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...); err != nil {
 		return err
 	}
-	alex := g.characters["Alex"]
-	g.characters["Priest"] = [2]*ebiten.Image{grayscale(alex[0]), grayscale(alex[1])}
+	g.characters = map[string][2]*ebiten.Image{}
+	for name, b := range g.bases {
+		g.characters[name] = dress(b, palettes[name], look{})
+	}
+	g.characters[fatherK.name] = dress(g.bases["Bob"], palettes["Bob"], fatherK.look)
+	g.characters[fatherM.name] = dress(g.bases["Bob"], palettes["Bob"], fatherM.look)
 	return nil
 }
 

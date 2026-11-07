@@ -14,7 +14,8 @@ import (
 func (g *Game) openTerminal() { g.state, g.message, g.termRoom = StateTerminal, "", -1 }
 
 // updateTerminal (D151): WASD moves across the Room grid and SPACE opens a Room's Priest menu; there,
-// W/S picks Weak or Strong and SPACE calls him, back to the list with what happened.
+// W/S picks Father K (weak) or Father M (strong, D166) and SPACE calls him, back to the list with what
+// happened.
 func (g *Game) updateTerminal() {
 	if g.termRoom >= 0 {
 		switch {
@@ -22,7 +23,7 @@ func (g *Game) updateTerminal() {
 			g.termStrong = !g.termStrong
 		case g.in.JustPressed(ebiten.KeySpace):
 			if g.message = g.callPriest(g.termRoom, g.termStrong); g.message == "" {
-				g.message = "PRIEST CALLED TO ROOM " + g.hotel.Rooms[g.termRoom].Number
+				g.message = strings.ToUpper(g.priests[len(g.priests)-1].Character) + " CALLED TO ROOM " + g.hotel.Rooms[g.termRoom].Number
 			}
 			g.termRoom = -1
 		}
@@ -60,7 +61,7 @@ func (g *Game) drawHeads(s *ebiten.Image, x, y int, names ...string) {
 	for i, name := range names {
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(x+i*(head.Dx()+2)), float64(y))
-		s.DrawImage(g.characters[name][0].SubImage(head).(*ebiten.Image), op)
+		s.DrawImage(g.sheet(name)[0].SubImage(head).(*ebiten.Image), op)
 	}
 }
 
@@ -106,27 +107,31 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		}
 		g.drawHeads(s, x+6, y+40, heads...)
 		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Ghost) // Twin vs Double as text (D97)
-		status := ""
+		sx := x + 6
 		if g.closed(i) {
-			status = "CLOSED "
+			text(s, "CLOSED", sx, y+72, assets.Accent)
+			sx += 6 * len("CLOSED ")
 		}
-		if g.priestOn(i) {
-			status += "PRIEST"
+		for _, pr := range g.priests {
+			if pr.RoomIndex == i && !pr.done { // a Priest's name follows his head, as the Guests' heads (S8 review)
+				g.drawHeads(s, sx, y+72, pr.Character)
+				text(s, strings.ToUpper(pr.Character), sx+head.Dx()+4, y+72, assets.Accent)
+			}
 		}
-		text(s, status, x+6, y+72, assets.Accent)
 		if i == g.termRoom {
-			for k, o := range [...]string{fmt.Sprintf("WEAK PRIEST $%d: HALVES SPOOK", priestWeak), fmt.Sprintf("STRONG PRIEST $%d: CLEARS IT", priestStrong)} {
+			for k, o := range [...]string{fmt.Sprintf("FATHER K $%d: HALVES SPOOK", priestWeak), fmt.Sprintf("FATHER M $%d: CLEARS IT", priestStrong)} {
 				if (k == 1) == g.termStrong {
-					o = "> " + o
+					text(s, ">", x+6, y+92+k*18, assets.Ghost)
 				}
-				text(s, o, x+6, y+88+k*14, assets.Ghost)
+				g.drawHeads(s, x+16, y+92+k*18, [...]string{fatherK.name, fatherM.name}[k])
+				text(s, o, x+16+head.Dx()+4, y+92+k*18, assets.Ghost)
 			}
 		}
 	}
 
 	help := "WASD SELECT   SPACE CALL A PRIEST   ESC CLOSE"
 	if g.termRoom >= 0 {
-		help = "W/S WEAK OR STRONG   SPACE PAY   ESC CLOSE"
+		help = "W/S FATHER K OR M   SPACE PAY   ESC CLOSE"
 	}
 	text(s, help, termX+24, termY+termH-30, assets.Accent)
 }

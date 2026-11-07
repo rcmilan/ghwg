@@ -10,7 +10,6 @@ import (
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/colorm"
 )
 
 // Room Spook (D147) and the Priests who clean it (D151). Placeholders, retuned at T112.
@@ -44,7 +43,11 @@ func (pr *priest) price() int {
 
 // callPriest pays for a Priest to the Room and sends him in from the Street; else why not.
 func (g *Game) callPriest(room int, strong bool) string {
-	pr := &priest{Guest: entities.NewGuest(g.hotel.Spawn, "Priest"), strong: strong}
+	name := fatherK.name // D166: Father K is the Weak Priest, Father M the Strong one
+	if strong {
+		name = fatherM.name
+	}
+	pr := &priest{Guest: entities.NewGuest(g.hotel.Spawn, name), strong: strong}
 	pr.RoomIndex = room
 	if g.priestOn(room) {
 		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
@@ -89,15 +92,6 @@ func (g *Game) updatePriests() {
 	}
 	clear(g.priests[len(kept):])
 	g.priests = kept
-}
-
-// grayscale: a copy of sheet in black and white, the Priest's look (T105).
-func grayscale(sheet *ebiten.Image) *ebiten.Image {
-	img := ebiten.NewImage(sheet.Bounds().Dx(), sheet.Bounds().Dy())
-	var cm colorm.ColorM
-	cm.ChangeHSV(0, 0, 1)
-	colorm.DrawImage(img, sheet, cm, nil)
-	return img
 }
 
 // spookAt is the Room Spook shift of world cell c (D162): its Room's Spook ÷ spookLimit, 0 outside the
