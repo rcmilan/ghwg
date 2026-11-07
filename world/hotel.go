@@ -57,9 +57,10 @@ func (l layout) origin(c, r int) image.Point {
 type Room struct {
 	Number string
 	Type   RoomType
-	Origin image.Point   // cell of the room's top-left corner
-	Door   image.Point   // cell of the door's top half; the bottom half is Door+(0,1)
-	Stays  []image.Point // Stay Spots, world px; len is the Room's capacity (D80)
+	Origin image.Point       // cell of the room's top-left corner
+	Door   image.Point       // cell of the door's top half; the bottom half is Door+(0,1)
+	Stays  []image.Point     // Stay Spots, world px; len is the Room's capacity (D80)
+	Lanes  []image.Rectangle // each Stay Spot's bed, world px (D167)
 }
 
 // Hotel is the built map plus the anchors the game needs. Points are world px.
@@ -266,9 +267,12 @@ func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
 func (h *Hotel) Furnish(types []RoomType) {
 	for i := range h.Rooms {
 		r := &h.Rooms[i]
-		r.Type, r.Stays = types[i], nil
+		r.Type, r.Stays, r.Lanes = types[i], nil, nil
 		for _, p := range types[i].Stays {
 			r.Stays = append(r.Stays, r.Origin.Mul(TileSize).Add(p))
+		}
+		for _, b := range types[i].Lanes {
+			r.Lanes = append(r.Lanes, b.Add(r.Origin.Mul(TileSize)))
 		}
 		for layer, cells := range r.Type.Tiles {
 			for c, tid := range cells {

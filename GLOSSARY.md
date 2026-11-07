@@ -23,7 +23,7 @@ What a Party pays per night in a Room. It comes from the Room Type when the Book
 _Avoid_: price, fee
 
 **Stay Spot**:
-A point inside a Room where one Guest stays, one per bed.
+A point inside a Room where one Guest stays, one per bed, at its foot. From 23:00 to 07:00 the Guest sleeps in that bed.
 
 **Lobby**:
 The common area between the Hall Wall and the Entrance, where the Reception Counter stands.

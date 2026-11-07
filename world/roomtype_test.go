@@ -2,6 +2,7 @@ package world
 
 import (
 	"encoding/json"
+	"image"
 	"io/fs"
 	"strings"
 	"testing"
@@ -38,6 +39,13 @@ func TestRoomTypeTable(t *testing.T) {
 		}
 		if len(rt.Stays) != bedCapacity[rt.Beds] {
 			t.Errorf("%v: %d Stay Spots, want %d", k, len(rt.Stays), bedCapacity[rt.Beds])
+		}
+		for i, p := range rt.Stays { // T140, D167: a bed straight above each Stay Spot, 3 cells tall
+			c := p.Div(TileSize)
+			want := image.Rectangle{image.Pt(c.X, c.Y-3).Mul(TileSize), image.Pt(c.X+1, c.Y).Mul(TileSize)}
+			if i >= len(rt.Lanes) || rt.Lanes[i] != want {
+				t.Errorf("%v: Stay Spot %v has bed lanes %v, want %v", k, p, rt.Lanes, want)
+			}
 		}
 		seen[k] = true
 	}

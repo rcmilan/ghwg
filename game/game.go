@@ -222,10 +222,10 @@ func (g *Game) blocked(r image.Rectangle) bool {
 
 // conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
 // can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
-// the Room he's in.
+// the Room he's in. A bed's lane lets him lie in it (D167).
 func (g *Game) conciergeBlocked(r image.Rectangle) bool {
 	at := image.Pt(int(g.player.X), int(g.player.Y))
-	return g.blocked(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
+	return g.blocked(r) && !g.inLane(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
 		return d.Room >= 0 && d.Rect.Overlaps(r) && !d.Allows(-1, at.In(g.hotel.Rooms[d.Room].Shell()), g.occupied(d.Room))
 	})
 }

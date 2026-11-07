@@ -90,7 +90,7 @@ func (g *Game) updateTalk() {
 // line by its Room's Spook ("Zzz..." asleep), or while haunted a scared one by its speaker's Fear or the
 // Room Spook, whichever is higher. A single never says a line meant for its mate.
 func (g *Game) updateRoomTalk() {
-	asleep := hour(g.clock) < wakeHour || hour(g.clock) >= sleepHour
+	asleep := asleep(g.clock)
 	for _, p := range g.parties {
 		haunted := g.haunting(p.Room)
 		odds := calmOdds

@@ -106,6 +106,7 @@ type Party struct {
 	goals      []image.Point // where each member is headed this leg
 	peeled     bool          // this leg's leader has arrived and the follower heads for its own goal
 	settled    bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
+	abed       bool          // its Guests are in bed or on their way (D167)
 	spookShown int           // Spook gained since its Room's last "+N" floater
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	askEnded   int           // the clock its last request was served, expired or lapsed
@@ -246,7 +247,11 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 		if i := slices.IndexFunc(lead.Path, func(w image.Point) bool { return w.Div(world.TileSize) == at.Div(world.TileSize) }); i >= 0 {
 			f.SetPath(slices.Clone(lead.Path[i:]))
 		} else {
-			f.SetPath(append(g.hotel.Path(at, image.Pt(int(lead.X), int(lead.Y)), p.Room), lead.Path...))
+			to := image.Pt(int(lead.X), int(lead.Y))
+			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its foot instead (D167)
+				to = lead.Path[0]
+			}
+			f.SetPath(append(g.hotel.Path(at, to, p.Room), lead.Path...))
 		}
 	}
 }
@@ -328,6 +333,8 @@ func (g *Game) updateParty(p *Party) bool {
 		case p.Out(g.clock): // a Tourist's day out (D88)
 			p.state, p.greet = goingOut, greetOut
 			g.sendParty(p, exit...)
+		default:
+			g.bedtime(p)
 		}
 	case goingOut:
 		if g.walkParty(p, departSpeed) {

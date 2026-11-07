@@ -31,7 +31,7 @@ func (p *Party) asking() bool { return p.asked > 0 }
 // asks at random, askPerDay times a day on average. Unanswered for askMinutes, the request expires and
 // each Guest loses askPenalty Comfort. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
-	awake := hour(g.clock) >= wakeHour && hour(g.clock) < sleepHour
+	awake := !asleep(g.clock)
 	for _, p := range g.parties {
 		switch {
 		case p.asking() && p.state != staying:

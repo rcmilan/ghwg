@@ -158,33 +158,49 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for _, pr := range g.priests {
 		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
 	}
-	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
+	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+		if b, ok := g.bedAt(a.x, a.y); ok {
+			return float64(b.Max.Y)
+		}
+		return a.y
+	}
+	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(z(a), z(b)) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
+	drawProp := func(p prop) {
+		op.GeoM.Reset()
+		op.GeoM.Scale(zoom, zoom)
+		op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+		s := g.spookAt(image.Pt(p.cx, p.cy))
+		if f := g.propFog(p); f > 0 {
+			drawFogged(screen, g.tiles[p.id], op, f)
+		} else if maze(g.ts.Tiles[p.id].Name) {
+			g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
+		} else {
+			g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
+		}
+	}
 	i := 0
-	propsUpTo := func(feet float64) {
-		for ; i < len(g.props) && float64(g.props[i].y) <= feet; i++ {
-			p := g.props[i]
-			op.GeoM.Reset()
-			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
-			s := g.spookAt(image.Pt(p.cx, p.cy))
-			if f := g.propFog(p); f > 0 {
-				drawFogged(screen, g.tiles[p.id], op, f)
-			} else if maze(g.ts.Tiles[p.id].Name) {
-				g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
-			} else {
-				g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
-			}
+	propsUpTo := func(y float64) {
+		for ; i < len(g.props) && float64(g.props[i].y) <= y; i++ {
+			drawProp(g.props[i])
 		}
 	}
 	for _, a := range actors {
-		propsUpTo(a.y)
+		propsUpTo(z(a))
 		x, y := at(a.x, a.y-a.lift)
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
 		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
+		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
+			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
+			for _, p := range g.props {
+				if p.cx == c.X && p.cy == c.Y {
+					drawProp(p)
+				}
+			}
+		}
 	}
 	propsUpTo(math.Inf(1))
 	if !g.ghost { // the palette replaces the day and night (D160)

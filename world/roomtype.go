@@ -6,6 +6,7 @@ import (
 	"image"
 	"io/fs"
 	"slices"
+	"strings"
 )
 
 // Room Type maps are exactly RoomW×RoomH tiles; the door sits on the south face rows doorRow and doorRow+1.
@@ -37,6 +38,7 @@ type RoomType struct {
 	Rate    int
 	Tiles   [NumLayers][]TileID // RoomW*RoomH each, row-major
 	Stays   []image.Point       // Stay Spots, room-local px: one per bed, so the Room's capacity (D80)
+	Lanes   []image.Rectangle   // each Stay Spot's bed, room-local px: its cells straight above the Spot (D167)
 	DoorCol int
 }
 
@@ -158,6 +160,17 @@ func ParseRoomType(data []byte, ts *Tileset) (RoomType, error) {
 		}
 	}
 	rt.Stays = stays
+	for _, p := range stays { // D167: the bed in the Stay Spot's column, up from the cell above it
+		c := p.Div(TileSize)
+		top := c.Y
+		for top > 0 && strings.HasPrefix(ts.Tiles[rt.Tiles[LayerProps][(top-1)*RoomW+c.X]].Name, "prop_bed_") {
+			top--
+		}
+		if top == c.Y {
+			return rt, fmt.Errorf("\"stay\" point at (%d,%d) px has no bed straight above it", p.X, p.Y)
+		}
+		rt.Lanes = append(rt.Lanes, image.Rect(c.X*TileSize, top*TileSize, (c.X+1)*TileSize, c.Y*TileSize))
+	}
 	return rt, nil
 }
 
