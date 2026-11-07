@@ -84,6 +84,15 @@ func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 func text(s *ebiten.Image, v string, x, y int, _ color.Color) { ebitenutil.DebugPrintAt(s, v, x, y) }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	if g.shifting != nil && g.state != StateTitle {
+		g.drawShift(screen)
+		return
+	}
+	g.drawFrame(screen)
+}
+
+// drawFrame draws the screen in the current dimension.
+func (g *Game) drawFrame(screen *ebiten.Image) {
 	screen.Fill(assets.Night)
 	if g.ghost && g.state != StateTitle {
 		screen.Fill(color.Black)
@@ -99,7 +108,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.state == StatePlay && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
 	}
-	if g.state == StatePlay && g.atMirror() {
+	if g.state == StatePlay && g.atMirror() && g.shifting == nil {
 		to := "GHOST"
 		if g.ghost {
 			to = "REAL"

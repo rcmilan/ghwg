@@ -72,6 +72,9 @@ type Game struct {
 	dark       *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
 	pool, glow *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
 	palette    *ebiten.Shader              // the ghost dimension's arcade palette (ghost.go)
+	transition *ebiten.Shader              // the Mirror's transitions (shift.go)
+	fx         [2]*ebiten.Image            // a transition's real and ghost pictures
+	shifting   *shift                      // the Mirror's transition under way, nil if none (D170)
 	ink        *ebiten.Image               // scratch for tinted text (haunt.go)
 	heart      *ebiten.Image               // the serve pop (serve.go)
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
@@ -134,7 +137,7 @@ func (g *Game) mapSize() (int, int) {
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
 	g.roomSpook, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), 0, 0
-	g.clock, g.money, g.spook, g.ghost = runStart, 0, 0, false
+	g.clock, g.money, g.spook, g.ghost, g.shifting = runStart, 0, 0, false, nil
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw
@@ -168,12 +171,14 @@ func (g *Game) Update() error {
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
+		g.updateShift()
 		switch {
 		case !g.in.JustPressed(ebiten.KeySpace):
+		case g.shifting != nil: // SPACE waits for the transition (D170)
 		case g.atTerminal():
 			g.openTerminal()
 		case g.atMirror():
-			g.flip()
+			g.startShift()
 		case g.atDoor() < 0 || !g.occupied(g.atDoor()):
 		case g.ghost:
 			g.haunt(g.atDoor())
@@ -216,10 +221,12 @@ func (g *Game) blocked(r image.Rectangle) bool {
 }
 
 // conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
-// can't slip in behind a Party.
+// can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
+// the Room he's in.
 func (g *Game) conciergeBlocked(r image.Rectangle) bool {
+	at := image.Pt(int(g.player.X), int(g.player.Y))
 	return g.blocked(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
-		return d.Room >= 0 && g.occupied(d.Room) && d.Rect.Overlaps(r)
+		return d.Room >= 0 && d.Rect.Overlaps(r) && !d.Allows(-1, at.In(g.hotel.Rooms[d.Room].Shell()), g.occupied(d.Room))
 	})
 }
 

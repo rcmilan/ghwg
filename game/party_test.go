@@ -195,6 +195,26 @@ func TestConciergeKeptOut(t *testing.T) {
 	}
 }
 
+// D21, bug report: the Concierge inside a Vacant Room when a Party checks into it walks out its door.
+func TestConciergeLetOut(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	p := g.walkIn()
+	r := g.hotel.Rooms[p.Room]
+	in := r.Door.Add(image.Pt(0, -1)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
+	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
+	for range 3 * tps {
+		g.step(0, 1) // down, out the door
+	}
+	if at := image.Pt(int(g.player.X), int(g.player.Y)); at.In(r.Shell()) {
+		t.Fatalf("the Concierge is shut in Room %d at %v", p.Room, at)
+	}
+	g.step(0, -1) // and once out, the doorway is barred again (D91)
+	if !g.conciergeBlocked(g.hotel.Doors[p.Room].Rect) {
+		t.Error("out of the Room, the Concierge can enter its doorway again")
+	}
+}
+
 // pairWalkIn walks in Parties until one is a pair, at night so no other Walk-in joins it. It needs a
 // 2-person Room (furnish).
 func pairWalkIn(g *Game) *Party {

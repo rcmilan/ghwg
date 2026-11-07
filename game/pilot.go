@@ -154,6 +154,7 @@ func (p *Pilot) Flip(ghost bool) {
 	walk, walked, taps := goTo(p.hotel.Mirror), false, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		switch {
+		case v.Shifting: // the transition runs out first (D170)
 		case v.Ghost == ghost:
 			return true, true
 		case !walked:

@@ -12,6 +12,7 @@ import (
 type View struct {
 	Title     bool // the title screen is up
 	Ghost     bool // the hotel is in the ghost dimension
+	Shifting  bool // the Mirror's transition is playing (D170): SPACE waits
 	Clock     string
 	Day       int
 	Money     int
@@ -47,7 +48,7 @@ type TerminalView struct {
 
 func (g *Game) view() View {
 	v := View{
-		Title: g.state == StateTitle, Ghost: g.ghost,
+		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money, Spook: g.spook,
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
 		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termStrong},

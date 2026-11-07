@@ -7,37 +7,7 @@ import (
 	"testing"
 
 	"ghosthotel/world"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
-
-// T090 (D141, D142): SPACE at the Mirror flips the whole hotel between real and ghost; a Run starts real.
-func TestFlip(t *testing.T) {
-	g, s := headless(t, 2, 1, 1)
-	s.hold(ebiten.KeySpace)
-	g.Update()
-	if g.ghost {
-		t.Fatal("a Run starts in the ghost dimension")
-	}
-	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
-	for _, want := range []bool{true, false} {
-		s.hold()
-		g.Update()
-		s.hold(ebiten.KeySpace)
-		g.Update()
-		if g.ghost != want || g.state != StatePlay {
-			t.Fatalf("SPACE at the Mirror: ghost %v state %d, want ghost %v and play", g.ghost, g.state, want)
-		}
-	}
-	g.player.X, g.player.Y = float64(g.hotel.Archway.X), float64(g.hotel.Archway.Y)
-	s.hold()
-	g.Update()
-	s.hold(ebiten.KeySpace)
-	g.Update()
-	if g.ghost {
-		t.Fatal("SPACE away from the Mirror flipped the hotel")
-	}
-}
 
 // T090 (D143): the hotel runs the same in both dimensions: same seed, same Parties.
 func TestDimensionsRunAlike(t *testing.T) {

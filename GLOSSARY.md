@@ -54,7 +54,7 @@ _Avoid_: desk, reception
 The computer on the Reception Counter. Here the Concierge reads every Room's status, the money and the Clock. The world pauses while it is open.
 
 **Mirror**:
-The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shifts the hotel.
+The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shifts the hotel, through one of nine random transitions (0.8 s) while the world keeps running.
 
 **Booking**:
 A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out or flees.
