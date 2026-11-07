@@ -1,7 +1,7 @@
 // Command sim plays many headless Runs in parallel, each by a Strategy through the keys a player has,
 // and prints how each Strategy did (simulation mode). A dev tool: never part of the game binary.
 //
-//	go run ./cmd/sim -strategy never,haunter -runs 100 -days 7 -grid 3x3
+//	go run ./cmd/sim -strategy never,haunter,haunt-priest -runs 100 -days 7 -grid 3x3
 package main
 
 import (
@@ -66,11 +66,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\tspook\thaunts\tfailures\t")
+	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\tspook\thaunts\tpriests\tspent\tclosed h\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, bookings, fled, spook, haunts, failed int
+		var sold, avail, bookings, fled, spook, haunts, priests, spent, closed, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -80,6 +80,7 @@ func main() {
 			perDay = append(perDay, float64(total)/float64(*days))
 			sold, avail, bookings = sold+r.Sold, avail+r.Available, bookings+r.Bookings
 			fled, spook, haunts = fled+r.Fled, spook+r.Spook, haunts+r.Haunts
+			priests, spent, closed = priests+r.Priests, spent+r.PriestSpend, closed+r.ClosedHours
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
 				failed++
@@ -92,8 +93,9 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.0f\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(spook)/n, float64(haunts)/n, failed)
+		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
+			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(spook)/n, float64(haunts)/n,
+			float64(priests)/n, float64(spent)/n, float64(closed)/n, failed)
 	}
 	w.Flush()
 	if len(failures) > 0 {
@@ -122,7 +124,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "paid", "pairs", "outings", "fled", "spook", "haunts", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "paid", "pairs", "outings", "fled", "spook", "haunts", "priests", "priest_spend", "closed_hours", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -136,7 +138,8 @@ func writeCSV(path string, results [][]game.Result) error {
 			w.Write([]string{r.Strategy, strconv.FormatUint(r.Seed, 10), strconv.FormatBool(r.Cheat), strings.Join(money, ";"),
 				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
 				strconv.Itoa(r.Bookings), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
-				strconv.Itoa(r.Fled), strconv.Itoa(r.Spook), strconv.Itoa(r.Haunts), failure})
+				strconv.Itoa(r.Fled), strconv.Itoa(r.Spook), strconv.Itoa(r.Haunts),
+				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), failure})
 		}
 	}
 	w.Flush()

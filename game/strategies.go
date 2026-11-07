@@ -15,8 +15,9 @@ type Strategy interface {
 
 // Strategies are the ones the CLI and the watch mode know by name (D106).
 var Strategies = map[string]Strategy{
-	"never":   stand{atTerminal}, // never haunts: stays real at the Terminal
-	"haunter": haunter{},
+	"never":        stand{atTerminal}, // never haunts: stays real at the Terminal
+	"haunter":      haunter{},
+	"haunt-priest": hauntPriest{},
 }
 
 // stand keeps the Concierge at a spot, closing the Terminal if it is open.
@@ -55,5 +56,31 @@ func (s stand) Act(v View, p *Pilot) {
 		p.Close()
 	case v.Concierge.Div(world.TileSize) != s.at(v.Hotel).Div(world.TileSize):
 		p.GoTo(s.at(v.Hotel))
+	}
+}
+
+// hauntPriest haunts a Room only while one more haunt leaves its Guests under the Fear limit, so its
+// Parties stay and pay, and calls a Weak Priest to a Closed Room as soon as it has the money.
+type hauntPriest struct{}
+
+func (hauntPriest) Act(v View, p *Pilot) {
+	if v.Terminal.Open {
+		p.Close()
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Closed && !r.Priest && v.Money >= priestWeak {
+			p.CallPriest(i, false)
+			return
+		}
+	}
+	for i, r := range v.Rooms {
+		if !r.Vacant && !r.Haunted && r.Fear+hauntMinutes*fearPerMinute < fearLimit {
+			p.Haunt(i)
+			return
+		}
+	}
+	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
+		p.GoTo(v.Hotel.Mirror)
 	}
 }

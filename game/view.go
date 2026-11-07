@@ -25,6 +25,8 @@ type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
+	Closed             bool // at the Spook limit: no new Party (D147)
+	Priest             bool // one is on his way or at work
 	// Seen only in the ghost dimension: its props shake, and its Guests glow with Fear.
 	Haunted bool
 	Fear    int // its most frightened Guest in sight
@@ -33,6 +35,9 @@ type RoomView struct {
 type TerminalView struct {
 	Open    bool
 	Message string
+	Cursor  int  // the selected Room
+	Menu    int  // the Room whose Priest menu is open, or -1
+	Strong  bool // the menu has the Strong Priest selected
 }
 
 func (g *Game) view() View {
@@ -40,10 +45,11 @@ func (g *Game) view() View {
 		Title: g.state == StateTitle, Ghost: g.ghost,
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money, Spook: g.spook,
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.message},
+		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termStrong},
 	}
 	for i, r := range g.hotel.Rooms {
-		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate}
+		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
+			Closed: g.closed(i), Priest: g.priestOn(i)}
 		if g.ghost {
 			rv.Haunted = g.haunting(i)
 			for _, guest := range g.guests() {

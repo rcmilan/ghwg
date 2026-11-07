@@ -10,13 +10,39 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// openTerminal pauses the world on the Terminal (D73). It is read-only (T086): SPACE or ESC closes it.
-func (g *Game) openTerminal() { g.state, g.message = StateTerminal, "" }
+// openTerminal pauses the world on the Terminal (D73) on its Room list. ESC closes it.
+func (g *Game) openTerminal() { g.state, g.message, g.termRoom = StateTerminal, "", -1 }
 
+// updateTerminal (D151): WASD moves across the Room grid and SPACE opens a Room's Priest menu; there,
+// W/S picks Weak or Strong and SPACE calls him, back to the list with what happened.
 func (g *Game) updateTerminal() {
-	if g.in.JustPressed(ebiten.KeySpace) {
-		g.state, g.message = StatePlay, ""
+	if g.termRoom >= 0 {
+		switch {
+		case g.in.JustPressed(ebiten.KeyW), g.in.JustPressed(ebiten.KeyS):
+			g.termStrong = !g.termStrong
+		case g.in.JustPressed(ebiten.KeySpace):
+			if g.message = g.callPriest(g.termRoom, g.termStrong); g.message == "" {
+				g.message = "PRIEST CALLED TO ROOM " + g.hotel.Rooms[g.termRoom].Number
+			}
+			g.termRoom = -1
+		}
+		return
 	}
+	cols, rows := g.hotel.Grid()
+	c, r := g.termCursor%cols, g.termCursor/cols
+	switch {
+	case g.in.JustPressed(ebiten.KeyA):
+		c = max(c-1, 0)
+	case g.in.JustPressed(ebiten.KeyD):
+		c = min(c+1, cols-1)
+	case g.in.JustPressed(ebiten.KeyW):
+		r = max(r-1, 0)
+	case g.in.JustPressed(ebiten.KeyS):
+		r = min(r+1, rows-1)
+	case g.in.JustPressed(ebiten.KeySpace):
+		g.termRoom, g.termStrong, g.message = g.termCursor, false, ""
+	}
+	g.termCursor = r*cols + c
 }
 
 // Terminal layout, screen px.
@@ -53,6 +79,9 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 	tw, th := (gridW-(cols-1)*tileGap)/cols, (gridH-(rows-1)*tileGap)/rows
 	for i, room := range g.hotel.Rooms {
 		x, y := gridX+i%cols*(tw+tileGap), gridY+i/cols*(th+tileGap)
+		if i == g.termCursor {
+			rect(s, x-3, y-3, tw+6, th+6, assets.Accent)
+		}
 		bg := assets.Floor
 		if !g.vacant(i) {
 			bg = assets.Ink // grayed: Booked
@@ -77,7 +106,27 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		}
 		g.drawHeads(s, x+6, y+40, heads...)
 		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Ghost) // Twin vs Double as text (D97)
+		status := ""
+		if g.closed(i) {
+			status = "CLOSED "
+		}
+		if g.priestOn(i) {
+			status += "PRIEST"
+		}
+		text(s, status, x+6, y+72, assets.Accent)
+		if i == g.termRoom {
+			for k, o := range [...]string{fmt.Sprintf("WEAK PRIEST $%d: HALVES SPOOK", priestWeak), fmt.Sprintf("STRONG PRIEST $%d: CLEARS IT", priestStrong)} {
+				if (k == 1) == g.termStrong {
+					o = "> " + o
+				}
+				text(s, o, x+6, y+88+k*14, assets.Ghost)
+			}
+		}
 	}
 
-	text(s, "SPACE CLOSE", termX+24, termY+termH-30, assets.Accent)
+	help := "WASD SELECT   SPACE CALL A PRIEST   ESC CLOSE"
+	if g.termRoom >= 0 {
+		help = "W/S WEAK OR STRONG   SPACE PAY   ESC CLOSE"
+	}
+	text(s, help, termX+24, termY+termH-30, assets.Accent)
 }

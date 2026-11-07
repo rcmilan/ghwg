@@ -125,7 +125,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
-	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil)
+	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
+	g.drawSpookFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
@@ -141,6 +142,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
 			min(1, float64(guest.Fear)/fearLimit)})
 	}
+	for _, pr := range g.priests {
+		actors = append(actors, actor{pr.X, pr.Y, "Priest", pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0})
+	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
@@ -151,12 +155,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			op.GeoM.Reset()
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+			s := g.spookAt(image.Pt(p.cx, p.cy))
 			if f := g.propFog(p); f > 0 {
 				drawFogged(screen, g.tiles[p.id], op, f)
 			} else if maze(g.ts.Tiles[p.id].Name) {
-				g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil)
+				g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
 			} else {
-				g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil)
+				g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
 			}
 		}
 	}
@@ -203,7 +208,7 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(zoom, zoom)
 				op.GeoM.Translate(float64((x*ts+dx)*zoom-ox), float64(y*ts*zoom-oy))
-				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil)
+				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil, g.roomShift(d.Room))
 			}
 		}
 	}
@@ -241,5 +246,5 @@ func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1 - fog))
-	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[name])
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[name], 0)
 }

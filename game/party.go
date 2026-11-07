@@ -142,7 +142,7 @@ func (g *Game) demand() int {
 }
 
 // maybeWalkIn rolls this game minute's Walk-in on the hourly curve (D77), unless the Day's demand is met
-// or no Room is Vacant (D140): a Party only comes when a Room can take it.
+// or no Room is Vacant and open (D140): a Party only comes when a Room can take it.
 func (g *Game) maybeWalkIn() {
 	booked := 0
 	for i := range g.hotel.Rooms {
@@ -163,10 +163,10 @@ func (g *Game) spawnClear() bool {
 	})
 }
 
-// freeRoom: the first Vacant Room with a Stay Spot for each of size Guests, or -1.
+// freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.vacant(i) && len(r.Stays) >= size {
+		if g.vacant(i) && !g.closed(i) && len(r.Stays) >= size {
 			return i
 		}
 	}

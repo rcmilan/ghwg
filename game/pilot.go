@@ -190,6 +190,44 @@ func (p *Pilot) Haunt(room int) {
 	})
 }
 
+// CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
+// Terminal refuses (no money, or a Priest is already on the Room).
+func (p *Pilot) CallPriest(room int, strong bool) {
+	p.OpenTerminal()
+	paid := false
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		t := v.Terminal
+		if !t.Open {
+			return true, paid && v.Rooms[room].Priest
+		}
+		cols, _ := p.hotel.Grid()
+		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
+		var k ebiten.Key
+		switch {
+		case paid || t.Menu >= 0 && t.Menu != room:
+			k = ebiten.KeyEscape
+		case t.Menu == room && t.Strong != strong:
+			k = ebiten.KeyS
+		case t.Menu == room:
+			k = ebiten.KeySpace
+		case c < tc:
+			k = ebiten.KeyD
+		case c > tc:
+			k = ebiten.KeyA
+		case r < tr:
+			k = ebiten.KeyS
+		case r > tr:
+			k = ebiten.KeyW
+		default:
+			k = ebiten.KeySpace
+		}
+		if p.tap(k) && k == ebiten.KeySpace && t.Menu == room {
+			paid = true
+		}
+		return false, false
+	})
+}
+
 // Close shuts the open Terminal with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {

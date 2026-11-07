@@ -48,7 +48,12 @@ type Game struct {
 	ghost      bool  // the whole hotel is in the ghost dimension (D141); else the real one
 	haunted    []int // per Room: the clock its haunt ends (haunt.go)
 	spook      int   // the currency haunting earns (D148)
-	walkIns    int   // Walk-ins this Run
+	roomSpook  []int // per Room: its Spook level (D147, priest.go)
+	priests    []*priest
+	termCursor int  // the Terminal's selected Room
+	termRoom   int  // the Room whose Priest menu is open, or -1
+	termStrong bool // the menu's Strong Priest is selected, else the Weak one
+	walkIns    int  // Walk-ins this Run
 	floaters   []floater
 	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
@@ -100,8 +105,12 @@ func (g *Game) loadImages() (err error) {
 		return err
 	}
 	g.pool, g.glow = lightPool(lightRadius), lightPool(glowRadius)
-	g.characters, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
-	return err
+	if g.characters, err = loadCharacters(append([]string{"Bob"}, guestCast[:]...)...); err != nil {
+		return err
+	}
+	alex := g.characters["Alex"]
+	g.characters["Priest"] = [2]*ebiten.Image{grayscale(alex[0]), grayscale(alex[1])}
+	return nil
 }
 
 func (g *Game) mapSize() (int, int) {
@@ -111,7 +120,8 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
-	g.parties, g.floaters, g.walkIns, g.fog, g.haunted = nil, nil, 0, nil, nil
+	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
+	g.roomSpook = make([]int, len(g.hotel.Rooms))
 	g.clock, g.money, g.spook, g.ghost = runStart, 0, 0, false
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
@@ -167,12 +177,16 @@ func (g *Game) step(dx, dy float64) {
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.actors(), g.occupied)
 	g.updateParties()
+	g.updatePriests()
 	g.separate()
 	g.updateFog()
 	if !g.headless {
 		g.player.Anim.Update(g.player.X, g.player.Y)
 		for _, guest := range g.guests() {
 			guest.Anim.Update(guest.X, guest.Y)
+		}
+		for _, pr := range g.priests {
+			pr.Anim.Update(pr.X, pr.Y)
 		}
 		w, h := g.mapSize()
 		g.cam.Follow(g.player.X, g.player.Y, w, h)
@@ -256,6 +270,9 @@ func (g *Game) actors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
 		as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
+	}
+	for _, pr := range g.priests { // his door pass: his own Room's door, Occupied or not
+		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: pr.RoomIndex})
 	}
 	return as
 }

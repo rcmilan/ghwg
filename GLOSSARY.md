@@ -100,6 +100,17 @@ _Avoid_: escape, check out (a fled Party never checks out)
 The currency haunting earns: one point for each point of Fear a haunt adds. Shown in the ghost Dimension, on the Terminal and as cyan "+N" over the door. It buys nothing yet.
 _Avoid_: scare points, ectoplasm
 
+**Room Spook**:
+How haunted a Room is: it rises by the Fear each haunt adds to its Guests and never falls on its own. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple with it, and pulses once Closed; in the real Dimension it tints faintly green. Not the Spook currency, which the hotel keeps when a Room is cleaned.
+
+**Closed**:
+A Room at the Room Spook limit. No new Party comes to it; a Party already in it stays until its checkout. The Terminal shows it in both Dimensions.
+_Avoid_: blocked, locked
+
+**Priest**:
+A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its Room Spook and leaves. A **Weak** Priest halves it; a **Strong** one clears it.
+_Avoid_: exorcist, cleaner
+
 ## People
 
 **Concierge**:
