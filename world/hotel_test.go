@@ -113,9 +113,6 @@ func TestHotelPaths(t *testing.T) {
 func TestHotelASCII(t *testing.T) {
 	h := buildGrid(t, Cols, Rows) // the shipped grid
 	marks := map[image.Point]byte{h.Spawn.Div(TileSize): '@', h.ConciergeStart.Div(TileSize): 'B'}
-	for _, q := range h.Queue {
-		marks[q.Div(TileSize)] = 'Q'
-	}
 	for _, r := range h.Rooms {
 		for _, s := range r.Stays {
 			marks[s.Div(TileSize)] = 'S'
@@ -138,7 +135,7 @@ func TestHotelASCII(t *testing.T) {
 		}
 		b.WriteByte('\n')
 	}
-	b.WriteString("legend: ' ' void  . floor  : street  # wall  = lintel  | side line  w window  D door  E entrance  C counter  T computer  S stay  @ spawn  Q queue  B concierge")
+	b.WriteString("legend: ' ' void  . floor  : street  # wall  = lintel  | side line  w window  D door  E entrance  C counter  T computer  S stay  @ spawn  B concierge")
 	t.Log(b.String())
 }
 
@@ -158,9 +155,8 @@ func asciiCell(m *Tilemap, x, y int) byte {
 	return '?'
 }
 
-// D29: the Terminal is reachable from behind the counter, which sits just east of the Archway. D78: the
-// Queue's lanes start on walkable, distinct cells right in front of the counter. D40: walkable ends and 2
-// free rows behind it.
+// D29: the Terminal is reachable from behind the counter, which sits just east of the Archway. D40:
+// walkable ends and 2 free rows behind it.
 func TestHotelCounterSides(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
 		if l.counterX != l.archway+l.archwayW || l.counterX+counterW > l.w-3 {
@@ -168,17 +164,6 @@ func TestHotelCounterSides(t *testing.T) {
 		}
 		if h.ConciergeStart.Y >= l.counter*TileSize || !h.ConciergeStart.In(h.Terminal) {
 			t.Errorf("concierge start %v should be behind the counter, in the terminal zone %v", h.ConciergeStart, h.Terminal)
-		}
-		seen := map[image.Point]bool{}
-		for _, q := range h.Queue {
-			c := q.Div(TileSize)
-			if c.Y != l.counter+1 || c.X < l.counterX || c.X >= l.counterX+counterW || h.Map.Solid(c.X, c.Y) || seen[c] {
-				t.Errorf("queue lane at %v: want a distinct walkable cell right in front of the counter", c)
-			}
-			seen[c] = true
-		}
-		if len(h.Queue) != queueLanes {
-			t.Errorf("%d queue lanes, want %d", len(h.Queue), queueLanes)
 		}
 		// D55: the Archway is centered in the Hall Wall, between the side lines at 1 and w-2
 		if left, right := l.archway-2, l.w-3-(l.archway+l.archwayW-1); left != right {

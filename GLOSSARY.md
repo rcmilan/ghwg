@@ -51,19 +51,16 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter. Here the Concierge books the front Party of the Queue into a Room and sees every Room's status and the Clock. The world pauses while it is open.
-
-**Queue**:
-The waiting Walk-ins at the Reception Counter: 3 parallel lanes, one Party each. The Party that arrived first is booked first.
+The computer on the Reception Counter. Here the Concierge reads every Room's status, the money and the Clock. The world pauses while it is open.
 
 **Booking**:
-Assigning a Party to a Room at the Terminal. It is instant and final, and lasts until the Party checks out.
+A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out.
 
 **Vacant**:
 A Room with no Booking; the Concierge may enter it.
 
 **Occupied**:
-A Room with a Booking, from the moment it is booked until its Party checks out. Its door opens only for its own Party, even while that Party is out.
+A Room with a Booking, from the moment its Party arrives until it checks out. Its door opens only for its own Party, even while that Party is out.
 _Avoid_: locked (as a room state)
 
 **Fog**:
@@ -73,49 +70,33 @@ _Avoid_: fog of war (in player-facing text)
 ## People
 
 **Concierge**:
-The living hotel worker the player controls.
+The living host the player controls. Guests arrive already booked; the Concierge looks after them.
 _Avoid_: player (in game text), ghost
-
-**Ghost Mode**:
-A future state of the Concierge with its own look and rules; not defined yet.
 
 **Guest**:
 One member of a Party.
 
 **Party**:
-1–2 Guests on one Booking. A Party arrives, queues, stays, keeps one Routine and pays together. Its leader finds the way and the follower trails it.
+1–2 Guests on one Booking. A Party arrives, stays, keeps one Routine and pays together. Its leader finds the way and the follower trails it.
 _Avoid_: group
 
 **Walk-in**:
-A Party that arrives at the hotel without a Booking and joins the Queue.
-
-**Patience**:
-How long a queued Party waits before it walks back out. Hidden from the player.
+A Party arriving from the Street, already booked, and walking straight to its Room. One comes only while a Room it fits is Vacant.
 
 **Routine**:
 A Party's daily schedule. **Homebody** stays in the Room. **Tourist** goes out each morning and returns at night.
 
-**Bed Wish**:
-A Party of 2's choice of Twin or Double. Booking the other 2-person layout pays less.
-
 ## Time
 
 **Run**:
-One playthrough, from the title screen until returning to it. A Run starts on Day 1 at 08:00 with an instant Spin and every Room Vacant. Money resets, and the Run never ends on its own.
+One playthrough, from the title screen until returning to it. A Run starts on Day 1 at 08:00 with every Room Vacant and given its Room Type for the whole Run. Money resets, and the Run never ends on its own.
 _Avoid_: game, session
 
 **Clock**:
-The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, Routines and the lighting, and it pauses only for the Terminal and the Spin. The player can read it only on the Terminal.
+The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, Routines and the lighting, and it pauses only for the Terminal. The player can read it only on the Terminal.
 
 **Day**:
 One 24-hour turn of the Clock, counted from Day 1.
-
-**Midnight**:
-00:00 on the Clock, when the Spin happens.
-
-**Spin**:
-The moment Rooms re-draw their Room Type at random, like the reels of a slot machine. It happens when a Run starts and every Midnight. At Midnight, only Vacant Rooms flip, and never the Room the Concierge stands in.
-_Avoid_: reroll, shuffle
 
 **Checkout**:
 A Party leaving its Room for good on its final Day. It pays Rate × nights at the Room's door, the money is banked at once, and the Room becomes Vacant.
@@ -134,10 +115,10 @@ A lamp, ceiling light, street lamp or Terminal screen that cuts a glow out of th
 Many Runs played headless and in parallel by Strategies, to compare outcomes across seeds. A development tool, not part of the game.
 
 **Strategy**:
-A rule that plays a Run in place of a human: which Room to book, when to act. It may do only what a player can do, and sees only the View unless it declares itself a cheat.
+A rule that plays a Run in place of a human: where to stand, when to act. It may do only what a player can do, and sees only the View unless it declares itself a cheat.
 
 **Pilot**:
-What turns a Strategy's intent into key presses at a human pace: walking the Concierge, opening the Terminal, moving its cursor. The only way a Strategy touches the game.
+What turns a Strategy's intent into key presses at a human pace: walking the Concierge, opening and closing the Terminal. The only way a Strategy touches the game.
 
 **View**:
 Everything a player can see at one moment: the Terminal's readout, the guests on screen, the Fog, the Clock. The Strategy's input.

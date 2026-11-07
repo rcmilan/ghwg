@@ -10,7 +10,7 @@ import (
 	"ghosthotel/world"
 )
 
-// Walk-in tunables (D77–D79). Rates are Walk-ins per game hour, rolled once per game minute.
+// Walk-in tunables (D77). Rates are Walk-ins per game hour, rolled once per game minute.
 var walkInsPerHour = [24]float64{
 	1, 1, // 00–02: late arrivals
 	0, 0, 0, 0, // 02–06: none
@@ -20,9 +20,7 @@ var walkInsPerHour = [24]float64{
 }
 
 const (
-	rampDays         = 3                  // Day d lets in Guests for up to d/rampDays of the Rooms (at least 1): the hotel fills gradually
-	patienceMin      = 120 * minuteFrames // a queued Party gives up after 2–3 game hours (D79)
-	patienceJitter   = 60 * minuteFrames
+	rampDays         = 3 // Day d lets in Guests for up to d/rampDays of the Rooms (at least 1): the hotel fills gradually
 	maxNights        = 3
 	checkoutHour     = 10 // checkout is 10:00–12:00 on the final day (D88)
 	checkoutJitter   = 120 * minuteFrames
@@ -41,13 +39,12 @@ const (
 type partyState int
 
 const (
-	queuing     partyState = iota // walking to or standing in its Queue slot
-	checkingIn                    // booked: walking to its Stay Spot, or back to it from an outing
+	checkingIn  partyState = iota // walking from the Street to its Stay Spots, on arrival or back from an outing
 	staying                       // in the Room until Checkout
 	goingOut                      // a Tourist walking out of the Entrance for the day
 	out                           // a Tourist away from the hotel: off the map
 	checkingOut                   // walking out of the Room; pays as it steps out of it
-	leaving                       // walking out of the Entrance for good, paid or not
+	leaving                       // walking out of the Entrance for good, paid
 )
 
 type routine int
@@ -59,9 +56,9 @@ const (
 
 func (r routine) String() string { return [...]string{"HOMEBODY", "TOURIST"}[r] }
 
-// Booking is a Party's stay (D99): instant and final (D98), with the Rate locked when it is made (D53).
+// Booking is a Party's stay, made by its app before it arrives (D139), with the Rate locked then (D53).
 type Booking struct {
-	Room     int // -1 until booked
+	Room     int
 	Nights   int
 	Routine  routine
 	Rate     int
@@ -91,29 +88,17 @@ func (b Booking) Out(c int) bool {
 // Payout is what the Party banks at Checkout (D86).
 func (b Booking) Payout() int { return b.Rate * b.Nights }
 
-// Occupies: the Room is Occupied from Booking until the Party pays at its door (D91).
+// Occupies: the Room is Occupied from the Party's arrival until it pays at its door (D91).
 func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid }
 
 // Party is 1–2 Guests on one Booking (D76): Guests[0] leads, the other trails it (D90).
 type Party struct {
-	Guests   []*entities.Guest
-	Wish     string // a pair's bed wish, Twin or Double (D81); "" solo
-	state    partyState
-	slot     int           // its Queue lane, kept until it leaves the Queue
-	patience int           // clock frame it gives up queueing (D79)
-	goals    []image.Point // where each member is headed this leg
-	peeled   bool          // this leg's leader has arrived and the follower heads for its own goal
-	settled  bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
+	Guests  []*entities.Guest
+	state   partyState
+	goals   []image.Point // where each member is headed this leg
+	peeled  bool          // this leg's leader has arrived and the follower heads for its own goal
+	settled bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
 	Booking
-}
-
-// rateIn is the Room's per-night Rate for the Party: half for a pair in the 2-person layout it didn't
-// ask for (D81). A pair never fits a Single.
-func (p *Party) rateIn(r world.Room) int {
-	if len(p.Guests) == 2 && r.Type.Beds != p.Wish {
-		return r.Type.Rate / 2
-	}
-	return r.Type.Rate
 }
 
 // floater is a "+$X" rising over a door after a Checkout (D87).
@@ -146,15 +131,15 @@ func (g *Game) vacant(room int) bool {
 	return true
 }
 
-// demand: the Parties booked or queued that the Day lets in (rampDays), so the first nights never fill
+// demand: the Parties the Day lets in (rampDays), so the first nights never fill
 // the hotel.
 func (g *Game) demand() int {
 	n := len(g.hotel.Rooms)
 	return min(n, max(1, n*day(g.clock)/rampDays))
 }
 
-// maybeWalkIn rolls this game minute's Walk-in on the hourly curve (D77), unless every Queue lane is
-// taken or the Day's demand is met: that also needs a Vacant Room.
+// maybeWalkIn rolls this game minute's Walk-in on the hourly curve (D77), unless the Day's demand is met
+// or no Room is Vacant (D140): a Party only comes when a Room can take it.
 func (g *Game) maybeWalkIn() {
 	booked := 0
 	for i := range g.hotel.Rooms {
@@ -162,7 +147,7 @@ func (g *Game) maybeWalkIn() {
 			booked++
 		}
 	}
-	if len(g.queue) < len(g.hotel.Queue) && booked+len(g.queue) < g.demand() && g.spawnClear() && g.rng.Float64() < walkInsPerHour[hour(g.clock)]/60 {
+	if booked < g.demand() && g.freeRoom(1) >= 0 && g.spawnClear() && g.rng.Float64() < walkInsPerHour[hour(g.clock)]/60 {
 		g.walkIn()
 	}
 }
@@ -175,67 +160,48 @@ func (g *Game) spawnClear() bool {
 	})
 }
 
-// walkIn puts a new Party on the Street, joining the back of the Queue in the free lane nearest the
-// Terminal. Lanes don't move up: the Party keeps its lane until booked (D78).
+// freeRoom: the first Vacant Room with a Stay Spot for each of size Guests, or -1.
+func (g *Game) freeRoom(size int) int {
+	for i, r := range g.hotel.Rooms {
+		if g.vacant(i) && len(r.Stays) >= size {
+			return i
+		}
+	}
+	return -1
+}
+
+// walkIn puts a new Party on the Street, already booked (D139) into the first Room that fits it, and sends
+// it straight to its Stay Spots. A pair with no 2-person Room free comes solo. nil if no Room is Vacant.
 func (g *Game) walkIn() *Party {
+	room := g.freeRoom(1)
+	if room < 0 {
+		return nil
+	}
 	guest := entities.NewGuest(g.hotel.Spawn, guestCast[g.rng.IntN(len(guestCast))])
-	p := &Party{Guests: []*entities.Guest{&guest}, patience: g.clock + patienceMin + g.rng.IntN(patienceJitter),
-		Booking: Booking{Room: -1, Nights: 1 + g.rng.IntN(maxNights), Routine: routine(g.rng.IntN(2)),
+	p := &Party{Guests: []*entities.Guest{&guest},
+		Booking: Booking{Nights: 1 + g.rng.IntN(maxNights), Routine: routine(g.rng.IntN(2)),
 			outAt:      outHour*hourFrames + g.rng.IntN(outJitter),
 			backAt:     backHour*hourFrames + g.rng.IntN(backJitter),
 			checkoutAt: checkoutHour*hourFrames + g.rng.IntN(checkoutJitter)}}
 	if g.rng.Float64() < pairOdds {
-		mate := entities.NewGuest(g.hotel.Spawn, guestCast[g.rng.IntN(len(guestCast))])
-		mate.Leader = &guest
-		p.Guests, p.Wish = append(p.Guests, &mate), [...]string{"Twin", "Double"}[g.rng.IntN(2)]
-	}
-	if g.walkIns == 0 {
-		p.Nights = 1 // a Room frees up on Day 2, for that night's Spin (S1 review)
+		if r := g.freeRoom(2); r >= 0 {
+			mate := entities.NewGuest(g.hotel.Spawn, guestCast[g.rng.IntN(len(guestCast))])
+			mate.Leader = &guest
+			p.Guests, room = append(p.Guests, &mate), r
+		}
 	}
 	g.walkIns++
-	for p.slot = 0; slices.ContainsFunc(g.queue, func(q *Party) bool { return q.slot == p.slot }); p.slot++ {
-	}
-	lane := g.hotel.Queue[p.slot]
-	g.sendParty(p, lane, lane.Add(image.Pt(0, world.TileSize))) // the follower stands behind its leader (D78)
-	g.parties = append(g.parties, p)
-	g.queue = append(g.queue, p)
-	return p
-}
-
-// atCounter: the front Party stands in its lane. A Walk-in still on its way can't be booked.
-func (g *Game) atCounter() bool { return len(g.queue) > 0 && len(g.queue[0].Guests[0].Path) == 0 }
-
-// fits: the front Party can be booked into the Room. "" if so, else why not.
-func (g *Game) fits(room int) string {
-	switch {
-	case !g.atCounter():
-		return "No guests at the counter."
-	case !g.vacant(room):
-		return "That room is booked."
-	case len(g.queue[0].Guests) > len(g.hotel.Rooms[room].Stays):
-		return "That room is too small."
-	}
-	return ""
-}
-
-// book books the front Party into the Room (D98) and sends it there. "" if booked, else why not.
-func (g *Game) book(room int) string {
-	if why := g.fits(room); why != "" {
-		return why
-	}
-	p := g.queue[0]
-	g.queue = g.queue[1:]
-	p.Room, p.Rate = room, p.rateIn(g.hotel.Rooms[room])
+	p.Room, p.Rate = room, g.hotel.Rooms[room].Type.Rate
 	p.schedule(g.clock)
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
+	g.parties = append(g.parties, p)
 	g.checkIn(p)
-	return ""
+	return p
 }
 
-// checkIn sends the Party to its Stay Spots, one each: from the Queue, or back in from the Street after
-// an outing.
+// checkIn sends the Party to its Stay Spots, one each: from the Street, on arrival or after an outing.
 func (g *Game) checkIn(p *Party) {
 	p.state = checkingIn
 	g.sendParty(p, g.hotel.Rooms[p.Room].Stays...)
@@ -295,23 +261,11 @@ func (p *Party) outside(r world.Room) bool {
 	})
 }
 
-// send gives a guest a path to `to`, around the guests standing in the Queue and the Concierge where it
-// stands now (at the Terminal, while booking); straight through them if they wall it off.
+// send gives a guest a path to `to`, around the Concierge where it stands now; straight through if the
+// Concierge walls it off.
 func (g *Game) send(p *Party, guest *entities.Guest, to image.Point) {
-	held := []image.Point{image.Pt(int(g.player.X), int(g.player.Y))}
-	for _, q := range g.queue {
-		if q != p {
-			for _, o := range q.Guests {
-				held = append(held, image.Pt(int(o.X), int(o.Y)))
-			}
-			held = append(held, g.hotel.Queue[q.slot])
-			if len(q.Guests) > 1 {
-				held = append(held, g.hotel.Queue[q.slot].Add(image.Pt(0, world.TileSize)))
-			}
-		}
-	}
 	from := image.Pt(int(guest.X), int(guest.Y))
-	path := g.hotel.Path(from, to, p.Room, held...)
+	path := g.hotel.Path(from, to, p.Room, image.Pt(int(g.player.X), int(g.player.Y)))
 	if path == nil {
 		path = g.hotel.Path(from, to, p.Room)
 	}
@@ -329,21 +283,12 @@ func (g *Game) updateParties() {
 	g.parties = kept
 }
 
-// updateParty runs one frame of a Party's stay: Street → Queue → Room (and out to the Street by day, a
+// updateParty runs one frame of a Party's stay: Street → Room (and out to the Street by day, a
 // Tourist) → (Checkout at the door) → Street.
 // false once it is gone.
 func (g *Game) updateParty(p *Party) bool {
 	exit := []image.Point{g.hotel.Exit, g.hotel.Exit}
 	switch p.state {
-	case queuing:
-		i := slices.Index(g.queue, p)
-		if g.clock >= p.patience { // gives up and walks out (D79)
-			g.queue = slices.Delete(g.queue, i, i+1)
-			p.state = leaving
-			g.sendParty(p, exit...)
-			return true
-		}
-		g.walkParty(p, arriveSpeed)
 	case checkingIn:
 		if g.walkParty(p, arriveSpeed) {
 			p.state, p.settled = staying, true

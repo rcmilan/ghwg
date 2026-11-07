@@ -10,54 +10,19 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// openTerminal pauses the world on the Terminal (D73); with nobody at the counter, OK is selected.
-func (g *Game) openTerminal() {
-	g.state, g.message, g.terminalPick = StateTerminal, "", -1
-	g.terminalOK = !g.atCounter()
-}
+// openTerminal pauses the world on the Terminal (D73). It is read-only (T086): SPACE or ESC closes it.
+func (g *Game) openTerminal() { g.state, g.message = StateTerminal, "" }
 
-// updateTerminal (D97, D98): WASD moves across the Room grid, and S from its bottom row reaches the OK
-// button. SPACE on a Room picks it for the front Party, and picking another moves the pick. SPACE on OK
-// books the pick, which is final, and closes the Terminal. ESC closes it without booking.
 func (g *Game) updateTerminal() {
-	if g.terminalOK {
-		switch {
-		case g.in.JustPressed(ebiten.KeyW):
-			g.terminalOK = false
-		case g.in.JustPressed(ebiten.KeySpace):
-			if g.terminalPick >= 0 {
-				g.book(g.terminalPick)
-			}
-			g.state, g.message = StatePlay, ""
-		}
-		return
+	if g.in.JustPressed(ebiten.KeySpace) {
+		g.state, g.message = StatePlay, ""
 	}
-	cols, rows := g.hotel.Grid()
-	c, r := g.terminalCursor%cols, g.terminalCursor/cols
-	switch {
-	case g.in.JustPressed(ebiten.KeyA):
-		c = (c + cols - 1) % cols
-	case g.in.JustPressed(ebiten.KeyD):
-		c = (c + 1) % cols
-	case g.in.JustPressed(ebiten.KeyW):
-		r = max(r-1, 0)
-	case g.in.JustPressed(ebiten.KeyS):
-		g.terminalOK = r == rows-1
-		r = min(r+1, rows-1)
-	case g.in.JustPressed(ebiten.KeySpace):
-		if g.message = g.fits(g.terminalCursor); g.message == "" {
-			g.terminalPick = g.terminalCursor
-			g.message = "Picked room " + g.hotel.Rooms[g.terminalCursor].Number + ". OK to confirm."
-		}
-	}
-	g.terminalCursor = r*cols + c
 }
 
 // Terminal layout, screen px.
 const (
 	termX, termY, termW, termH = 120, 50, 720, 420
-	gridX, gridY, gridW, gridH = 140, 100, 440, 330 // the Room tiles
-	cardX, cardY               = 610, 100           // the front Party's card
+	gridX, gridY, gridW, gridH = 140, 100, 680, 330 // the Room tiles
 	tileGap                    = 8
 )
 
@@ -84,9 +49,6 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 	tw, th := (gridW-(cols-1)*tileGap)/cols, (gridH-(rows-1)*tileGap)/rows
 	for i, room := range g.hotel.Rooms {
 		x, y := gridX+i%cols*(tw+tileGap), gridY+i/cols*(th+tileGap)
-		if i == g.terminalCursor && !g.terminalOK {
-			rect(s, x-3, y-3, tw+6, th+6, assets.Accent)
-		}
 		bg := assets.Floor
 		if !g.vacant(i) {
 			bg = assets.Ink // grayed: Booked
@@ -97,9 +59,6 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		heads := make([]string, len(room.Stays)) // Vacant: the capacity, as Adam's heads
 		for k := range heads {
 			heads[k] = guestCast[0]
-		}
-		if i == g.terminalPick {
-			text(s, "PICKED", x+6, y+56, assets.Accent)
 		}
 		for _, p := range g.parties {
 			if p.Occupies(i) { // Booked: its own Party's heads, side by side, only while it's in the Room (S2 review)
@@ -116,45 +75,5 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		text(s, strings.ToUpper(room.Type.Beds), x+46, y+38, assets.Ghost) // Twin vs Double as text (D97)
 	}
 
-	text(s, fmt.Sprintf("QUEUE %d/%d", len(g.queue), len(g.hotel.Queue)), cardX, cardY, assets.Ghost)
-	if !g.atCounter() {
-		text(s, "no guests at the counter", cardX, cardY+32, assets.Ghost)
-	} else {
-		p := g.queue[0]
-		var names []string
-		for _, guest := range p.Guests {
-			names = append(names, guest.Character)
-		}
-		text(s, "NEXT GUEST", cardX, cardY+32, assets.Ghost)
-		g.drawHeads(s, cardX, cardY+52, names...)
-		text(s, fmt.Sprintf("NIGHTS  %d", p.Nights), cardX, cardY+74, assets.Ghost)
-		text(s, "ROUTINE "+p.Routine.String(), cardX, cardY+90, assets.Ghost)
-		wish := "ANY BED"
-		if p.Wish != "" {
-			wish = strings.ToUpper(p.Wish)
-		}
-		text(s, "WISH    "+wish, cardX, cardY+106, assets.Ghost)
-		i := g.terminalCursor
-		if g.terminalPick >= 0 {
-			i = g.terminalPick
-		}
-		room := g.hotel.Rooms[i]
-		payout := "-"
-		if g.fits(i) == "" {
-			payout = fmt.Sprintf("$%d", p.rateIn(room)*p.Nights)
-			if p.rateIn(room) < room.Type.Rate {
-				payout += " (-50%: not " + strings.ToUpper(p.Wish) + ")"
-			}
-		}
-		text(s, "ROOM    "+room.Number, cardX, cardY+122, assets.Ghost)
-		text(s, "PAYOUT  "+payout, cardX, cardY+138, assets.Ghost)
-	}
-	text(s, "WASD SELECT   SPACE PICK   OK CONFIRM", termX+24, termY+termH-30, assets.Accent)
-	const okW, okH = 80, 28
-	okX, okY := termX+termW-24-okW, termY+termH-16-okH
-	if g.terminalOK {
-		rect(s, okX-3, okY-3, okW+6, okH+6, assets.Accent)
-	}
-	rect(s, okX, okY, okW, okH, assets.Floor)
-	text(s, "OK", okX+okW/2-6, okY+okH/2-8, assets.Ghost)
+	text(s, "SPACE CLOSE", termX+24, termY+termH-30, assets.Accent)
 }

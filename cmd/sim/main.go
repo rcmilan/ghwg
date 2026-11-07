@@ -22,10 +22,10 @@ import (
 )
 
 func main() {
-	strategies := flag.String("strategy", "bestrate,idle", "comma-separated Strategies to compare")
+	strategies := flag.String("strategy", "idle", "comma-separated Strategies to compare")
 	runs := flag.Int("runs", 100, "Runs per Strategy; Run i uses seed+i, the same for every Strategy")
 	days := flag.Int("days", 7, "days per Run, 24 h each from the Run start")
-	grid := flag.String("grid", "3x3", "the Room grid, colsxrows, 2x1 to 3x3")
+	grid := flag.String("grid", "2x1", "the Room grid, colsxrows, 2x1 to 3x3")
 	seed := flag.Uint64("seed", 1, "the first Run's seed")
 	react := flag.Int("react", 30, "frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "frames between the Pilot's key taps")
@@ -36,7 +36,7 @@ func main() {
 
 	var cols, rows int
 	if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
-		log.Fatalf("-grid %q: want colsxrows, like 3x3", *grid)
+		log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
 	}
 	names := strings.Split(*strategies, ",")
 	for _, n := range names {
@@ -66,11 +66,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tlost\trefused\tbookings\tfailures\t")
+	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tbookings\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, lost, refused, bookings, failed int
+		var sold, avail, bookings, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -78,7 +78,7 @@ func main() {
 				total += m
 			}
 			perDay = append(perDay, float64(total)/float64(*days))
-			sold, avail, lost, refused, bookings = sold+r.Sold, avail+r.Available, lost+r.Lost, refused+r.Refused, bookings+r.Bookings
+			sold, avail, bookings = sold+r.Sold, avail+r.Available, bookings+r.Bookings
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
 				failed++
@@ -91,8 +91,8 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(lost)/n, float64(refused)/n, float64(bookings)/n, failed)
+		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
+			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, failed)
 	}
 	w.Flush()
 	if len(failures) > 0 {
@@ -121,7 +121,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "lost", "refused", "bookings", "paid", "pairs", "outings", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "paid", "pairs", "outings", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -133,7 +133,7 @@ func writeCSV(path string, results [][]game.Result) error {
 				failure = r.Failures[0].Clock + " " + r.Failures[0].Reason
 			}
 			w.Write([]string{r.Strategy, strconv.FormatUint(r.Seed, 10), strconv.FormatBool(r.Cheat), strings.Join(money, ";"),
-				strconv.Itoa(r.Sold), strconv.Itoa(r.Available), strconv.Itoa(r.Lost), strconv.Itoa(r.Refused),
+				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
 				strconv.Itoa(r.Bookings), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings), failure})
 		}
 	}

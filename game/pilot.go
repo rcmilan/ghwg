@@ -3,7 +3,6 @@ package game
 import (
 	"image"
 	"math"
-	"strings"
 
 	"ghosthotel/world"
 
@@ -13,9 +12,8 @@ import (
 // Pilot turns a Strategy's intents into keys, one frame at a time, at a human pace (D103, D104). It
 // reads the View and emits keys into a script; it never touches the world.
 type Pilot struct {
-	React   int // frames before starting each action: reading the screen
-	KeyGap  int // frames between taps; a tap lasts one frame
-	Refused int // Bookings the Terminal refused
+	React  int // frames before starting each action: reading the screen
+	KeyGap int // frames between taps; a tap lasts one frame
 
 	hotel   *world.Hotel
 	queue   []action
@@ -41,11 +39,11 @@ func (p *Pilot) do(a action) {
 	p.queue = append(p.queue, a)
 }
 
-// step: the keys to hold this frame. Nothing while the title or the Spin cinematic is up.
+// step: the keys to hold this frame. Nothing while the title is up.
 func (p *Pilot) step(v View) []ebiten.Key {
 	p.frame++
 	p.keys = p.keys[:0]
-	if p.Idle() || v.Title || v.Spinning || p.frame < p.readyAt {
+	if p.Idle() || v.Title || p.frame < p.readyAt {
 		return nil
 	}
 	if done, ok := p.queue[0](p, v); done {
@@ -143,52 +141,6 @@ func (p *Pilot) OpenTerminal() {
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++
-		}
-		return false, false
-	})
-}
-
-// Book, on the open Terminal, moves the cursor to the Room by the Terminal's own rules (A/D wrap, W/S
-// clamp, S from the bottom row reaches OK), picks it with SPACE and confirms on OK. A refused pick
-// closes the Terminal with ESC and fails.
-func (p *Pilot) Book(room int) {
-	confirmed, refused := false, false
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		t := v.Terminal
-		if !t.Open {
-			return true, confirmed && !refused && !v.Rooms[room].Vacant
-		}
-		cols, _ := p.hotel.Grid()
-		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
-		var k ebiten.Key
-		switch {
-		case refused || !t.OK && t.Cursor == room && t.Message != "" && !strings.HasPrefix(t.Message, "Picked"):
-			k = ebiten.KeyEscape
-		case t.Pick == room && t.OK:
-			k = ebiten.KeySpace
-		case t.Pick == room:
-			k = ebiten.KeyS
-		case t.OK:
-			k = ebiten.KeyW
-		case c != tc && (tc-c+cols)%cols <= cols/2:
-			k = ebiten.KeyD
-		case c != tc:
-			k = ebiten.KeyA
-		case r < tr:
-			k = ebiten.KeyS
-		case r > tr:
-			k = ebiten.KeyW
-		default:
-			k = ebiten.KeySpace
-		}
-		if p.tap(k) {
-			switch {
-			case k == ebiten.KeyEscape && !refused:
-				refused = true
-				p.Refused++
-			case k == ebiten.KeySpace && t.OK:
-				confirmed = true
-			}
 		}
 		return false, false
 	})

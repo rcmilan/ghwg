@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. bestrate")
+	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. idle")
 	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
-	grid := flag.String("grid", "3x3", "dev, with -play: the Room grid, colsxrows")
+	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
 	flag.Parse()
@@ -28,7 +28,7 @@ func main() {
 	} else {
 		var cols, rows int
 		if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
-			log.Fatalf("-grid %q: want colsxrows, like 3x3", *grid)
+			log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
 		}
 		g, err = game.Play(*play, cols, rows, *seed, *react, *keyGap)
 	}

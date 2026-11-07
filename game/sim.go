@@ -72,8 +72,6 @@ type Result struct {
 	MoneyByDay []int // banked in each 24 h from the Run start
 	Sold       int   // Room-nights: Rooms Occupied at each Midnight
 	Available  int   // Rooms at each Midnight
-	Lost       int   // Walk-ins that gave up queueing (Patience)
-	Refused    int   // picks the Terminal refused
 	Bookings   int
 	Paid       int
 	Pairs      int // Bookings of two
@@ -90,14 +88,13 @@ type sim struct {
 	booked []*Party
 	seen   map[*Party]partyState // each Party's state last frame
 	paid   map[*Party]bool
-	lost   map[*Party]bool
 	phased map[*entities.Guest]bool
 	legs   map[*Party]leg
 }
 
 type leg struct {
-	state      partyState
-	slot, from int // from: the tick this leg began
+	state partyState
+	from  int // the tick this leg began
 }
 
 // RunSim plays one Run headless, at full speed, and measures it (D101).
@@ -117,7 +114,7 @@ func newSim(cfg Config) (*sim, error) {
 		return nil, err
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
-		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, lost: map[*Party]bool{},
+		seen: map[*Party]partyState{}, paid: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
@@ -135,13 +132,9 @@ func (s *sim) fail(format string, args ...any) {
 // frame runs one Update and counts it; false once an invariant failed (the Run stops there).
 func (s *sim) frame() bool {
 	g := s.g
-	var eligible []int // the Rooms the coming Midnight may roll
 	vacant := 0
 	if g.clock%dayFrames == dayFrames-1 {
 		for i := range g.hotel.Rooms {
-			if g.flips(i) {
-				eligible = append(eligible, i)
-			}
 			if g.vacant(i) {
 				vacant++
 			}
@@ -159,27 +152,18 @@ func (s *sim) frame() bool {
 			}
 		}
 		s.res.Available += len(g.hotel.Rooms)
-		if !s.cfg.NoCheck {
-			if !slices.Equal(g.spinRooms, eligible) && (g.spinning() || len(eligible) > 0) {
-				s.fail("Midnight rolled Rooms %v, want the eligible %v", g.spinRooms, eligible)
-			}
-			if day(clock) == 1 && vacant == 0 {
-				s.fail("every Room was booked by the first Midnight (rampDays)")
-			}
+		if !s.cfg.NoCheck && day(clock) == 1 && vacant == 0 {
+			s.fail("every Room was booked by the first Midnight (rampDays)")
 		}
 	}
 	banked := 0
 	for _, p := range g.parties {
-		if p.Room >= 0 && !slices.Contains(s.booked, p) {
+		if !slices.Contains(s.booked, p) {
 			s.booked = append(s.booked, p)
 			s.res.Bookings++
 			if len(p.Guests) == 2 {
 				s.res.Pairs++
 			}
-		}
-		if p.Room < 0 && p.state == leaving && !s.lost[p] {
-			s.lost[p] = true
-			s.res.Lost++
 		}
 		if p.Paid && !s.paid[p] {
 			s.paid[p], banked = true, banked+p.Payout()
@@ -196,7 +180,6 @@ func (s *sim) frame() bool {
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
 		s.res.MoneyByDay[d] += g.money - money
 	}
-	s.res.Refused = s.a.pilot.Refused
 	if !s.cfg.NoCheck {
 		s.check(money, banked)
 	}
@@ -221,8 +204,8 @@ func (s *sim) check(money, banked int) {
 	}
 	for _, p := range g.parties {
 		l, ok := s.legs[p]
-		if !ok || l.state != p.state || l.slot != p.slot {
-			s.legs[p] = leg{p.state, p.slot, g.tick}
+		if !ok || l.state != p.state {
+			s.legs[p] = leg{p.state, g.tick}
 			continue
 		}
 		walking := p.state != staying && slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return len(guest.Path) > 0 })

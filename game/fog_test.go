@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"ghosthotel/entities"
-	"ghosthotel/world"
 )
 
 // D92, T035: a Room fogs once its whole Party is in with the door shut, fading in over ~0.5 s, and
@@ -14,15 +13,9 @@ import (
 func TestFog(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	room := slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return len(r.Stays) == 2 })
-	if room < 0 {
-		t.Skip("no 2-person Room in this Spin")
-	}
+	furnish(t, g, "Twin")
 	p := pairWalkIn(g)
-	arrive(t, g)
-	if why := g.book(room); why != "" {
-		t.Fatal(why)
-	}
+	room := p.Room
 	door, shell := &g.hotel.Doors[room], g.hotel.Rooms[room].Shell()
 	allIn := func() bool {
 		return !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {

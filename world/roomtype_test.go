@@ -111,7 +111,7 @@ func TestRoomTypeValidation(t *testing.T) {
 	}
 }
 
-// D45: Spins never move doors, so every Room Type keeps the same door column.
+// D45: doors never move, so every Room Type keeps the same door column.
 func TestRoomTypesShareDoorColumn(t *testing.T) {
 	moved := mutated(t, func(m map[string]any) {
 		decor := layer(m, "decor")["data"].([]any)

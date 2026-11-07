@@ -4,62 +4,56 @@ import (
 	"image"
 	"math"
 	"math/rand/v2"
-	"slices"
 	"testing"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
-// D86, D87, D91, D53: a Booking pays Rate × nights at its door, with the Rate locked when booked, and
-// keeps the Room Occupied from Booking until then.
-func TestBooking(t *testing.T) {
+// D139, D140, D86, D87, D91, D53: a Walk-in arrives booked into a Room it fits, which is Occupied from
+// then until it pays Rate × nights at its door, at the Rate locked on arrival. Once every Room is
+// Occupied, nobody else can come.
+func TestArrival(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	if g.book(0) == "" {
-		t.Fatal("booked a Room with nobody in the Queue")
+	p := g.walkIn()
+	if p == nil || p.Room < 0 || g.vacant(p.Room) || p.state != checkingIn {
+		t.Fatalf("a Walk-in on a Vacant hotel: %+v; want it booked, its Room Occupied, walking in", p)
 	}
-	solo(g.walkIn())
-	if g.book(0) == "" {
-		t.Fatal("booked a Walk-in still on its way to the counter")
+	p.Routine = homebody // no day out: on the ×10 clock below, a Tourist's walk back can outlast the budget
+	room := p.Room
+	rate := g.hotel.Rooms[room].Type.Rate
+	if p.Rate != rate || len(g.hotel.Rooms[room].Stays) < len(p.Guests) {
+		t.Errorf("a Party of %d in a Room for %d at $%d/night, want the Room's $%d", len(p.Guests), len(g.hotel.Rooms[room].Stays), p.Rate, rate)
 	}
-	arrive(t, g)
-	rate := g.hotel.Rooms[0].Type.Rate
-	if why := g.book(0); why != "" {
-		t.Fatalf("book: %s", why)
+	if day(p.Checkout) != 1+p.Nights || hour(p.Checkout) < checkoutHour || hour(p.Checkout) >= checkoutHour+2 {
+		t.Errorf("a %d-night stay arriving Day 1 checks out at %s, want Day %d 10:00–12:00", p.Nights, clockText(p.Checkout), 1+p.Nights)
 	}
-	p := g.parties[0]
-	if !g.occupied(0) || g.vacant(0) {
-		t.Fatal("a booked Room is not Occupied")
+	for range len(g.hotel.Rooms) - 1 {
+		if g.walkIn() == nil {
+			t.Fatal("no Walk-in with a Room still Vacant")
+		}
 	}
-	solo(g.walkIn())
-	arrive(t, g)
-	if g.book(0) == "" {
-		t.Fatal("booked a second Party into an Occupied Room")
+	if q := g.walkIn(); q != nil {
+		t.Fatalf("a Walk-in booked into Room %d with every Room Occupied", q.Room)
 	}
-	if p.Payout() != rate*p.Nights {
-		t.Errorf("payout %d, want Rate %d × %d nights", p.Payout(), rate, p.Nights)
-	}
-	if day(p.Checkout) != 2 || hour(p.Checkout) < checkoutHour || hour(p.Checkout) >= checkoutHour+2 {
-		t.Errorf("a 1-night stay booked Day 1 checks out at %s, want Day 2 10:00–12:00", clockText(p.Checkout))
-	}
-	g.hotel.Rooms[0].Type.Rate = 999 // the Rate is locked at Booking
+	g.hotel.Rooms[room].Type.Rate = 999 // the Rate is locked on arrival
 	g.fast = true
 	for !p.Paid {
 		if g.clock > p.Checkout+4*hourFrames { // ×10 clock: the walk from the bed to the door takes ~2 game hours
-			t.Fatalf("still unpaid at %s, checkout was %s", clockText(g.clock), clockText(p.Checkout))
+			t.Fatalf("still unpaid at %s, checkout was %s: %s", clockText(g.clock), clockText(p.Checkout), where(p.Guests))
 		}
 		g.step(0, 0)
 	}
-	if g.money != rate*p.Nights || g.occupied(0) || len(g.floaters) != 1 {
-		t.Errorf("after Checkout: money %d (want %d), occupied %v, %d floaters", g.money, rate*p.Nights, g.occupied(0), len(g.floaters))
+	if g.money < rate*p.Nights || p.Occupies(room) {
+		t.Errorf("after Checkout: money %d (want at least %d), Room still held by the Party", g.money, rate*p.Nights)
 	}
 	if g.clock < p.Checkout {
 		t.Errorf("paid at %s, before its checkout %s", clockText(g.clock), clockText(p.Checkout))
 	}
 }
 
-// D77: Walk-ins follow the hourly curve, and none come while the Queue is full or no Room is Vacant.
+// D77, D140: Walk-ins follow the hourly curve, and none come while no Room is Vacant.
 func TestWalkIns(t *testing.T) {
 	run := func(setup func(g *Game), from, hours int) *Game {
 		g := mustNew(t)
@@ -80,14 +74,6 @@ func TestWalkIns(t *testing.T) {
 	if g := run(nil, 14*hourFrames, 2); len(g.parties) == 0 {
 		t.Error("no Walk-ins in 2 peak hours")
 	}
-	full := func(g *Game) {
-		for range len(g.hotel.Queue) {
-			g.walkIn()
-		}
-	}
-	if g := run(full, 14*hourFrames, 1); len(g.parties) != len(g.hotel.Queue) {
-		t.Errorf("%d Parties after a peak hour with a full Queue, want %d", len(g.parties), len(g.hotel.Queue))
-	}
 	booked := func(g *Game) {
 		for i, r := range g.hotel.Rooms {
 			guest := entities.NewGuest(r.Stays[0], guestCast[0])
@@ -101,100 +87,45 @@ func TestWalkIns(t *testing.T) {
 	}
 }
 
-// D79: a queued Party gives up when its patience runs out and walks out of the Entrance.
-func TestPatience(t *testing.T) {
-	g := mustNew(t)
-	g.startRun()
-	g.clock = 2 * hourFrames // no Walk-ins at night, so only this one
-	g.walkIn()
-	p := g.parties[0]
-	for len(g.parties) > 0 {
-		if g.clock > p.patience+hourFrames {
-			t.Fatalf("still on the map at %s, patience ran out at %s", clockText(g.clock), clockText(p.patience))
-		}
-		g.step(0, 0)
-	}
-	if g.clock < p.patience || len(g.queue) != 0 {
-		t.Errorf("left at %s, patience until %s; queue %d", clockText(g.clock), clockText(p.patience), len(g.queue))
-	}
-}
-
-// D85: at Midnight a Room flips only if it is Vacant and the Concierge's foot point is outside it.
-func TestMidnightFlips(t *testing.T) {
-	g := mustNew(t)
-	g.startRun()
-	if len(g.hotel.Rooms) < 3 {
-		t.Skip("needs 3 Rooms")
-	}
-	solo(g.walkIn())
-	arrive(t, g)
-	if why := g.book(0); why != "" {
-		t.Fatal(why)
-	}
-	in := g.hotel.Rooms[1].Stays[0]
-	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
-	before := roomTypeNames(g)
-	for i := range g.hotel.Rooms {
-		if want := i >= 2; g.flips(i) != want {
-			t.Errorf("room %d flips = %v, want %v", i, g.flips(i), want)
-		}
-	}
-	g.types = fakeTypes(g, map[string]int{"Z": 10})
-	g.midnight()
-	if want := []int{2, 3, 4, 5, 6, 7, 8}[:len(g.hotel.Rooms)-2]; !slices.Equal(g.spinRooms, want) {
-		t.Errorf("Midnight rolled %v, want %v", g.spinRooms, want)
-	}
-	for i, n := range roomTypeNames(g) {
-		if want := map[bool]string{true: "Z", false: before[i]}[i >= 2]; n != want {
-			t.Errorf("room %d is %s after Midnight, want %s", i, n, want)
-		}
-	}
-}
-
-// solo drops a Walk-in's follower, so it fits any Room.
-func solo(p *Party) { p.Guests, p.Wish = p.Guests[:1], "" }
-
-// arrive steps the world until the front queued Party stands at the counter.
-func arrive(t *testing.T, g *Game) {
+// furnish gives every Room the Standard Room Type with this bed layout.
+func furnish(t *testing.T, g *Game, beds string) {
 	t.Helper()
-	for range 60 * 60 {
-		if g.atCounter() {
+	for _, rt := range g.types {
+		if rt.Name == "Standard" && rt.Beds == beds {
+			next := make([]world.RoomType, len(g.hotel.Rooms))
+			for i := range next {
+				next[i] = rt
+			}
+			g.hotel.Furnish(next)
 			return
 		}
-		g.step(0, 0)
 	}
-	t.Fatal("the front Walk-in never reached the counter")
+	t.Fatalf("no Standard %s", beds)
 }
 
-// D88, T017: each Party draws 1–3 nights, Homebody or Tourist 50/50, and jittered times; the first
-// Walk-in of a Run stays 1 night, so a Room frees up for Day 2's Spin.
+// D88, T017, D77: each Party draws 1–3 nights, Homebody or Tourist 50/50, and jittered times; 40% are
+// pairs when a 2-person Room is free.
 func TestScheduleDraw(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
+	furnish(t, g, "Twin")
 	g.rng = rand.New(rand.NewPCG(3, 4))
-	nights, tourists, pairs, twins := map[int]int{}, 0, 0, 0
+	nights, tourists, pairs := map[int]int{}, 0, 0
 	const n = 400
-	for i := range n {
-		g.queue = nil // keep a lane free
-		g.walkIn()
-		p := g.parties[len(g.parties)-1]
-		if i == 0 && p.Nights != 1 {
-			t.Errorf("the first Walk-in of a Run stays %d nights, want 1", p.Nights)
-		}
+	for range n {
+		g.parties = nil // keep the Rooms Vacant
+		p := g.walkIn()
 		nights[p.Nights]++
 		if p.Routine == tourist {
 			tourists++
 		}
 		switch {
-		case len(p.Guests) == 1 && p.Wish != "", len(p.Guests) == 2 && p.Wish != "Twin" && p.Wish != "Double", len(p.Guests) > 2:
-			t.Fatalf("a Party of %d wishes %q", len(p.Guests), p.Wish)
+		case len(p.Guests) > 2:
+			t.Fatalf("a Party of %d", len(p.Guests))
 		case len(p.Guests) == 2:
 			pairs++
 			if p.Guests[1].Leader != p.Guests[0] {
 				t.Fatal("a pair's second guest doesn't trail the first")
-			}
-			if p.Wish == "Twin" {
-				twins++
 			}
 		}
 		for _, w := range []struct {
@@ -213,8 +144,8 @@ func TestScheduleDraw(t *testing.T) {
 	if tourists < n*2/5 || tourists > n*3/5 {
 		t.Errorf("%d Tourists in %d, want about half", tourists, n)
 	}
-	if pairs < n*3/10 || pairs > n/2 || twins < pairs*2/5 || twins > pairs*3/5 { // D77: 40% pairs, half of them Twin
-		t.Errorf("%d pairs in %d (want ~40%%), %d wishing Twin (want ~half)", pairs, n, twins)
+	if pairs < n*3/10 || pairs > n/2 { // D77: 40% pairs
+		t.Errorf("%d pairs in %d, want ~40%%", pairs, n)
 	}
 }
 
@@ -258,83 +189,59 @@ func TestConciergeKeptOut(t *testing.T) {
 	if g.conciergeBlocked(door) != g.blocked(door) { // a shut door blocks anyone
 		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
 	}
-	solo(g.walkIn())
-	arrive(t, g)
-	if why := g.book(0); why != "" {
-		t.Fatal(why)
-	}
-	if !g.conciergeBlocked(door) {
+	p := g.walkIn()
+	if door = g.hotel.Doors[p.Room].Rect; !g.conciergeBlocked(door) {
 		t.Error("the Concierge can enter an Occupied Room's doorway")
 	}
 }
 
-// pairWalkIn walks in Parties until one is a pair, at night so no other Walk-in joins it.
+// pairWalkIn walks in Parties until one is a pair, at night so no other Walk-in joins it. It needs a
+// 2-person Room (furnish).
 func pairWalkIn(g *Game) *Party {
 	g.clock = 2 * hourFrames
 	for {
-		g.parties, g.queue = nil, nil
+		g.parties = nil
 		if p := g.walkIn(); len(p.Guests) == 2 {
 			return p
 		}
 	}
 }
 
-// D80, D81, T030: a Party fits a Room with a Stay Spot each; a pair pays half in the 2-person layout it
-// didn't ask for, and a solo Guest pays the full Rate anywhere.
+// D80, D159, T030: a pair is booked into a 2-person Room at its full Rate; with none free it comes solo.
 func TestPartyFit(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	if len(g.hotel.Rooms) < 3 {
-		t.Skip("needs 3 Rooms")
-	}
-	layout := func(beds string) world.RoomType {
-		for _, rt := range g.types {
-			if rt.Name == "Standard" && rt.Beds == beds {
-				return rt
-			}
+	var single, double world.RoomType
+	for _, rt := range g.types {
+		switch {
+		case rt.Name == "Standard" && rt.Beds == "Single":
+			single = rt
+		case rt.Name == "Standard" && rt.Beds == "Double":
+			double = rt
 		}
-		t.Fatalf("no Standard %s", beds)
-		return world.RoomType{}
 	}
-	next := make([]world.RoomType, len(g.hotel.Rooms))
-	for i := range next {
-		next[i] = layout([...]string{"Single", "Twin", "Double"}[i%3])
-	}
-	g.spin(next, nil, true)
+	g.hotel.Furnish([]world.RoomType{single, double})
 	pair := pairWalkIn(g)
-	pair.Wish = "Twin"
-	arrive(t, g)
-	if why := g.fits(0); why == "" {
-		t.Error("a pair fits a Single")
+	if pair.Room != 1 || pair.Rate != double.Rate {
+		t.Fatalf("a pair booked into Room %d at $%d, want the Double (1) at $%d", pair.Room, pair.Rate, double.Rate)
 	}
-	for _, c := range []struct {
-		room, rate int
-	}{{1, 40}, {2, 20}} {
-		if r := pair.rateIn(g.hotel.Rooms[c.room]); g.fits(c.room) != "" || r != c.rate {
-			t.Errorf("a Twin-wishing pair in a %s: fits %q, $%d/night; want $%d", g.hotel.Rooms[c.room].Type.Beds, g.fits(c.room), r, c.rate)
+	for range 50 {
+		p := g.walkIn()
+		if len(p.Guests) != 1 || p.Room != 0 {
+			t.Fatalf("a Party of %d into Room %d with only the Single free, want solo into 0", len(p.Guests), p.Room)
 		}
-	}
-	one := &Party{Guests: pair.Guests[:1]}
-	for i, want := range []int{25, 40, 40} {
-		if r := one.rateIn(g.hotel.Rooms[i]); r != want {
-			t.Errorf("a solo Guest in a %s pays $%d/night, want the full $%d", g.hotel.Rooms[i].Type.Beds, r, want)
-		}
-	}
-	if why := g.book(2); why != "" || pair.Rate != 20 {
-		t.Errorf("booking the mismatched Double: %q, Rate locked at $%d, want $20", why, pair.Rate)
+		g.parties = g.parties[:1]
 	}
 }
 
-// D90, T032: a pair walks as one, the follower a tile or so behind its leader, queues behind it, and
-// splits to its own Stay Spot in the Room; checking out, both leave the Room before it pays.
+// D90, T032: a pair walks as one, the follower a tile or so behind its leader, and splits to its own
+// Stay Spot in the Room; checking out, both leave the Room before it pays.
 func TestPairFollows(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	room := slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return len(r.Stays) == 2 })
-	if room < 0 {
-		t.Skip("no 2-person Room in this Spin")
-	}
+	furnish(t, g, "Twin")
 	p := pairWalkIn(g)
+	room := p.Room
 	lead, f := p.Guests[0], p.Guests[1]
 	gap := func() float64 { return math.Hypot(f.X-lead.X, f.Y-lead.Y) }
 	walk := func(what string, until func() bool) {
@@ -352,13 +259,6 @@ func TestPairFollows(t *testing.T) {
 			}
 		}
 		t.Fatalf("%s: still walking after 60 s: %s", what, where(p.Guests))
-	}
-	walk("queuing", func() bool { return g.atCounter() && len(f.Path) == 0 })
-	if behind := g.hotel.Queue[p.slot].Add(image.Pt(0, world.TileSize)); image.Pt(int(f.X), int(f.Y)) != behind {
-		t.Errorf("the follower queues at %v, want %v behind its leader", image.Pt(int(f.X), int(f.Y)), behind)
-	}
-	if why := g.book(room); why != "" {
-		t.Fatal(why)
 	}
 	walk("checking in", func() bool { return p.state == staying })
 	r := g.hotel.Rooms[room]
