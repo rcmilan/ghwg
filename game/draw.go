@@ -136,14 +136,15 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		anim entities.Anim
 		fog  float64
 		fear float64 // of fearLimit
+		lift float64 // world px off the floor: a fleeing Guest's hop (D164)
 	}
-	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0}}
+	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0, 0}}
 	for _, guest := range g.guests() {
 		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
-			min(1, float64(guest.Fear)/fearLimit)})
+			min(1, float64(guest.Fear)/fearLimit), g.lift(guest)})
 	}
 	for _, pr := range g.priests {
-		actors = append(actors, actor{pr.X, pr.Y, "Priest", pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0})
+		actors = append(actors, actor{pr.X, pr.Y, "Priest", pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.y, b.y) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
@@ -167,7 +168,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	for _, a := range actors {
 		propsUpTo(a.y)
-		x, y := at(a.x, a.y)
+		x, y := at(a.x, a.y-a.lift)
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
@@ -178,6 +179,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawDarkness(screen, ox, oy)
 	}
 	g.drawRequests(screen, ox, oy)
+	g.drawScreams(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {

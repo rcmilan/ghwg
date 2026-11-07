@@ -93,7 +93,7 @@ The haunt there is so far: the Room's furniture shakes, and its Guests gain Fear
 How frightened a Guest is. It rises while the Guest is inside a haunted Room and never falls. It shows only in the ghost Dimension, as a red glow.
 
 **Flee**:
-A Party leaving for good, unpaid, the moment one of its Guests reaches the Fear limit. Its Room is Vacant at once.
+A Party leaving for good, unpaid, the moment one of its Guests reaches the Fear limit. Its Room is Vacant at once. Its Guests hop once in place, screaming, then run out at triple speed.
 _Avoid_: escape, check out (a fled Party never checks out)
 
 **Spook**:

@@ -138,7 +138,7 @@ func TestTailTowardGuest(t *testing.T) {
 		{"left", x - 300, y + 20, func(px, py float64) bool { return px < x }},
 		{"right", x + bw + 300, y + 20, func(px, py float64) bool { return px > x+bw }},
 	} {
-		m := tailGeoM(x, y, c.hx, c.hy)
+		m := tailGeoM(x, y, balloonW, balloonH, c.hx, c.hy)
 		if px, py := m.Apply(balloonTail-0.5, balloonTail+0.5); !c.ok(px, py) { // the tip pixel's center
 			t.Errorf("Guest %s: the tail's tip at (%.1f,%.1f), box at (%d,%d) %dx%d", c.name, px, py, x, y, bw, bh)
 		}

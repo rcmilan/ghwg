@@ -109,6 +109,7 @@ type Party struct {
 	spookShown int           // Spook gained since its Room's last "+N" floater
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	askEnded   int           // the clock its last request was served, expired or lapsed
+	fledAt     int           // the tick it fled (D164)
 	Booking
 }
 
@@ -340,7 +341,14 @@ func (g *Game) updateParty(p *Party) bool {
 			g.checkout(p, r)
 		}
 	case leaving:
-		if g.walkParty(p, departSpeed) {
+		speed := departSpeed
+		if p.Fled { // a hop in place, then a run (D164)
+			if g.tick-p.fledAt <= hopFrames {
+				return true
+			}
+			speed = fleeSpeed
+		}
+		if g.walkParty(p, speed) {
 			return false
 		}
 	}

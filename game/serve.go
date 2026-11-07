@@ -130,12 +130,17 @@ func paint(w, h int, in, ink func(x, y int) bool) *ebiten.Image {
 	return img
 }
 
+// rounded: a w×h box with corners of radius r.
+func rounded(w, h, r int) func(x, y int) bool {
+	return func(x, y int) bool {
+		cx, cy := min(max(x, r), w-1-r), min(max(y, r), h-1-r)
+		return (x-cx)*(x-cx)+(y-cy)*(y-cy) <= r*r
+	}
+}
+
 // balloonImages: the box, and its tail pointing down, whose row 0 lies over the box's edge to open it.
 func balloonImages() (box, tail *ebiten.Image) {
-	box = paint(balloonW, balloonH, func(x, y int) bool {
-		cx, cy := min(max(x, balloonR), balloonW-1-balloonR), min(max(y, balloonR), balloonH-1-balloonR)
-		return (x-cx)*(x-cx)+(y-cy)*(y-cy) <= balloonR*balloonR
-	}, func(x, y int) bool { // two "!": a bar over rows 3..10, a dot on rows 12..14
+	box = paint(balloonW, balloonH, rounded(balloonW, balloonH, balloonR), func(x, y int) bool { // two "!": a bar over rows 3..10, a dot on rows 12..14
 		return (x >= 6 && x <= 8 || x >= 13 && x <= 15) && (y >= 3 && y <= 10 || y >= 12 && y <= 14)
 	})
 	const c = balloonTail - 1 // the tip's column
@@ -144,30 +149,30 @@ func balloonImages() (box, tail *ebiten.Image) {
 	return box, tail
 }
 
-// tailGeoM places the tail on the side of the box at (x,y) that faces the head at (hx,hy), all screen px,
-// slid along that side toward the head.
-func tailGeoM(x, y, hx, hy int) ebiten.GeoM {
+// tailGeoM places the tail on the side of the w×h box (balloon px) at (x,y) that faces the head at
+// (hx,hy), screen px, slid along that side toward the head.
+func tailGeoM(x, y, w, h, hx, hy int) ebiten.GeoM {
 	const c, s = balloonTail - 1, balloonScale
 	along := func(v, from, n int) float64 { // the tail's first column, kept off the round corners
 		return float64(min(max((v-from)/s, balloonR+c), n-1-balloonR-c) - c)
 	}
 	var m ebiten.GeoM
 	switch {
-	case hy >= y+balloonH*s: // below
-		m.Translate(along(hx, x, balloonW), balloonH-1)
+	case hy >= y+h*s: // below
+		m.Translate(along(hx, x, w), float64(h-1))
 	case hy < y: // above
 		m.Scale(1, -1)
-		m.Translate(along(hx, x, balloonW), 1)
+		m.Translate(along(hx, x, w), 1)
 	default: // beside: the tail turned on its side
 		m.SetElement(0, 0, 0)
 		m.SetElement(0, 1, 1)
 		m.SetElement(1, 0, 1)
 		m.SetElement(1, 1, 0)
-		if hx < x+balloonW*s/2 {
+		if hx < x+w*s/2 {
 			m.Scale(-1, 1)
-			m.Translate(1, along(hy, y, balloonH))
+			m.Translate(1, along(hy, y, h))
 		} else {
-			m.Translate(balloonW-1, along(hy, y, balloonH))
+			m.Translate(float64(w-1), along(hy, y, h))
 		}
 	}
 	m.Scale(s, s)
@@ -175,29 +180,55 @@ func tailGeoM(x, y, hx, hy int) ebiten.GeoM {
 	return m
 }
 
-// drawRequests draws a "!!" balloon by the head of each asking Party's leader, in both dimensions and
-// over the Fog and the dark. Kept on screen: off screen, it waits at the nearest edge, its tail still
-// pointing at the Guest.
+// drawRequests draws a "!!" balloon by each asking Party's leader, in both dimensions and over the Fog
+// and the dark.
 func (g *Game) drawRequests(s *ebiten.Image, ox, oy int) {
 	if g.balloon == nil {
 		g.balloon, g.tail = balloonImages()
 	}
-	const bw, bh, edge = balloonW * balloonScale, balloonH * balloonScale, balloonTail*balloonScale + 4 // room for the tail
-	w, h := s.Bounds().Dx(), s.Bounds().Dy()
 	for _, p := range g.parties {
-		if !p.asking() {
-			continue
+		if p.asking() {
+			g.drawBalloon(s, g.balloon, p.Guests[0], ox, oy)
 		}
-		lead := p.Guests[0]
-		top := int(lead.Y*zoom) - oy + (entities.FootH/2-charH)*zoom // the sprite's top, screen px
-		hx, hy := int(lead.X*zoom)-ox, top+4*zoom                     // the head
-		x := min(max(hx+5*zoom, edge), w-bw-edge)                     // right of the head, the tail's tip just over it
-		y := min(max(top+6*zoom-(balloonH+balloonTail)*balloonScale, edge), h-bh-edge)
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(balloonScale, balloonScale)
-		op.GeoM.Translate(float64(x), float64(y))
-		s.DrawImage(g.balloon, op)
-		op.GeoM = tailGeoM(x, y, hx, hy)
-		s.DrawImage(g.tail, op)
 	}
+}
+
+// drawBalloon draws box (balloon px) right of the guest's head, its tail pointing at the head. Kept on
+// screen: off screen, it waits at the nearest edge, its tail still pointing at the Guest. Returns the box's
+// top left, screen px.
+func (g *Game) drawBalloon(s, box *ebiten.Image, guest *entities.Guest, ox, oy int) (int, int) {
+	if g.tail == nil {
+		g.balloon, g.tail = balloonImages()
+	}
+	const edge = balloonTail*balloonScale + 4 // room for the tail
+	bw, bh := box.Bounds().Dx(), box.Bounds().Dy()
+	w, h := s.Bounds().Dx(), s.Bounds().Dy()
+	top := int((guest.Y-g.lift(guest))*zoom) - oy + (entities.FootH/2-charH)*zoom // the sprite's top, screen px
+	hx, hy := int(guest.X*zoom)-ox, top+4*zoom                                    // the head
+	x := min(max(hx+5*zoom, edge), w-bw*balloonScale-edge)                        // right of the head, the tail's tip just over it
+	y := min(max(top+6*zoom-(bh+balloonTail)*balloonScale, edge), h-bh*balloonScale-edge)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(balloonScale, balloonScale)
+	op.GeoM.Translate(float64(x), float64(y))
+	s.DrawImage(box, op)
+	op.GeoM = tailGeoM(x, y, bw, bh, hx, hy)
+	s.DrawImage(g.tail, op)
+	return x, y
+}
+
+// A speech balloon (D165) is the request balloon's box sized to its line, the text black at 1×, 6 px a
+// character in the debug font.
+const sayH, sayPad = 8, 4 // balloon px tall; screen px around the text
+
+// say draws line in a speech balloon by the guest's head.
+func (g *Game) say(s *ebiten.Image, line string, guest *entities.Guest, ox, oy int) {
+	w := max((6*len(line)+2*sayPad+balloonScale-1)/balloonScale, 2*(balloonR+balloonTail)-1) // room for the tail
+	if g.boxes == nil {
+		g.boxes = map[int]*ebiten.Image{}
+	}
+	if g.boxes[w] == nil {
+		g.boxes[w] = paint(w, sayH, rounded(w, sayH, 3), func(int, int) bool { return false })
+	}
+	x, y := g.drawBalloon(s, g.boxes[w], guest, ox, oy)
+	g.inked(s, line, x+(w*balloonScale-6*len(line))/2, y+(sayH*balloonScale-16)/2, 0, 0, 0)
 }

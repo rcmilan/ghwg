@@ -69,9 +69,9 @@ func (g *Game) scare() {
 	}
 }
 
-// flee: the Party runs for the Exit, unpaid; its Room is Vacant at once.
+// flee: the Party runs for the Exit, unpaid, after a hop in place (D164); its Room is Vacant at once.
 func (g *Game) flee(p *Party) {
-	p.Fled, p.state = true, leaving
+	p.Fled, p.state, p.fledAt = true, leaving, g.tick
 	g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
 }
 
@@ -104,15 +104,19 @@ func (g *Game) drawFear(s *ebiten.Image, x, y int, fear float64) {
 
 // cyan prints v in the ghost palette's cyan, over a black shadow: the Spook floaters.
 func (g *Game) cyan(s *ebiten.Image, v string, x, y int) {
+	g.inked(s, v, x+1, y+1, 0, 0, 0) // a black shadow, so it reads over cyan props
+	g.inked(s, v, x, y, 0, 1, 1)
+}
+
+// inked prints v in the debug font at 1×, in color (r,gr,b).
+func (g *Game) inked(s *ebiten.Image, v string, x, y int, r, gr, b float32) {
 	if g.ink == nil {
-		g.ink = ebiten.NewImage(128, 16)
+		g.ink = ebiten.NewImage(256, 16)
 	}
 	g.ink.Clear()
 	ebitenutil.DebugPrint(g.ink, v)
-	for _, c := range [...][4]float32{{0, 0, 0, 1}, {0, 1, 1, 1}} { // a black shadow, so it reads over cyan props
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(x)+float64(1-c[1]), float64(y)+float64(1-c[1]))
-		op.ColorScale.Scale(c[0], c[1], c[2], c[3])
-		s.DrawImage(g.ink, op)
-	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x), float64(y))
+	op.ColorScale.Scale(r, gr, b, 1)
+	s.DrawImage(g.ink, op)
 }

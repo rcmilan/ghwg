@@ -74,6 +74,7 @@ type Game struct {
 	heart      *ebiten.Image               // the serve pop (serve.go)
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
+	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
