@@ -44,13 +44,12 @@ type Game struct {
 	tick       int      // simulation frames since launch
 	clock      int      // game time (clock.go)
 	fast       bool     // T held: the clock runs ×10
-	money      int
-	ghost      bool  // the whole hotel is in the ghost dimension (D141); else the real one
-	haunted    []int // per Room: the clock its haunt ends (haunt.go)
-	spook      int   // the currency haunting earns (D148)
-	roomSpook  []int // per Room: its Spook level (D147, priest.go)
-	serves     int   // requests answered this Run (serve.go)
-	expired    int   // requests left to expire this Run
+	wallet     [2]Num   // Money and Spook (wallet.go, D178)
+	ghost      bool     // the whole hotel is in the ghost dimension (D141); else the real one
+	haunted    []int    // per Room: the clock its haunt ends (haunt.go)
+	roomSpook  []int    // per Room: its Spook level (D147, priest.go)
+	serves     int      // requests answered this Run (serve.go)
+	expired    int      // requests left to expire this Run
 	priests    []*priest
 	shades     []*shade // per Room: its Shadow Person, nil if none (D169, shadow.go)
 	termCursor int      // the Terminal's selected Room
@@ -58,7 +57,9 @@ type Game struct {
 	termPick   int      // the menu's pick: pickWeak, pickStrong or pickShadow
 	walkIns    int      // Walk-ins this Run
 	floaters   []floater
-	fog        []float64 // per Room: its veil, 0 clear .. 1 fogged (fog.go)
+	locked     map[Unlock]bool  // nil: everything unlocked (unlock.go)
+	taps       [][taskCount]Num // per Room and Task: taps done (tap.go)
+	fog        []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
 	rng        *rand.Rand
 	chat       *rand.Rand                  // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
@@ -138,7 +139,8 @@ func (g *Game) mapSize() (int, int) {
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
 	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
-	g.clock, g.money, g.spook, g.ghost, g.shifting = runStart, 0, 0, false, nil
+	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
+	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw

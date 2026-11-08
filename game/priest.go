@@ -52,10 +52,9 @@ func (g *Game) callPriest(room int, strong bool) string {
 	if g.priestOn(room) {
 		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
 	}
-	if g.money < pr.price() {
+	if !g.pay(Cost{Money: Num(pr.price())}) {
 		return fmt.Sprintf("NOT ENOUGH MONEY: $%d", pr.price())
 	}
-	g.money -= pr.price()
 	pr.SetPath(g.hotel.Path(g.hotel.Spawn, g.workSpot(room), room))
 	g.priests = append(g.priests, pr)
 	return ""

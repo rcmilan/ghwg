@@ -82,7 +82,7 @@ type thief struct{ done bool }
 func (s *thief) Act(View, *Pilot) {}
 func (s *thief) Cheat(g *Game) {
 	if g.clock > runStart+hourFrames && !s.done {
-		s.done, g.money = true, g.money+50
+		s.done, g.wallet[Money] = true, g.wallet[Money]+50
 	}
 }
 

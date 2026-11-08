@@ -90,8 +90,8 @@ func TestFlee(t *testing.T) {
 		}
 		g.step(0, 0)
 	}
-	if g.money != 0 || p.Paid {
-		t.Fatalf("a fled Party paid: money %d", g.money)
+	if g.wallet[Money] != 0 || p.Paid {
+		t.Fatalf("a fled Party paid: money %v", g.wallet[Money])
 	}
 }
 
@@ -115,8 +115,8 @@ func TestSpook(t *testing.T) {
 	g.parties = []*Party{{Guests: []*entities.Guest{&a, &b}, state: staying, Booking: Booking{Room: 0, Checkout: 99 * dayFrames}}}
 	g.haunt(0)
 	g.scare()
-	if g.spook != 2*fearPerMinute || a.Fear != fearPerMinute {
-		t.Fatalf("one haunt-minute on a pair: Spook %d, Fear %d; want %d and %d", g.spook, a.Fear, 2*fearPerMinute, fearPerMinute)
+	if g.wallet[Spook] != 2*fearPerMinute || a.Fear != fearPerMinute {
+		t.Fatalf("one haunt-minute on a pair: Spook %v, Fear %d; want %d and %d", g.wallet[Spook], a.Fear, 2*fearPerMinute, fearPerMinute)
 	}
 }
 

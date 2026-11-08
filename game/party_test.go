@@ -45,8 +45,8 @@ func TestArrival(t *testing.T) {
 		}
 		g.step(0, 0)
 	}
-	if g.money < rate*p.Nights || p.Occupies(room) {
-		t.Errorf("after Checkout: money %d (want at least %d), Room still held by the Party", g.money, rate*p.Nights)
+	if g.wallet[Money] < Num(rate*p.Nights) || p.Occupies(room) {
+		t.Errorf("after Checkout: money %v (want at least %d), Room still held by the Party", g.wallet[Money], rate*p.Nights)
 	}
 	if g.clock < p.Checkout {
 		t.Errorf("paid at %s, before its checkout %s", clockText(g.clock), clockText(p.Checkout))

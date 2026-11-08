@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"slices"
@@ -370,7 +369,6 @@ func (g *Game) updateParty(p *Party) bool {
 // checkout banks the Party's payout as it steps out of its door; the Room is Vacant at once (D87).
 func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
-	g.money += p.Payout()
 	door := r.Door.Mul(world.TileSize)
-	g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+$%d", p.Payout()), g.tick, floatMoney})
+	g.earn(Money, Num(p.Payout()), door.Add(image.Pt(world.TileSize/2, 0)))
 }

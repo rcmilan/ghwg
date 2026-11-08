@@ -45,10 +45,9 @@ func (g *Game) buyShadow(room int) string {
 	switch {
 	case g.shaded(room):
 		return "ROOM " + g.hotel.Rooms[room].Number + " HAS A SHADOW ALREADY"
-	case g.spook < shadowPrice:
+	case !g.pay(Cost{Spook: shadowPrice}):
 		return fmt.Sprintf("NOT ENOUGH SPOOK: %d", shadowPrice)
 	}
-	g.spook -= shadowPrice
 	g.shades[room] = &shade{name: shadowCast[g.chat.IntN(len(shadowCast))], next: g.clock + g.shadowGap(room), anim: entities.NewAnim()}
 	return ""
 }
@@ -146,7 +145,7 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
 	guest.Fear += n
-	g.spook += n
+	g.earn(Spook, Num(n), noFloat) // the haunt floats its own batched "+N"
 	g.roomSpook[p.Room] += n
 	p.spookShown += n
 }
