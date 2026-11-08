@@ -121,6 +121,7 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
 	}
+	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own
 	text(screen, g.message, 28, 518, assets.Accent)
 }
 
@@ -217,10 +218,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {
-		case f.kind == floatMoney:
-			text(screen, f.text, x-3*len(f.text), y, assets.Money)
-		case f.kind == floatSpook && g.ghost:
-			g.cyan(screen, f.text, x-3*len(f.text), y)
+		case f.kind == floatMoney || f.kind == floatSpook && g.ghost: // a currency's kind is its Res (wallet.go)
+			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		case f.kind == floatHeart && !g.ghost:
 			g.drawHeart(screen, x, y)
 		}
