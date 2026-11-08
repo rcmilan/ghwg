@@ -133,17 +133,7 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	g.drawWorld(screen, ox, oy)
-	// HUD and terminal: screen space
-	if g.state == StatePlay && g.atTerminal() {
-		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
-	}
-	if g.state == StatePlay && g.atMirror() && g.shifting == nil {
-		to := "GHOST"
-		if g.ghost {
-			to = "REAL"
-		}
-		text(screen, "[SPACE] SHIFT TO "+to, 28, 498, assets.Money)
-	}
+	// HUD and terminal: screen space. No "[SPACE] ..." prompts: props must read on their own (2026-11-08).
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
 	}
