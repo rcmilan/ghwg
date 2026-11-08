@@ -83,6 +83,7 @@ type Game struct {
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
 	warm       bool                        // the shaders have been drawn once (shift.go warmUp)
+	spill      *ebiten.Image               // the hall light through the Archway, built on first use (spill.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
