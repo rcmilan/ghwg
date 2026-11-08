@@ -228,29 +228,42 @@ func (p *Pilot) BuyShadow(room int) {
 	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
 }
 
-// Buy opens the Terminal, picks the shop row and, for a PerRoom row, the Room, pays, and closes it; ok if
-// got holds then. It gives up when the row isn't listed.
+// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
+// Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
+// when the item isn't for sale or the store refuses it.
 func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
-	row := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
+	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
+	tab := shop[i].Tab
+	pos := slices.Index(tabItems(tab), i)
 	p.OpenTerminal()
-	paid := false
+	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
 			return true, paid && got(v)
 		}
+		if cart0 < 0 {
+			cart0 = t.Cart
+		}
+		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || !slices.Contains(v.Shop, row):
+		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
-		case t.Pick != row:
-			k = ebiten.KeyS
-		case shop[row].PerRoom && t.Cursor != room:
+		case t.Placing && t.Cursor != room:
 			k = ebiten.KeyD
+		case t.Placing:
+			k = ebiten.KeySpace
+		case !added && t.Tab != tab, added && t.Tab != tabCart:
+			k = ebiten.KeyD
+		case !added && t.Pick != pos:
+			k = ebiten.KeyS
+		case added && t.Pick != t.Lines:
+			k = ebiten.KeyS
 		default:
 			k = ebiten.KeySpace
 		}
-		if p.tap(k) && k == ebiten.KeySpace {
+		if p.tap(k) && k == ebiten.KeySpace && added {
 			paid = true
 		}
 		return false, false

@@ -9,9 +9,10 @@ import (
 )
 
 // FS holds the Tiled data: tiles/*.png + tiles/hotel.tsj (tileset) and rooms/*.tmj (Room Types),
-// plus the LimeZu character sheets: characters/<Name>_{idle_anim,run}_16x16.png (D26).
+// plus the LimeZu character sheets: characters/<Name>_{idle_anim,run}_16x16.png (D26), and the cut
+// props and icons: sprites/<name>.png (A1, D199).
 //
-//go:embed tiles rooms characters
+//go:embed tiles rooms characters sprites
 var FS embed.FS
 
 var (

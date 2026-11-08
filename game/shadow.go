@@ -48,8 +48,13 @@ func (g *Game) buyShadow(room int) string {
 	case !g.pay(Cost{Spook: shadowPrice}):
 		return fmt.Sprintf("NOT ENOUGH SPOOK: %d", shadowPrice)
 	}
-	g.shades[room] = &shade{name: shadowCast[g.chat.IntN(len(shadowCast))], next: g.clock + g.shadowGap(room), anim: entities.NewAnim()}
+	g.placeShadow(room)
 	return ""
+}
+
+// placeShadow: a paid-for Shadow Person takes the Room.
+func (g *Game) placeShadow(room int) {
+	g.shades[room] = &shade{name: shadowCast[g.chat.IntN(len(shadowCast))], next: g.clock + g.shadowGap(room), anim: entities.NewAnim()}
 }
 
 // shadowGap: frames between runs, from 1 every 4 game hours at 0 Room Spook to 1 an hour at spookLimit (S12 review: 4 was too often).

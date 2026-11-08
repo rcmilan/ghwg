@@ -21,7 +21,7 @@ type View struct {
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
 	Terminal  TerminalView
-	Shop      []int        // the shop rows the Terminal lists, by index into shop (D180)
+	Shop      []int        // the store items that can go in the cart now, by index into shop (D180)
 	Hotel     *world.Hotel // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
@@ -43,8 +43,12 @@ type RoomView struct {
 type TerminalView struct {
 	Open    bool
 	Message string
-	Cursor  int // the selected Room
-	Pick    int // the selected shop row
+	Cursor  int  // the Room a Service is for
+	Tab     Tab  // the store's open tab
+	Pick    int  // the picked row in the tab; in the cart, len(cart) is the checkout
+	Placing bool // a Service waits for its Room
+	Cart    int  // units in the cart
+	Lines   int  // lines in the cart: the checkout row's Pick
 }
 
 func (g *Game) view() View {
@@ -52,8 +56,8 @@ func (g *Game) view() View {
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Spook: g.wallet[Spook],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termPick},
-		Shop:     g.listed(),
+		Terminal: g.termView(),
+		Shop:     g.forSale(),
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
@@ -78,4 +82,24 @@ func (g *Game) view() View {
 		}
 	}
 	return v
+}
+
+func (g *Game) termView() TerminalView {
+	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Placing: g.placing >= 0}
+	for _, l := range g.cart {
+		t.Cart += l.n
+	}
+	t.Lines = len(g.cart)
+	return t
+}
+
+// forSale: the items on sale that aren't owned unlocks.
+func (g *Game) forSale() []int {
+	var rows []int
+	for i, it := range shop {
+		if g.onSale(i) && !(it.Tab == tabHotel && g.unlocked(it.ID)) {
+			rows = append(rows, i)
+		}
+	}
+	return rows
 }

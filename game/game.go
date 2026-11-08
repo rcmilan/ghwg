@@ -53,8 +53,7 @@ type Game struct {
 	priests    []*priest
 	shades     []*shade // per Room: its Shadow Person, nil if none (D169, shadow.go)
 	termCursor int      // the Terminal's selected Room
-	termRoom   int      // the Room whose menu is open, or -1
-	termPick   int      // the menu's pick: pickWeak, pickStrong or pickShadow
+	termPick   int      // the store's selected row in its tab, or in the cart (the last row is checkout)
 	walkIns    int      // Walk-ins this Run
 	floaters   []floater
 	locked     map[Unlock]bool  // nil: everything unlocked (unlock.go)
@@ -82,11 +81,17 @@ type Game struct {
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
-	seen       map[Unlock]bool             // shop rows revealed this Run, by ID (shop.go)
 	warm       bool                        // the shaders have been drawn once (shift.go warmUp)
 	spill      *ebiten.Image               // the hall light through the Archway, built on first use (spill.go)
 	hud        [2]counter                  // per Res: its counter on screen (hud.go)
 	skull      *ebiten.Image               // the Spook counter's icon (hud.go)
+	termTab    Tab                         // the store's open tab (shop.go)
+	placing    int                         // the Service row waiting for its Room, or -1 (terminal.go)
+	cart       []cartLine                  // the store's cart (shop.go)
+	stock      map[Unlock]int              // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
+	earned     [2]Num                      // lifetime earnings this Run (wallet.go): open store items
+	boughtAt   map[Unlock][2]Num           // per unlock: earned when it arrived (shop.go onSale)
+	icons      map[string]*ebiten.Image    // assets/sprites, loaded on first use (terminal.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -151,7 +156,7 @@ func (g *Game) startRun() {
 	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
-	g.seen = nil
+	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw
@@ -170,6 +175,10 @@ func (g *Game) Update() error {
 		case StateTitle:
 			return ebiten.Termination
 		case StateTerminal:
+			if g.placing >= 0 { // ESC backs out of the Room pick first
+				g.placing = -1
+				break
+			}
 			g.state, g.message = StatePlay, ""
 		default:
 			g.state = StateTitle
@@ -230,7 +239,6 @@ func (g *Game) step(dx, dy float64) {
 		g.cam.Follow(g.player.X, g.player.Y, w, h)
 	}
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
-	g.reveal()
 	g.updateHUD()
 }
 

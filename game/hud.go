@@ -158,7 +158,7 @@ func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a floa
 // tintedAt is tinted at a scale.
 func (g *Game) tintedAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
 	if g.ink == nil {
-		g.ink = ebiten.NewImage(256, 16)
+		g.ink = ebiten.NewImage(512, 16)
 	}
 	g.ink.Clear()
 	ebitenutil.DebugPrint(g.ink, v)

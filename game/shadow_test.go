@@ -6,28 +6,17 @@ import (
 	"testing"
 
 	"ghosthotel/entities"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// T160 (D169): a Shadow costs shadowPrice Spook at the Terminal's Room menu, one per Room; a Strong Priest
+// T160 (D169): a Shadow costs shadowPrice Spook, one per Room; a Strong Priest
 // banishes it, a Weak one leaves it.
 func TestBuyShadow(t *testing.T) {
-	g, s := headless(t, 2, 1, 1)
+	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
 	g.wallet[Spook] = 2*shadowPrice - 1
-	tap := func(k ebiten.Key) {
-		s.hold()
-		g.Update()
-		s.hold(k)
-		g.Update()
-	}
-	g.openTerminal()
-	for _, k := range []ebiten.Key{ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace} { // Room 0's menu, up from Father K wraps to the Shadow
-		tap(k)
-	}
+	g.buyShadow(0) // the store's keys: TestStoreKeys
 	if !g.shaded(0) || g.wallet[Spook] != shadowPrice-1 {
-		t.Fatalf("bought at the Terminal: shaded %v, Spook %v; want a Shadow in Room 0 and %d Spook", g.shaded(0), g.wallet[Spook], shadowPrice-1)
+		t.Fatalf("bought: shaded %v, Spook %v; want a Shadow in Room 0 and %d Spook", g.shaded(0), g.wallet[Spook], shadowPrice-1)
 	}
 	if msg := g.buyShadow(0); msg == "" || g.wallet[Spook] != shadowPrice-1 {
 		t.Fatalf("a second Shadow for Room 0: %q, Spook %v", msg, g.wallet[Spook])
