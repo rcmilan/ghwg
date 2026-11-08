@@ -67,7 +67,7 @@ func TestStoreOpens(t *testing.T) {
 func TestCheckout(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
-	g.earned = [2]Num{1000, 1000}
+	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, k := row(t, SupplyWater), row(t, rowFatherK)
 	for _, add := range []struct{ i, room int }{{water, -1}, {water, -1}, {row(t, Hex), -1}, {k, 1}} {
 		if why := g.addToCart(add.i, add.room); why != "" {
@@ -99,7 +99,7 @@ func TestCheckout(t *testing.T) {
 func TestCartRules(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
-	g.earned = [2]Num{1000, 1000}
+	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	m, k, fm, sh := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM), row(t, rowShadow)
 	if g.addToCart(m, -1) == "" {
 		t.Error("an owned unlock went in the cart")
@@ -113,6 +113,11 @@ func TestCartRules(t *testing.T) {
 	g.placeShadow(1)
 	if g.addToCart(sh, 1) == "" || g.addToCart(sh, 0) != "" {
 		t.Error("Shadow: want refused where one is, taken where none is")
+	}
+	g.cart, g.wallet = nil, [2]Num{15, 0}
+	w := row(t, SupplyWater)
+	if g.addToCart(w, -1) != "" || g.addToCart(w, -1) == "" || g.addToCart(sh, 0) == "" {
+		t.Error("the cart took more than the wallet holds")
 	}
 }
 

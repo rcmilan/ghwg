@@ -17,6 +17,7 @@ import (
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
@@ -81,7 +82,32 @@ func (g *Game) sortedProps() []prop {
 func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 	ebitenutil.DrawRect(s, float64(x), float64(y), float64(w), float64(h), c)
 }
-func text(s *ebiten.Image, v string, x, y int, _ color.Color) { ebitenutil.DebugPrintAt(s, v, x, y) }
+func text(s *ebiten.Image, v string, x, y int, _ color.Color) { printAt(s, v, x, y, 1, color.White, 1) }
+
+// inkBuf: the debug font's glyphs carry a baked half-alpha black shadow; printed here, then drawn with
+// alpha := red, only the white glyph pixels stay (no text shadows, 2026-11-08).
+var inkBuf = ebiten.NewImage(960, 64)
+
+// printAt prints v in the debug font at (x,y), at scale, in c at alpha a. Every text goes through it.
+func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	lines := strings.Split(v, "\n")
+	w := 0
+	for _, l := range lines {
+		w = max(w, len(l))
+	}
+	buf := inkBuf.SubImage(image.Rect(0, 0, min(w*glyphW+1, 960), min(len(lines)*glyphH, 64))).(*ebiten.Image)
+	buf.Clear()
+	ebitenutil.DebugPrint(buf, v)
+	var cm colorm.ColorM
+	cm.SetElement(3, 0, 1) // alpha := red: white glyph 1, black shadow 0
+	cm.SetElement(3, 3, 0)
+	cm.ScaleWithColor(c)
+	cm.Scale(1, 1, 1, float64(a))
+	op := &colorm.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	colorm.DrawImage(s, buf, cm, op)
+}
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.shifting != nil && g.state != StateTitle {

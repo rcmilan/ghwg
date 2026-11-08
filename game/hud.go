@@ -7,7 +7,6 @@ import (
 	"ghosthotel/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // The HUD (D179): a counter per currency appears when its wallet value changes, rolls to it, slides in
@@ -149,7 +148,7 @@ func inkAt(r Res, t int64) color.RGBA {
 	return color.RGBA{mix(a.R, b.R), mix(a.G, b.G), mix(a.B, b.B), 255}
 }
 
-// tinted prints v in the debug font at 1×, in c at alpha a, over a black shadow so it reads on any floor.
+// tinted prints v in the debug font at 1×, in c at alpha a (no shadow, 2026-11-08).
 // text() can't: it's white only.
 func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a float32) {
 	g.tintedAt(s, v, x, y, 1, c, a)
@@ -157,19 +156,5 @@ func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a floa
 
 // tintedAt is tinted at a scale.
 func (g *Game) tintedAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
-	if g.ink == nil {
-		g.ink = ebiten.NewImage(512, 16)
-	}
-	g.ink.Clear()
-	ebitenutil.DebugPrint(g.ink, v)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x)+scale, float64(y)+scale)
-	op.ColorScale.Scale(0, 0, 0, a)
-	s.DrawImage(g.ink, op)
-	op.GeoM.Translate(-scale, -scale)
-	op.ColorScale.Reset()
-	op.ColorScale.ScaleWithColor(c)
-	op.ColorScale.ScaleAlpha(a)
-	s.DrawImage(g.ink, op)
+	printAt(s, v, x, y, scale, c, a)
 }

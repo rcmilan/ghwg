@@ -122,6 +122,8 @@ func (g *Game) addToCart(i, room int) string {
 		return "ALREADY OWNED"
 	case g.owned(i):
 		return "ALREADY IN THE CART"
+	case !g.affords(i):
+		return "NOT ENOUGH IN THE WALLET"
 	case it.Tab == tabServices:
 		if why := it.Refuse(g, room); why != "" {
 			return why
@@ -141,6 +143,12 @@ func (g *Game) addToCart(i, room int) string {
 	}
 	g.cart = append(g.cart, cartLine{i, -1, 1})
 	return ""
+}
+
+// affords: the cart plus one more of item i fits the wallet (2026-11-08: no adding what you can't pay).
+func (g *Game) affords(i int) bool {
+	t, c := g.cartTotal(), shop[i].Cost
+	return g.afford(Cost{t[Money] + c[Money], t[Spook] + c[Spook]})
 }
 
 // sameKind: both Priests (one per Room), or the same Service.
