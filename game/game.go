@@ -83,6 +83,10 @@ type Game struct {
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
 	seen       map[Unlock]bool             // shop rows revealed this Run, by ID (shop.go)
+	warm       bool                        // the shaders have been drawn once (shift.go warmUp)
+	spill      *ebiten.Image               // the hall light through the Archway, built on first use (spill.go)
+	hud        [2]counter                  // per Res: its counter on screen (hud.go)
+	skull      *ebiten.Image               // the Spook counter's icon (hud.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -111,7 +115,12 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}, nil
+	g := &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}
+	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
+		return nil, err
+	}
+	g.palette, err = ebiten.NewShader([]byte(paletteSrc))
+	return g, err
 }
 
 func (g *Game) loadImages() (err error) {
@@ -149,6 +158,7 @@ func (g *Game) startRun() {
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
+	g.hud = [2]counter{}
 }
 
 func (g *Game) Update() error {
@@ -173,6 +183,7 @@ func (g *Game) Update() error {
 		}
 	case g.state == StateTerminal: // the world and the Clock wait (D73)
 		g.updateTerminal()
+		g.updateHUD()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
@@ -220,6 +231,7 @@ func (g *Game) step(dx, dy float64) {
 	}
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
 	g.reveal()
+	g.updateHUD()
 }
 
 // blocked: a foot box would hit a wall or a shut door.
@@ -421,4 +433,7 @@ func (g *Game) Start(ghost bool) {
 	g.ghost = ghost
 }
 
-func (g *Game) Layout(_, _ int) (int, int) { return viewW * zoom, viewH * zoom }
+func (g *Game) Layout(_, _ int) (int, int) {
+	g.sizeFx(viewW*zoom, viewH*zoom)
+	return viewW * zoom, viewH * zoom
+}
