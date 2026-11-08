@@ -91,12 +91,6 @@ func (g *Game) blit(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, mode in
 		dst.DrawImage(src, &o)
 		return
 	}
-	if g.palette == nil {
-		var err error
-		if g.palette, err = ebiten.NewShader([]byte(paletteSrc)); err != nil {
-			panic(err) // a compile error in a constant: a bug, caught on the first ghost frame
-		}
-	}
 	if tint == nil {
 		tint = []float32{0, 0, 0}
 	}

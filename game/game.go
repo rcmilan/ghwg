@@ -81,6 +81,7 @@ type Game struct {
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
+	warm       bool                        // the shaders have been drawn once (shift.go warmUp)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -109,7 +110,12 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}, nil
+	g := &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}
+	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
+		return nil, err
+	}
+	g.palette, err = ebiten.NewShader([]byte(paletteSrc))
+	return g, err
 }
 
 func (g *Game) loadImages() (err error) {
@@ -416,4 +422,7 @@ func (g *Game) Start(ghost bool) {
 	g.ghost = ghost
 }
 
-func (g *Game) Layout(_, _ int) (int, int) { return viewW * zoom, viewH * zoom }
+func (g *Game) Layout(_, _ int) (int, int) {
+	g.sizeFx(viewW*zoom, viewH*zoom)
+	return viewW * zoom, viewH * zoom
+}
