@@ -33,12 +33,12 @@ func TestRoomSpook(t *testing.T) {
 func TestPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.roomSpook[0], g.money = spookLimit, priestStrong+priestWeak
-	if msg := g.callPriest(0, true); msg != "" || g.money != priestWeak {
-		t.Fatalf("call: %q, money %d; want no refusal and money %d", msg, g.money, priestWeak)
+	g.roomSpook[0], g.wallet[Money] = spookLimit, priestStrong+priestWeak
+	if msg := g.callPriest(0, true); msg != "" || g.wallet[Money] != priestWeak {
+		t.Fatalf("call: %q, money %v; want no refusal and money %d", msg, g.wallet[Money], priestWeak)
 	}
-	if msg := g.callPriest(0, false); msg == "" || g.money != priestWeak {
-		t.Fatalf("a second Priest for Room 0 was called (money %d)", g.money)
+	if msg := g.callPriest(0, false); msg == "" || g.wallet[Money] != priestWeak {
+		t.Fatalf("a second Priest for Room 0 was called (money %v)", g.wallet[Money])
 	}
 	for i := 0; len(g.priests) > 0; i++ {
 		if i > 60*tps+priestMinutes*minuteFrames {
@@ -52,8 +52,8 @@ func TestPriest(t *testing.T) {
 	if g.roomSpook[0] != 0 || g.closed(0) {
 		t.Fatalf("after a Strong Priest: Room Spook %d, want 0", g.roomSpook[0])
 	}
-	g.roomSpook[1], g.money = 10, priestWeak-1
-	if msg := g.callPriest(1, false); msg == "" || g.money != priestWeak-1 || len(g.priests) > 0 {
+	g.roomSpook[1], g.wallet[Money] = 10, priestWeak-1
+	if msg := g.callPriest(1, false); msg == "" || g.wallet[Money] != priestWeak-1 || len(g.priests) > 0 {
 		t.Fatal("a Priest was called without the money")
 	}
 }
@@ -62,7 +62,7 @@ func TestPriest(t *testing.T) {
 func TestWeakPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.roomSpook[1], g.money = 151, priestWeak
+	g.roomSpook[1], g.wallet[Money] = 151, priestWeak
 	g.callPriest(1, false)
 	for i := 0; len(g.priests) > 0 && i < 60*tps+priestMinutes*minuteFrames; i++ {
 		g.step(0, 0)

@@ -19,7 +19,7 @@ func TestDimensionsRunAlike(t *testing.T) {
 		for range 2 * hourFrames {
 			g.step(0, 0)
 		}
-		out := fmt.Sprintf("money %d walk-ins %d:", g.money, g.walkIns)
+		out := fmt.Sprintf("money %d walk-ins %d:", int(g.wallet[Money]), g.walkIns)
 		for _, p := range g.parties {
 			out += fmt.Sprintf(" [room %d state %d %s]", p.Room, p.state, where(p.Guests))
 		}

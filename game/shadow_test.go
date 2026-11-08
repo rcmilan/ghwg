@@ -15,7 +15,7 @@ import (
 func TestBuyShadow(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
 	g.startRun()
-	g.spook = 2*shadowPrice - 1
+	g.wallet[Spook] = 2*shadowPrice - 1
 	tap := func(k ebiten.Key) {
 		s.hold()
 		g.Update()
@@ -26,18 +26,18 @@ func TestBuyShadow(t *testing.T) {
 	for _, k := range []ebiten.Key{ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace} { // Room 0's menu, up from Father K wraps to the Shadow
 		tap(k)
 	}
-	if !g.shaded(0) || g.spook != shadowPrice-1 {
-		t.Fatalf("bought at the Terminal: shaded %v, Spook %d; want a Shadow in Room 0 and %d Spook", g.shaded(0), g.spook, shadowPrice-1)
+	if !g.shaded(0) || g.wallet[Spook] != shadowPrice-1 {
+		t.Fatalf("bought at the Terminal: shaded %v, Spook %v; want a Shadow in Room 0 and %d Spook", g.shaded(0), g.wallet[Spook], shadowPrice-1)
 	}
-	if msg := g.buyShadow(0); msg == "" || g.spook != shadowPrice-1 {
-		t.Fatalf("a second Shadow for Room 0: %q, Spook %d", msg, g.spook)
+	if msg := g.buyShadow(0); msg == "" || g.wallet[Spook] != shadowPrice-1 {
+		t.Fatalf("a second Shadow for Room 0: %q, Spook %v", msg, g.wallet[Spook])
 	}
-	if msg := g.buyShadow(1); msg == "" || g.shaded(1) || g.spook != shadowPrice-1 {
-		t.Fatalf("a Shadow without the Spook: %q, Spook %d", msg, g.spook)
+	if msg := g.buyShadow(1); msg == "" || g.shaded(1) || g.wallet[Spook] != shadowPrice-1 {
+		t.Fatalf("a Shadow without the Spook: %q, Spook %v", msg, g.wallet[Spook])
 	}
-	g.spook = shadowPrice
+	g.wallet[Spook] = shadowPrice
 	g.buyShadow(1)
-	g.money = priestWeak + priestStrong
+	g.wallet[Money] = priestWeak + priestStrong
 	g.callPriest(0, false)
 	g.callPriest(1, true)
 	for i := 0; len(g.priests) > 0; i++ {
@@ -104,7 +104,7 @@ func TestShadowFear(t *testing.T) {
 			guest.X, guest.Y, guest.Path, guest.Fear, guest.Anim.Facing = float64(pt.X), float64(pt.Y), nil, fear, face
 		}
 		p.talk = nil
-		spook, roomSpook := g.spook, g.roomSpook[room]
+		spook, roomSpook := g.wallet[Spook], g.roomSpook[room]
 		g.shades[room] = &shade{name: "Adam", next: g.clock, anim: entities.NewAnim()}
 		for g.updateShadows(); g.shades[room].dir != 0; g.updateShadows() {
 		}
@@ -114,8 +114,8 @@ func TestShadowFear(t *testing.T) {
 				t.Fatalf("mates facing alike gained %d and %d Fear", gained, guest.Fear-fear)
 			}
 		}
-		if g.spook-spook != gained*len(p.Guests) || g.roomSpook[room]-roomSpook != gained*len(p.Guests) {
-			t.Fatalf("Spook +%d, Room Spook +%d; want the Fear given, %d", g.spook-spook, g.roomSpook[room]-roomSpook, gained*len(p.Guests))
+		if g.wallet[Spook]-spook != Num(gained*len(p.Guests)) || g.roomSpook[room]-roomSpook != gained*len(p.Guests) {
+			t.Fatalf("Spook +%v, Room Spook +%d; want the Fear given, %d", g.wallet[Spook]-spook, g.roomSpook[room]-roomSpook, gained*len(p.Guests))
 		}
 		return gained
 	}

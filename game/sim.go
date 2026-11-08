@@ -151,7 +151,7 @@ func (s *sim) frame() bool {
 			}
 		}
 	}
-	clock, money, spook, title, scaring := g.clock, g.money, g.spook, g.state == StateTitle, s.scaring()
+	clock, money, spook, title, scaring := g.clock, g.wallet[Money], g.wallet[Spook], g.state == StateTitle, s.scaring()
 	haunted, roomSpook := slices.Clone(g.haunted), slices.Clone(g.roomSpook)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -226,12 +226,12 @@ func (s *sim) frame() bool {
 		s.seen[p] = p.state
 	}
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
-		s.res.MoneyByDay[d] += g.money - money
+		s.res.MoneyByDay[d] += int(g.wallet[Money] - money)
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.spook > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
-			s.fail("Spook rose %d with no haunted or shadowed Room holding its Party", g.spook-spook)
+		if g.wallet[Spook] > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+			s.fail("Spook rose %s with no haunted or shadowed Room holding its Party", fmtNum(g.wallet[Spook]-spook))
 		}
 	}
 	return len(s.res.Failures) == 0
@@ -239,11 +239,11 @@ func (s *sim) frame() bool {
 
 // check asserts D108's per-frame invariants: money moves only on a Checkout or by a Priest's price, no
 // guest starts phasing while the Concierge stands at the computer, no leg is walked over legBudget.
-func (s *sim) check(money, banked, spent int) {
+func (s *sim) check(money Num, banked, spent int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g := s.g
-	if g.money-money != banked-spent {
-		s.fail("money went up %d, but Checkouts paid %d and Priests cost %d", g.money-money, banked, spent)
+	if g.wallet[Money]-money != Num(banked-spent) {
+		s.fail("money went up %s, but Checkouts paid %d and Priests cost %d", fmtNum(g.wallet[Money]-money), banked, spent)
 	}
 	home := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize) == g.hotel.ConciergeStart.Div(world.TileSize)
 	for _, guest := range g.guests() {
@@ -276,7 +276,7 @@ func (s *sim) scaring() bool {
 
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
-	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = s.g.spook, s.closed/hourFrames, s.g.serves, s.g.expired
+	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Spook]), s.closed/hourFrames, s.g.serves, s.g.expired
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && s.g.clock > p.Checkout+2*hourFrames {

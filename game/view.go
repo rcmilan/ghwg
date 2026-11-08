@@ -15,8 +15,8 @@ type View struct {
 	Shifting  bool // the Mirror's transition is playing (D170): SPACE waits
 	Clock     string
 	Day       int
-	Money     int
-	Spook     int
+	Money     Num
+	Spook     Num
 	Rooms     []RoomView    // in the Terminal's order
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
@@ -50,7 +50,7 @@ type TerminalView struct {
 func (g *Game) view() View {
 	v := View{
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
-		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money, Spook: g.spook,
+		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Spook: g.wallet[Spook],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
 		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termPick},
 	}

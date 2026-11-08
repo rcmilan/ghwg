@@ -112,8 +112,8 @@ func TestComfortPays(t *testing.T) {
 	for range 60 * tps {
 		g.step(0, 0)
 	}
-	if g.money != 0 {
-		t.Fatalf("a fled Party paid $%d", g.money)
+	if g.wallet[Money] != 0 {
+		t.Fatalf("a fled Party paid $%v", g.wallet[Money])
 	}
 }
 
