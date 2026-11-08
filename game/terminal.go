@@ -86,7 +86,7 @@ func (g *Game) press() string {
 		return "ORDER PLACED"
 	}
 	i := tabItems(g.termTab)[g.termPick]
-	if shop[i].Tab == tabServices && g.onSale(i) {
+	if shop[i].Tab == tabServices && g.onSale(i) && g.affords(i) {
 		g.placing = i
 		return ""
 	}
@@ -322,8 +322,12 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	for k, v := range status {
 		g.tintedAt(s, v, paneX+12, y+92+k*18, 1, assets.Accent, 1)
 	}
-	if g.onSale(i) && !(it.Tab == tabHotel && g.owned(i)) {
+	switch {
+	case !g.onSale(i) || it.Tab == tabHotel && g.owned(i):
+	case g.affords(i):
 		g.drawButton(s, "ADD TO CART", paneX+12, bodyY+paneH-44, paneW-24)
+	default:
+		g.tintedAt(s, "NOT ENOUGH IN THE WALLET", paneX+12, bodyY+paneH-34, 2, assets.Locked, 1)
 	}
 }
 
