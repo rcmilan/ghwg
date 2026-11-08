@@ -183,6 +183,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			g.drawShadow(screen, p, ox, oy)
 		}
 	}
+	g.bucketShadows()
 	i := 0
 	propsUpTo := func(y float64) {
 		for ; i < len(g.props) && float64(g.props[i].y) <= y; i++ {

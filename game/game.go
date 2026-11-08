@@ -51,7 +51,7 @@ type Game struct {
 	serves     int      // requests answered this Run (serve.go)
 	expired    int      // requests left to expire this Run
 	priests    []*priest
-	shades     []*shade // per Room: its Shadow Person, nil if none (D169, shadow.go)
+	shades     []shades // per Room: its Shadow People (D169, D185, shadow.go)
 	termCursor int      // the Terminal's selected Room
 	termRoom   int      // the Room whose menu is open, or -1
 	termPick   int      // the menu's pick: pickWeak, pickStrong or pickShadow
@@ -82,6 +82,9 @@ type Game struct {
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
+	walls      []wallRun                   // the wall graph Shadows travel (D185, wall.go)
+	wallCell   []int                       // each map cell's run, -1 if none (wall.go)
+	onRun      [][]*shade                  // this frame's Shadows by run, for drawShadow
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -138,7 +141,7 @@ func (g *Game) mapSize() (int, int) {
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
+	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.state = StatePlay
@@ -147,6 +150,7 @@ func (g *Game) startRun() {
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
+	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 }
 
 func (g *Game) Update() error {

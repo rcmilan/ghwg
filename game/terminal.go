@@ -134,8 +134,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			text(s, "CLOSED", sx, y+72, assets.Accent)
 			sx += 6 * len("CLOSED ")
 		}
-		if sh := g.shades[i]; sh != nil {
-			g.drawHead(s, sx, y+72, sh.name, 0)
+		if sh := g.shades[i]; len(sh) > 0 {
+			g.drawHead(s, sx, y+72, sh[0].name, 0)
 			text(s, "SHADOW", sx+head.Dx()+4, y+72, assets.Accent)
 			sx += head.Dx() + 4 + 6*len("SHADOW ")
 		}
