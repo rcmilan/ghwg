@@ -26,14 +26,13 @@ func deliver(t *testing.T, g *Game) {
 func TestCourier(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
-	g.earned = [2]Num{1000, 1000}
+	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, hex, sh := row(t, SupplyWater), row(t, Hex), row(t, rowShadow)
 	for _, add := range []struct{ i, room int }{{water, -1}, {hex, -1}, {sh, 1}, {row(t, rowFatherK), 0}} {
 		if why := g.addToCart(add.i, add.room); why != "" {
 			t.Fatalf("add %s: %q", shop[add.i].ID, why)
 		}
 	}
-	g.wallet = [2]Num{1000, 1000}
 	if why := g.placeOrder(); why != "" {
 		t.Fatal(why)
 	}
