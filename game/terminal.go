@@ -92,11 +92,6 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 	rect(s, termX+8, termY+8, termW-16, termH-16, assets.Wall)
 	text(s, "RECEPTION TERMINAL", termX+24, termY+18, assets.Ghost)
 	text(s, clockText(g.clock), termX+termW-24-6*len(clockText(g.clock)), termY+18, assets.Ghost)
-	cur := "$" + fmtNum(g.wallet[Money]) + "  SPOOK " + fmtNum(g.wallet[Spook]) // ghost shows only its own currency (D152); real both (D169)
-	if g.ghost {
-		cur = "SPOOK " + fmtNum(g.wallet[Spook])
-	}
-	text(s, cur, termX+termW/2, termY+18, assets.Money)
 
 	cols, rows := g.hotel.Grid()
 	tw, th := (gridW-(cols-1)*tileGap)/cols, (gridH-(rows-1)*tileGap)/rows

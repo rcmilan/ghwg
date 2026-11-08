@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"ghosthotel/assets"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Res is one of the two currencies (D178). Fear and Room Spook are stats, not currencies.
@@ -45,10 +45,5 @@ func (g *Game) pay(c Cost) bool {
 	return true
 }
 
-// resInk: a currency's color. Static for now; E2 makes it cycle (gold↔silver, green↔purple).
-func resInk(r Res) color.Color {
-	if r == Money {
-		return assets.Money
-	}
-	return color.RGBA{168, 92, 230, 255}
-}
+// resInk: a currency's color, cycling slowly (hud.go): gold↔silver for Money, green↔purple for Spook.
+func resInk(r Res) color.Color { return inkAt(r, ebiten.Tick()) }
