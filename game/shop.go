@@ -53,27 +53,27 @@ func noPriest(g *Game, room int) string {
 
 // shop is the catalog, in its order. Prices, packs and thresholds are placeholders.
 var shop = []Item{
-	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "A case of bottles", Icon: "icon_water", Cost: Cost{Money: 10}, Pack: 5},
-	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Room service meals", Icon: "food_4", Cost: Cost{Money: 20}, Pack: 5},
-	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fresh and folded", Icon: "icon_towel", Cost: Cost{Money: 15}, Pack: 5},
+	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Icon: "icon_water", Cost: Cost{Money: 10}, Pack: 5},
+	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Icon: "food_4", Cost: Cost{Money: 20}, Pack: 5},
+	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 15}, Pack: 5},
 
-	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Step into the other side", Icon: "mirror_standing", Cost: Cost{Money: 10}},
-	{ID: Hex, Tab: tabHotel, Name: "Hex", Blurb: "Curse a Room from any wall", Icon: "painting_scary_a", Cost: Cost{Money: 25},
+	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "mirror_standing", Cost: Cost{Money: 10}},
+	{ID: Hex, Tab: tabHotel, Name: "Hex", Blurb: "Curse a Room from any wall. No refunds.", Icon: "painting_scary_a", Cost: Cost{Money: 25},
 		Needs: []Unlock{Mirror}, Earned: Cost{Spook: 10}},
-	{ID: Housekeep, Tab: tabHotel, Name: "Housekeeping", Blurb: "Clean empty Rooms", Icon: "icon_towel", Cost: Cost{Money: 50, Spook: 20},
+	{ID: Housekeep, Tab: tabHotel, Name: "Housekeeping", Blurb: "Cleans empty Rooms. Asks no questions.", Icon: "icon_towel", Cost: Cost{Money: 50, Spook: 20},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 100, Spook: 30}},
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Nobody leaves early", Icon: "lock_red", Cost: Cost{Money: 60, Spook: 40},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Spook: 40},
 		Needs: []Unlock{Hex}, Earned: Cost{Spook: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "...", Icon: "painting_scary_b", Cost: Cost{Money: 100, Spook: 50},
+	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 100, Spook: 50},
 		Needs: []Unlock{RoomLock}, Earned: Cost{Spook: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "Every mirror is a door", Icon: "vanity", Cost: Cost{Money: 500, Spook: 500},
+	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 500, Spook: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Spook: 1000}},
 
-	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's Spook", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
+	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's Spook. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, false) }},
-	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears it, banishes a Shadow", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
+	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, true) }},
-	{ID: rowShadow, Tab: tabServices, Name: "Shadow Person", Blurb: "Scares on its own", Icon: "Adam", Head: true, Cost: Cost{Spook: shadowPrice},
+	{ID: rowShadow, Tab: tabServices, Name: "Shadow Person", Blurb: "Scares on its own. Works nights. Unpaid.", Icon: "Adam", Head: true, Cost: Cost{Spook: shadowPrice},
 		Needs: []Unlock{Mirror}, Earned: Cost{Spook: 50}, Send: func(g *Game, room int) { g.placeShadow(room) },
 		Refuse: func(g *Game, room int) string {
 			if g.shaded(room) {

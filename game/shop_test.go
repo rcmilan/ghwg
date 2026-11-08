@@ -34,6 +34,11 @@ func TestStoreCatalog(t *testing.T) {
 			t.Errorf("%s on sale at the start: %v", id, got)
 		}
 	}
+	for _, it := range shop {
+		if len(it.Blurb)*glyphW > paneW-24 {
+			t.Errorf("%s: the blurb overflows the detail pane", it.ID)
+		}
+	}
 }
 
 // T184: an item opens once its Needs are owned and the hotel has earned its Earned since the last of
