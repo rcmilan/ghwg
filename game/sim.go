@@ -78,7 +78,7 @@ type Result struct {
 	Outings     int // Tourist days out
 	Fled        int // Parties that ran from a haunt
 	Spook       int // at the end of the Run
-	Haunts      int // haunts started or restarted
+	Haunts      int // hexes (taps)
 	Serves      int // requests answered
 	Expired     int // requests left to expire
 	Priests     int // called and paid
@@ -153,7 +153,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, spook, title, scaring := g.clock, g.wallet[Money], g.wallet[Spook], g.state == StateTitle, s.scaring()
-	haunted, roomSpook := slices.Clone(g.haunted), slices.Clone(g.roomSpook)
+	hexes, roomSpook := g.hexes(), slices.Clone(g.roomSpook)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
 		working[pr] = !pr.done
@@ -173,11 +173,8 @@ func (s *sim) frame() bool {
 			s.fail("%d Rooms were booked by the first Midnight (rampDays)", n-vacant)
 		}
 	}
-	for i, end := range g.haunted {
-		if i >= len(haunted) || end != haunted[i] {
-			s.res.Haunts++
-		}
-	}
+	hexed := g.hexes() > hexes
+	s.res.Haunts += int(g.hexes() - hexes)
 	spent := 0
 	for _, pr := range g.priests {
 		if !s.called[pr] {
@@ -236,8 +233,8 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Spook] > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
-			s.fail("Spook rose %s with no haunted or shadowed Room holding its Party", fmtNum(g.wallet[Spook]-spook))
+		if g.wallet[Spook] > spook && !hexed && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+			s.fail("Spook rose %s with no hex nor a shadowed or haunted Room holding its Party", fmtNum(g.wallet[Spook]-spook))
 		}
 	}
 	return len(s.res.Failures) == 0
@@ -272,11 +269,11 @@ func (s *sim) check(money Num, banked, spent int) {
 	}
 }
 
-// scaring: some Room is haunted, or has a Shadow (D169), with its Party in the hotel.
+// scaring: some Room has a Shadow (D169) or a running haunt with its Party in the hotel.
 func (s *sim) scaring() bool {
 	g := s.g
 	return slices.ContainsFunc(g.parties, func(p *Party) bool {
-		return !p.Paid && p.state != out && (g.haunting(p.Room) || g.shaded(p.Room))
+		return !p.Paid && p.state != out && (g.shaded(p.Room) || g.haunting(p.Room))
 	})
 }
 

@@ -4,14 +4,16 @@ import (
 	"testing"
 )
 
-// T103 (D147): a haunt raises its Room's Spook by the Fear it adds; at spookLimit the Room is Closed and
+// T103 (D147), T188: a haunt minute raises its Room's Spook by the Fear it gives; at spookLimit the Room is Closed and
 // takes no Walk-ins, while one under it does.
 func TestRoomSpook(t *testing.T) {
 	g, _, p := settled(t)
-	g.haunt(p.Room)
+	g.ghost = true
+	g.clock -= g.clock % (fearEvery * minuteFrames) // a Fear minute
+	g.hex(p.Room, center(g.hotel.Rooms[p.Room].Spot()))
 	g.scare()
-	if g.roomSpook[p.Room] != len(p.Guests)*fearPerMinute || g.roomSpook[1-p.Room] != 0 {
-		t.Fatalf("one haunt-minute: Room Spook %v, want %d on Room %d only", g.roomSpook, len(p.Guests)*fearPerMinute, p.Room)
+	if g.roomSpook[p.Room] != len(p.Guests) || g.roomSpook[1-p.Room] != 0 {
+		t.Fatalf("a haunt minute: Room Spook %v, want %d on Room %d only", g.roomSpook, len(p.Guests), p.Room)
 	}
 	g.parties = nil
 	g.roomSpook[0] = spookLimit

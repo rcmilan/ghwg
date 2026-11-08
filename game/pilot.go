@@ -173,17 +173,46 @@ func (p *Pilot) Flip(ghost bool) {
 	})
 }
 
-// Haunt flips to ghost, walks to the Room's door spot and presses SPACE until the Room is haunted.
-func (p *Pilot) Haunt(room int) {
+// Hex flips to ghost, walks to the nearest floor tile beside the Room's walls (any side) and presses
+// SPACE until Spook rises: one hex.
+func (p *Pilot) Hex(room int) {
+	const ts = world.TileSize
 	p.Flip(true)
-	spot := p.hotel.Rooms[room].Spot()
-	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2))) // the cell off the doorway
-	taps := 0
+	var walk action
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		switch {
-		case taps > 0 && v.Rooms[room].Haunted:
+		if beside(p.hotel, v.Concierge) == room {
 			return true, true
-		case taps >= 3 || v.Rooms[room].Vacant || !v.Concierge.In(spot):
+		}
+		if walk == nil {
+			var best []image.Point
+			s := p.hotel.Rooms[room].Shell().Inset(-ts)
+			for y := s.Min.Y + ts/2; y < s.Max.Y; y += ts {
+				for x := s.Min.X + ts/2; x < s.Max.X; x += ts {
+					c := image.Pt(x, y)
+					if beside(p.hotel, c) != room {
+						continue
+					}
+					if path := p.route(v, v.Concierge, c); path != nil && (best == nil || len(path) < len(best)) {
+						best = path
+					}
+				}
+			}
+			if best == nil {
+				return true, false
+			}
+			walk = goTo(best[len(best)-1])
+		}
+		return walk(p, v)
+	})
+	spook, taps := Num(-1), 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		if spook < 0 {
+			spook = v.Spook
+		}
+		switch {
+		case taps > 0 && v.Spook > spook:
+			return true, true
+		case taps >= 3 || beside(p.hotel, v.Concierge) != room:
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++

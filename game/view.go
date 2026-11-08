@@ -38,9 +38,8 @@ type RoomView struct {
 	Spook              int  // its Room Spook, read off its colors (D162)
 	Away               bool // Occupied, but its Party isn't inside: the player saw it walk out
 	Asking             bool // its Guests want service: the "!!" balloon, seen from anywhere (D163)
-	// Seen only in the ghost dimension: its props shake, and its Guests glow with Fear.
-	Haunted bool
-	Fear    int // its most frightened Guest in sight
+	// Seen only in the ghost dimension: its Guests glow with Fear.
+	Fear int // its most frightened Guest in sight
 }
 
 type TerminalView struct {
@@ -72,7 +71,6 @@ func (g *Game) view() View {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
 		})
 		if g.ghost {
-			rv.Haunted = g.haunting(i)
 			for _, guest := range g.guests() {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
