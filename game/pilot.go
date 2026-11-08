@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 	"math"
+	"slices"
 
 	"ghosthotel/world"
 
@@ -211,53 +212,45 @@ func (p *Pilot) Serve(room int) {
 	})
 }
 
-// CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
-// Terminal refuses (no money, or a Priest is already on the Room).
+// CallPriest buys a Priest for the Room at the Terminal. It fails when the Terminal refuses (no money,
+// or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int, strong bool) {
-	pick := pickWeak
+	row := rowFatherK
 	if strong {
-		pick = pickStrong
+		row = rowFatherM
 	}
-	p.order(room, pick, func(r RoomView) bool { return r.Priest })
+	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
 // BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
 // Terminal refuses (no Spook, or one is already there).
 func (p *Pilot) BuyShadow(room int) {
-	p.order(room, pickShadow, func(r RoomView) bool { return r.Shadow })
+	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
 }
 
-// order opens the Terminal, picks the Room and the menu's pick, pays, and closes it; ok if got holds then.
-func (p *Pilot) order(room, pick int, got func(RoomView) bool) {
+// Buy opens the Terminal, picks the shop row and, for a PerRoom row, the Room, pays, and closes it; ok if
+// got holds then. It gives up when the row isn't listed.
+func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
+	row := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
 	p.OpenTerminal()
 	paid := false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
-			return true, paid && got(v.Rooms[room])
+			return true, paid && got(v)
 		}
-		cols, _ := p.hotel.Grid()
-		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
 		var k ebiten.Key
 		switch {
-		case paid || t.Menu >= 0 && t.Menu != room:
+		case paid || !slices.Contains(v.Shop, row):
 			k = ebiten.KeyEscape
-		case t.Menu == room && t.Pick != pick:
+		case t.Pick != row:
 			k = ebiten.KeyS
-		case t.Menu == room:
-			k = ebiten.KeySpace
-		case c < tc:
+		case shop[row].PerRoom && t.Cursor != room:
 			k = ebiten.KeyD
-		case c > tc:
-			k = ebiten.KeyA
-		case r < tr:
-			k = ebiten.KeyS
-		case r > tr:
-			k = ebiten.KeyW
 		default:
 			k = ebiten.KeySpace
 		}
-		if p.tap(k) && k == ebiten.KeySpace && t.Menu == room {
+		if p.tap(k) && k == ebiten.KeySpace {
 			paid = true
 		}
 		return false, false

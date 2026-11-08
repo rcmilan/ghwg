@@ -3,6 +3,8 @@ package game
 import (
 	"fmt"
 	"image"
+	"image/color"
+	"slices"
 	"strings"
 
 	"ghosthotel/assets"
@@ -10,63 +12,68 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// openTerminal pauses the world on the Terminal (D73) on its Room list. ESC closes it.
-func (g *Game) openTerminal() { g.state, g.message, g.termRoom = StateTerminal, "", -1 }
-
-// The Room menu's picks, top to bottom.
-const (
-	pickWeak = iota
-	pickStrong
-	pickShadow
-	picks
-)
-
-// updateTerminal (D151): WASD moves across the Room grid and SPACE opens a Room's menu; there, W/S picks
-// Father K (weak), Father M (strong, D166) or a Shadow Person (D169), and SPACE pays, back to the list
-// with what happened.
-func (g *Game) updateTerminal() {
-	if g.termRoom >= 0 {
-		n := g.hotel.Rooms[g.termRoom].Number
-		switch {
-		case g.in.JustPressed(ebiten.KeyW):
-			g.termPick = (g.termPick + picks - 1) % picks
-		case g.in.JustPressed(ebiten.KeyS):
-			g.termPick = (g.termPick + 1) % picks
-		case g.in.JustPressed(ebiten.KeySpace) && g.termPick == pickShadow:
-			if g.message = g.buyShadow(g.termRoom); g.message == "" {
-				g.message = "A SHADOW LURKS IN ROOM " + n
-			}
-			g.termRoom = -1
-		case g.in.JustPressed(ebiten.KeySpace):
-			if g.message = g.callPriest(g.termRoom, g.termPick == pickStrong); g.message == "" {
-				g.message = strings.ToUpper(g.priests[len(g.priests)-1].Character) + " CALLED TO ROOM " + n
-			}
-			g.termRoom = -1
-		}
-		return
-	}
-	cols, rows := g.hotel.Grid()
-	c, r := g.termCursor%cols, g.termCursor/cols
-	switch {
-	case g.in.JustPressed(ebiten.KeyA):
-		c = max(c-1, 0)
-	case g.in.JustPressed(ebiten.KeyD):
-		c = min(c+1, cols-1)
-	case g.in.JustPressed(ebiten.KeyW):
-		r = max(r-1, 0)
-	case g.in.JustPressed(ebiten.KeyS):
-		r = min(r+1, rows-1)
-	case g.in.JustPressed(ebiten.KeySpace):
-		g.termRoom, g.termPick, g.message = g.termCursor, pickWeak, ""
-	}
-	g.termCursor = r*cols + c
+// openTerminal pauses the world on the Terminal (D73), on its shop. ESC closes it.
+func (g *Game) openTerminal() {
+	g.state, g.message = StateTerminal, ""
+	g.reveal()
+	g.pickRow(0)
 }
 
-// Terminal layout, screen px.
+// updateTerminal (D180): W/S picks a listed shop row, A/D the Room a PerRoom row is bought for, SPACE buys.
+func (g *Game) updateTerminal() {
+	n := len(g.hotel.Rooms)
+	switch {
+	case g.in.JustPressed(ebiten.KeyW):
+		g.pickRow(-1)
+	case g.in.JustPressed(ebiten.KeyS):
+		g.pickRow(1)
+	case g.in.JustPressed(ebiten.KeyA):
+		g.termCursor = (g.termCursor + n - 1) % n
+	case g.in.JustPressed(ebiten.KeyD):
+		g.termCursor = (g.termCursor + 1) % n
+	case g.in.JustPressed(ebiten.KeySpace) && slices.Contains(g.listed(), g.termPick):
+		it := shop[g.termPick]
+		if g.message = g.buy(g.termPick, g.termCursor); g.message == "" {
+			name, _, _ := strings.Cut(strings.ToUpper(it.Name), ":")
+			g.message = name + " UNLOCKED"
+			if it.PerRoom {
+				g.message = name + " FOR ROOM " + g.hotel.Rooms[g.termCursor].Number
+			}
+		}
+	}
+	g.reveal() // a bought unlock may meet another row's Needs, and leaves the list
+	g.pickRow(0)
+}
+
+// pickRow moves the Terminal's pick d listed rows, wrapping; 0 keeps it on a listed row.
+func (g *Game) pickRow(d int) {
+	rows := g.listed()
+	if len(rows) == 0 {
+		return
+	}
+	k := max(slices.Index(rows, g.termPick), 0)
+	g.termPick = rows[(k+d+len(rows))%len(rows)]
+}
+
+// ShopPrint opens the shop holding money and spook, every unlock but the Mirror still locked: main's
+// -shop dev print (T187).
+func (g *Game) ShopPrint(money, spook float64) {
+	g.locked = map[Unlock]bool{}
+	for _, it := range shop {
+		if it.Buy == nil && it.ID != Mirror {
+			g.locked[it.ID] = true
+		}
+	}
+	g.wallet = [2]Num{Num(money), Num(spook)}
+	g.openTerminal()
+}
+
+// Terminal layout, screen px: the Room grid on top, the shop below.
 const (
-	termX, termY, termW, termH = 120, 50, 720, 420
-	gridX, gridY, gridW, gridH = 140, 100, 680, 330 // the Room tiles
+	termX, termY, termW, termH = 120, 30, 720, 470
+	gridX, gridY, gridW, gridH = 140, 80, 680, 130 // the Room tiles
 	tileGap                    = 8
+	listX, listY, rowH         = 144, 226, 16
 )
 
 // head is a character's head on the idle sheet, facing down: the Terminal's size icon (D97, T010).
@@ -145,21 +152,45 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 				text(s, strings.ToUpper(pr.Character), sx+head.Dx()+4, y+72, assets.Accent)
 			}
 		}
-		if i == g.termRoom {
-			for k, o := range [picks]string{fmt.Sprintf("FATHER K $%d: HALVES SPOOK", priestWeak),
-				fmt.Sprintf("FATHER M $%d: CLEARS IT, BANISHES A SHADOW", priestStrong), fmt.Sprintf("SHADOW PERSON: %d SPOOK", shadowPrice)} {
-				if k == g.termPick {
-					text(s, ">", x+6, y+92+k*18, assets.Ghost)
-				}
-				g.drawHead(s, x+16, y+92+k*18, [picks]string{fatherK.name, fatherM.name, "Adam"}[k], [picks]float32{1, 1, 0}[k])
-				text(s, o, x+16+head.Dx()+4, y+92+k*18, assets.Ghost)
+	}
+	g.drawShop(s)
+	text(s, "W/S PICK   A/D ROOM   SPACE BUY   ESC CLOSE", termX+24, termY+termH-24, assets.Accent)
+}
+
+// drawShop lists the revealed rows: a black head and the price until affordable, then the head and name.
+func (g *Game) drawShop(s *ebiten.Image) {
+	rows := g.listed()
+	if len(rows) == 0 {
+		text(s, "NOTHING FOR SALE YET", listX+16, listY, assets.Ghost)
+	}
+	for k, i := range rows {
+		it, y := shop[i], listY+k*rowH
+		lit := g.afford(it.Cost)
+		if i == g.termPick {
+			text(s, ">", listX, y, assets.Ghost)
+			if it.PerRoom {
+				text(s, "< ROOM "+g.hotel.Rooms[g.termCursor].Number+" >", listX+360, y, assets.Ghost)
+			}
+		}
+		switch {
+		case it.Head != "":
+			var c float32 // a silhouette; a Shadow's head is black anyway (D169)
+			if lit && it.ID != rowShadow {
+				c = 1
+			}
+			g.drawHead(s, listX+12, y+1, it.Head, c)
+		case !lit:
+			rect(s, listX+12, y+1, head.Dx(), head.Dy(), color.Black) // ponytail: no sprite yet, A1's icons replace it
+		}
+		if lit {
+			text(s, strings.ToUpper(it.Name), listX+32, y, assets.Ghost)
+		}
+		x := listX + 500
+		for r, part := range [2]string{"$" + fmtNum(it.Cost[Money]), fmtNum(it.Cost[Spook]) + " SPOOK"} {
+			if it.Cost[r] > 0 {
+				text(s, part, x, y, resInk(Res(r)))
+				x += 6 * (len(part) + 2)
 			}
 		}
 	}
-
-	help := "WASD SELECT   SPACE PRIESTS AND GHOSTS   ESC CLOSE"
-	if g.termRoom >= 0 {
-		help = "W/S PICK   SPACE PAY   ESC CLOSE"
-	}
-	text(s, help, termX+24, termY+termH-30, assets.Accent)
 }

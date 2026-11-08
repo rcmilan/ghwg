@@ -21,6 +21,7 @@ type View struct {
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
 	Terminal  TerminalView
+	Shop      []int        // the shop rows the Terminal lists, by index into shop (D180)
 	Hotel     *world.Hotel // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
@@ -43,8 +44,7 @@ type TerminalView struct {
 	Open    bool
 	Message string
 	Cursor  int // the selected Room
-	Menu    int // the Room whose menu is open, or -1
-	Pick    int // the menu's pick: pickWeak, pickStrong or pickShadow
+	Pick    int // the selected shop row
 }
 
 func (g *Game) view() View {
@@ -52,7 +52,8 @@ func (g *Game) view() View {
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Spook: g.wallet[Spook],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termPick},
+		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termPick},
+		Shop:     g.listed(),
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,

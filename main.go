@@ -24,6 +24,7 @@ func main() {
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
 	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
 	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
+	shop := flag.String("shop", "", "dev: start a Run on the Terminal's shop holding money,spook (e.g. 30,40), every unlock but the Mirror locked")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -51,8 +52,17 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" {
+	if *shotPath != "" || *shop != "" {
 		g.Start(*ghost)
+	}
+	if *shop != "" {
+		var money, spook float64
+		if _, err := fmt.Sscanf(*shop, "%g,%g", &money, &spook); err != nil {
+			log.Fatalf("-shop %q: want money,spook, like 30,40", *shop)
+		}
+		g.ShopPrint(money, spook)
+	}
+	if *shotPath != "" {
 		run = &shot{Game: g, path: *shotPath, at: *at}
 	}
 	if err := ebiten.RunGame(run); err != nil {

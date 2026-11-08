@@ -82,6 +82,7 @@ type Game struct {
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
+	seen       map[Unlock]bool             // shop rows revealed this Run, by ID (shop.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -141,6 +142,7 @@ func (g *Game) startRun() {
 	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
+	g.seen = nil
 	g.state = StatePlay
 	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
 	g.floorImg = nil // re-rendered on the next Draw
@@ -217,6 +219,7 @@ func (g *Game) step(dx, dy float64) {
 		g.cam.Follow(g.player.X, g.player.Y, w, h)
 	}
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
+	g.reveal()
 }
 
 // blocked: a foot box would hit a wall or a shut door.
