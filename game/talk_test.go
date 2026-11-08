@@ -108,16 +108,15 @@ func TestRoomTalk(t *testing.T) {
 	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(calmLines[2][0], l) }) {
 		t.Fatalf("a single, unhaunted in a spooky Room, said %v; want a few of %v", lines, calmLines[2][0])
 	}
-	g.haunt(p.Room)
-	g.haunted[p.Room] = g.clock + dayFrames
+	g.hexed = make([]hexMark, len(g.hotel.Rooms))
+	g.hexed[p.Room].clock = g.clock + dayFrames // scared all along
 	p.Guests[0].Fear = 0
 	lines = said(30)
 	if len(lines) == 0 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(scaredLines[2][0], l) }) {
 		t.Fatalf("a single unafraid, haunted in a spooky Room, said %v; want some of %v", lines, scaredLines[2][0])
 	}
 	g.roomSpook[p.Room] = 0
-	g.haunt(p.Room)
-	g.haunted[p.Room] = g.clock + dayFrames
+	g.hexed[p.Room].clock = g.clock + dayFrames
 	for _, guest := range p.Guests {
 		guest.Fear = fearLimit - 1
 	}

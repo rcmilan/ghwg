@@ -109,6 +109,9 @@ func (g *Game) roomShift(room int) float32 {
 		return 0
 	}
 	s := min(1, float64(g.roomSpook[room])/spookLimit)
+	if g.rotting(room) {
+		s = 1 // T191: a rotting Room shows full
+	}
 	if g.ghost && g.closed(room) {
 		s = 0.8 + 0.2*math.Cos(2*math.Pi*float64(g.tick)/(1.5*tps)) // a slow pulse, 1.5 s
 	}

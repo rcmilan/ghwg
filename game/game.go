@@ -46,7 +46,6 @@ type Game struct {
 	fast       bool     // T held: the clock runs ×10
 	wallet     [2]Num   // Money and Spook (wallet.go, D178)
 	ghost      bool     // the whole hotel is in the ghost dimension (D141); else the real one
-	haunted    []int    // per Room: the clock its haunt ends (haunt.go)
 	roomSpook  []int    // per Room: its Spook level (D147, priest.go)
 	serves     int      // requests answered this Run (serve.go)
 	expired    int      // requests left to expire this Run
@@ -82,6 +81,7 @@ type Game struct {
 	balloon    *ebiten.Image               // a Guest's request (serve.go)
 	tail       *ebiten.Image               // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
+	hexed      []hexMark                   // per Room: its last hex (haunt.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -137,7 +137,7 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
-	g.parties, g.floaters, g.walkIns, g.fog, g.haunted, g.priests = nil, nil, 0, nil, nil, nil
+	g.parties, g.floaters, g.walkIns, g.fog, g.hexed, g.priests = nil, nil, 0, nil, nil, nil
 	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
@@ -182,11 +182,10 @@ func (g *Game) Update() error {
 			g.openTerminal()
 		case g.atMirror():
 			g.startShift()
-		case g.atDoor() < 0 || !g.occupied(g.atDoor()):
-		case g.ghost:
-			g.haunt(g.atDoor())
-		default:
+		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
 			g.serve(g.atDoor())
+		case g.ghost && g.hexable() >= 0:
+			g.hex(g.hexable(), g.feet())
 		}
 	}
 	return nil

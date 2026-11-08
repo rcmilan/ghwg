@@ -24,6 +24,7 @@ func main() {
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
 	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
 	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
+	hexAt := flag.String("hex", "", "dev, with -shot: 8 frames before -at, the Concierge stands on map cell x,y and hexes the Room beside it")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -53,7 +54,14 @@ func main() {
 	var run ebiten.Game = g
 	if *shotPath != "" {
 		g.Start(*ghost)
-		run = &shot{Game: g, path: *shotPath, at: *at}
+		s := &shot{Game: g, path: *shotPath, at: *at}
+		if *hexAt != "" {
+			s.hex = new(image.Point)
+			if _, err := fmt.Sscanf(*hexAt, "%d,%d", &s.hex.X, &s.hex.Y); err != nil {
+				log.Fatalf("-hex %q: want x,y", *hexAt)
+			}
+		}
+		run = s
 	}
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)
@@ -66,6 +74,7 @@ type shot struct {
 	path      string
 	at, frame int
 	saved     bool
+	hex       *image.Point // -hex
 }
 
 func (s *shot) Update() error {
@@ -73,6 +82,9 @@ func (s *shot) Update() error {
 		return ebiten.Termination
 	}
 	for n := 0; s.frame < s.at && n < 2000; n++ { // ponytail: 2000 Updates per tick keeps the window responsive
+		if s.hex != nil && s.frame == s.at-8 {
+			s.Game.HexFrom(*s.hex)
+		}
 		if err := s.Game.Update(); err != nil {
 			return err
 		}

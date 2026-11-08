@@ -192,6 +192,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for _, a := range actors {
 		propsUpTo(z(a))
 		x, y := at(a.x, a.y-a.lift)
+		if g.ghost && a.fear >= fearWarn { // near fleeing: it trembles (2026-11-08)
+			x += []int{-1, 0, 1, 0}[g.tick/3%4] * zoom
+		}
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
