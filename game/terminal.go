@@ -394,8 +394,8 @@ func (g *Game) drawPlacing(s *ebiten.Image) {
 		}
 		g.drawHeads(s, x+8, y+44, heads...)
 		sx := x + 8
-		if sh := g.shades[i]; sh != nil {
-			g.drawHead(s, sx, y+66, sh.name, 0)
+		if sh := g.shades[i]; len(sh) > 0 {
+			g.drawHead(s, sx, y+66, sh[0].name, 0)
 			text(s, "SHADOW", sx+head.Dx()+4, y+66, assets.Accent)
 			sx += head.Dx() + 4 + 6*len("SHADOW ")
 		}

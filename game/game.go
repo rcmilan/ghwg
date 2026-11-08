@@ -50,7 +50,7 @@ type Game struct {
 	serves     int      // requests answered this Run (serve.go)
 	expired    int      // requests left to expire this Run
 	priests    []*priest
-	shades     []*shade // per Room: its Shadow Person, nil if none (D169, shadow.go)
+	shades     []shades // per Room: its Shadow People (D169, D185, shadow.go)
 	termCursor int      // the Terminal's selected Room
 	termPick   int      // the store's selected row in its tab, or in the cart (the last row is checkout)
 	walkIns    int      // Walk-ins this Run
@@ -94,6 +94,9 @@ type Game struct {
 	couriers   []*courier                  // on their way with an order (courier.go)
 	pallet     *ebiten.Image               // a stock spot's pallet, made on first use (courier.go)
 	hexed      []hexMark                   // per Room: its last hex (haunt.go)
+	walls      []wallRun                   // the wall graph Shadows travel (D185, wall.go)
+	wallCell   []int                       // each map cell's run, -1 if none (wall.go)
+	onRun      [][]*shade                  // this frame's Shadows by run, for drawShadow
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -156,7 +159,7 @@ func (g *Game) mapSize() (int, int) {
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.hexed, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]*shade, len(g.hotel.Rooms)), 0, 0
+	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
@@ -168,6 +171,7 @@ func (g *Game) startRun() {
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	g.hud = [2]counter{}
 	g.couriers = nil
+	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 }
 
 func (g *Game) Update() error {

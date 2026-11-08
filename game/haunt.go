@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 
@@ -121,7 +120,7 @@ func (g *Game) scare() {
 		}
 		if p.spookShown > 0 && g.clock/minuteFrames%spookEvery == 0 {
 			door := r.Door.Mul(world.TileSize)
-			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), fmt.Sprintf("+%d", p.spookShown), g.tick, floatSpook})
+			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), "+"+fmtNum(Num(p.spookShown)), g.tick, floatSpook})
 			p.spookShown = 0
 		}
 		for _, guest := range p.Guests {
@@ -167,11 +166,6 @@ func (g *Game) drawFear(s *ebiten.Image, x, y int, fear float64) {
 	op.GeoM.Translate(float64(x), float64(y-8*zoom))
 	op.ColorScale.Scale(float32(fear), 0, 0, float32(fear))
 	s.DrawImage(g.glow, op)
-}
-
-// cyan prints v in the ghost palette's cyan: the Spook floaters.
-func (g *Game) cyan(s *ebiten.Image, v string, x, y int) {
-	g.inked(s, v, x, y, 0, 1, 1)
 }
 
 // inked prints v in the debug font at 1×, in color (r,gr,b).
