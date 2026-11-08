@@ -3,11 +3,11 @@ package game
 import (
 	"fmt"
 	"image"
+	"image/color"
 
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // The Poltergeist (D150), Fear (D146) and Spook (D148). Placeholders, retuned at T112.
@@ -106,21 +106,12 @@ func (g *Game) drawFear(s *ebiten.Image, x, y int, fear float64) {
 	s.DrawImage(g.glow, op)
 }
 
-// cyan prints v in the ghost palette's cyan, over a black shadow: the Spook floaters.
+// cyan prints v in the ghost palette's cyan: the Spook floaters.
 func (g *Game) cyan(s *ebiten.Image, v string, x, y int) {
-	g.inked(s, v, x+1, y+1, 0, 0, 0) // a black shadow, so it reads over cyan props
 	g.inked(s, v, x, y, 0, 1, 1)
 }
 
 // inked prints v in the debug font at 1×, in color (r,gr,b).
 func (g *Game) inked(s *ebiten.Image, v string, x, y int, r, gr, b float32) {
-	if g.ink == nil {
-		g.ink = ebiten.NewImage(256, 16)
-	}
-	g.ink.Clear()
-	ebitenutil.DebugPrint(g.ink, v)
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(x), float64(y))
-	op.ColorScale.Scale(r, gr, b, 1)
-	s.DrawImage(g.ink, op)
+	printAt(s, v, x, y, 1, color.NRGBA{uint8(r * 255), uint8(gr * 255), uint8(b * 255), 255}, 1)
 }

@@ -24,6 +24,7 @@ var noFloat = image.Pt(-1, -1)
 // earn adds n of r and floats "+N" from at (world px).
 func (g *Game) earn(r Res, n Num, at image.Point) {
 	g.wallet[r] += n
+	g.earned[r] += n // lifetime: opens store items (shop.go)
 	if at == noFloat {
 		return
 	}

@@ -17,6 +17,7 @@ import (
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/colorm"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
@@ -81,7 +82,32 @@ func (g *Game) sortedProps() []prop {
 func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 	ebitenutil.DrawRect(s, float64(x), float64(y), float64(w), float64(h), c)
 }
-func text(s *ebiten.Image, v string, x, y int, _ color.Color) { ebitenutil.DebugPrintAt(s, v, x, y) }
+func text(s *ebiten.Image, v string, x, y int, _ color.Color) { printAt(s, v, x, y, 1, color.White, 1) }
+
+// inkBuf: the debug font's glyphs carry a baked half-alpha black shadow; printed here, then drawn with
+// alpha := red, only the white glyph pixels stay (no text shadows, 2026-11-08).
+var inkBuf = ebiten.NewImage(960, 64)
+
+// printAt prints v in the debug font at (x,y), at scale, in c at alpha a. Every text goes through it.
+func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	lines := strings.Split(v, "\n")
+	w := 0
+	for _, l := range lines {
+		w = max(w, len(l))
+	}
+	buf := inkBuf.SubImage(image.Rect(0, 0, min(w*glyphW+1, 960), min(len(lines)*glyphH, 64))).(*ebiten.Image)
+	buf.Clear()
+	ebitenutil.DebugPrint(buf, v)
+	var cm colorm.ColorM
+	cm.SetElement(3, 0, 1) // alpha := red: white glyph 1, black shadow 0
+	cm.SetElement(3, 3, 0)
+	cm.ScaleWithColor(c)
+	cm.Scale(1, 1, 1, float64(a))
+	op := &colorm.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	colorm.DrawImage(s, buf, cm, op)
+}
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.shifting != nil && g.state != StateTitle {
@@ -107,17 +133,7 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	g.drawWorld(screen, ox, oy)
-	// HUD and terminal: screen space
-	if g.state == StatePlay && g.atTerminal() {
-		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
-	}
-	if g.state == StatePlay && g.atMirror() && g.shifting == nil {
-		to := "GHOST"
-		if g.ghost {
-			to = "REAL"
-		}
-		text(screen, "[SPACE] SHIFT TO "+to, 28, 498, assets.Money)
-	}
+	// HUD and terminal: screen space. No "[SPACE] ..." prompts: props must read on their own (2026-11-08).
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
 	}
@@ -145,6 +161,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawSpookFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
+	g.drawStock(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -161,6 +178,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	for _, pr := range g.priests {
 		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
+	}
+	for _, c := range g.couriers {
+		name := courierName
+		if len(c.drops) > 0 {
+			name = courierBox
+		}
+		actors = append(actors, actor{c.X, c.Y, name, c.Anim, g.fogAt(image.Pt(int(c.X), int(c.Y))), 0, 0})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {

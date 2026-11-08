@@ -5,7 +5,6 @@ type Unlock string
 
 const (
 	Mirror        Unlock = "mirror"
-	Terminal      Unlock = "terminal"
 	Hex           Unlock = "hex"
 	SupplyWater   Unlock = "supply-water"
 	SupplyFood    Unlock = "supply-food"

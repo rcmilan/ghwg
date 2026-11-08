@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 	"math"
+	"slices"
 
 	"ghosthotel/world"
 
@@ -211,53 +212,58 @@ func (p *Pilot) Serve(room int) {
 	})
 }
 
-// CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
-// Terminal refuses (no money, or a Priest is already on the Room).
+// CallPriest buys a Priest for the Room at the Terminal. It fails when the Terminal refuses (no money,
+// or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int, strong bool) {
-	pick := pickWeak
+	row := rowFatherK
 	if strong {
-		pick = pickStrong
+		row = rowFatherM
 	}
-	p.order(room, pick, func(r RoomView) bool { return r.Priest })
+	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
 // BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
 // Terminal refuses (no Spook, or one is already there).
 func (p *Pilot) BuyShadow(room int) {
-	p.order(room, pickShadow, func(r RoomView) bool { return r.Shadow })
+	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
 }
 
-// order opens the Terminal, picks the Room and the menu's pick, pays, and closes it; ok if got holds then.
-func (p *Pilot) order(room, pick int, got func(RoomView) bool) {
+// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
+// Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
+// when the item isn't for sale or the store refuses it.
+func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
+	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
+	tab := shop[i].Tab
+	pos := slices.Index(tabItems(tab), i)
 	p.OpenTerminal()
-	paid := false
+	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
-			return true, paid && got(v.Rooms[room])
+			return true, paid && got(v)
 		}
-		cols, _ := p.hotel.Grid()
-		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
+		if cart0 < 0 {
+			cart0 = t.Cart
+		}
+		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || t.Menu >= 0 && t.Menu != room:
+		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
-		case t.Menu == room && t.Pick != pick:
-			k = ebiten.KeyS
-		case t.Menu == room:
-			k = ebiten.KeySpace
-		case c < tc:
+		case t.Placing && t.Cursor != room:
 			k = ebiten.KeyD
-		case c > tc:
-			k = ebiten.KeyA
-		case r < tr:
+		case t.Placing:
+			k = ebiten.KeySpace
+		case !added && t.Tab != tab, added && t.Tab != tabCart:
+			k = ebiten.KeyD
+		case !added && t.Pick != pos:
 			k = ebiten.KeyS
-		case r > tr:
-			k = ebiten.KeyW
+		case added && t.Pick != t.Lines:
+			k = ebiten.KeyS
 		default:
 			k = ebiten.KeySpace
 		}
-		if p.tap(k) && k == ebiten.KeySpace && t.Menu == room {
+		if p.tap(k) && k == ebiten.KeySpace && added {
 			paid = true
 		}
 		return false, false
