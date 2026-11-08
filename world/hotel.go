@@ -79,6 +79,7 @@ type Hotel struct {
 	MirrorSpot     image.Rectangle // where SPACE shifts: the cells in front of the mirror and either side
 	Lights         []image.Point   // ceiling lights over the Corridors (D95)
 	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
+	Stock          image.Rectangle // the stock area, left of the entrance hall: one 2-cell spot per Supply (E8)
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -239,6 +240,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	h.Mirror = cellCenter(mirror, l.hall+2)
 	h.MirrorSpot = image.Rect((mirror-1)*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
+	h.Stock = image.Rect(3*TileSize, l.counter*TileSize, 9*TileSize, (l.counter+1)*TileSize) // in line with the counter
 	return h, nil
 }
 

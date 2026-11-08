@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"maps"
 	"slices"
 
 	"ghosthotel/entities"
@@ -21,8 +22,10 @@ type View struct {
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
 	Terminal  TerminalView
-	Shop      []int        // the store items that can go in the cart now, by index into shop (D180)
-	Hotel     *world.Hotel // the map as drawn: walls, doors, anchors. Read it, never write it.
+	Shop      []int          // the store items that can go in the cart now, by index into shop (D180)
+	Stock     map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
+	Courier   bool           // a courier is on his way with an order
+	Hotel     *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
 type RoomView struct {
@@ -31,7 +34,7 @@ type RoomView struct {
 	Capacity, Rate     int
 	Closed             bool // at the Spook limit: no new Party (D147)
 	Priest             bool // one is on his way or at work
-	Shadow             bool // a Shadow Person lives in it (D169), shown on the Terminal
+	Shadow             bool // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
 	Spook              int  // its Room Spook, read off its colors (D162)
 	Away               bool // Occupied, but its Party isn't inside: the player saw it walk out
 	Asking             bool // its Guests want service: the "!!" balloon, seen from anywhere (D163)
@@ -58,10 +61,12 @@ func (g *Game) view() View {
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
 		Terminal: g.termView(),
 		Shop:     g.forSale(),
+		Stock:    maps.Clone(g.stock),
+		Courier:  len(g.couriers) > 0,
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Spook: g.roomSpook[i]}
+			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i) || g.coming(rowShadow, i), Spook: g.roomSpook[i]}
 		rv.Asking = slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Occupies(i) && p.asking() })
 		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
@@ -93,11 +98,11 @@ func (g *Game) termView() TerminalView {
 	return t
 }
 
-// forSale: the items on sale that aren't owned unlocks.
+// forSale: the items on sale that aren't owned unlocks (bought, on their way or in the cart).
 func (g *Game) forSale() []int {
 	var rows []int
-	for i, it := range shop {
-		if g.onSale(i) && !(it.Tab == tabHotel && g.unlocked(it.ID)) {
+	for i := range shop {
+		if g.onSale(i) && !g.owned(i) {
 			rows = append(rows, i)
 		}
 	}

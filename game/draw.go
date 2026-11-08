@@ -145,6 +145,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawSpookFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
+	g.drawStock(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -161,6 +162,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	for _, pr := range g.priests {
 		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
+	}
+	for _, c := range g.couriers {
+		name := courierName
+		if len(c.drops) > 0 {
+			name = courierBox
+		}
+		actors = append(actors, actor{c.X, c.Y, name, c.Anim, g.fogAt(image.Pt(int(c.X), int(c.Y))), 0, 0})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {

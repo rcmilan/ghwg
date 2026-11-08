@@ -3,6 +3,8 @@ package game
 import (
 	"slices"
 	"strings"
+
+	"ghosthotel/entities"
 )
 
 // The Terminal is a web store (D180, redesigned 2026-11-08): tabs of items, a cart, a checkout.
@@ -104,10 +106,10 @@ func (g *Game) onSale(i int) bool {
 	return g.earned[Money]-since[Money] >= it.Earned[Money] && g.earned[Spook]-since[Spook] >= it.Earned[Spook]
 }
 
-// owned: an unlock already bought, or already in the cart.
+// owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
-	return it.Tab == tabHotel && (g.unlocked(it.ID) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
+	return it.Tab == tabHotel && (g.unlocked(it.ID) || g.coming(it.ID, -1) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
 }
 
 // addToCart puts item i in the cart, for the Room of a Service: "" or why not.
@@ -123,6 +125,9 @@ func (g *Game) addToCart(i, room int) string {
 	case it.Tab == tabServices:
 		if why := it.Refuse(g, room); why != "" {
 			return why
+		}
+		if g.coming(it.ID, room) {
+			return "ON ITS WAY TO ROOM " + g.hotel.Rooms[room].Number
 		}
 		if slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.room == room && sameKind(l.item, i) }) {
 			return "ALREADY IN THE CART FOR ROOM " + g.hotel.Rooms[room].Number
@@ -177,11 +182,28 @@ func (g *Game) placeOrder() string {
 	return ""
 }
 
-// ship sends a paid order on its way. E3 stand-in: everything arrives at once. E8's courier replaces it
-// (Priests still walk in on their own).
+// ship sends a paid order on its way (D200): one courier from the Entrance takes the Supplies and unlocks
+// to the stock, then each Shadow to its Room's door, then leaves. Priests start at once: they walk in on
+// their own.
 func (g *Game) ship(order []cartLine) {
+	c := &courier{Guest: entities.NewGuest(g.hotel.Spawn, courierName)}
+	stock := drop{at: g.stockDrop()}
 	for _, l := range order {
-		g.receive(l)
+		switch it := shop[l.item]; {
+		case it.Tab != tabServices:
+			stock.lines = append(stock.lines, l)
+		case it.ID == rowShadow:
+			c.drops = append(c.drops, drop{g.doorDrop(l.room), []cartLine{l}})
+		default:
+			g.receive(l)
+		}
+	}
+	if len(stock.lines) > 0 {
+		c.drops = append([]drop{stock}, c.drops...)
+	}
+	if len(c.drops) > 0 {
+		c.SetPath(g.hotel.Path(g.hotel.Spawn, c.drops[0].at, -1))
+		g.couriers = append(g.couriers, c)
 	}
 }
 

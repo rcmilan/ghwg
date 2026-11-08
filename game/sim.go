@@ -89,18 +89,19 @@ type Result struct {
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
 type sim struct {
-	cfg    Config
-	g      *Game
-	a      *autopilot
-	res    Result
-	booked []*Party
-	seen   map[*Party]partyState // each Party's state last frame
-	paid   map[*Party]bool
-	fled   map[*Party]bool
-	phased map[*entities.Guest]bool
-	legs   map[*Party]leg
-	called map[*priest]bool
-	closed int // Room-frames Closed
+	cfg     Config
+	g       *Game
+	a       *autopilot
+	res     Result
+	booked  []*Party
+	seen    map[*Party]partyState // each Party's state last frame
+	paid    map[*Party]bool
+	fled    map[*Party]bool
+	phased  map[*entities.Guest]bool
+	legs    map[*Party]leg
+	called  map[*priest]bool
+	shipped map[*courier]bool
+	closed  int // Room-frames Closed
 }
 
 type leg struct {
@@ -126,7 +127,7 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
@@ -185,6 +186,11 @@ func (s *sim) frame() bool {
 		}
 	}
 	s.res.PriestSpend += spent
+	for _, c := range g.couriers { // the rest of a checkout: what the courier carries (D200)
+		if !s.shipped[c] {
+			s.shipped[c], spent = true, spent+int(c.paid()[Money])
+		}
+	}
 	for i := range g.hotel.Rooms {
 		if g.closed(i) {
 			s.closed++

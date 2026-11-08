@@ -92,6 +92,8 @@ type Game struct {
 	earned     [2]Num                      // lifetime earnings this Run (wallet.go): open store items
 	boughtAt   map[Unlock][2]Num           // per unlock: earned when it arrived (shop.go onSale)
 	icons      map[string]*ebiten.Image    // assets/sprites, loaded on first use (terminal.go)
+	couriers   []*courier                  // on their way with an order (courier.go)
+	pallet     *ebiten.Image               // a stock spot's pallet, made on first use (courier.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -142,6 +144,7 @@ func (g *Game) loadImages() (err error) {
 	}
 	g.characters[fatherK.name] = dress(g.bases["Bob"], palettes["Bob"], fatherK.look)
 	g.characters[fatherM.name] = dress(g.bases["Bob"], palettes["Bob"], fatherM.look)
+	g.loadCourier()
 	return nil
 }
 
@@ -164,6 +167,7 @@ func (g *Game) startRun() {
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	g.hud = [2]counter{}
+	g.couriers = nil
 }
 
 func (g *Game) Update() error {
@@ -227,6 +231,7 @@ func (g *Game) step(dx, dy float64) {
 	g.updateShadows()
 	g.separate()
 	g.updateFog()
+	g.updateCouriers()
 	if !g.headless {
 		g.player.Anim.Update(g.player.X, g.player.Y)
 		for _, guest := range g.guests() {
@@ -324,6 +329,7 @@ func (g *Game) actors() []world.Actor {
 	for _, pr := range g.priests { // his door pass: his own Room's door, Occupied or not
 		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: pr.RoomIndex})
 	}
+	as = append(as, g.courierActors()...)
 	return as
 }
 

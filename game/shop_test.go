@@ -43,8 +43,11 @@ func TestStoreOpens(t *testing.T) {
 	hex := row(t, Hex)
 	g.earn(Spook, 1000, noFloat) // earned before the Mirror: doesn't count
 	g.wallet[Money] = 10
-	if g.addToCart(row(t, Mirror), -1) != "" || g.placeOrder() != "" || !g.unlocked(Mirror) {
+	if g.addToCart(row(t, Mirror), -1) != "" || g.placeOrder() != "" {
 		t.Fatal("couldn't buy the Mirror")
+	}
+	if deliver(t, g); !g.unlocked(Mirror) {
+		t.Fatal("the Mirror didn't arrive")
 	}
 	if g.onSale(hex) {
 		t.Fatal("buying the Mirror opened Hex at once")
@@ -83,8 +86,12 @@ func TestCheckout(t *testing.T) {
 	if why := g.placeOrder(); why != "" || g.wallet[Money] != 0 || len(g.cart) != 0 {
 		t.Fatalf("checkout: %q, $%v, cart %v", why, g.wallet[Money], g.cart)
 	}
-	if g.stock[SupplyWater] != 2*shop[water].Pack || !g.unlocked(Hex) || !g.priestOn(1) || g.priestOn(0) {
-		t.Fatalf("delivered: stock %v, Hex %v, Priest on 1 %v", g.stock, g.unlocked(Hex), g.priestOn(1))
+	if !g.priestOn(1) || g.priestOn(0) {
+		t.Fatalf("Priest on 1 %v, on 0 %v; want on 1", g.priestOn(1), g.priestOn(0))
+	}
+	deliver(t, g) // E8: the courier brings the rest
+	if g.stock[SupplyWater] != 2*shop[water].Pack || !g.unlocked(Hex) {
+		t.Fatalf("delivered: stock %v, Hex %v", g.stock, g.unlocked(Hex))
 	}
 }
 
@@ -137,7 +144,7 @@ func TestStoreKeys(t *testing.T) {
 			t.Fatalf("ghost %v: cart %v, placing %d; want the Shadow in the cart", ghost, g.cart, g.placing)
 		}
 		tap(ebiten.KeyD, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
-		if g.state != StateTerminal || !g.shaded(1) || g.shaded(0) || g.wallet[Spook] != 0 {
+		if g.state != StateTerminal || !g.coming(rowShadow, 1) || g.coming(rowShadow, 0) || g.wallet[Spook] != 0 {
 			t.Fatalf("ghost %v: open %v, shaded %v %v, Spook %v; want a Shadow in Room 1 only", ghost, g.state == StateTerminal, g.shaded(0), g.shaded(1), g.wallet[Spook])
 		}
 		tap(ebiten.KeyEscape)
