@@ -1,7 +1,7 @@
 // Command sim plays many headless Runs in parallel, each by a Strategy through the keys a player has,
 // and prints how each Strategy did (simulation mode). A dev tool: never part of the game binary.
 //
-//	go run ./cmd/sim -strategy bestrate,idle -runs 100 -days 7 -grid 3x3
+//	go run ./cmd/sim -strategy never,server,haunter,haunt-priest,smart -runs 64 -days 7
 package main
 
 import (
@@ -18,25 +18,26 @@ import (
 	"sync"
 	"text/tabwriter"
 
-	"shift/game"
+	"ghosthotel/game"
 )
 
 func main() {
-	strategies := flag.String("strategy", "bestrate,idle", "comma-separated Strategies to compare")
+	strategies := flag.String("strategy", "never", "comma-separated Strategies to compare")
 	runs := flag.Int("runs", 100, "Runs per Strategy; Run i uses seed+i, the same for every Strategy")
 	days := flag.Int("days", 7, "days per Run, 24 h each from the Run start")
-	grid := flag.String("grid", "3x3", "the Room grid, colsxrows, 2x1 to 3x3")
+	grid := flag.String("grid", "2x1", "the Room grid, colsxrows, 2x1 to 3x3")
 	seed := flag.Uint64("seed", 1, "the first Run's seed")
 	react := flag.Int("react", 30, "frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "frames between the Pilot's key taps")
 	noCheck := flag.Bool("nocheck", false, "skip the invariant checks")
 	csvPath := flag.String("csv", "", "write one row per Run to this file")
+	spookRate := flag.Float64("spookrate", 0.5, "$ one Spook is worth in the score column: an assumed shop price (T112)")
 	flag.Parse()
 	debug.SetGCPercent(400) // ponytail: Runs allocate per frame and the GC is what stops them scaling across cores
 
 	var cols, rows int
 	if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
-		log.Fatalf("-grid %q: want colsxrows, like 3x3", *grid)
+		log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
 	}
 	names := strings.Split(*strategies, ",")
 	for _, n := range names {
@@ -63,14 +64,14 @@ func main() {
 	}
 	wg.Wait()
 
-	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d\n\n",
-		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap)
+	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d, score = $ + Spook × %g\n\n",
+		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *spookRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\t$/day mean\tmin\tmax\toccupancy\tlost\trefused\tbookings\tauto\tfee/day\tfailures\t")
+	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\tspook\thaunts\tserves\texpired\tpriests\tspent\tclosed h\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, lost, refused, bookings, auto, fees, failed int
+		var sold, avail, bookings, fled, spook, haunts, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -78,8 +79,9 @@ func main() {
 				total += m
 			}
 			perDay = append(perDay, float64(total)/float64(*days))
-			sold, avail, lost, refused, bookings = sold+r.Sold, avail+r.Available, lost+r.Lost, refused+r.Refused, bookings+r.Bookings
-			auto, fees = auto+r.Auto, fees+r.Fees
+			sold, avail, bookings = sold+r.Sold, avail+r.Available, bookings+r.Bookings
+			fled, spook, haunts, serves, expired = fled+r.Fled, spook+r.Spook, haunts+r.Haunts, serves+r.Serves, expired+r.Expired
+			priests, spent, closed = priests+r.Priests, spent+r.PriestSpend, closed+r.ClosedHours
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
 				failed++
@@ -92,9 +94,10 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%d\t\n", name, mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(lost)/n, float64(refused)/n, float64(bookings)/n, float64(auto)/n,
-			float64(fees)/n/float64(*days), failed)
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name,
+			mean(perDay)+float64(spook)/n**spookRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
+			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(spook)/n, float64(haunts)/n,
+			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, failed)
 	}
 	w.Flush()
 	if len(failures) > 0 {
@@ -123,7 +126,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "lost", "refused", "bookings", "auto", "fees", "paid", "pairs", "outings", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "paid", "pairs", "outings", "fled", "spook", "haunts", "serves", "expired", "priests", "priest_spend", "closed_hours", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -135,8 +138,10 @@ func writeCSV(path string, results [][]game.Result) error {
 				failure = r.Failures[0].Clock + " " + r.Failures[0].Reason
 			}
 			w.Write([]string{r.Strategy, strconv.FormatUint(r.Seed, 10), strconv.FormatBool(r.Cheat), strings.Join(money, ";"),
-				strconv.Itoa(r.Sold), strconv.Itoa(r.Available), strconv.Itoa(r.Lost), strconv.Itoa(r.Refused),
-				strconv.Itoa(r.Bookings), strconv.Itoa(r.Auto), strconv.Itoa(r.Fees), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings), failure})
+				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
+				strconv.Itoa(r.Bookings), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
+				strconv.Itoa(r.Fled), strconv.Itoa(r.Spook), strconv.Itoa(r.Haunts), strconv.Itoa(r.Serves), strconv.Itoa(r.Expired),
+				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), failure})
 		}
 	}
 	w.Flush()

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"shift/assets"
+	"ghosthotel/assets"
 )
 
 func typeNamed(t *testing.T, name string) RoomType {
@@ -49,58 +49,48 @@ func TestDraw(t *testing.T) {
 	}
 	for i, s := range seen {
 		if s["A"] < 150 || s["B"] < 150 {
-			t.Errorf("room %d drew %v over 400 Spins, want roughly even odds", i, s)
+			t.Errorf("room %d drew %v over 400 draws, want roughly even odds", i, s)
 		}
 	}
 	if variant < 300 || variant > 500 { // ~400: half of A's ~800 draws
 		t.Errorf("A's second variant drawn %d times over 1600 draws, want ~400", variant)
 	}
 	if mixed < 150 {
-		t.Errorf("rooms 0 and 1 differed in %d of 400 Spins: draws are not independent", mixed)
+		t.Errorf("rooms 0 and 1 differed in %d of 400 draws: draws are not independent", mixed)
 	}
 }
 
-// D47: a Spin is given each Room's next type and re-stamps the Rooms; doors, numbers and the hotel's
-// outer side lines stay put (D45).
-func TestSpin(t *testing.T) {
+// Furnish re-stamps the Rooms with the types given; doors, numbers and the hotel's outer side lines stay
+// put (D45).
+func TestFurnish(t *testing.T) {
 	h := buildHotel(t)
 	std, dlx := typeNamed(t, "Standard"), typeNamed(t, "Deluxe")
 	doors := append([]Door(nil), h.Doors...)
-	floorAt := func(r Room) string {
-		s := r.Stays[0].Div(TileSize)
-		return h.Map.TS.Tiles[h.Map.At(LayerFloor, s.X, s.Y)].Name
-	}
 	for _, rt := range []RoomType{dlx, std, dlx} {
 		next := make([]RoomType, len(h.Rooms))
 		for i := range next {
 			next[i] = rt
 		}
-		before := floorAt(h.Rooms[0])
-		h.Spin(next)
-		if h.Rooms[0].Type.Name != rt.Name || floorAt(h.Rooms[0]) != before {
-			t.Errorf("Spin to %s: type %s, floor %s; want the type now, the cells at Land (D49)", rt.Name, h.Rooms[0].Type.Name, floorAt(h.Rooms[0]))
-		}
-		for i := range h.Rooms {
-			h.Land(i)
-		}
+		h.Furnish(next)
 		want := map[string]string{"Standard": "floor_clay", "Deluxe": "floor_herringbone"}[rt.Name]
 		for i, r := range h.Rooms {
-			if r.Type.Name != rt.Name || floorAt(r) != want {
-				t.Errorf("room %s after a %s Spin: type %s, floor %s", r.Number, rt.Name, r.Type.Name, floorAt(r))
+			s := r.Stays[0].Div(TileSize)
+			if floor := h.Map.TS.Tiles[h.Map.At(LayerFloor, s.X, s.Y)].Name; r.Type.Name != rt.Name || floor != want {
+				t.Errorf("room %s furnished %s: type %s, floor %s", r.Number, rt.Name, r.Type.Name, floor)
 			}
 			if h.Doors[i] != doors[i] {
 				t.Errorf("room %s door moved: %+v -> %+v", r.Number, doors[i], h.Doors[i])
 			}
 		}
 		if n := h.Map.TS.Tiles[h.Map.At(LayerDecor, 1, 5)].Name; n != "border_west" {
-			t.Errorf("hotel west line at (1,5) is %q after a Spin, want border_west", n)
+			t.Errorf("hotel west line at (1,5) is %q after Furnish, want border_west", n)
 		}
 	}
 }
 
-// D48: a Room is one whole: Land stamps every cell of its footprint from its type, including the
-// columns under the hotel's outer side lines, which alone stay (and stay still while it rolls).
-func TestLandWholeRoom(t *testing.T) {
+// D48: a Room is one whole: Furnish stamps every cell of its footprint from its type, except the
+// columns under the hotel's outer side lines, which alone stay.
+func TestFurnishWholeRoom(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
 		for _, r := range h.Rooms {
 			for layer, cells := range r.Type.Tiles {
@@ -132,10 +122,7 @@ func TestVariantsReachable(t *testing.T) {
 	h := buildGrid(t, 2, 1)
 	solid := 0
 	for _, rt := range types {
-		h.Spin([]RoomType{rt, rt})
-		for i := range h.Rooms {
-			h.Land(i)
-		}
+		h.Furnish([]RoomType{rt, rt})
 		for i, r := range h.Rooms {
 			for _, s := range r.Stays {
 				if h.Path(h.Spawn, s, i) == nil {

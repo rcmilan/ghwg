@@ -20,22 +20,21 @@ func clockText(c int) string {
 	return fmt.Sprintf("DAY %d  %02d:%02d", day(c), hour(c), c%hourFrames/minuteFrames)
 }
 
-// advanceClock runs the Clock one frame (fastClock frames while T is held), except during the Spin
-// cinematic (D73); the Terminal pauses it by not stepping the world at all. Each new game minute may
-// bring a Walk-in; each Midnight Spins the eligible Rooms (D85).
+// advanceClock runs the Clock one frame (fastClock frames while T is held); the Terminal pauses it by not
+// stepping the world at all (D73). Each new game minute scares the haunted (haunt.go), lets Guests ask for service (serve.go) and may bring a Walk-in.
 func (g *Game) advanceClock() {
 	n := 1
 	if g.fast {
 		n = fastClock
 	}
-	for ; n > 0 && !g.spinning(); n-- {
+	for ; n > 0; n-- {
 		g.clock++
 		if g.clock%minuteFrames != 0 {
 			continue
 		}
+		g.scare()
+		g.updateAsks()
+		g.updateRoomTalk()
 		g.maybeWalkIn()
-		if g.clock%dayFrames == 0 {
-			g.midnight()
-		}
 	}
 }

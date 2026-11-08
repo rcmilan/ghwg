@@ -6,13 +6,13 @@ import (
 	"reflect"
 	"testing"
 
-	"shift/world"
+	"ghosthotel/world"
 )
 
 // TestSimClock (D100, D109) runs whole days headless on every grid the hotel supports (D54), played by
-// keys alone: firstfit books the front Party into the first Room that fits, and either stays at the
-// Terminal or holds a spot where guests must pass between Bookings (02's anti-lock cases). Any invariant
-// failure fails it (D108), as do a run with no Booking and, across the grids, no Tourist outing or pair.
+// keys alone: the Concierge stays at the Terminal or holds a spot where guests must pass (02's anti-lock
+// cases) while Parties arrive booked (D139). Any invariant failure fails it (D108), as do a run with no
+// Booking and, across the grids, no Tourist outing or pair.
 func TestSimClock(t *testing.T) {
 	cases := []struct {
 		name string
@@ -42,7 +42,7 @@ func TestSimClock(t *testing.T) {
 			for _, c := range cases {
 				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) {
 					r := RunSim(Config{Cols: cols, Rows: rows, Days: c.days, Seed: uint64(cols*10 + rows),
-						Strategy: stand{c.at, firstFit}, React: 30, KeyGap: 6})
+						Strategy: stand{c.at}, React: 30, KeyGap: 6})
 					t.Logf("%+v", r)
 					for _, f := range r.Failures {
 						t.Errorf("%s: %s", f.Clock, f.Reason)
@@ -60,22 +60,18 @@ func TestSimClock(t *testing.T) {
 	}
 }
 
-// T055: idle earns nothing and loses Walk-ins; firstfit's money is its paid Bookings.
+// T055: with Parties booked before they arrive (D139), even never's money is its paid Bookings.
 func TestRunSim(t *testing.T) {
-	idle := RunSim(Config{Cols: 3, Rows: 3, Days: 2, Seed: 1, Strategy: Strategies["idle"], React: 30, KeyGap: 6})
-	if sum(idle.MoneyByDay) != 0 || idle.Lost == 0 || idle.Bookings != 0 || len(idle.Failures) > 0 {
-		t.Fatalf("idle: %+v; want $0, Walk-ins lost, no Bookings, no failures", idle)
-	}
-	ff := RunSim(Config{Cols: 3, Rows: 3, Days: 4, Seed: 1, Strategy: stand{atTerminal, firstFit}, React: 30, KeyGap: 6})
-	if ff.Bookings == 0 || ff.Paid == 0 || sum(ff.MoneyByDay) == 0 || len(ff.Failures) > 0 || ff.Sold == 0 || ff.Available != 4*9 {
-		t.Fatalf("firstfit: %+v; want paid Bookings, money, Room-nights sold of 36, no failures", ff)
+	r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: 1, Strategy: Strategies["never"], React: 30, KeyGap: 6})
+	if r.Bookings == 0 || r.Paid == 0 || sum(r.MoneyByDay) == 0 || len(r.Failures) > 0 || r.Sold == 0 || r.Available != 4*2 {
+		t.Fatalf("never: %+v; want paid Bookings, money, Room-nights sold of 8, no failures", r)
 	}
 }
 
 // T056: an invariant broken mid-Run is one Failure naming it, not a panic.
 func TestSimInvariant(t *testing.T) {
 	r := RunSim(Config{Cols: 2, Rows: 1, Days: 1, Seed: 1, Strategy: &thief{}})
-	if len(r.Failures) != 1 || r.Failures[0].Reason != "money went up 50, but Checkouts paid 0" || !r.Cheat {
+	if len(r.Failures) != 1 || r.Failures[0].Reason != "money went up 50, but Checkouts paid 0 and Priests cost 0" || !r.Cheat {
 		t.Fatalf("%+v, want the one money failure on a Cheat row", r)
 	}
 }
@@ -92,7 +88,7 @@ func (s *thief) Cheat(g *Game) {
 
 // T058: a Run is a function of its Config.
 func TestSimDeterministic(t *testing.T) {
-	c := Config{Cols: 3, Rows: 3, Days: 3, Seed: 42, Strategy: Strategies["bestrate"], React: 30, KeyGap: 6}
+	c := Config{Cols: 2, Rows: 1, Days: 3, Seed: 42, Strategy: Strategies["never"], React: 30, KeyGap: 6}
 	if a, b := RunSim(c), RunSim(c); !reflect.DeepEqual(a, b) {
 		t.Fatalf("same seed, different Runs:\n%+v\n%+v", a, b)
 	}

@@ -65,6 +65,9 @@ func (a *Anim) Update(x, y float64) {
 	}
 }
 
+// Toward: the facing along (dx,dy); down when it's zero.
+func Toward(dx, dy float64) Facing { return facing(FaceDown, dx, dy) }
+
 // facing: the dominant axis of (dx,dy). On an exact diagonal the current facing stays if it is one of
 // the two candidates (no flip-flopping); otherwise horizontal wins.
 func facing(cur Facing, dx, dy float64) Facing {

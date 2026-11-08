@@ -5,8 +5,6 @@ import (
 	"image/color"
 	"math"
 
-	"shift/world"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -48,7 +46,6 @@ func lobbyLit(c int) float64 {
 const (
 	lightRadius = 56   // world px: a ceiling light's pool
 	glowRadius  = 24   // world px: the Terminal's glow
-	dotRadius   = 6    // world px: a Door Panel's light (04 D117)
 	lightCut    = 0.85 // how much of the darkness a pool removes at its center
 	lightGlow   = 0.18 // a light's own tint, added at its center at full night
 )
@@ -56,7 +53,6 @@ const (
 var (
 	warmLight = [3]float32{1, .78, .45}
 	coolLight = [3]float32{.45, .85, 1}
-	autoLight = [2][3]float32{{1, .66, .16}, {.38, .9, .43}} // a Door Panel's: amber manual, green auto
 )
 
 // lightPool is a soft radial sprite, alpha 1 at the center fading to 0 at the rim (D94).
@@ -79,9 +75,6 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	t := tint(g.clock)
 	if t[3] == 0 {
 		return
-	}
-	if g.pool == nil {
-		g.pool, g.glow, g.dot = lightPool(lightRadius), lightPool(glowRadius), lightPool(dotRadius)
 	}
 	b := dst.Bounds()
 	if g.dark == nil || g.dark.Bounds().Size() != b.Size() {
@@ -109,13 +102,6 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	lights := []light{{g.hotel.Terminal.Min.Add(g.hotel.Terminal.Max).Div(2), g.glow, coolLight}}
 	for _, p := range g.hotel.Lights {
 		lights = append(lights, light{p, g.pool, warmLight})
-	}
-	for i, r := range g.hotel.Rooms {
-		c, on := r.Panel().Mul(world.TileSize).Add(image.Pt(panelX+panelW/2, panelY+2+panelLight/2)), 0
-		if g.autoRoom[i] {
-			on = 1
-		}
-		lights = append(lights, light{c, g.dot, autoLight[on]})
 	}
 	place := func(l light) *ebiten.DrawImageOptions {
 		r := l.img.Bounds().Dx() / 2

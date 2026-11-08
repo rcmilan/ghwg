@@ -2,10 +2,8 @@ package game
 
 import (
 	"image"
-	"slices"
-	"strconv"
 
-	"shift/world"
+	"ghosthotel/world"
 )
 
 // Strategy decides what the Concierge does next, from what a player sees (D105), through the Pilot
@@ -17,112 +15,138 @@ type Strategy interface {
 
 // Strategies are the ones the CLI and the watch mode know by name (D106).
 var Strategies = map[string]Strategy{
-	"bestrate":    stand{atTerminal, bestRate},
-	"idle":        stand{atTerminal, nil},
-	"autoall":     autoAll{},
-	"hybrid":      desk{auto: true},
-	"roamer":      desk{away: true},
-	"roamer-auto": desk{away: true, auto: true},
+	"never":        stand{atTerminal}, // never haunts: stays real at the Terminal
+	"haunter":      haunter{},
+	"haunt-priest": hauntPriest{},
+	"server":       server{},
+	"smart":        smart{},
 }
 
-// desk books by hand with bestRate, in the Rooms left manual (04 D122). auto: it keeps the Standard
-// Rooms auto and the Deluxe ones manual, re-flipping a panel when the Spin changes a Room's tier. away:
-// it leaves the desk 2 of every 4 game hours for the back Corridor, like a player busy elsewhere.
-type desk struct{ auto, away bool }
-
-func (d desk) Act(v View, p *Pilot) {
-	if d.auto && !v.Terminal.Open {
-		for i, r := range v.Rooms {
-			if want := r.Type == "Standard"; r.Auto != want {
-				p.SetAuto(i, want)
-				return
-			}
-		}
-	}
-	if h, _ := strconv.Atoi(v.Clock[len(v.Clock)-5 : len(v.Clock)-3]); d.away && h%4 >= 2 {
-		stand{func(h *world.Hotel) image.Point { return h.Rooms[0].PanelSpot() }, nil}.Act(v, p)
-		return
-	}
-	stand{atTerminal, manual(bestRate)}.Act(v, p)
-}
-
-// manual: the chooser, offered only the Rooms on manual.
-func manual(choose func(View) (int, int)) func(View) (int, int) {
-	return func(v View) (int, int) {
-		v.Rooms = slices.Clone(v.Rooms)
-		for i := range v.Rooms {
-			v.Rooms[i].Vacant = v.Rooms[i].Vacant && !v.Rooms[i].Auto
-		}
-		return choose(v)
-	}
-}
-
-// autoAll sets every Room auto at its Door Panel, then stands at the Terminal booking nothing: the
-// zero-manual baseline (04 D122).
-type autoAll struct{}
-
-func (autoAll) Act(v View, p *Pilot) {
-	for i, r := range v.Rooms {
-		if !r.Auto {
-			p.SetAuto(i, true)
-			return
-		}
-	}
-	stand{atTerminal, nil}.Act(v, p)
-}
-
-// stand keeps the Concierge at a spot; with a chooser, it books the Room and the Party at the counter
-// chosen (or closes the Terminal if none, -1), then walks back.
+// stand keeps the Concierge at a spot, closing the Terminal if it is open.
 type stand struct {
-	at     func(*world.Hotel) image.Point
-	choose func(View) (room, party int)
+	at func(*world.Hotel) image.Point
 }
 
 func atTerminal(h *world.Hotel) image.Point { return h.ConciergeStart }
 
+// haunter haunts every Occupied Room it sees unhaunted, the least frightened first, and waits at the
+// Mirror in between.
+type haunter struct{}
+
+func (haunter) Act(v View, p *Pilot) {
+	if v.Terminal.Open {
+		p.Close()
+		return
+	}
+	best := -1
+	for i, r := range v.Rooms {
+		if !r.Vacant && !r.Haunted && (best < 0 || r.Fear < v.Rooms[best].Fear) {
+			best = i
+		}
+	}
+	switch {
+	case best >= 0:
+		p.Haunt(best)
+	case v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize):
+		p.GoTo(v.Hotel.Mirror)
+	}
+}
+
 func (s stand) Act(v View, p *Pilot) {
 	switch {
-	case v.Terminal.Open && (s.choose == nil || len(v.Counter) == 0):
-		p.Close()
 	case v.Terminal.Open:
-		if room, party := s.choose(v); room >= 0 {
-			p.Book(room, party)
-		} else {
-			p.Close()
-		}
-	case s.choose != nil && len(v.Counter) > 0:
-		p.OpenTerminal()
+		p.Close()
 	case v.Concierge.Div(world.TileSize) != s.at(v.Hotel).Div(world.TileSize):
 		p.GoTo(s.at(v.Hotel))
 	}
 }
 
-// firstFit: the first Vacant Room the first Party at the counter fits in; the next Party if none.
-func firstFit(v View) (room, party int) {
-	for k, f := range v.Counter {
-		for i, r := range v.Rooms {
-			if r.Vacant && r.Capacity >= f.Size {
-				return i, k
-			}
+// hauntPriest haunts a Room only while one more haunt leaves its Guests under the Fear limit, so its
+// Parties stay and pay, and calls a Weak Priest to a Closed Room as soon as it has the money.
+type hauntPriest struct{}
+
+func (hauntPriest) Act(v View, p *Pilot) {
+	if v.Terminal.Open {
+		p.Close()
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Closed && !r.Priest && v.Money >= priestWeak {
+			p.CallPriest(i, false)
+			return
 		}
 	}
-	return -1, -1
+	for i, r := range v.Rooms {
+		if !r.Vacant && !r.Haunted && r.Fear+hauntMinutes*fearPerMinute < fearLimit {
+			p.Haunt(i)
+			return
+		}
+	}
+	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
+		p.GoTo(v.Hotel.Mirror)
+	}
 }
 
-// bestRate: the Vacant Room and the Party at the counter it pays the most per night; ties to the Party
-// that came first. A pair pays half outside the bed layout it wished for (D81), which the Terminal shows.
-func bestRate(v View) (room, party int) {
-	best, room, party := 0, -1, -1
-	for k, f := range v.Counter {
-		for i, r := range v.Rooms {
-			rate := r.Rate
-			if f.Size == 2 && r.Beds != f.Wish {
-				rate /= 2
-			}
-			if r.Vacant && r.Capacity >= f.Size && rate > best {
-				best, room, party = rate, i, k
-			}
+// server stays real and serves every Room that asks; it waits at the Terminal in between.
+type server struct{}
+
+func (server) Act(v View, p *Pilot) {
+	if i := toServe(v); i >= 0 && !v.Terminal.Open {
+		p.Serve(i)
+		return
+	}
+	stand{atTerminal}.Act(v, p)
+}
+
+// toServe: the first Room a serve would land on, or -1.
+func toServe(v View) int {
+	for i, r := range v.Rooms {
+		if r.Asking {
+			return i
 		}
 	}
-	return room, party
+	return -1
+}
+
+// smart serves whenever a Room asks, haunts each Party once (so none flees), calls a Weak Priest to a
+// Closed Room (Spook for the least money), and buys a Shadow for each Room once it has the Spook (D169),
+// leaving a Room with one to its Shadow: a haunt on top makes its Party flee. Fear shows only in ghost, so
+// it shifts to look before it haunts.
+type smart struct{}
+
+func (smart) Act(v View, p *Pilot) {
+	if v.Terminal.Open {
+		p.Close()
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Closed && !r.Priest && v.Money >= priestWeak {
+			p.CallPriest(i, false)
+			return
+		}
+		if !r.Shadow && v.Spook >= shadowPrice {
+			p.BuyShadow(i)
+			return
+		}
+	}
+	if i := toServe(v); i >= 0 {
+		p.Serve(i)
+		return
+	}
+	for i, r := range v.Rooms {
+		if r.Vacant || r.Away || r.Haunted || r.Shadow {
+			continue
+		}
+		switch {
+		case !v.Ghost:
+			p.Flip(true)
+			return
+		case r.Fear+hauntMinutes*fearPerMinute < fearLimit:
+			p.Haunt(i)
+			return
+		}
+	}
+	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
+		p.GoTo(v.Hotel.Mirror)
+	}
 }

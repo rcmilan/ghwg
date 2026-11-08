@@ -20,7 +20,7 @@ var keepRightCost = keepRightStep // a var so tests can compare against the plai
 // It returns tile-center waypoints after the start cell, the last one replaced by `to`; nil when unreachable.
 // Cells with any collision rect are avoided. Room doors are solid except the door of Rooms[own]
 // (own < 0: every room door is solid). The Entrance is open to everyone. The cells of the avoid points
-// (world px) are solid too: a Queue guest standing there.
+// (world px) are solid too: someone standing there.
 func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []image.Point {
 	m := h.Map
 	start, goal := from.Div(TileSize), to.Div(TileSize)

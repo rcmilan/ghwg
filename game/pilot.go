@@ -3,9 +3,8 @@ package game
 import (
 	"image"
 	"math"
-	"strings"
 
-	"shift/world"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -13,9 +12,8 @@ import (
 // Pilot turns a Strategy's intents into keys, one frame at a time, at a human pace (D103, D104). It
 // reads the View and emits keys into a script; it never touches the world.
 type Pilot struct {
-	React   int // frames before starting each action: reading the screen
-	KeyGap  int // frames between taps; a tap lasts one frame
-	Refused int // Bookings the Terminal refused
+	React  int // frames before starting each action: reading the screen
+	KeyGap int // frames between taps; a tap lasts one frame
 
 	hotel   *world.Hotel
 	queue   []action
@@ -41,11 +39,11 @@ func (p *Pilot) do(a action) {
 	p.queue = append(p.queue, a)
 }
 
-// step: the keys to hold this frame. Nothing while the title or the Spin cinematic is up.
+// step: the keys to hold this frame. Nothing while the title is up.
 func (p *Pilot) step(v View) []ebiten.Key {
 	p.frame++
 	p.keys = p.keys[:0]
-	if p.Idle() || v.Title || v.Spinning || p.frame < p.readyAt {
+	if p.Idle() || v.Title || p.frame < p.readyAt {
 		return nil
 	}
 	if done, ok := p.queue[0](p, v); done {
@@ -69,10 +67,12 @@ func (p *Pilot) tap(k ebiten.Key) bool {
 
 // GoTo walks the Concierge to world point `to` along a path around the guests in sight, holding WASD;
 // it re-paths when it makes no progress for stuckFrames, and gives up after 3 paths.
-func (p *Pilot) GoTo(to image.Point) {
+func (p *Pilot) GoTo(to image.Point) { p.do(goTo(to)) }
+
+func goTo(to image.Point) action {
 	var path []image.Point
 	best, stuck, tries := math.Inf(1), 0, 0
-	p.do(func(p *Pilot, v View) (bool, bool) {
+	return func(p *Pilot, v View) (bool, bool) {
 		at := v.Concierge
 		if path == nil {
 			if tries++; tries > 3 {
@@ -107,7 +107,7 @@ func (p *Pilot) GoTo(to image.Point) {
 			p.keys = append(p.keys, ebiten.KeyW)
 		}
 		return false, false
-	})
+	}
 }
 
 // route: a path from at to `to` around the guests in sight; through them if they wall it off. A Room's
@@ -148,41 +148,107 @@ func (p *Pilot) OpenTerminal() {
 	})
 }
 
-// Book, on the open Terminal, moves the cursor to the Room by the Terminal's own rules (A/D wrap, W/S
-// clamp, S from the bottom row reaches OK) and picks it with SPACE; then the Party, by its place in
-// View.Counter: W/S in the list and SPACE, unless the Terminal went straight to OK; then SPACE on OK
-// (04 D119). A refused pick closes the Terminal with ESC and fails.
-func (p *Pilot) Book(room, party int) {
-	confirmed, refused := false, false
+// Flip walks to the Mirror and presses SPACE, unless the hotel is already in that dimension: then it
+// does nothing at all.
+func (p *Pilot) Flip(ghost bool) {
+	walk, walked, taps := goTo(p.hotel.Mirror), false, 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case v.Shifting: // the transition runs out first (D170)
+		case v.Ghost == ghost:
+			return true, true
+		case !walked:
+			done, ok := walk(p, v)
+			if done && !ok {
+				return true, false
+			}
+			walked = done
+		case taps >= 3 || !v.Concierge.In(p.hotel.MirrorSpot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Haunt flips to ghost, walks to the Room's door spot and presses SPACE until the Room is haunted.
+func (p *Pilot) Haunt(room int) {
+	p.Flip(true)
+	spot := p.hotel.Rooms[room].Spot()
+	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2))) // the cell off the doorway
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case taps > 0 && v.Rooms[room].Haunted:
+			return true, true
+		case taps >= 3 || v.Rooms[room].Vacant || !v.Concierge.In(spot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered. It
+// fails when the request is gone before then.
+func (p *Pilot) Serve(room int) {
+	p.Flip(false)
+	spot := p.hotel.Rooms[room].Spot()
+	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2)))
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case taps > 0 && !v.Rooms[room].Asking:
+			return true, true
+		case taps >= 3 || !v.Rooms[room].Asking || !v.Concierge.In(spot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
+// Terminal refuses (no money, or a Priest is already on the Room).
+func (p *Pilot) CallPriest(room int, strong bool) {
+	pick := pickWeak
+	if strong {
+		pick = pickStrong
+	}
+	p.order(room, pick, func(r RoomView) bool { return r.Priest })
+}
+
+// BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
+// Terminal refuses (no Spook, or one is already there).
+func (p *Pilot) BuyShadow(room int) {
+	p.order(room, pickShadow, func(r RoomView) bool { return r.Shadow })
+}
+
+// order opens the Terminal, picks the Room and the menu's pick, pays, and closes it; ok if got holds then.
+func (p *Pilot) order(room, pick int, got func(RoomView) bool) {
+	p.OpenTerminal()
+	paid := false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
-			return true, confirmed && !refused && !v.Rooms[room].Vacant
+			return true, paid && got(v.Rooms[room])
 		}
 		cols, _ := p.hotel.Grid()
 		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
-		picked := t.Pick == room && t.Party == party
 		var k ebiten.Key
 		switch {
-		case refused || !t.OK && !t.List && t.Cursor == room && t.Message != "" && !strings.HasPrefix(t.Message, "Picked"):
+		case paid || t.Menu >= 0 && t.Menu != room:
 			k = ebiten.KeyEscape
-		case t.OK && picked:
-			k = ebiten.KeySpace
-		case t.OK:
-			k = ebiten.KeyW
-		case t.List && t.Pick != room:
-			k = ebiten.KeyA
-		case t.List && t.Party < party:
+		case t.Menu == room && t.Pick != pick:
 			k = ebiten.KeyS
-		case t.List && t.Party > party:
-			k = ebiten.KeyW
-		case t.List:
+		case t.Menu == room:
 			k = ebiten.KeySpace
-		case picked:
-			k = ebiten.KeyS
-		case c != tc && (tc-c+cols)%cols <= cols/2:
+		case c < tc:
 			k = ebiten.KeyD
-		case c != tc:
+		case c > tc:
 			k = ebiten.KeyA
 		case r < tr:
 			k = ebiten.KeyS
@@ -191,31 +257,8 @@ func (p *Pilot) Book(room, party int) {
 		default:
 			k = ebiten.KeySpace
 		}
-		if p.tap(k) {
-			switch {
-			case k == ebiten.KeyEscape && !refused:
-				refused = true
-				p.Refused++
-			case k == ebiten.KeySpace && t.OK:
-				confirmed = true
-			}
-		}
-		return false, false
-	})
-}
-
-// SetAuto walks to the Room's Door Panel and flips it with SPACE, unless it is already as asked (04 D113).
-func (p *Pilot) SetAuto(room int, on bool) {
-	p.GoTo(p.hotel.Rooms[room].PanelSpot())
-	tapped := false
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		switch {
-		case v.Rooms[room].Auto == on:
-			return true, true
-		case tapped: // pressed, and it did not take
-			return true, false
-		case p.tap(ebiten.KeySpace):
-			tapped = true
+		if p.tap(k) && k == ebiten.KeySpace && t.Menu == room {
+			paid = true
 		}
 		return false, false
 	})

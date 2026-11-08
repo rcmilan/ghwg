@@ -102,3 +102,8 @@ func (m *Tilemap) BlockedBox(r image.Rectangle) bool {
 	}
 	return false
 }
+
+// Wall: the cell holds a wall (a solid wall face or a side line), which blocks sight; furniture doesn't.
+func (m *Tilemap) Wall(x, y int) bool {
+	return len(m.TS.Tiles[m.At(LayerWalls, x, y)].Solid) > 0 || m.sideLine(LayerDecor, x, y) || m.sideLine(LayerWalls, x, y)
+}

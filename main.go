@@ -4,28 +4,38 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/draw"
 	"image/png"
 	"log"
 	"os"
 
-	"shift/game"
+	"ghosthotel/assets"
+	"ghosthotel/game"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 func main() {
-	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. bestrate")
-	seed := flag.Uint64("seed", 1, "dev, with -play: the Run seed")
-	grid := flag.String("grid", "3x3", "dev, with -play: the Room grid, colsxrows")
+	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. haunter")
+	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
+	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
-	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot key taps")
-	shotPath := flag.String("shot", "", "dev: fast-forward to frame -at, save the screen to this PNG and quit")
-	at := flag.Int("at", 0, "dev, with -shot: the frame to capture (600 frames = 1 game hour)")
+	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
+	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
+	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
+	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
-	ebiten.SetWindowTitle("SHIFT")
+	ebiten.SetWindowTitle("Ghost Hotel")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	if f, err := assets.FS.Open("characters/Adam_idle_anim_16x16.png"); err == nil { // the window's icon: a Shadow Person's black head (D169), as icon.ico
+		if sheet, err := png.Decode(f); err == nil {
+			icon := image.NewNRGBA(image.Rect(0, 0, 16, 16))
+			draw.DrawMask(icon, image.Rect(0, 1, 16, 14), image.Black, image.Point{}, sheet, image.Pt(18*16, 9), draw.Src)
+			ebiten.SetWindowIcon([]image.Image{icon})
+		}
+	}
 	var g *game.Game
 	var err error
 	if *play == "" {
@@ -33,7 +43,7 @@ func main() {
 	} else {
 		var cols, rows int
 		if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
-			log.Fatalf("-grid %q: want colsxrows, like 3x3", *grid)
+			log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
 		}
 		g, err = game.Play(*play, cols, rows, *seed, *react, *keyGap)
 	}
@@ -42,6 +52,7 @@ func main() {
 	}
 	var run ebiten.Game = g
 	if *shotPath != "" {
+		g.Start(*ghost)
 		run = &shot{Game: g, path: *shotPath, at: *at}
 	}
 	if err := ebiten.RunGame(run); err != nil {
@@ -75,8 +86,7 @@ func (s *shot) Draw(screen *ebiten.Image) {
 	if s.frame < s.at || s.saved {
 		return
 	}
-	b := screen.Bounds()
-	img := image.NewRGBA(b)
+	img := image.NewRGBA(screen.Bounds())
 	screen.ReadPixels(img.Pix)
 	f, err := os.Create(s.path)
 	if err == nil {

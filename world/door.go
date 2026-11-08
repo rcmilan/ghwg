@@ -84,4 +84,10 @@ func (r Room) Shell() image.Rectangle {
 	return image.Rectangle{o, o.Add(image.Pt(RoomW*TileSize, RoomH*TileSize))}
 }
 
+// Spot: the 2 Corridor cells in front of the door, where the Concierge stands to act on the Room.
+func (r Room) Spot() image.Rectangle {
+	c := r.Door.Add(image.Pt(0, 2)).Mul(TileSize)
+	return image.Rectangle{c, c.Add(image.Pt(TileSize, 2*TileSize))}
+}
+
 func center(r image.Rectangle) image.Point { return r.Min.Add(r.Max).Div(2) }

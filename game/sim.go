@@ -5,8 +5,8 @@ import (
 	"image"
 	"slices"
 
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -66,21 +66,25 @@ type Failure struct{ Clock, Reason string }
 
 // Result is what one Run measured (D107).
 type Result struct {
-	Seed       uint64
-	Strategy   string
-	Cheat      bool
-	MoneyByDay []int // banked in each 24 h from the Run start
-	Sold       int   // Room-nights: Rooms Occupied at each Midnight
-	Available  int   // Rooms at each Midnight
-	Lost       int   // Walk-ins that gave up queueing (Patience)
-	Refused    int   // picks the Terminal refused
-	Bookings   int
-	Auto       int // Bookings made by Auto Rooms (04)
-	Fees       int // what auto Bookings paid gives up: 15% of Rate × nights
-	Paid       int
-	Pairs      int // Bookings of two
-	Outings    int // Tourist days out
-	Failures   []Failure
+	Seed        uint64
+	Strategy    string
+	Cheat       bool
+	MoneyByDay  []int // banked in each 24 h from the Run start
+	Sold        int   // Room-nights: Rooms Occupied at each Midnight
+	Available   int   // Rooms at each Midnight
+	Bookings    int
+	Paid        int
+	Pairs       int // Bookings of two
+	Outings     int // Tourist days out
+	Fled        int // Parties that ran from a haunt
+	Spook       int // at the end of the Run
+	Haunts      int // haunts started or restarted
+	Serves      int // requests answered
+	Expired     int // requests left to expire
+	Priests     int // called and paid
+	PriestSpend int // $ paid for them
+	ClosedHours int // Room-hours spent Closed
+	Failures    []Failure
 }
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
@@ -92,14 +96,16 @@ type sim struct {
 	booked []*Party
 	seen   map[*Party]partyState // each Party's state last frame
 	paid   map[*Party]bool
-	lost   map[*Party]bool
+	fled   map[*Party]bool
 	phased map[*entities.Guest]bool
 	legs   map[*Party]leg
+	called map[*priest]bool
+	closed int // Room-frames Closed
 }
 
 type leg struct {
-	state      partyState
-	slot, from int // from: the tick this leg began
+	state partyState
+	from  int // the tick this leg began
 }
 
 // RunSim plays one Run headless, at full speed, and measures it (D101).
@@ -119,8 +125,8 @@ func newSim(cfg Config) (*sim, error) {
 		return nil, err
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
-		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, lost: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{},
+		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
@@ -137,20 +143,20 @@ func (s *sim) fail(format string, args ...any) {
 // frame runs one Update and counts it; false once an invariant failed (the Run stops there).
 func (s *sim) frame() bool {
 	g := s.g
-	var eligible []int // the Rooms the coming Midnight may roll
 	vacant := 0
 	if g.clock%dayFrames == dayFrames-1 {
 		for i := range g.hotel.Rooms {
-			if g.flips(i) {
-				eligible = append(eligible, i)
-			}
 			if g.vacant(i) {
 				vacant++
 			}
 		}
 	}
-	clock, money, title, tick := g.clock, g.money, g.state == StateTitle, g.tick
-	auto := slices.Clone(g.autoRoom) // the panels as auto-booking saw them: a flip lands after the step
+	clock, money, spook, title, scaring := g.clock, g.money, g.spook, g.state == StateTitle, s.scaring()
+	haunted, roomSpook := slices.Clone(g.haunted), slices.Clone(g.roomSpook)
+	working := map[*priest]bool{}
+	for _, pr := range g.priests {
+		working[pr] = !pr.done
+	}
 	g.Update()
 	if title {
 		return true
@@ -162,48 +168,57 @@ func (s *sim) frame() bool {
 			}
 		}
 		s.res.Available += len(g.hotel.Rooms)
-		if !s.cfg.NoCheck {
-			if !slices.Equal(g.spinRooms, eligible) && (g.spinning() || len(eligible) > 0) {
-				s.fail("Midnight rolled Rooms %v, want the eligible %v", g.spinRooms, eligible)
-			}
-			if day(clock) == 1 && vacant == 0 {
-				s.fail("every Room was booked by the first Midnight (rampDays)")
-			}
+		if n := len(g.hotel.Rooms); !s.cfg.NoCheck && day(clock) == 1 && n-vacant > min(n, max(2, n/rampDays)) {
+			s.fail("%d Rooms were booked by the first Midnight (rampDays)", n-vacant)
+		}
+	}
+	for i, end := range g.haunted {
+		if i >= len(haunted) || end != haunted[i] {
+			s.res.Haunts++
+		}
+	}
+	spent := 0
+	for _, pr := range g.priests {
+		if !s.called[pr] {
+			s.called[pr], spent = true, spent+pr.price()
+			s.res.Priests++
+		}
+	}
+	s.res.PriestSpend += spent
+	for i := range g.hotel.Rooms {
+		if g.closed(i) {
+			s.closed++
+		}
+		finished := slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == i && pr.done && working[pr] })
+		if !s.cfg.NoCheck && i < len(roomSpook) && g.roomSpook[i] < roomSpook[i] && !finished {
+			s.fail("room %d's Spook dropped %d with no Priest finishing there", i, roomSpook[i]-g.roomSpook[i])
 		}
 	}
 	banked := 0
 	for _, p := range g.parties {
-		if p.Room >= 0 && !slices.Contains(s.booked, p) {
+		if !slices.Contains(s.booked, p) {
 			s.booked = append(s.booked, p)
 			s.res.Bookings++
+			if !s.cfg.NoCheck && g.closed(p.Room) {
+				s.fail("a Party booked Closed room %d (Spook %d)", p.Room, g.roomSpook[p.Room])
+			}
 			if len(p.Guests) == 2 {
 				s.res.Pairs++
 			}
-			if p.Auto {
-				s.res.Auto++
-				if !s.cfg.NoCheck && !auto[p.Room] {
-					s.fail("an auto Booking landed in Room %s, which is manual", g.hotel.Rooms[p.Room].Number)
-				}
-			}
-		}
-		if p.Room < 0 && p.state == leaving && !s.lost[p] {
-			s.lost[p] = true
-			s.res.Lost++
 		}
 		if p.Paid && !s.paid[p] {
 			s.paid[p], banked = true, banked+p.Payout()
 			s.res.Paid++
-			want := p.Rate * p.Nights
-			if p.Auto {
-				want = want * 85 / 100
-				s.res.Fees += p.Rate*p.Nights - want
-			}
-			if !s.cfg.NoCheck && p.Payout() != want {
-				s.fail("a Booking (auto %v) paid %d, want %d", p.Auto, p.Payout(), want)
-			}
 			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
+		}
+		if p.Fled && !s.fled[p] {
+			s.fled[p] = true
+			s.res.Fled++
+		}
+		if !s.cfg.NoCheck && p.Fled && p.Paid {
+			s.fail("a fled Party (room %d) paid", p.Room)
 		}
 		if prev, ok := s.seen[p]; ok && p.state == out && prev != out {
 			s.res.Outings++
@@ -213,21 +228,22 @@ func (s *sim) frame() bool {
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
 		s.res.MoneyByDay[d] += g.money - money
 	}
-	s.res.Refused = s.a.pilot.Refused
 	if !s.cfg.NoCheck {
-		s.check(money, banked, auto, g.tick != tick && g.state == StatePlay)
+		s.check(money, banked, spent)
+		if g.spook > spook && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+			s.fail("Spook rose %d with no haunted or shadowed Room holding its Party", g.spook-spook)
+		}
 	}
 	return len(s.res.Failures) == 0
 }
 
-// check asserts D108's per-frame invariants: money moves only on a Checkout, no guest starts phasing
-// while the Concierge stands at the computer, no leg is walked over legBudget; and, if the world ran this
-// frame, no Party is left at the counter that a Vacant Auto Room (as the step saw it) fits (04 D118).
-func (s *sim) check(money, banked int, auto []bool, ran bool) {
+// check asserts D108's per-frame invariants: money moves only on a Checkout or by a Priest's price, no
+// guest starts phasing while the Concierge stands at the computer, no leg is walked over legBudget.
+func (s *sim) check(money, banked, spent int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g := s.g
-	if g.money-money != banked {
-		s.fail("money went up %d, but Checkouts paid %d", g.money-money, banked)
+	if g.money-money != banked-spent {
+		s.fail("money went up %d, but Checkouts paid %d and Priests cost %d", g.money-money, banked, spent)
 	}
 	home := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize) == g.hotel.ConciergeStart.Div(world.TileSize)
 	for _, guest := range g.guests() {
@@ -237,17 +253,10 @@ func (s *sim) check(money, banked int, auto []bool, ran bool) {
 		}
 		s.phased[guest] = guest.Phasing
 	}
-	for _, p := range g.queue {
-		for i := range g.hotel.Rooms {
-			if ran && auto[i] && g.fitsParty(p, i) == "" {
-				s.fail("Room %s is auto and fits a Party left at the counter", g.hotel.Rooms[i].Number)
-			}
-		}
-	}
 	for _, p := range g.parties {
 		l, ok := s.legs[p]
-		if !ok || l.state != p.state || l.slot != p.slot {
-			s.legs[p] = leg{p.state, p.slot, g.tick}
+		if !ok || l.state != p.state {
+			s.legs[p] = leg{p.state, g.tick}
 			continue
 		}
 		walking := p.state != staying && slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return len(guest.Path) > 0 })
@@ -257,11 +266,20 @@ func (s *sim) check(money, banked int, auto []bool, ran bool) {
 	}
 }
 
-// finish: a Booking past its checkout by 2 h that never paid fails the Run.
+// scaring: some Room is haunted, or has a Shadow (D169), with its Party in the hotel.
+func (s *sim) scaring() bool {
+	g := s.g
+	return slices.ContainsFunc(g.parties, func(p *Party) bool {
+		return !p.Paid && p.state != out && (g.haunting(p.Room) || g.shaded(p.Room))
+	})
+}
+
+// finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
+	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = s.g.spook, s.closed/hourFrames, s.g.serves, s.g.expired
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
-			if !p.Paid && s.g.clock > p.Checkout+2*hourFrames {
+			if !p.Paid && !p.Fled && s.g.clock > p.Checkout+2*hourFrames {
 				s.fail("room %d's Booking never paid: checkout was %s", p.Room, clockText(p.Checkout))
 			}
 		}

@@ -5,9 +5,9 @@ import (
 	"image/color"
 	"slices"
 
-	"shift/assets"
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/assets"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/colorm"
@@ -48,8 +48,11 @@ func (g *Game) fogged(room int) bool {
 	return false
 }
 
-// fogAt is the fog over world point pt: its Room's, if any.
+// fogAt is the fog over world point pt: its Room's, if any. The ghost dimension sees through it (D158).
 func (g *Game) fogAt(pt image.Point) float64 {
+	if g.ghost {
+		return 0
+	}
 	for i, f := range g.fog {
 		if f > 0 && pt.In(g.hotel.Rooms[i].Shell()) {
 			return f
@@ -61,6 +64,9 @@ func (g *Game) fogAt(pt image.Point) float64 {
 // propFog is the fog over a static tile: a fogged Room's props, and its north wall face (2 rows) with
 // its windows. The side lines, the south face and the door stay drawn.
 func (g *Game) propFog(p prop) float64 {
+	if g.ghost {
+		return 0
+	}
 	c := image.Pt(p.cx, p.cy)
 	for i, f := range g.fog {
 		o := g.hotel.Rooms[i].Origin
@@ -81,7 +87,7 @@ func (g *Game) propFog(p prop) float64 {
 func (g *Game) drawFogFloor(screen *ebiten.Image, ox, oy int) {
 	const ts = world.TileSize
 	for i, f := range g.fog {
-		if f == 0 {
+		if f == 0 || g.ghost {
 			continue
 		}
 		s := g.hotel.Rooms[i].Shell()
@@ -91,13 +97,9 @@ func (g *Game) drawFogFloor(screen *ebiten.Image, ox, oy int) {
 	}
 }
 
-// drawFogged draws src like dst.DrawImage, tinted toward the Night tone by fog: a fogged Room's props
-// and north wall.
+// drawFogged draws src like dst.DrawImage, tinted toward the Night tone by fog (> 0): a fogged Room's
+// props and north wall.
 func drawFogged(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, fog float64) {
-	if fog == 0 {
-		dst.DrawImage(src, op)
-		return
-	}
 	a, n := fogAlpha*fog, assets.Night
 	var cm colorm.ColorM
 	cm.Scale(1-a, 1-a, 1-a, 1)

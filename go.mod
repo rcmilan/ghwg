@@ -1,4 +1,4 @@
-module shift
+module ghosthotel
 
 go 1.26.0
 

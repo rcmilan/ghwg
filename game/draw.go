@@ -7,11 +7,14 @@ import (
 	"image/color"
 	_ "image/png" // tile decoding
 	"math"
+	"math/rand/v2"
 	"slices"
+	"strconv"
+	"strings"
 
-	"shift/assets"
-	"shift/entities"
-	"shift/world"
+	"ghosthotel/assets"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -81,28 +84,36 @@ func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 func text(s *ebiten.Image, v string, x, y int, _ color.Color) { ebitenutil.DebugPrintAt(s, v, x, y) }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	if g.shifting != nil && g.state != StateTitle {
+		g.drawShift(screen)
+		return
+	}
+	g.drawFrame(screen)
+}
+
+// drawFrame draws the screen in the current dimension.
+func (g *Game) drawFrame(screen *ebiten.Image) {
 	screen.Fill(assets.Night)
+	if g.ghost && g.state != StateTitle {
+		screen.Fill(color.Black)
+	}
 	if g.state == StateTitle {
 		g.drawTitle(screen)
 		return
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	if f := g.spinView(); f > 0 {
-		g.drawSpinView(screen, ox, oy, f)
-	} else {
-		g.drawWorld(screen, ox, oy)
-	}
+	g.drawWorld(screen, ox, oy)
 	// HUD and terminal: screen space
-	if g.state == StatePlay && !g.spinning() && g.atTerminal() {
+	if g.state == StatePlay && g.atTerminal() {
 		text(screen, "[SPACE] OPEN TERMINAL", 28, 498, assets.Money)
 	}
-	if room := g.atPanel(); g.state == StatePlay && !g.spinning() && room >= 0 {
-		to := "AUTO"
-		if g.autoRoom[room] {
-			to = "MANUAL"
+	if g.state == StatePlay && g.atMirror() && g.shifting == nil {
+		to := "GHOST"
+		if g.ghost {
+			to = "REAL"
 		}
-		text(screen, "[SPACE] SET ROOM "+g.hotel.Rooms[room].Number+" "+to, 28, 498, assets.Money)
+		text(screen, "[SPACE] SHIFT TO "+to, 28, 498, assets.Money)
 	}
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
@@ -111,30 +122,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) drawTitle(s *ebiten.Image) {
-	text(s, "S H I F T", 381, 195, assets.Pale)
+	text(s, "G H O S T   H O T E L", 345, 195, assets.Ghost)
 	text(s, "[ SPACE ] open the hotel", 362, 335, assets.Money)
-	text(s, "WASD move / SPACE terminal / ESC title or quit", 275, 485, assets.Floor)
-}
-
-// drawSpinView draws the Spin cinematic (D48): the whole map ×zoom off screen, scaled onto the screen
-// between the camera's view (f=0, origin ox,oy) and the all-Rooms view (f=1). Zoom blends geometrically,
-// the center linearly; linear filtering keeps the scaled pixel art from shimmering.
-func (g *Game) drawSpinView(screen *ebiten.Image, ox, oy int, f float64) {
-	mw, mh := g.mapSize()
-	if g.worldImg == nil || g.worldImg.Bounds().Dx() != mw*zoom || g.worldImg.Bounds().Dy() != mh*zoom {
-		g.worldImg = ebiten.NewImage(mw*zoom, mh*zoom)
-	}
-	g.worldImg.Fill(assets.Night)
-	g.drawWorld(g.worldImg, 0, 0)
-	const sw, sh = viewW * zoom, viewH * zoom
-	cx0, cy0 := (float64(ox)+sw/2)/zoom, (float64(oy)+sh/2)/zoom
-	cx1, cy1, z1 := g.roomsView()
-	z := zoom * math.Pow(z1/zoom, f)
-	cx, cy := cx0+(cx1-cx0)*f, cy0+(cy1-cy0)*f
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-	op.GeoM.Scale(z/zoom, z/zoom)
-	op.GeoM.Translate(sw/2-cx*z, sh/2-cy*z)
-	screen.DrawImage(g.worldImg, op)
+	text(s, "WASD move / SPACE use / ESC title or quit", 290, 485, assets.Floor)
 }
 
 // drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at
@@ -147,136 +137,99 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
-	screen.DrawImage(g.floorImg, op)
+	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
+	g.drawSpookFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
-	reels := g.drawReels(screen, ox, oy)
-	still := func(p prop) bool { // a rolling Room's tiles roll, except the hotel's outer side line over them
-		for _, r := range reels {
-			if image.Pt(p.cx, p.cy).In(r) {
-				return p.l == world.LayerDecor && g.hotel.OuterLine(p.cx)
-			}
-		}
-		return true
-	}
-	g.drawDoors(screen, ox, oy, reels)
+	g.drawDoors(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	type drawable struct {
-		y    float64 // world px; sorts with the props (T039): an actor's feet, a panel's wall row
-		draw func()
+	type actor struct {
+		x, y float64 // foot box center; y sorts (T039)
+		name string
+		anim entities.Anim
+		fog  float64
+		fear float64 // of fearLimit
+		lift float64 // world px off the floor: a fleeing Guest's hop (D164)
 	}
-	character := func(x, y float64, name string, a entities.Anim, fog float64) drawable {
-		return drawable{y, func() { sx, sy := at(x, y); g.drawCharacter(screen, sx, sy, name, a, fog) }}
-	}
-	ds := []drawable{character(g.player.X, g.player.Y, "Bob", g.player.Anim, 0)}
+	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0, 0}}
 	for _, guest := range g.guests() {
-		ds = append(ds, character(guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y)))))
+		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
+			min(1, float64(guest.Fear)/fearLimit), g.lift(guest)})
 	}
-	for i, r := range g.hotel.Rooms {
-		p := r.Panel()
-		ds = append(ds, drawable{float64(g.hotel.Map.SortY(p.X, p.Y)), func() { g.drawPanel(screen, p, g.autoRoom[i], ox, oy) }})
+	for _, pr := range g.priests {
+		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
 	}
-	slices.SortStableFunc(ds, func(a, b drawable) int { return cmp.Compare(a.y, b.y) })
-	// y-sorted pass (D11): merge the props and the drawables; one whose y is on or below a prop's sort y is
-	// drawn over it
-	i := 0
-	propsUpTo := func(feet float64) {
-		for ; i < len(g.props) && float64(g.props[i].y) <= feet; i++ {
-			p := g.props[i]
-			if !still(p) {
-				continue
-			}
-			op.GeoM.Reset()
-			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
-			drawFogged(screen, g.tiles[p.id], op, g.propFog(p))
+	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+		if b, ok := g.bedAt(a.x, a.y); ok {
+			return float64(b.Max.Y)
+		}
+		return a.y
+	}
+	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(z(a), z(b)) })
+	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
+	// sort y is drawn over it
+	drawProp := func(p prop) {
+		op.GeoM.Reset()
+		op.GeoM.Scale(zoom, zoom)
+		op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+		s := g.spookAt(image.Pt(p.cx, p.cy))
+		if f := g.propFog(p); f > 0 {
+			drawFogged(screen, g.tiles[p.id], op, f)
+		} else if maze(g.ts.Tiles[p.id].Name) {
+			g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
+		} else {
+			g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
+		}
+		if p.l == world.LayerWalls {
+			g.drawShadow(screen, p, ox, oy)
 		}
 	}
-	for _, d := range ds {
-		propsUpTo(d.y)
-		d.draw()
+	i := 0
+	propsUpTo := func(y float64) {
+		for ; i < len(g.props) && float64(g.props[i].y) <= y; i++ {
+			drawProp(g.props[i])
+		}
+	}
+	for _, a := range actors {
+		propsUpTo(z(a))
+		x, y := at(a.x, a.y-a.lift)
+		if g.ghost && a.fear > 0 {
+			g.drawFear(screen, x, y, a.fear)
+		}
+		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
+		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
+			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
+			for _, p := range g.props {
+				if p.cx == c.X && p.cy == c.Y {
+					drawProp(p)
+				}
+			}
+		}
 	}
 	propsUpTo(math.Inf(1))
-	g.drawDarkness(screen, ox, oy)
-	for _, f := range g.floaters { // "+$X" rising over the door (D87)
+	if !g.ghost { // the palette replaces the day and night (D160)
+		g.drawDarkness(screen, ox, oy)
+	}
+	g.drawRequests(screen, ox, oy)
+	g.drawTalk(screen, ox, oy)
+	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
-		text(screen, f.text, x-3*len(f.text), y, assets.Money)
-	}
-}
-
-// Door Panel, in world px within its wall cell (04 D117): a dark plate with a light near its top.
-const panelX, panelY, panelW, panelH, panelLight = 5, 3, 6, 9, 2
-
-// drawPanel draws a Room's Door Panel on its wall cell: green while the Room is auto, amber while manual.
-func (g *Game) drawPanel(s *ebiten.Image, cell image.Point, auto bool, ox, oy int) {
-	x, y := (cell.X*world.TileSize+panelX)*zoom-ox, (cell.Y*world.TileSize+panelY)*zoom-oy
-	rect(s, x, y, panelW*zoom, panelH*zoom, assets.Ink)
-	rect(s, x+(panelW-panelLight)/2*zoom, y+2*zoom, panelLight*zoom, panelLight*zoom, panelColor(auto))
-}
-
-func panelColor(auto bool) color.RGBA {
-	if auto {
-		return assets.Green
-	}
-	return assets.Amber
-}
-
-// drawReels draws each rolling Room's whole footprint, clipped to it (D48): the old cells slide out the
-// bottom while the new type comes in from the top. Actors, props outside the reel and the hotel's outer
-// side line still draw over it. Returns each Room's rolling cells, empty when still.
-func (g *Game) drawReels(screen *ebiten.Image, ox, oy int) []image.Rectangle {
-	const ts, rh = world.TileSize, world.RoomH * world.TileSize * zoom
-	m := g.hotel.Map
-	rects := make([]image.Rectangle, len(g.hotel.Rooms))
-	if g.reels == nil {
-		g.reels = make([][2]*ebiten.Image, len(g.hotel.Rooms))
-	}
-	for i, r := range g.hotel.Rooms {
-		f, rolling := g.reel(i)
-		if !rolling {
-			continue
-		}
-		o, t := r.Origin, r.Type
-		if g.reels[i][0] == nil { // the map still holds the old cells until this Room lands
-			line := func(l, x int) bool { return l == world.LayerDecor && g.hotel.OuterLine(o.X+x) } // drawn still, on top
-			g.reels[i] = [2]*ebiten.Image{
-				g.paint(world.RoomW, world.RoomH, 0, world.NumLayers, func(l, x, y int) world.TileID {
-					if line(l, x) {
-						return 0
-					}
-					return m.At(l, o.X+x, o.Y+y)
-				}),
-				g.paint(world.RoomW, world.RoomH, 0, world.NumLayers, func(l, x, y int) world.TileID {
-					if line(l, x) {
-						return 0
-					}
-					return t.Tiles[l][y*world.RoomW+x]
-				}),
-			}
-		}
-		rects[i] = image.Rect(o.X, o.Y, o.X+world.RoomW, o.Y+world.RoomH)
-		px := image.Rectangle{rects[i].Min.Mul(ts * zoom), rects[i].Max.Mul(ts * zoom)}.Sub(image.Pt(ox, oy))
-		clip := screen.SubImage(px).(*ebiten.Image)
-		clip.Fill(assets.Night)
-		dy := math.Round(f * rh)
-		for k, img := range g.reels[i] {
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate(float64(o.X*ts*zoom-ox), float64(o.Y*ts*zoom-oy)+dy-float64(k*rh))
-			clip.DrawImage(img, op)
+		switch {
+		case f.kind == floatMoney:
+			text(screen, f.text, x-3*len(f.text), y, assets.Money)
+		case f.kind == floatSpook && g.ghost:
+			g.cyan(screen, f.text, x-3*len(f.text), y)
+		case f.kind == floatHeart && !g.ghost:
+			g.drawHeart(screen, x, y)
 		}
 	}
-	return rects
 }
 
 // drawDoors draws each door's leaves slid by its Open amount, clipped to their own cells: a Room door
-// slides right; the Entrance's leaves slide apart. A rolling Room's door rolls with its reel instead.
-func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int, reels []image.Rectangle) {
+// slides right; the Entrance's leaves slide apart.
+func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 	const ts = world.TileSize
 	m := g.hotel.Map
 	for _, d := range g.hotel.Doors {
-		if d.Room >= 0 && !reels[d.Room].Empty() {
-			continue
-		}
 		off := int(math.Round(d.Open() * ts))
 		for y := d.Rect.Min.Y / ts; y < d.Rect.Max.Y/ts; y++ {
 			for x := d.Rect.Min.X / ts; x < d.Rect.Max.X/ts; x++ {
@@ -291,7 +244,7 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int, reels []image.Rectang
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(zoom, zoom)
 				op.GeoM.Translate(float64((x*ts+dx)*zoom-ox), float64(y*ts*zoom-oy))
-				screen.DrawImage(g.tiles[id].SubImage(src).(*ebiten.Image), op)
+				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil, g.roomShift(d.Room))
 			}
 		}
 	}
@@ -300,34 +253,64 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int, reels []image.Rectang
 // Character frames are 16x32; strips hold 4 facings x 6 frames (D26).
 const charW, charH = 16, 32
 
-// loadCharacters decodes the idle_anim and run sheets of every character, by name.
-func loadCharacters(names ...string) (map[string][2]*ebiten.Image, error) {
-	m := map[string][2]*ebiten.Image{}
+// loadCharacters decodes the idle_anim and run sheets of every character, by name, as pixels to recolor
+// (D166).
+func loadCharacters(names ...string) (map[string][2]*image.RGBA, error) {
+	m := map[string][2]*image.RGBA{}
 	for _, name := range names {
-		var sheets [2]*ebiten.Image // idle, run
+		var sheets [2]*image.RGBA // idle, run
 		for i, kind := range [...]string{"idle_anim", "run"} {
-			img, _, err := ebitenutil.NewImageFromFileSystem(assets.FS, "characters/"+name+"_"+kind+"_16x16.png")
+			f, err := assets.FS.Open("characters/" + name + "_" + kind + "_16x16.png")
 			if err != nil {
 				return nil, fmt.Errorf("character %s: %w", name, err)
 			}
-			sheets[i] = img
+			img, _, err := image.Decode(f)
+			f.Close()
+			if err != nil {
+				return nil, fmt.Errorf("character %s: %w", name, err)
+			}
+			sheets[i] = image.NewRGBA(img.Bounds())
+			for y := range img.Bounds().Dy() {
+				for x := range img.Bounds().Dx() {
+					sheets[i].Set(x, y, img.At(x, y))
+				}
+			}
 		}
 		m[name] = sheets
 	}
 	return m, nil
 }
 
+// dress: a character's sheets recolored to l, as images.
+func dress(sheets [2]*image.RGBA, pal map[uint32][2]region, l look) [2]*ebiten.Image {
+	return [2]*ebiten.Image{ebiten.NewImageFromImage(recolor(sheets[0], pal, l)), ebiten.NewImageFromImage(recolor(sheets[1], pal, l))}
+}
+
+// sheet: name's idle and run sheets. A Guest's name is its base character, "#" and its look's seed
+// (D166); its sheets are recolored on first use.
+// ponytail: a Guest's sheets are never freed; a Run makes a few dozen 384x32 pairs.
+func (g *Game) sheet(name string) [2]*ebiten.Image {
+	s, ok := g.characters[name]
+	if !ok {
+		base, key, _ := strings.Cut(name, "#")
+		seed, _ := strconv.ParseUint(key, 10, 64)
+		s = dress(g.bases[base], palettes[base], randomLook(rand.New(rand.NewPCG(seed, 0))))
+		g.characters[name] = s
+	}
+	return s
+}
+
 // drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
 // (x,y) is the foot box center in screen px; inside a fogged Room it fades out with the fog (D92).
 func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64) {
-	sheet := g.characters[name][0]
+	sheet := g.sheet(name)[0]
 	if a.Moving {
-		sheet = g.characters[name][1]
+		sheet = g.sheet(name)[1]
 	}
 	f := a.Frame()
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1 - fog))
-	s.DrawImage(sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op)
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[strings.Split(name, "#")[0]], 0)
 }

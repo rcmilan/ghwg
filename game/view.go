@@ -4,19 +4,21 @@ import (
 	"image"
 	"slices"
 
-	"shift/world"
+	"ghosthotel/entities"
+	"ghosthotel/world"
 )
 
 // View is what a player sees, nothing more (D105): a Strategy decides from it and the Pilot steers by it.
 type View struct {
 	Title     bool // the title screen is up
-	Spinning  bool // the Spin cinematic is on
+	Ghost     bool // the hotel is in the ghost dimension
+	Shifting  bool // the Mirror's transition is playing (D170): SPACE waits
 	Clock     string
 	Day       int
 	Money     int
+	Spook     int
 	Rooms     []RoomView    // in the Terminal's order
-	Counter   []Front       // the Parties standing at the counter, in arrival order (04 D119)
-	Guests    []image.Point // every guest's cell not hidden by the Fog
+	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
 	Terminal  TerminalView
 	Hotel     *world.Hotel // the map as drawn: walls, doors, anchors. Read it, never write it.
@@ -26,45 +28,48 @@ type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
-	Auto               bool // an Auto Room: its Door Panel is green, as the Terminal shows (04 D114)
-}
-
-// Front is a Party at the counter: its size is on screen; the rest is on the Terminal's list, so it is
-// filled only while the Terminal is open.
-type Front struct {
-	Size    int
-	Nights  int
-	Routine string
-	Wish    string // a pair's bed wish; "" solo or while the Terminal is shut
+	Closed             bool // at the Spook limit: no new Party (D147)
+	Priest             bool // one is on his way or at work
+	Shadow             bool // a Shadow Person lives in it (D169), shown on the Terminal
+	Spook              int  // its Room Spook, read off its colors (D162)
+	Away               bool // Occupied, but its Party isn't inside: the player saw it walk out
+	Asking             bool // its Guests want service: the "!!" balloon, seen from anywhere (D163)
+	// Seen only in the ghost dimension: its props shake, and its Guests glow with Fear.
+	Haunted bool
+	Fear    int // its most frightened Guest in sight
 }
 
 type TerminalView struct {
 	Open    bool
-	Cursor  int  // the selected Room
-	OK      bool // the OK button is selected instead
-	List    bool // the list of Parties at the counter is focused instead
-	Pick    int  // the picked Room, -1 if none
-	Party   int  // the Party picked for it, by its place in Counter; -1 if none
 	Message string
+	Cursor  int // the selected Room
+	Menu    int // the Room whose menu is open, or -1
+	Pick    int // the menu's pick: pickWeak, pickStrong or pickShadow
 }
 
 func (g *Game) view() View {
 	v := View{
-		Title: g.state == StateTitle, Spinning: g.spinning(),
-		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money,
+		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
+		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money, Spook: g.spook,
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.terminalCursor, g.terminalOK, g.terminalList, g.terminalPick,
-			slices.Index(g.counter(), g.terminalParty), g.message},
+		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termPick},
 	}
 	for i, r := range g.hotel.Rooms {
-		v.Rooms = append(v.Rooms, RoomView{r.Number, r.Type.Name, r.Type.Beds, g.vacant(i), len(r.Stays), r.Type.Rate, g.autoRoom[i]})
-	}
-	for _, p := range g.counter() {
-		f := Front{Size: len(p.Guests)}
-		if v.Terminal.Open {
-			f.Nights, f.Routine, f.Wish = p.Nights, p.Routine.String(), p.Wish
+		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
+			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Spook: g.roomSpook[i]}
+		rv.Asking = slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Occupies(i) && p.asking() })
+		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
+			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
+		})
+		if g.ghost {
+			rv.Haunted = g.haunting(i)
+			for _, guest := range g.guests() {
+				if guest.RoomIndex == i {
+					rv.Fear = max(rv.Fear, guest.Fear)
+				}
+			}
 		}
-		v.Counter = append(v.Counter, f)
+		v.Rooms = append(v.Rooms, rv)
 	}
 	for _, guest := range g.guests() {
 		if at := image.Pt(int(guest.X), int(guest.Y)); g.fogAt(at) < 1 {

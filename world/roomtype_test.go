@@ -2,12 +2,13 @@ package world
 
 import (
 	"encoding/json"
+	"image"
 	"io/fs"
 	"strings"
 	"testing"
 	"testing/fstest"
 
-	"shift/assets"
+	"ghosthotel/assets"
 )
 
 func loadTileset(t *testing.T) *Tileset {
@@ -39,12 +40,60 @@ func TestRoomTypeTable(t *testing.T) {
 		if len(rt.Stays) != bedCapacity[rt.Beds] {
 			t.Errorf("%v: %d Stay Spots, want %d", k, len(rt.Stays), bedCapacity[rt.Beds])
 		}
+		for i, p := range rt.Stays { // T140, D167: a bed straight above each Stay Spot, 3 cells tall
+			c := p.Div(TileSize)
+			want := image.Rectangle{image.Pt(c.X, c.Y-3).Mul(TileSize), image.Pt(c.X+1, c.Y).Mul(TileSize)}
+			if i >= len(rt.Lanes) || rt.Lanes[i] != want {
+				t.Errorf("%v: Stay Spot %v has bed lanes %v, want %v", k, p, rt.Lanes, want)
+			}
+		}
 		seen[k] = true
 	}
 	if len(seen) != len(want) {
 		t.Errorf("tier × beds combinations %v, want all %d", seen, len(want))
 	}
 }
+
+// T150, D168: a Spot in front of each activity prop, on its own free floor cell, facing the prop: up at
+// the windows and the furniture against the walls, down on the cushion.
+func TestActivitySpots(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[[2]string]string{
+		{"Standard", "Single"}: "look out,look out,open", {"Standard", "Twin"}: "look out,look out,open",
+		{"Standard", "Double"}: "look out,look out,look in,open",
+		{"Deluxe", "Single"}:   "look out,look out,watch TV,browse", {"Deluxe", "Double"}: "look out,look out,watch TV,browse",
+		{"Deluxe", "Twin"}: "look out,look out,open,sit",
+	}
+	for _, rt := range types {
+		k := [2]string{rt.Name, rt.Beds}
+		var verbs []string
+		cells := map[image.Point]bool{}
+		for _, p := range rt.Stays {
+			cells[p.Div(TileSize)] = true
+		}
+		for _, s := range rt.Spots {
+			verbs = append(verbs, s.Verb)
+			c := s.At.Div(TileSize)
+			ts := loadTileset(t)
+			if p := ts.Tiles[rt.Tiles[LayerProps][c.Y*RoomW+c.X]]; cells[c] || !rt.walkable(ts, s.At) || p.Name != "" && !p.Flat ||
+				s.At != c.Mul(TileSize).Add(image.Pt(TileSize/2, TileSize/2)) {
+				t.Errorf("%v: %s spot %v is taken, blocked, hidden under a prop or off its cell's middle", k, s.Verb, s.At)
+			}
+			cells[c] = true
+			if up := s.Prop.Y < s.At.Y && abs(s.Prop.X-s.At.X) <= s.At.Y-s.Prop.Y; up == (s.Verb == "sit") || s.Verb == "sit" && s.Prop != s.At {
+				t.Errorf("%v: %s spot %v faces the prop at %v the wrong way", k, s.Verb, s.At, s.Prop)
+			}
+		}
+		if got := strings.Join(verbs, ","); got != want[k] {
+			t.Errorf("%v: spots %q, want %q", k, got, want[k])
+		}
+	}
+}
+
+func abs(x int) int { return max(x, -x) }
 
 // mutate decodes standard_single.tmj into generic JSON, applies f, and parses the result.
 func mutate(t *testing.T, f func(m map[string]any)) error {
@@ -111,7 +160,7 @@ func TestRoomTypeValidation(t *testing.T) {
 	}
 }
 
-// D45: Spins never move doors, so every Room Type keeps the same door column.
+// D45: doors never move, so every Room Type keeps the same door column.
 func TestRoomTypesShareDoorColumn(t *testing.T) {
 	moved := mutated(t, func(m map[string]any) {
 		decor := layer(m, "decor")["data"].([]any)
