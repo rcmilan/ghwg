@@ -88,6 +88,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawShift(screen)
 		return
 	}
+	if !g.warm && g.state != StateTitle && g.fx[0] != nil {
+		g.warmUp(screen)
+	}
 	g.drawFrame(screen)
 }
 

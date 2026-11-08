@@ -1,10 +1,38 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+// T166 (D190): the triangle shards are gone; eight effects remain.
+func TestTransitionsNoShatter(t *testing.T) {
+	if len(transitions) != 8 {
+		t.Fatalf("%d transitions, want 8: %v", len(transitions), transitions)
+	}
+	for _, name := range transitions {
+		if name == "shatter" {
+			t.Fatal("shatter is still a transition")
+		}
+	}
+	if strings.Contains(transitionSrc, "shatter") {
+		t.Fatal("the shader still has a shatter branch")
+	}
+}
+
+// T167 (D190): the shader is compiled with the Game, so the first flip doesn't hitch.
+func TestTransitionPreloaded(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	if g.transition == nil || g.palette == nil {
+		t.Fatal("transition or ghost palette shader not compiled at construction")
+	}
+	g.Layout(0, 0)
+	if g.fx[0] == nil || g.fx[1] == nil || g.fx[0].Bounds().Dx() != viewW*zoom || g.fx[0].Bounds().Dy() != viewH*zoom {
+		t.Fatalf("Layout didn't allocate the fx buffers at screen size: %v", g.fx)
+	}
+}
 
 // T130 (D170): SPACE at the Mirror plays a transition; the dimension switches halfway, SPACE waits for
 // its end, and the world keeps running through it.
