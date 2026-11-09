@@ -3,8 +3,8 @@ package game
 func init() { Strategies["shopper"] = shopper{} }
 
 // shopper buys every Hotel unlock and Service on sale as soon as it can afford it (T186): an unlock once,
-// a Priest for each Room without one, a Shadow for each Room without one. Supplies wait for E5 to use
-// them. In between it plays smart.
+// a Priest for each Room without one, a Shadow for each Room without one. In between it plays smart,
+// which restocks the Supplies.
 type shopper struct{}
 
 func (shopper) Act(v View, p *Pilot) {

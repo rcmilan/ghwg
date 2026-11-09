@@ -25,6 +25,7 @@ type View struct {
 	Shop      []int          // the store items that can go in the cart now, by index into shop (D180)
 	Stock     map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
 	Courier   bool           // a courier is on his way with an order
+	Hands     Unlock         // the supply over the Concierge's head, "" for none (E5)
 	Hotel     *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
@@ -37,7 +38,8 @@ type RoomView struct {
 	Shadow             bool          // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
 	Spook              int           // its Room Spook, read off its colors (D162)
 	Away               bool          // Occupied, but its Party isn't inside: the player saw it walk out
-	Asking             bool          // its Guests want service: the "!!" balloon, seen from anywhere (D163)
+	Asking             bool          // its Guests want service: the balloon, seen from anywhere (D163)
+	Wants              Unlock        // the supply in that balloon (E5)
 	Dirt               []image.Point // its normal dirt spots, the ones to clean, world px (dirt.go)
 	// Seen only in the ghost dimension: its Guests glow with Fear.
 	Fear int // its most frightened Guest in sight
@@ -63,6 +65,7 @@ func (g *Game) view() View {
 		Shop:     g.forSale(),
 		Stock:    maps.Clone(g.stock),
 		Courier:  len(g.couriers) > 0,
+		Hands:    g.hands,
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
@@ -73,7 +76,11 @@ func (g *Game) view() View {
 			}
 			rv.Dirt = append(rv.Dirt, s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
 		}
-		rv.Asking = slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Occupies(i) && p.asking() })
+		for _, p := range g.parties {
+			if p.Occupies(i) && p.asking() {
+				rv.Asking, rv.Wants = true, p.want
+			}
+		}
 		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
 		})
