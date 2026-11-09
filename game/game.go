@@ -92,7 +92,6 @@ type Game struct {
 	boughtAt   map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
 	icons      map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
 	couriers   []*courier                    // on their way with an order (courier.go)
-	pallet     *ebiten.Image                 // a stock spot's pallet, made on first use (courier.go)
 	hexed      []hexMark                     // per Room: its last hex (haunt.go)
 	walls      []wallRun                     // the wall graph Shadows travel (D185, wall.go)
 	wallCell   []int                         // each map cell's run, -1 if none (wall.go)
@@ -105,6 +104,9 @@ type Game struct {
 	dirtBox    *ebiten.Image                 // the dirt complaint balloon (dirt.go)
 	guestNote  slot                          // the next-guest notice in the left column (hud.go)
 	guestText  string                        // its text, kept while it slides out
+	hands      Unlock                        // the supply the Concierge carries, "" for none (supply.go)
+	delivered  Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
+	askBox     *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -178,7 +180,7 @@ func (g *Game) startRun() {
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	g.hud, g.guestNote, g.guestText = [2]counter{}, slot{}, ""
-	g.couriers = nil
+	g.couriers, g.hands, g.delivered = nil, "", 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 }
@@ -221,8 +223,10 @@ func (g *Game) Update() error {
 			g.openTerminal()
 		case g.atMirror():
 			g.startShift()
+		case !g.ghost && g.atSupply() >= 0:
+			g.fetch(g.atSupply())
 		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
-			g.serve(g.atDoor())
+			g.deliver(g.atDoor(), g.hands)
 		case g.ghost && g.hexable() >= 0:
 			g.hex(g.hexable(), g.feet())
 		default:

@@ -7,8 +7,6 @@ import (
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Courier and stock (D200): checkout sends a courier with the order. He drops Supplies and unlocks at the
@@ -17,7 +15,6 @@ const (
 	courierSpeed = conciergeSpeed
 	courierName  = "Courier"     // Alex in a brown uniform (T240)
 	courierBox   = "Courier box" // the same, carrying a box
-	stockShown   = 10            // icons a stock spot stacks at most: a pyramid of 4, 3, 2, 1
 )
 
 var courierLook = look{hair: 0x3a2a24, top: 0x7a5232, bottom: 0x5a3e2a, accent: 0xe0b040}
@@ -156,36 +153,3 @@ func withBox(sheet *image.RGBA) *image.RGBA {
 }
 
 func opaque(c uint32) color.RGBA { return color.RGBA{uint8(c >> 16), uint8(c >> 8), uint8(c), 255} }
-
-// drawStock draws the stock area (T239): a pallet per Supply, its stock stacked on it as icons.
-func (g *Game) drawStock(screen *ebiten.Image, ox, oy int) {
-	if g.pallet == nil {
-		g.pallet = ebiten.NewImage(2*world.TileSize-2, 4)
-		g.pallet.Fill(opaque(0x3a3a50))
-		g.pallet.SubImage(image.Rect(1, 0, 2*world.TileSize-3, 2)).(*ebiten.Image).Fill(opaque(0x9c786b))
-		g.pallet.SubImage(image.Rect(1, 2, 2*world.TileSize-3, 3)).(*ebiten.Image).Fill(opaque(0x6b5052))
-	}
-	at := func(img *ebiten.Image, x, y int) {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(x*zoom-ox), float64(y*zoom-oy))
-		g.blit(screen, img, op, modeProp, 0, nil, 0)
-	}
-	for k, i := range tabItems(tabSupplies) {
-		x, bottom := g.hotel.Stock.Min.X+k*2*world.TileSize, g.hotel.Stock.Max.Y
-		at(g.pallet, x+1, bottom-5)
-		img, _ := g.icon(shop[i])
-		if img == nil {
-			continue
-		}
-		w, h := img.Bounds().Dx(), img.Bounds().Dy()
-		stepX, stepY := (2*world.TileSize-2-w)/3, h/2+1
-		n := min(g.stock[shop[i].ID], stockShown)
-		for row, left := 0, 4; n > 0; row, left = row+1, left-1 { // the bottom row first, 4 wide, then 3, 2, 1
-			for col := range min(n, left) {
-				at(img, x+1+row*stepX/2+col*stepX, bottom-4-h-row*stepY)
-			}
-			n -= left
-		}
-	}
-}

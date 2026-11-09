@@ -156,6 +156,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, spook, title, scaring := g.clock, g.wallet[Money], g.wallet[Spook], g.state == StateTitle, s.scaring()
+	delivered := g.delivered
 	hexes, roomSpook, cleans := g.hexes(), slices.Clone(g.roomSpook), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -208,7 +209,7 @@ func (s *sim) frame() bool {
 			s.fail("room %d's Spook dropped %d with no Priest finishing nor a clean there", i, roomSpook[i]-g.roomSpook[i])
 		}
 	}
-	banked := Num(0)
+	banked := g.delivered - delivered // paid at the door (E5)
 	for _, p := range g.parties {
 		banked, s.rent[p] = banked+p.rent-s.rent[p], p.rent
 		if !slices.Contains(s.booked, p) {
@@ -256,7 +257,7 @@ func (s *sim) frame() bool {
 	return len(s.res.Failures) == 0
 }
 
-// check asserts D108's per-frame invariants: money moves only by a Guest's rent or tip or a Priest's price, no
+// check asserts D108's per-frame invariants: money moves only by a Guest's rent or tip, a delivery, or a Priest's price, no
 // guest starts phasing while the Concierge stands at the computer, no leg is walked over legBudget.
 func (s *sim) check(money Num, banked Num, spent int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s

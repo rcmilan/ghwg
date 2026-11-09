@@ -143,6 +143,7 @@ type Party struct {
 	acts       []act         // what each Guest is doing in the Room by day (D168)
 	spookShown int           // Spook gained since its Room's last "+N" floater
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
+	want       Unlock        // the supply it asked for (supply.go)
 	askEnded   int           // the clock its last request was served, expired or lapsed
 	fledAt     int           // the tick it fled (D164)
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)

@@ -73,28 +73,40 @@ func (hauntPriest) Act(v View, p *Pilot) {
 	hexer{}.Act(v, p)
 }
 
-// server stays real and serves every Room that asks; it waits at the Terminal in between.
+// server stays real, keeps the supplies stocked and serves every Room that asks (T198); it waits at the
+// Terminal in between.
 type server struct{}
 
 func (server) Act(v View, p *Pilot) {
+	if restock(v, p) {
+		return
+	}
 	if i := toServe(v); i >= 0 && !v.Terminal.Open {
-		p.Serve(i)
+		serveRoom(v, p, i)
 		return
 	}
 	stand{atTerminal}.Act(v, p)
 }
 
-// toServe: the first Room a serve would land on, or -1.
+// toServe: the first asking Room whose item is in the hands or in stock, or -1.
 func toServe(v View) int {
 	for i, r := range v.Rooms {
-		if r.Asking {
+		if r.Asking && (v.Hands == r.Wants || v.Stock[r.Wants] > 0) {
 			return i
 		}
 	}
 	return -1
 }
 
-// smart serves whenever a Room asks, cleans empty Rooms in ghost, hexes between serves short of fearLimit (so none flees) and of rotLimit
+// serveRoom fetches the Room's item, unless it's already in the hands, and delivers it.
+func serveRoom(v View, p *Pilot, room int) {
+	if v.Hands != v.Rooms[room].Wants {
+		p.Fetch(v.Rooms[room].Wants)
+	}
+	p.Serve(room)
+}
+
+// smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost, hexes between serves short of fearLimit (so none flees) and of rotLimit
 // (so none pays less), calls a Weak Priest to a Closed Room (Spook for the least money), and buys a Shadow
 // for each Room once it has the Spook (D169), leaving a Room with one to its Shadow. Fear shows only in
 // ghost, so it shifts to look before it hexes.
@@ -103,6 +115,9 @@ type smart struct{}
 func (smart) Act(v View, p *Pilot) {
 	if v.Terminal.Open {
 		p.Close()
+		return
+	}
+	if restock(v, p) {
 		return
 	}
 	for i, r := range v.Rooms {
@@ -116,7 +131,7 @@ func (smart) Act(v View, p *Pilot) {
 		}
 	}
 	if i := toServe(v); i >= 0 {
-		p.Serve(i)
+		serveRoom(v, p, i)
 		return
 	}
 	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Spook (dirt.go)

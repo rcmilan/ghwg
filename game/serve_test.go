@@ -19,7 +19,7 @@ func TestServe(t *testing.T) {
 	if p.Guests[0].Comfort != 0 || !p.asking() {
 		t.Fatal("SPACE at the door in ghost served the Room")
 	}
-	g.ghost = false
+	g.ghost, p.want, g.hands = false, SupplyWater, SupplyWater
 	press(g, s, spot)
 	if c := p.Guests[0].Comfort; c != comfortStep || p.Guests[0].Fear != 7 || p.asking() {
 		t.Fatalf("served at once: Comfort %d Fear %d asking %v, want %d, 7, false", c, p.Guests[0].Fear, p.asking(), comfortStep)

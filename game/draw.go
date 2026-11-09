@@ -161,7 +161,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawSpookFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
-	g.drawStock(screen, ox, oy)
+	g.drawSupplies(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -240,6 +240,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	propsUpTo(math.Inf(1))
+	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
+		g.drawHands(screen, hx, hy)
+	}
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}

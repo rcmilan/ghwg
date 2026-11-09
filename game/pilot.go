@@ -221,8 +221,28 @@ func (p *Pilot) Hex(room int) {
 	})
 }
 
-// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered. It
-// fails when the request is gone before then.
+// Fetch flips to real, walks in front of the item's supply prop and presses SPACE until the item is in the
+// hands (E5). It fails when the prop is empty, or after 3 taps.
+func (p *Pilot) Fetch(item Unlock) {
+	p.Flip(false)
+	r := supplySpot(p.hotel, supplyOf(item))
+	p.GoTo(image.Pt(r.Min.X+world.TileSize/2, r.Max.Y-world.TileSize/2))
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case v.Hands == item:
+			return true, true
+		case taps >= 3 || v.Stock[item] == 0:
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered, with
+// whatever the hands hold (Fetch first). It fails when the request is gone before then.
 func (p *Pilot) Serve(room int) {
 	p.Flip(false)
 	spot := p.hotel.Rooms[room].Spot()
