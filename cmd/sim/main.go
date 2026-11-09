@@ -67,11 +67,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d, score = $ + Spook × %g\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *spookRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\tspook\thaunts\tserves\texpired\tpriests\tspent\tclosed h\tfailures\t")
+	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\twalked\tcleans\tspook\thaunts\tserves\texpired\tpriests\tspent\tclosed h\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, bookings, fled, spook, haunts, serves, expired, priests, spent, closed, failed int
+		var sold, avail, bookings, fled, walked, cleans, spook, haunts, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -81,6 +81,7 @@ func main() {
 			perDay = append(perDay, float64(total)/float64(*days))
 			sold, avail, bookings = sold+r.Sold, avail+r.Available, bookings+r.Bookings
 			fled, spook, haunts, serves, expired = fled+r.Fled, spook+r.Spook, haunts+r.Haunts, serves+r.Serves, expired+r.Expired
+			walked, cleans = walked+r.Walked, cleans+r.Cleans
 			priests, spent, closed = priests+r.Priests, spent+r.PriestSpend, closed+r.ClosedHours
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
@@ -94,9 +95,9 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name,
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name,
 			mean(perDay)+float64(spook)/n**spookRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(spook)/n, float64(haunts)/n,
+			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(spook)/n, float64(haunts)/n,
 			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, failed)
 	}
 	w.Flush()

@@ -60,8 +60,8 @@ var shop = []Item{
 	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "mirror_standing", Cost: Cost{Money: 10}},
 	{ID: Hex, Tab: tabHotel, Name: "Hex", Blurb: "Curse a Room from any wall. No refunds.", Icon: "painting_scary_a", Cost: Cost{Money: 25},
 		Needs: []Unlock{Mirror}, Earned: Cost{Spook: 10}},
-	{ID: Housekeep, Tab: tabHotel, Name: "Housekeeping", Blurb: "Cleans empty Rooms. Asks no questions.", Icon: "icon_towel", Cost: Cost{Money: 50, Spook: 20},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 100, Spook: 30}},
+	// Housekeeping (Money 50 + Spook 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
+	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
 	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Spook: 40},
 		Needs: []Unlock{Hex}, Earned: Cost{Spook: 100}},
 	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 100, Spook: 50},

@@ -10,8 +10,9 @@ import (
 )
 
 // The HUD (D179): a counter per currency appears when its wallet value changes, rolls to it, slides in
-// from the screen's edge at mid-height (Money from the left, Spook from the right), holds, then slides
-// back out. Placeholders.
+// from the screen's edge (Money from the left, Spook from the right), holds, then slides back out. Each
+// side is a column of notices, centered vertically on what it shows (2026-11-08): a notice coming in or
+// going makes the others ease to their new places. Placeholders.
 const (
 	rollShare   = 0.1     // of the gap a counter closes per frame, at least 1
 	holdFrames  = 3 * tps // a counter stays after the last change,
@@ -19,14 +20,51 @@ const (
 	inkPeriod   = 4 * tps // a currency's color cycle (resInk)
 	hudScale    = 3       // as big as the request balloon's "!!" (balloonScale)
 	hudMargin   = 12      // screen px between a counter and its edge
+	noteScale   = 2       // a text notice's size
+	slotGap     = 12      // screen px between notices in a column
+	slotEase    = 0.15    // of the way to its new place a notice moves per frame
 )
+
+// slot: a notice's place in its side column: how far in it is slid, and its top, screen px.
+type slot struct{ in, y float64 }
+
+// slide moves it a frame toward in (want) or out.
+func (s *slot) slide(want bool) {
+	step := 1.0 / slideFrames
+	if !want {
+		step = -step
+	}
+	s.in = min(1, max(0, s.in+step))
+}
+
+// column places a side's notices, top to bottom: the wanted ones stacked around mid-screen, each
+// easing to its place; one just coming in starts there. h: each one's height, screen px.
+func column(slots []*slot, h []int, want []bool) {
+	total := -slotGap
+	for i := range slots {
+		if want[i] {
+			total += h[i] + slotGap
+		}
+	}
+	y := float64(viewH*zoom/2 - total/2)
+	for i, s := range slots {
+		if !want[i] {
+			continue
+		}
+		if s.in == 0 {
+			s.y = y
+		}
+		s.y += (y - s.y) * slotEase
+		y += float64(h[i] + slotGap)
+	}
+}
 
 // counter is one currency's number on screen. Its observer is a per-frame diff with the wallet.
 type counter struct {
-	shown, last Num     // the number drawn; the wallet as of last frame
-	age         int     // frames since the last change
-	seen        bool    // changed at least once this Run: hidden until then
-	in          float64 // 0 off screen .. 1 fully in
+	shown, last Num  // the number drawn; the wallet as of last frame
+	age         int  // frames since the last change
+	seen        bool // changed at least once this Run: hidden until then
+	slot             // in: 0 off screen .. 1 fully in
 }
 
 // updateHUD runs each frame: a changed wallet value (earn or spend) brings its counter in again.
@@ -47,12 +85,17 @@ func (g *Game) updateHUD() {
 		if g.state == StateTerminal { // the Terminal shows both, live, and they hold from its close
 			c.age = 0
 		}
-		step := 1.0 / slideFrames
-		if g.state != StateTerminal && (!c.seen || c.age >= holdFrames) {
-			step = -step
-		}
-		c.in = min(1, max(0, c.in+step))
 	}
+	want := func(r Res) bool { return g.state == StateTerminal || g.hud[r].seen && g.hud[r].age < holdFrames }
+	if t := g.nextGuest(); t != "" {
+		g.guestText = t
+	}
+	note := g.nextGuest() != ""
+	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * noteScale}, []bool{want(Money), note})
+	column([]*slot{&g.hud[Spook].slot}, []int{glyphH * hudScale}, []bool{want(Spook)})
+	g.hud[Money].slide(want(Money))
+	g.hud[Spook].slide(want(Spook))
+	g.guestNote.slide(note)
 }
 
 // drawHUD draws each counter that is in: "$N" on the left, a skull and N on the right.
@@ -60,9 +103,14 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 	if g.skull == nil {
 		g.skull = bitmap(skullRows)
 	}
-	sw, sh := s.Bounds().Dx(), s.Bounds().Dy()
-	y := sh/2 - glyphH*hudScale/2
+	sw := s.Bounds().Dx()
+	if n := g.guestNote; n.in > 0 {
+		ease := n.in * n.in * (3 - 2*n.in)
+		w := len(g.guestText) * glyphW * noteScale
+		printAt(s, g.guestText, int(-float64(w)+float64(w+hudMargin)*ease), int(n.y), noteScale, resInk(Money), 1)
+	}
 	for r, c := range g.hud {
+		y := int(c.y)
 		if c.in == 0 {
 			continue
 		}

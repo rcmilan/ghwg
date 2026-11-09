@@ -116,7 +116,7 @@ func goTo(to image.Point) action {
 func (p *Pilot) route(v View, at, to image.Point) []image.Point {
 	own, c := -1, to.Div(world.TileSize)
 	for i, r := range p.hotel.Rooms {
-		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) {
+		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) || at.In(r.Shell()) { // into or out of a Room: its door is open
 			own = i
 		}
 	}
@@ -233,6 +233,27 @@ func (p *Pilot) Serve(room int) {
 		case taps > 0 && !v.Rooms[room].Asking:
 			return true, true
 		case taps >= 3 || !v.Rooms[room].Asking || !v.Concierge.In(spot):
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Clean walks to the dirt spot at (world px) in the Room and presses SPACE until the Room's spots drop.
+// It fails when they don't after 3 taps.
+func (p *Pilot) Clean(room int, at image.Point) {
+	p.GoTo(at)
+	n, taps := -1, 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		if n < 0 {
+			n = len(v.Rooms[room].Dirt)
+		}
+		switch {
+		case len(v.Rooms[room].Dirt) < n:
+			return true, true
+		case taps >= 3:
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++

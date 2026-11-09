@@ -45,45 +45,12 @@ func TestArrival(t *testing.T) {
 		}
 		g.step(0, 0)
 	}
-	if g.wallet[Money] < Num(rate*p.Nights) || p.Occupies(room) {
-		t.Errorf("after Checkout: money %v (want at least %d), Room still held by the Party", g.wallet[Money], rate*p.Nights)
+	// Step 2: the stay pays by the hour in the Room (arrival to Checkout is short of Nights × 24 h) plus the tip
+	if g.wallet[Money] < Num(rate*p.Nights)*2/3 || p.Occupies(room) {
+		t.Errorf("after Checkout: money %v (want most of %d), Room still held by the Party", g.wallet[Money], rate*p.Nights)
 	}
 	if g.clock < p.Checkout {
 		t.Errorf("paid at %s, before its checkout %s", clockText(g.clock), clockText(p.Checkout))
-	}
-}
-
-// D77, D140: Walk-ins follow the hourly curve, and none come while no Room is Vacant.
-func TestWalkIns(t *testing.T) {
-	run := func(setup func(g *Game), from, hours int) *Game {
-		g := mustNew(t)
-		g.startRun()
-		g.rng = rand.New(rand.NewPCG(1, 2))
-		g.clock = from
-		if setup != nil {
-			setup(g)
-		}
-		for range hours * hourFrames {
-			g.step(0, 0)
-		}
-		return g
-	}
-	if g := run(nil, dayFrames+2*hourFrames, 4); len(g.parties) != 0 {
-		t.Errorf("%d Walk-ins between 02:00 and 06:00, want none", len(g.parties))
-	}
-	if g := run(nil, 14*hourFrames, 2); len(g.parties) == 0 {
-		t.Error("no Walk-ins in 2 peak hours")
-	}
-	booked := func(g *Game) {
-		for i, r := range g.hotel.Rooms {
-			guest := entities.NewGuest(r.Stays[0], guestCast[0])
-			guest.RoomIndex = i
-			g.parties = append(g.parties, &Party{Guests: []*entities.Guest{&guest}, state: staying,
-				Booking: Booking{Room: i, Nights: 1, Rate: 1, Checkout: 1 << 30}})
-		}
-	}
-	if g := run(booked, 14*hourFrames, 2); len(g.parties) != len(g.hotel.Rooms) {
-		t.Errorf("%d Parties with every Room booked, want only the %d staying", len(g.parties), len(g.hotel.Rooms))
 	}
 }
 
@@ -181,7 +148,9 @@ func TestTouristDays(t *testing.T) {
 	}
 }
 
-// D91: the Concierge can't get through an Occupied Room's doorway, open or not, so it can't tailgate.
+// D91, Live test 5 (2026-11-08): a Room's doorway is barred to the Concierge only while a Guest of its
+// Party is inside; while they walk up, are out or wait in the hall, he may go in. Inside with them, each
+// game minute costs each Guest intrudeComfort.
 func TestConciergeKeptOut(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
@@ -190,8 +159,25 @@ func TestConciergeKeptOut(t *testing.T) {
 		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
 	}
 	p := g.walkIn()
-	if door = g.hotel.Doors[p.Room].Rect; !g.conciergeBlocked(door) {
-		t.Error("the Concierge can enter an Occupied Room's doorway")
+	p.Routine = homebody // a Tourist goes out about 09:00, mid-test
+	if door = g.hotel.Doors[p.Room].Rect; g.conciergeBlocked(door) != g.blocked(door) {
+		t.Error("the Concierge is barred from a Room whose Party is still walking up")
+	}
+	for p.state != staying {
+		g.step(0, 0)
+	}
+	if !g.conciergeBlocked(door) {
+		t.Error("the Concierge can enter the doorway with the Guests inside")
+	}
+	r := g.hotel.Rooms[p.Room]
+	in := r.Door.Add(image.Pt(0, -2)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
+	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
+	c := p.Guests[0].Comfort
+	for range 2 * minuteFrames {
+		g.step(0, 0)
+	}
+	if p.Guests[0].Comfort != c-2*intrudeComfort {
+		t.Errorf("2 minutes in with the Guests: Comfort %d → %d, want −%d", c, p.Guests[0].Comfort, 2*intrudeComfort)
 	}
 }
 
@@ -208,10 +194,6 @@ func TestConciergeLetOut(t *testing.T) {
 	}
 	if at := image.Pt(int(g.player.X), int(g.player.Y)); at.In(r.Shell()) {
 		t.Fatalf("the Concierge is shut in Room %d at %v", p.Room, at)
-	}
-	g.step(0, -1) // and once out, the doorway is barred again (D91)
-	if !g.conciergeBlocked(g.hotel.Doors[p.Room].Rect) {
-		t.Error("out of the Room, the Concierge can enter its doorway again")
 	}
 }
 

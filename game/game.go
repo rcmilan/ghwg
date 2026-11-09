@@ -60,43 +60,51 @@ type Game struct {
 	fog        []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	message    string
 	rng        *rand.Rand
-	chat       *rand.Rand                  // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
-	in         input                       // the keys (input.go)
-	headless   bool                        // no window: step skips what only drawing needs
-	auto       *autopilot                  // a Strategy plays instead of a person (sim.go)
-	tiles      []*ebiten.Image             // by world.TileID
-	characters map[string][2]*ebiten.Image // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
-	bases      map[string][2]*image.RGBA   // each character's sheets as drawn, to recolor (D166)
-	floorImg   *ebiten.Image               // the floor layer pre-rendered at 1px per world px
-	props      []prop                      // every other static tile, by SortY
-	dark       *ebiten.Image               // the darkness layer, the size of what drawWorld draws onto (light.go)
-	pool, glow *ebiten.Image               // light sprites: a ceiling light's pool, the Terminal's glow
-	palette    *ebiten.Shader              // the ghost dimension's arcade palette (ghost.go)
-	transition *ebiten.Shader              // the Mirror's transitions (shift.go)
-	fx         [2]*ebiten.Image            // a transition's real and ghost pictures
-	shifting   *shift                      // the Mirror's transition under way, nil if none (D170)
-	ink        *ebiten.Image               // scratch for tinted text (haunt.go)
-	heart      *ebiten.Image               // the serve pop (serve.go)
-	balloon    *ebiten.Image               // a Guest's request (serve.go)
-	tail       *ebiten.Image               // the balloon's tail, pointing down
-	boxes      map[int]*ebiten.Image       // speech balloons' boxes, by width in balloon px (serve.go)
-	warm       bool                        // the shaders have been drawn once (shift.go warmUp)
-	spill      *ebiten.Image               // the hall light through the Archway, built on first use (spill.go)
-	hud        [2]counter                  // per Res: its counter on screen (hud.go)
-	skull      *ebiten.Image               // the Spook counter's icon (hud.go)
-	termTab    Tab                         // the store's open tab (shop.go)
-	placing    int                         // the Service row waiting for its Room, or -1 (terminal.go)
-	cart       []cartLine                  // the store's cart (shop.go)
-	stock      map[Unlock]int              // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
-	earned     [2]Num                      // lifetime earnings this Run (wallet.go): open store items
-	boughtAt   map[Unlock][2]Num           // per unlock: earned when it arrived (shop.go onSale)
-	icons      map[string]*ebiten.Image    // assets/sprites, loaded on first use (terminal.go)
-	couriers   []*courier                  // on their way with an order (courier.go)
-	pallet     *ebiten.Image               // a stock spot's pallet, made on first use (courier.go)
-	hexed      []hexMark                   // per Room: its last hex (haunt.go)
-	walls      []wallRun                   // the wall graph Shadows travel (D185, wall.go)
-	wallCell   []int                       // each map cell's run, -1 if none (wall.go)
-	onRun      [][]*shade                  // this frame's Shadows by run, for drawShadow
+	chat       *rand.Rand                    // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
+	in         input                         // the keys (input.go)
+	headless   bool                          // no window: step skips what only drawing needs
+	auto       *autopilot                    // a Strategy plays instead of a person (sim.go)
+	tiles      []*ebiten.Image               // by world.TileID
+	characters map[string][2]*ebiten.Image   // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
+	bases      map[string][2]*image.RGBA     // each character's sheets as drawn, to recolor (D166)
+	floorImg   *ebiten.Image                 // the floor layer pre-rendered at 1px per world px
+	props      []prop                        // every other static tile, by SortY
+	dark       *ebiten.Image                 // the darkness layer, the size of what drawWorld draws onto (light.go)
+	pool, glow *ebiten.Image                 // light sprites: a ceiling light's pool, the Terminal's glow
+	palette    *ebiten.Shader                // the ghost dimension's arcade palette (ghost.go)
+	transition *ebiten.Shader                // the Mirror's transitions (shift.go)
+	fx         [2]*ebiten.Image              // a transition's real and ghost pictures
+	shifting   *shift                        // the Mirror's transition under way, nil if none (D170)
+	ink        *ebiten.Image                 // scratch for tinted text (haunt.go)
+	heart      *ebiten.Image                 // the serve pop (serve.go)
+	balloon    *ebiten.Image                 // a Guest's request (serve.go)
+	tail       *ebiten.Image                 // the balloon's tail, pointing down
+	boxes      map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)
+	warm       bool                          // the shaders have been drawn once (shift.go warmUp)
+	spill      *ebiten.Image                 // the hall light through the Archway, built on first use (spill.go)
+	hud        [2]counter                    // per Res: its counter on screen (hud.go)
+	skull      *ebiten.Image                 // the Spook counter's icon (hud.go)
+	termTab    Tab                           // the store's open tab (shop.go)
+	placing    int                           // the Service row waiting for its Room, or -1 (terminal.go)
+	cart       []cartLine                    // the store's cart (shop.go)
+	stock      map[Unlock]int                // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
+	earned     [2]Num                        // lifetime earnings this Run (wallet.go): open store items
+	boughtAt   map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
+	icons      map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
+	couriers   []*courier                    // on their way with an order (courier.go)
+	pallet     *ebiten.Image                 // a stock spot's pallet, made on first use (courier.go)
+	hexed      []hexMark                     // per Room: its last hex (haunt.go)
+	walls      []wallRun                     // the wall graph Shadows travel (D185, wall.go)
+	wallCell   []int                         // each map cell's run, -1 if none (wall.go)
+	onRun      [][]*shade                    // this frame's Shadows by run, for drawShadow
+	dirt       [][]spot                      // per Room: its dirt spots (dirt.go)
+	dirtN      []int                         // per Room: spots ever placed, the next one's seed
+	wiped      []wipe                        // cleaned spots, fading
+	arrivals   []arrival                     // per Room: its next Party's arrival (dirt.go)
+	stains     map[image.Point]*ebiten.Image // dirt spots' stains, by cell (dirt.go)
+	dirtBox    *ebiten.Image                 // the dirt complaint balloon (dirt.go)
+	guestNote  slot                          // the next-guest notice in the left column (hud.go)
+	guestText  string                        // its text, kept while it slides out
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -169,9 +177,10 @@ func (g *Game) startRun() {
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
-	g.hud = [2]counter{}
+	g.hud, g.guestNote, g.guestText = [2]counter{}, slot{}, ""
 	g.couriers = nil
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
+	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 }
 
 func (g *Game) Update() error {
@@ -216,6 +225,10 @@ func (g *Game) Update() error {
 			g.serve(g.atDoor())
 		case g.ghost && g.hexable() >= 0:
 			g.hex(g.hexable(), g.feet())
+		default:
+			if room, cell := g.cleanable(); room >= 0 {
+				g.clean(room, cell)
+			}
 		}
 	}
 	return nil
@@ -259,9 +272,13 @@ func (g *Game) blocked(r image.Rectangle) bool {
 // can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
 // the Room he's in. A bed's lane lets him lie in it (D167).
 func (g *Game) conciergeBlocked(r image.Rectangle) bool {
-	at := image.Pt(int(g.player.X), int(g.player.Y))
+	at, now := image.Pt(int(g.player.X), int(g.player.Y)), entities.FootBox(g.player.X, g.player.Y)
 	return g.blocked(r) && !g.inLane(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
-		return d.Room >= 0 && d.Rect.Overlaps(r) && !d.Allows(-1, at.In(g.hotel.Rooms[d.Room].Shell()), g.occupied(d.Room))
+		if d.Room < 0 || !d.Rect.Overlaps(r) {
+			return false
+		}
+		inside := at.In(g.hotel.Rooms[d.Room].Shell()) || now.Overlaps(d.Rect) // already in the doorway: never trapped in it
+		return !d.Allows(-1, inside, g.occupied(d.Room))
 	})
 }
 
@@ -275,7 +292,7 @@ func (g *Game) separate() {
 		guest   *entities.Guest // nil: the Concierge
 	}
 	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil}}
-	for _, guest := range g.guests() {
+	for _, guest := range g.walkers() {
 		if guest.Phasing {
 			continue
 		}
@@ -336,8 +353,13 @@ func (g *Game) actors() []world.Actor {
 	return as
 }
 
-// occupied (D91): a Room is Occupied for its whole Booking.
-func (g *Game) occupied(room int) bool { return !g.vacant(room) }
+// occupied: a Room's door is shut to the Concierge only while a Guest of its Party is inside (Live test 5,
+// 2026-11-08; D91 barred it for the whole Booking); already inside, the door lets him out, and his minutes
+// in there cost its Guests Comfort (intrude).
+func (g *Game) occupied(room int) bool {
+	_, gs := g.inside(room)
+	return len(gs) > 0
+}
 
 // walk advances a guest along its path. It waits in place while the next step would hit a shut door,
 // and sidesteps to its right (left if a wall is there) while the next step would bump into someone
@@ -356,6 +378,12 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	hx, hy := guest.X-x, guest.Y-y
 	if bx, by, bump := g.bumpsAhead(guest, hx, hy); !guest.Phasing && bump {
 		guest.X, guest.Y, guest.Path = x, y, path
+		// A Party waiting in the hall stays for hours: go around it (dirt.go). A courier goes around anyone:
+		// he is faster than a Party walking in and tailgated it up the Corridor (Live test 7, 2026-11-08).
+		if (g.waiting(bx, by) || guest.Character == courierName) && len(path) > 0 {
+			g.send(guest, path[len(path)-1], image.Pt(int(bx), int(by)))
+			return false
+		}
 		sides := [...]float64{1, -1}  // right of the heading (y points down), then left,
 		if (bx-x)*-hy+(by-y)*hx > 0 { // unless the one bumped is on the right
 			sides = [...]float64{-1, 1}
@@ -390,7 +418,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 	c := ahead[i].Div(world.TileSize).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
-	for _, o := range g.guests() {
+	for _, o := range g.walkers() {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
@@ -405,7 +433,8 @@ func (g *Game) yields(guest *entities.Guest) bool {
 
 // bumpsAhead: the guest's foot box overlaps another actor, at (x,y), lying ahead along heading (hx,hy).
 // When two walking guests each have the other ahead (converging on one cell), only the one without the
-// right of way stops, so they never wait on each other.
+// right of way stops, so they never wait on each other; one stuck for half of stuckFrames is bumped like a
+// wall, so the other sidesteps around it (hall jam, 2026-11-08: it was pinned under the Hall Wall).
 func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, bump bool) {
 	box := entities.FootBox(guest.X, guest.Y).Inset(-1) // touching counts: boxes snap to whole px, so one could step into a gap and never see the bump
 	hit := func(x, y float64) bool {
@@ -414,11 +443,11 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	if hit(g.player.X, g.player.Y) {
 		return g.player.X, g.player.Y, true
 	}
-	for _, o := range g.guests() {
+	for _, o := range g.walkers() {
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}
-		if len(o.Path) > 0 && rightOfWay(guest, o) {
+		if len(o.Path) > 0 && o.Stuck() < stuckFrames/2 && rightOfWay(guest, o) { // a stuck one can't make room: go around it
 			ox, oy := float64(o.Path[0].X)-o.X, float64(o.Path[0].Y)-o.Y
 			if (guest.X-o.X)*ox+(guest.Y-o.Y)*oy > 0 { // o has this guest ahead too, and waits for it
 				continue
@@ -429,8 +458,15 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	return 0, 0, false
 }
 
-// rightOfWay: guest a goes before b when they bump into each other: the one nearer its goal.
-func rightOfWay(a, b *entities.Guest) bool { return a.Left() < b.Left() }
+// rightOfWay: guest a goes before b when they bump into each other: one stuck for half of stuckFrames first,
+// pinned against a wall or corner where only the other can make room (hall jam, 2026-11-08: a Guest walking
+// in was shoved into the hall corner a complaining Party was walking to); else the one nearer its goal.
+func rightOfWay(a, b *entities.Guest) bool {
+	if sa, sb := a.Stuck() >= stuckFrames/2, b.Stuck() >= stuckFrames/2; sa != sb {
+		return sa
+	}
+	return a.Left() < b.Left()
+}
 
 func (g *Game) atTerminal() bool {
 	return image.Pt(int(g.player.X), int(g.player.Y)).In(g.hotel.Terminal)

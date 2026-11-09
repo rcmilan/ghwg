@@ -94,7 +94,7 @@ func toServe(v View) int {
 	return -1
 }
 
-// smart serves whenever a Room asks, hexes between serves short of fearLimit (so none flees) and of rotLimit
+// smart serves whenever a Room asks, cleans empty Rooms in ghost, hexes between serves short of fearLimit (so none flees) and of rotLimit
 // (so none pays less), calls a Weak Priest to a Closed Room (Spook for the least money), and buys a Shadow
 // for each Room once it has the Spook (D169), leaving a Room with one to its Shadow. Fear shows only in
 // ghost, so it shifts to look before it hexes.
@@ -118,6 +118,13 @@ func (smart) Act(v View, p *Pilot) {
 	if i := toServe(v); i >= 0 {
 		p.Serve(i)
 		return
+	}
+	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Spook (dirt.go)
+		if (r.Vacant || r.Away) && len(r.Dirt) > 0 {
+			p.Flip(true)
+			p.Clean(i, r.Dirt[0])
+			return
+		}
 	}
 	for i, r := range v.Rooms {
 		if r.Vacant || r.Away || r.Shadow || r.Spook+1 >= rotLimit {

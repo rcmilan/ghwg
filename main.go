@@ -28,6 +28,7 @@ func main() {
 	hexAt := flag.String("hex", "", "dev, with -shot: 8 frames before -at, the Concierge stands on map cell x,y and hexes the Room beside it")
 	shadow := flag.Float64("shadow", 0, "dev: start a Run where Room 101 gets a Shadow with this much essence, watched from the Corridor beside it")
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
+	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much Room Spook, so dirty (5 a spot)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -55,12 +56,13 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 {
+	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 {
 		g.Start(*ghost)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
 		g.DevHaunt(*haunt)
+		g.DevDirt(*dirt)
 	}
 	if *shop != "" {
 		var money, spook float64

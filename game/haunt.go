@@ -95,10 +95,10 @@ func (g *Game) hexable() int {
 	return room
 }
 
-// scare runs each game minute: every Guest inside a haunted Room gains 1 Fear, up to fearLimit, and the
-// hotel as much Spook; inside a Room with a Shadow (D169) instead, 1 Fear every
-// shadowEvery minutes, never to fearLimit, and the hotel as much Spook; inside a rotting Room it loses
-// rotComfort, down to -comfortMax. A Party with a member at fearLimit flees.
+// scare runs each game minute: every Guest inside a haunted Room gains 1 Fear every fearEvery minutes, up
+// to fearLimit, and the hotel as much Spook; inside a rotting Room it loses rotComfort, down to
+// -comfortMax. A Shadow scares only on its patrols (shadow.go). A Party with a member at fearLimit steps
+// out the first time and flees the second (Step 2).
 func (g *Game) scare() {
 	for _, p := range g.parties {
 		if p.state == out || p.Fled || p.Paid {
@@ -111,8 +111,6 @@ func (g *Game) scare() {
 				if g.clock/minuteFrames%fearEvery == 0 {
 					g.frighten(p, guest, 1, fearLimit)
 				}
-			} else if in && g.shaded(p.Room) && g.clock/minuteFrames%shadowEvery == 0 {
-				g.frighten(p, guest, 1, fearLimit-1)
 			}
 			if in && g.rotting(p.Room) {
 				guest.Comfort = max(-comfortMax, guest.Comfort-rotComfort) // below 0: the Party pays under its Rate
@@ -120,12 +118,16 @@ func (g *Game) scare() {
 		}
 		if p.spookShown > 0 && g.clock/minuteFrames%spookEvery == 0 {
 			door := r.Door.Mul(world.TileSize)
-			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), "+"+fmtNum(Num(p.spookShown)), g.tick, floatSpook})
+			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), "+" + fmtNum(Num(p.spookShown)), g.tick, floatSpook})
 			p.spookShown = 0
 		}
 		for _, guest := range p.Guests {
 			if guest.Fear >= fearLimit {
-				g.flee(p)
+				if p.scares++; p.scares == 1 { // out for air the first time, gone the second (Step 2)
+					g.stepOut(p)
+				} else {
+					g.flee(p)
+				}
 				break
 			}
 		}
@@ -135,8 +137,10 @@ func (g *Game) scare() {
 // flee: the Party runs for the Exit, unpaid, after a hop in place (D164); its Room is Vacant at once.
 func (g *Game) flee(p *Party) {
 	p.Fled, p.state, p.fledAt, p.greet, p.talk = true, leaving, g.tick, noGreeting, nil
-	for i := range p.Guests {
-		p.talk = append(p.talk, line{i, "AAAH!", g.tick})
+	g.leaveMess(p)
+	g.book(p.Room, fleeGap)
+	for i := range p.Guests { // "RUN!" only on the way out (Live test 9, 2026-11-08)
+		p.talk = append(p.talk, line{i, []string{"AAAH!", "RUN!"}[i], g.tick})
 	}
 	g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
 }
