@@ -433,7 +433,8 @@ func (g *Game) yields(guest *entities.Guest) bool {
 
 // bumpsAhead: the guest's foot box overlaps another actor, at (x,y), lying ahead along heading (hx,hy).
 // When two walking guests each have the other ahead (converging on one cell), only the one without the
-// right of way stops, so they never wait on each other.
+// right of way stops, so they never wait on each other; one stuck for half of stuckFrames is bumped like a
+// wall, so the other sidesteps around it (hall jam, 2026-11-08: it was pinned under the Hall Wall).
 func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, bump bool) {
 	box := entities.FootBox(guest.X, guest.Y).Inset(-1) // touching counts: boxes snap to whole px, so one could step into a gap and never see the bump
 	hit := func(x, y float64) bool {
@@ -446,7 +447,7 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}
-		if len(o.Path) > 0 && rightOfWay(guest, o) {
+		if len(o.Path) > 0 && o.Stuck() < stuckFrames/2 && rightOfWay(guest, o) { // a stuck one can't make room: go around it
 			ox, oy := float64(o.Path[0].X)-o.X, float64(o.Path[0].Y)-o.Y
 			if (guest.X-o.X)*ox+(guest.Y-o.Y)*oy > 0 { // o has this guest ahead too, and waits for it
 				continue
@@ -457,8 +458,15 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	return 0, 0, false
 }
 
-// rightOfWay: guest a goes before b when they bump into each other: the one nearer its goal.
-func rightOfWay(a, b *entities.Guest) bool { return a.Left() < b.Left() }
+// rightOfWay: guest a goes before b when they bump into each other: one stuck for half of stuckFrames first,
+// pinned against a wall or corner where only the other can make room (hall jam, 2026-11-08: a Guest walking
+// in was shoved into the hall corner a complaining Party was walking to); else the one nearer its goal.
+func rightOfWay(a, b *entities.Guest) bool {
+	if sa, sb := a.Stuck() >= stuckFrames/2, b.Stuck() >= stuckFrames/2; sa != sb {
+		return sa
+	}
+	return a.Left() < b.Left()
+}
 
 func (g *Game) atTerminal() bool {
 	return image.Pt(int(g.player.X), int(g.player.Y)).In(g.hotel.Terminal)

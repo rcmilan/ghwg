@@ -75,6 +75,9 @@ func (g *Guest) SetPath(p []image.Point) {
 	g.Path, g.best, g.stuck, g.Phasing = p, math.Inf(1), 0, false
 }
 
+// Stuck: frames the guest has walked without getting nearer its goal.
+func (g *Guest) Stuck() int { return g.stuck }
+
 // Left is the remaining path length (waypoints are adjacent tile centers).
 func (g *Guest) Left() float64 {
 	if len(g.Path) == 0 {
