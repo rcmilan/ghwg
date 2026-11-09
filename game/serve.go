@@ -179,6 +179,12 @@ func (g *Game) drawRequests(s *ebiten.Image, ox, oy int) {
 		if p.asking() {
 			g.drawBalloon(s, g.balloon, p.Guests[0], ox, oy)
 		}
+		if p.state == complaining { // a splat for "!!": the Room is dirty (dirt.go)
+			if g.dirtBox == nil {
+				g.dirtBox = dirtBalloonImage()
+			}
+			g.drawBalloon(s, g.dirtBox, p.Guests[0], ox, oy)
+		}
 	}
 }
 

@@ -218,6 +218,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			drawProp(g.props[i])
 		}
 	}
+	propsUpTo(0) // the rugs, under the stains; furniture goes over them (Live test 7, 2026-11-08)
+	g.drawDirt(screen, ox, oy)
 	for _, a := range actors {
 		propsUpTo(z(a))
 		x, y := at(a.x, a.y-a.lift)

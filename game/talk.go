@@ -24,6 +24,7 @@ const (
 	greetHello          // its first arrival
 	greetOut            // a Tourist going out
 	greetBack           // and coming back
+	greetClean          // back from the hall once its Room is clean (Live test 4, 2026-11-08)
 )
 
 // line: a Guest's line in a speech balloon, from tick at for sayFrames.
@@ -45,7 +46,7 @@ var (
 	scaredLines = [3][2][]string{ // haunted, by Fear or Room Spook, whichever is higher
 		{{"What was that?", "Hello...?", "Who's there?", "It moved!", "Huh?!"}, {"Did you hear that?", "Was that you?", "Don't joke like that!"}},
 		{{"Something's here...", "I want to leave.", "I'm scared...", "It's breathing...", "Make it stop!"}, {"Hold my hand!", "You feel that too?", "Don't leave me!"}},
-		{{"HELP!", "I have to get out!", "I can't breathe!", "NO NO NO!", "It's touching me!"}, {"We have to go!", "RUN!", "Grab the bags!"}},
+		{{"HELP!", "I have to get out!", "I can't breathe!", "NO NO NO!", "It's touching me!"}, {"We have to go!", "Pack the bags!", "Grab the bags!"}},
 	}
 )
 
@@ -72,6 +73,11 @@ func (g *Game) updateTalk() {
 		switch hi := clockGreeting(g.clock); {
 		case p.greet == greetHello:
 			p.talk = append(p.talk, line{0, "Hello!", g.tick})
+		case p.greet == greetClean:
+			p.talk = append(p.talk, line{0, "Clean at last!", g.tick})
+			if len(p.Guests) > 1 {
+				p.talk = append(p.talk, line{1, "Thank you!", g.tick + answerFrames})
+			}
 		case len(p.Guests) == 1:
 			p.talk = append(p.talk, line{0, hi, g.tick})
 		default:

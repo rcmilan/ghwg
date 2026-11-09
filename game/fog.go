@@ -34,10 +34,10 @@ func (g *Game) updateFog() {
 }
 
 func (g *Game) fogged(room int) bool {
-	if g.hotel.Doors[room].Open() > 0 {
+	shell := g.hotel.Rooms[room].Shell()
+	if g.hotel.Doors[room].Open() > 0 || g.feet().In(shell) { // never over the Concierge (Live test 5, 2026-11-08)
 		return false
 	}
-	shell := g.hotel.Rooms[room].Shell()
 	for _, p := range g.parties {
 		if p.Occupies(room) {
 			return p.settled || !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {

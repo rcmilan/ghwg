@@ -18,15 +18,15 @@ import (
 const (
 	shadowPrice    = 80 // Spook
 	shadowSpeed    = 4 * conciergeSpeed
-	shadowEvery    = 20        // game minutes between its steady 1 Fear to each Guest inside
-	shadowSeen     = 10        // Fear a patrol gives a Guest who sees it
-	shadowUnseen   = 2         // and one who doesn't
-	startleHeight  = 4         // world px: a Guest's hop on seeing it (the flee's is hopHeight)
-	shadowEssence  = 24.0      // (placeholder) what it's born with; a patrol pass spends 1
-	shadowSunDrain = 1.0 / 60  // (placeholder) essence lost per game minute in full daylight
-	shadowOpacity  = 0.5       // (placeholder) a full Shadow's alpha: a dimness on the wall, not a hole (2026-11-08)
-	shadowEdgeFade = charW     // (placeholder) world px from a wall's end over which a Shadow fades into it
-	shadowMinWall  = 3 * charW // (placeholder) a narrower wall, such as the Corridor's back wall, never shows a Shadow (2026-11-08)
+	patrolSpeed    = shadowSpeed // a patrol runs as fast as its travel (Live test 5, 2026-11-08: a crawl read as broken)
+	shadowSeen     = 10          // Fear a patrol gives a Guest who sees it
+	shadowUnseen   = 2           // and one who doesn't
+	startleHeight  = 4           // world px: a Guest's hop on seeing it (the flee's is hopHeight)
+	shadowEssence  = 24.0        // (placeholder) what it's born with; a patrol pass spends 1
+	shadowSunDrain = 1.0 / 60    // (placeholder) essence lost per game minute in full daylight
+	shadowOpacity  = 0.5         // (placeholder) a full Shadow's alpha: a dimness on the wall, not a hole (2026-11-08)
+	shadowEdgeFade = charW       // (placeholder) world px from a wall's end over which a Shadow fades into it
+	shadowMinWall  = 3 * charW   // (placeholder) a narrower wall, such as the Corridor's back wall, never shows a Shadow (2026-11-08)
 )
 
 var (
@@ -60,8 +60,7 @@ func (g *Game) shaded(room int) bool { return room < len(g.shades) && len(g.shad
 // shadowCap: how many Shadows a Room holds (placeholder; R1 raises it with Room level).
 func (g *Game) shadowCap(room int) int { return 1 }
 
-// buyShadow pays shadowPrice Spook for a Shadow Person in the Room, born on the wall nearest the
-// Terminal; else why not.
+// buyShadow pays shadowPrice Spook for a Shadow Person in the Room (placeShadow); else why not.
 func (g *Game) buyShadow(room int) string {
 	switch {
 	case len(g.shades[room]) >= g.shadowCap(room):
@@ -73,10 +72,10 @@ func (g *Game) buyShadow(room int) string {
 	return ""
 }
 
-// placeShadow: a paid-for Shadow Person joins the Room, born mid-way along the wall nearest the Terminal
-// (2026-11-08).
+// placeShadow: a paid-for Shadow Person joins the Room, born mid-way along the wall nearest where the
+// courier leaves its box, the Room's front wall (Live test 4, 2026-11-08), then off to its back wall.
 func (g *Game) placeShadow(room int) {
-	at := g.hotel.Terminal.Min.Add(g.hotel.Terminal.Max).Div(2)
+	at := g.doorDrop(room)
 	sh := &shade{name: shadowCast[g.chat.IntN(len(shadowCast))], next: g.clock + g.shadowGap(room), essence: shadowEssence,
 		minute: g.clock / minuteFrames, run: g.runAt(float64(at.X), float64(at.Y)), x: float64(at.X), anim: entities.NewAnim()}
 	lo, hi := g.walls[sh.run].ends()
@@ -84,10 +83,11 @@ func (g *Game) placeShadow(room int) {
 	g.shades[room] = append(g.shades[room], sh)
 }
 
-// shadowGap: frames between patrols, from 1 every 4 game hours at 0 Room Spook to 1 an hour at spookLimit (S12 review: 4 was too often).
+// shadowGap: frames from a patrol's start to the next, from 1 an hour at 0 Room Spook to 1 every 20 game
+// minutes at spookLimit (2026-11-08: a Shadow scares only while seen, so it patrols more).
 func (g *Game) shadowGap(room int) int {
 	s := min(1, float64(g.roomSpook[room])/spookLimit)
-	return int(60 / (0.25 + 0.75*s) * minuteFrames)
+	return int(60 / (1 + 2*s) * minuteFrames)
 }
 
 // backWall: the run of a Room's back wall, and its patrol's two ends: touching either side wall.

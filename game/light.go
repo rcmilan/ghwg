@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"math"
 
+	"ghosthotel/world"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -102,8 +104,8 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	fill(g.hotel.Lobby, lobbyLit(g.clock))
 	g.drawSpill(ox, oy)
 	for _, r := range g.hotel.Rooms {
-		if image.Pt(int(g.player.X), int(g.player.Y)).In(r.Shell()) {
-			fill(r.Shell(), 1)
+		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
+			fill(image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize), 1) // not its front wall, seen from the Corridor (Live test 4, 2026-11-08)
 		}
 	}
 	type light struct {

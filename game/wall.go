@@ -194,8 +194,12 @@ func (g *Game) move(sh *shade) bool {
 			to = hi
 		}
 	}
-	if d := to - sh.x; math.Abs(d) > shadowSpeed {
-		sh.x, sh.dir = sh.x+math.Copysign(shadowSpeed, d), math.Copysign(1, d)
+	speed := shadowSpeed
+	if sh.patrol {
+		speed = patrolSpeed
+	}
+	if d := to - sh.x; math.Abs(d) > speed {
+		sh.x, sh.dir = sh.x+math.Copysign(speed, d), math.Copysign(1, d)
 		return false
 	} else if d != 0 {
 		sh.dir = math.Copysign(1, d)

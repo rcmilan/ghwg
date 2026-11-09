@@ -98,6 +98,16 @@ func (c *courier) paid() Cost {
 	return t
 }
 
+// walkers: the guests and the couriers, for bumping, yielding and pushing: a courier and a Party walking
+// in met head-on and walked through each other (Live test 6, 2026-11-08).
+func (g *Game) walkers() []*entities.Guest {
+	gs := g.guests()
+	for _, c := range g.couriers {
+		gs = append(gs, &c.Guest)
+	}
+	return gs
+}
+
 // courierActors: the couriers, for the doors: the Entrance opens for them, as for anyone.
 func (g *Game) courierActors() []world.Actor {
 	var as []world.Actor

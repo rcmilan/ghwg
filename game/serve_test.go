@@ -97,11 +97,13 @@ func TestAsk(t *testing.T) {
 }
 
 // T110: a served Party banks more than an unserved one with the same Booking; a fled one still pays 0.
+// Step 2: the Checkout pays only the tip, the stay is paid by the hour (TestRent).
 func TestComfortPays(t *testing.T) {
 	g, _, p := settled(t)
-	plain := p.Rate * p.Nights
+	g.wallet[Money] = 0 // the walk in paid nothing
+	plain := p.Rate * p.Nights * tipPct / 100
 	if p.Payout() != plain {
-		t.Fatalf("unserved payout %d, want Rate × Nights = %d", p.Payout(), plain)
+		t.Fatalf("unserved tip %d, want %d%% of Rate × Nights = %d", p.Payout(), tipPct, plain)
 	}
 	p.asked = g.clock
 	g.serve(p.Room)

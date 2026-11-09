@@ -179,31 +179,41 @@ func TestRot(t *testing.T) {
 	}
 }
 
-// T098 (D146): hexes raise Fear; at fearLimit the Party flees unpaid, and its Room is Vacant at once.
+// T098 (D146): hexes raise Fear; at fearLimit the Party steps out to its door for coolMinutes and comes
+// back with its Fear cut (Step 2); at fearLimit again it flees unpaid, and its Room is Vacant at once.
 func TestFlee(t *testing.T) {
 	g, _, p := settled(t)
 	g.ghost = true
 	room, at := p.Room, center(g.hotel.Rooms[p.Room].Spot())
+	shell := g.hotel.Rooms[room].Shell()
+	out := 0
 	for i := 0; !p.Fled; i++ {
-		if i > 2*fearLimit*minuteFrames {
-			t.Fatalf("no flight: Fear %d", p.Guests[0].Fear)
+		if i > 6*fearLimit*minuteFrames {
+			t.Fatalf("no flight: Fear %d, state %d", p.Guests[0].Fear, p.state)
 		}
-		if i%minuteFrames == 0 {
+		if i%minuteFrames == 0 && p.state == staying {
 			g.hex(room, at)
 		}
 		g.step(0, 0)
+		if p.state == cooling && !image.Pt(int(p.Guests[0].X), int(p.Guests[0].Y)).In(shell) {
+			out++
+		}
+	}
+	if p.scares != 2 || out < coolMinutes*minuteFrames/3 || g.wallet[Money] == 0 {
+		t.Fatalf("fled after %d limits, %d frames out cooling, $%v paid; want 2, a spell at the door, some rent", p.scares, out, g.wallet[Money])
 	}
 	if !g.vacant(room) || p.state != leaving {
 		t.Fatalf("fled: vacant %v state %d, want Vacant and leaving", g.vacant(room), p.state)
 	}
+	rent := g.wallet[Money]
 	for i := 0; len(g.parties) > 0 && g.parties[0] == p; i++ {
 		if i > 60*tps {
 			t.Fatal("the fled Party never left")
 		}
 		g.step(0, 0)
 	}
-	if g.wallet[Money] != 0 || p.Paid {
-		t.Fatalf("a fled Party paid: money %v", g.wallet[Money])
+	if g.wallet[Money] != rent || p.Paid {
+		t.Fatalf("a fled Party paid past its rent: money %v, rent %v", g.wallet[Money], rent)
 	}
 }
 

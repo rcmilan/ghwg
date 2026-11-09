@@ -77,6 +77,8 @@ type Result struct {
 	Pairs       int // Bookings of two
 	Outings     int // Tourist days out
 	Fled        int // Parties that ran from a haunt
+	Walked      int // Parties that walked away from a dirty Room (dirt.go)
+	Cleans      int // dirt spots cleaned
 	Spook       int // at the end of the Run
 	Haunts      int // hexes (taps)
 	Serves      int // requests answered
@@ -101,7 +103,8 @@ type sim struct {
 	legs    map[*Party]leg
 	called  map[*priest]bool
 	shipped map[*courier]bool
-	closed  int // Room-frames Closed
+	rent    map[*Party]Num // each Party's rent counted so far
+	closed  int            // Room-frames Closed
 }
 
 type leg struct {
@@ -127,7 +130,7 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
@@ -153,7 +156,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, spook, title, scaring := g.clock, g.wallet[Money], g.wallet[Spook], g.state == StateTitle, s.scaring()
-	hexes, roomSpook := g.hexes(), slices.Clone(g.roomSpook)
+	hexes, roomSpook, cleans := g.hexes(), slices.Clone(g.roomSpook), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
 		working[pr] = !pr.done
@@ -174,6 +177,13 @@ func (s *sim) frame() bool {
 		}
 	}
 	hexed := g.hexes() > hexes
+	cleaned := false
+	for i := range g.taps {
+		if g.taps[i][TaskHousekeep] > cleans[i][TaskHousekeep] {
+			cleaned = true
+			s.res.Cleans++
+		}
+	}
 	s.res.Haunts += int(g.hexes() - hexes)
 	spent := 0
 	for _, pr := range g.priests {
@@ -193,12 +203,14 @@ func (s *sim) frame() bool {
 			s.closed++
 		}
 		finished := slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == i && pr.done && working[pr] })
-		if !s.cfg.NoCheck && i < len(roomSpook) && g.roomSpook[i] < roomSpook[i] && !finished {
-			s.fail("room %d's Spook dropped %d with no Priest finishing there", i, roomSpook[i]-g.roomSpook[i])
+		swept := i < len(cleans) && g.taps[i][TaskHousekeep] > cleans[i][TaskHousekeep]
+		if !s.cfg.NoCheck && i < len(roomSpook) && g.roomSpook[i] < roomSpook[i] && !finished && !swept {
+			s.fail("room %d's Spook dropped %d with no Priest finishing nor a clean there", i, roomSpook[i]-g.roomSpook[i])
 		}
 	}
-	banked := 0
+	banked := Num(0)
 	for _, p := range g.parties {
+		banked, s.rent[p] = banked+p.rent-s.rent[p], p.rent
 		if !slices.Contains(s.booked, p) {
 			s.booked = append(s.booked, p)
 			s.res.Bookings++
@@ -210,15 +222,19 @@ func (s *sim) frame() bool {
 			}
 		}
 		if p.Paid && !s.paid[p] {
-			s.paid[p], banked = true, banked+p.Payout()
+			s.paid[p], banked = true, banked+Num(p.Payout())
 			s.res.Paid++
 			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
 		}
-		if p.Fled && !s.fled[p] {
+		if (p.Fled || p.Walked) && !s.fled[p] {
 			s.fled[p] = true
-			s.res.Fled++
+			if p.Fled {
+				s.res.Fled++
+			} else {
+				s.res.Walked++
+			}
 		}
 		if !s.cfg.NoCheck && p.Fled && p.Paid {
 			s.fail("a fled Party (room %d) paid", p.Room)
@@ -233,20 +249,20 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Spook] > spook && !hexed && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
-			s.fail("Spook rose %s with no hex nor a shadowed or haunted Room holding its Party", fmtNum(g.wallet[Spook]-spook))
+		if g.wallet[Spook] > spook && !hexed && !cleaned && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+			s.fail("Spook rose %s with no hex, ghost clean, nor a shadowed or haunted Room holding its Party", fmtNum(g.wallet[Spook]-spook))
 		}
 	}
 	return len(s.res.Failures) == 0
 }
 
-// check asserts D108's per-frame invariants: money moves only on a Checkout or by a Priest's price, no
+// check asserts D108's per-frame invariants: money moves only by a Guest's rent or tip or a Priest's price, no
 // guest starts phasing while the Concierge stands at the computer, no leg is walked over legBudget.
-func (s *sim) check(money Num, banked, spent int) {
+func (s *sim) check(money Num, banked Num, spent int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g := s.g
-	if g.wallet[Money]-money != Num(banked-spent) {
-		s.fail("money went up %s, but Checkouts paid %d and Priests cost %d", fmtNum(g.wallet[Money]-money), banked, spent)
+	if d := g.wallet[Money] - money - banked + Num(spent); d > 1e-6 || d < -1e-6 {
+		s.fail("money went up %s, but Guests paid %s and Priests cost %d", fmtNum(g.wallet[Money]-money), fmtNum(banked), spent)
 	}
 	home := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize) == g.hotel.ConciergeStart.Div(world.TileSize)
 	for _, guest := range g.guests() {
@@ -282,7 +298,7 @@ func (s *sim) finish() Result {
 	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Spook]), s.closed/hourFrames, s.g.serves, s.g.expired
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
-			if !p.Paid && !p.Fled && s.g.clock > p.Checkout+2*hourFrames {
+			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {
 				s.fail("room %d's Booking never paid: checkout was %s", p.Room, clockText(p.Checkout))
 			}
 		}

@@ -11,7 +11,7 @@ import (
 )
 
 // T160 (D169), T211 (D185): a Shadow costs shadowPrice Spook, up to shadowCap per Room, and is born on
-// the wall nearest the Terminal; a Strong Priest banishes them all, a Weak one leaves them.
+// the wall nearest its box, by the Room's door; a Strong Priest banishes them all, a Weak one leaves them.
 func TestBuyShadow(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
@@ -26,9 +26,9 @@ func TestBuyShadow(t *testing.T) {
 	if msg := g.buyShadow(0); msg == "" || len(g.shades[0]) != 1 || g.wallet[Spook] != shadowPrice-1 {
 		t.Fatalf("a Shadow past Room 0's cap: %q, %d Shadows, Spook %v", msg, len(g.shades[0]), g.wallet[Spook])
 	}
-	at := center(g.hotel.Terminal)
+	at := g.doorDrop(0)
 	if sh := g.shades[0][0]; sh.run != g.runAt(float64(at.X), float64(at.Y)) || g.walls[sh.run].y > float64(at.Y) {
-		t.Fatalf("born on run %d, want the Hall Wall's, nearest the Terminal (%d)", sh.run, g.runAt(float64(at.X), float64(at.Y)))
+		t.Fatalf("born on run %d, want the one nearest the box at the door (%d)", sh.run, g.runAt(float64(at.X), float64(at.Y)))
 	}
 	if msg := g.buyShadow(1); msg == "" || g.shaded(1) || g.wallet[Spook] != shadowPrice-1 {
 		t.Fatalf("a Shadow without the Spook: %q, Spook %v", msg, g.wallet[Spook])
@@ -59,12 +59,12 @@ func home(g *Game, room int) *shade {
 }
 
 // T161 (D169), T209 (D185): a bought Shadow runs home to its Room's back wall, to an end hidden behind a
-// side wall. It patrols every 240 game minutes at 0 Room Spook, every 60 at the limit, from that end to the
+// side wall. It patrols every 60 game minutes at 0 Room Spook, every 20 at the limit, from that end to the
 // other, and only with a Guest inside.
 func TestShadowRuns(t *testing.T) {
 	g, _, p := settled(t)
 	room := p.Room
-	for spook, want := range map[int]int{0: 240, spookLimit: 60, 2 * spookLimit: 60} {
+	for spook, want := range map[int]int{0: 60, spookLimit: 20, 2 * spookLimit: 20} {
 		if g.roomSpook[room] = spook; g.shadowGap(room) != want*minuteFrames {
 			t.Errorf("Room Spook %d: a run every %d frames, want %d game minutes", spook, g.shadowGap(room), want)
 		}
@@ -109,7 +109,8 @@ func TestShadowRuns(t *testing.T) {
 }
 
 // T162 (D169): a patrol frightens a Guest facing it by shadowSeen, one facing away or asleep in bed by
-// shadowUnseen; a seer hops and speaks. 1 Fear every shadowEvery minutes; never fearLimit.
+// shadowUnseen; a seer hops and speaks; never fearLimit. Between patrols it scares nobody (2026-11-08: no
+// hidden steady Fear).
 func TestShadowFear(t *testing.T) {
 	g, _, p := settled(t)
 	room, r := p.Room, g.hotel.Rooms[p.Room]
@@ -163,23 +164,16 @@ func TestShadowFear(t *testing.T) {
 	if got := run(noon, entities.FaceUp, stay, fearLimit-5); got != 4 {
 		t.Fatalf("at Fear %d: +%d, want 4 (up to fearLimit-1)", fearLimit-5, got)
 	}
-	g.clock = shadowEvery * minuteFrames * 40 // a steady-Fear minute
-	g.scare()
-	g.clock += minuteFrames
-	g.scare()
 	for _, guest := range p.Guests {
-		if guest.Fear != fearLimit-1 || p.Fled {
-			t.Fatalf("at fearLimit-1: Fear %d, fled %v; want it stays, unfled", guest.Fear, p.Fled)
-		}
 		guest.Fear = 0
 	}
-	g.clock = shadowEvery * minuteFrames * 40
-	g.scare()
-	g.clock += minuteFrames
-	g.scare()
+	for range 2 * hourFrames / minuteFrames {
+		g.clock += minuteFrames
+		g.scare()
+	}
 	for _, guest := range p.Guests {
-		if guest.Fear != 1 {
-			t.Fatalf("steady Fear over 2 minutes, one a %d-minute mark: %d, want 1", shadowEvery, guest.Fear)
+		if guest.Fear != 0 || p.Fled {
+			t.Fatalf("2 game hours with a resting Shadow: Fear %d, fled %v; want 0", guest.Fear, p.Fled)
 		}
 	}
 }
