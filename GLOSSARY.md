@@ -121,7 +121,7 @@ _Avoid_: exorcist, cleaner
 ## Serving
 
 **Serve**:
-What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once and the less the higher the Room Spook (none in a Closed Room), and a heart pops over the door for each. A Party that isn't asking can't be served.
+What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once and the less the higher the Room Spook (none in a Closed Room). A Party that isn't asking can't be served.
 _Avoid_: tend, room service (as the term)
 
 **Comfort**:

@@ -40,7 +40,7 @@ func TestArrival(t *testing.T) {
 	g.hotel.Rooms[room].Type.Rate = 999 // the Rate is locked on arrival
 	g.fast = true
 	for !p.Paid {
-		if g.clock > p.Checkout+4*hourFrames { // ×10 clock: the walk from the bed to the door takes ~2 game hours
+		if g.clock > p.Checkout+6*hourFrames { // ×10 clock: the walk from the bed to the door takes 1–4.4 game hours (300 seeds)
 			t.Fatalf("still unpaid at %s, checkout was %s: %s", clockText(g.clock), clockText(p.Checkout), where(p.Guests))
 		}
 		g.step(0, 0)

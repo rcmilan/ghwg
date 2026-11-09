@@ -157,8 +157,7 @@ type Party struct {
 	Booking
 }
 
-// floater rises and fades: a "+$X" over a door after a Checkout (D87), a ghost-only "+N" of Spook, or a
-// real-only heart over a served Guest.
+// floater rises and fades: a "+$X" over a door after a Checkout (D87), or a ghost-only "+N" of Spook.
 type floater struct {
 	x, y float64 // world px
 	text string
@@ -171,7 +170,6 @@ type floaterKind int
 const (
 	floatMoney floaterKind = iota
 	floatSpook
-	floatHeart
 )
 
 // guests: everyone on the map. A member walking out of the Entrance is gone once it reaches the Exit,

@@ -6,7 +6,6 @@ import (
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
-	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -51,7 +50,7 @@ func (g *Game) updateAsks() {
 
 // serve answers the Room's request (D163): every Guest of its Party inside gains Comfort, comfortStep
 // if served at once, falling to 0 as the request nears expiry and as the Room Spook nears spookLimit, up
-// to comfortMax, and a heart pops over the door for each that gained. Fear is untouched. False when the
+// to comfortMax. Fear is untouched. False when the
 // Room's Party isn't asking.
 func (g *Game) serve(room int) bool {
 	r := g.hotel.Rooms[room]
@@ -61,51 +60,16 @@ func (g *Game) serve(room int) bool {
 		}
 		wait, calm := askMinutes*minuteFrames, max(0, spookLimit-g.roomSpook[room])
 		gain := (comfortStep*(wait-(g.clock-p.asked))*calm + wait*spookLimit - 1) / (wait * spookLimit) // rounded up: worth 0 only in a Closed Room
-		n := 0
 		for _, guest := range p.Guests {
 			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) && gain > 0 {
 				guest.Comfort = min(comfortMax, guest.Comfort+gain)
-				n++
 			}
-		}
-		door := r.Door.Mul(world.TileSize)
-		for i := range n { // one heart per Guest served, side by side over the door: the Room's inside is off screen from its door
-			g.floaters = append(g.floaters, floater{float64(door.X+world.TileSize/2) + float64(2*i-n+1)*5, float64(door.Y), "", g.tick, floatHeart})
 		}
 		p.asked, p.askEnded = 0, g.clock
 		g.serves++
 		return true
 	}
 	return false
-}
-
-// heartRows is the serve pop, 7x6 px.
-var heartRows = [...]string{
-	".XX.XX.",
-	"XXXXXXX",
-	"XXXXXXX",
-	".XXXXX.",
-	"..XXX..",
-	"...X...",
-}
-
-// drawHeart draws the pop centered on (x,y), screen px.
-func (g *Game) drawHeart(s *ebiten.Image, x, y int) {
-	if g.heart == nil {
-		g.heart = ebiten.NewImage(len(heartRows[0]), len(heartRows))
-		for j, row := range heartRows {
-			for i, c := range row {
-				if c == 'X' {
-					g.heart.Set(i, j, color.RGBA{255, 90, 140, 255})
-				}
-			}
-		}
-	}
-	const scale = 2
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x-len(heartRows[0])*scale/2), float64(y-len(heartRows)*scale/2))
-	s.DrawImage(g.heart, op)
 }
 
 // The request balloon, in pixels drawn balloonScale times: a white rounded box with a bold "!!" (3-px

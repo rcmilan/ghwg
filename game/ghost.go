@@ -63,10 +63,10 @@ const (
 
 // ghostTints: each character's arcade color. The Concierge is the yellow one.
 var ghostTints = map[string][]float32{
-	"Bob":    {1, 1, 0},
-	"Adam":   {1, 0, 0},
-	"Amelia": {1, .72, 1},
-	"Alex":   {0, 1, 1},
+	"Bob":      {1, 1, 0},
+	"Adam":     {1, 0, 0},
+	"Amelia":   {1, .72, 1},
+	"Alex":     {0, 1, 1},
 	"Father K": {1, .72, .32},
 	"Father M": {1, .72, .32},
 }

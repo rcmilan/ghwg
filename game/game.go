@@ -76,7 +76,6 @@ type Game struct {
 	fx         [2]*ebiten.Image              // a transition's real and ghost pictures
 	shifting   *shift                        // the Mirror's transition under way, nil if none (D170)
 	ink        *ebiten.Image                 // scratch for tinted text (haunt.go)
-	heart      *ebiten.Image                 // the serve pop (serve.go)
 	balloon    *ebiten.Image                 // a Guest's request (serve.go)
 	tail       *ebiten.Image                 // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)

@@ -248,13 +248,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	g.drawRequests(screen, ox, oy)
 	g.drawTalk(screen, ox, oy)
-	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only; hearts in real only
+	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {
 		case f.kind == floatMoney || f.kind == floatSpook && g.ghost: // a currency's kind is its Res (wallet.go)
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
-		case f.kind == floatHeart && !g.ghost:
-			g.drawHeart(screen, x, y)
 		}
 	}
 }
