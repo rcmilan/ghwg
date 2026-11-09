@@ -43,13 +43,13 @@ func TestMess(t *testing.T) {
 	}
 }
 
-// T201: a Room shows one dirt spot per spotSpook of Room Spook, rounded up, each on its own free floor
-// cell, spiritual about spiritOdds of the time; spots stay put, and when Room Spook falls the spiritual
-// go first, newest first, then the newest normal.
+// T201: a Room shows enough dirt spots to cover its Room Spook, past bigFrom each a spotSpook bigger (fewer,
+// bigger stains: 12 at 40 × spotSpook), each on its own free floor cell, spiritual about spiritOdds of the
+// time; spots stay put, and when Room Spook falls the spiritual go first, newest first, then the newest normal.
 func TestSpots(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	for spook, want := range map[int]int{0: 0, 1: 1, spotSpook: 1, 2*spotSpook + 1: 3} {
+	for spook, want := range map[int]int{0: 0, 1: 1, spotSpook: 1, 2*spotSpook + 1: 3, 4 * spotSpook: 4, 4*spotSpook + 1: 5, 40 * spotSpook: 12} {
 		g.roomSpook[0], g.dirt = spook, nil
 		if n := len(g.spots(0)); n != want {
 			t.Errorf("Room Spook %d: %d spots, want %d", spook, n, want)
@@ -66,18 +66,18 @@ func TestSpots(t *testing.T) {
 	if !slices.Equal(g.spots(0), got) {
 		t.Fatal("the spots moved")
 	}
-	g.dirt[0] = []spot{{got[0].cell, false}, {got[1].cell, true}, {got[2].cell, false}, {got[3].cell, true}}
+	g.dirt[0] = []spot{{got[0].cell, false, spotSpook}, {got[1].cell, true, spotSpook}, {got[2].cell, false, spotSpook}, {got[3].cell, true, spotSpook}}
 	g.roomSpook[0] = 2 * spotSpook
-	if want := []spot{{got[0].cell, false}, {got[2].cell, false}}; !slices.Equal(g.spots(0), want) {
+	if want := []spot{{got[0].cell, false, spotSpook}, {got[2].cell, false, spotSpook}}; !slices.Equal(g.spots(0), want) {
 		t.Fatalf("down to 2 spots: %v, want the normal ones %v", g.spots(0), want)
 	}
 	g.roomSpook[0] = spotSpook
-	if want := []spot{{got[0].cell, false}}; !slices.Equal(g.spots(0), want) {
+	if want := []spot{{got[0].cell, false, spotSpook}}; !slices.Equal(g.spots(0), want) {
 		t.Fatalf("down to 1 spot: %v, want the oldest %v", g.spots(0), want)
 	}
 	spirit := 0
 	for room := range 2 {
-		g.roomSpook[room], g.dirt[room], g.dirtN[room] = 20*spotSpook, nil, 0
+		g.roomSpook[room], g.dirt[room], g.dirtN[room] = 156*spotSpook, nil, 0 // 20 spots: 4 × 1, then 2+…+17
 		for _, s := range g.spots(room) {
 			if s.spirit {
 				spirit++
@@ -89,7 +89,7 @@ func TestSpots(t *testing.T) {
 	}
 }
 
-// T202: SPACE on a normal spot inside an empty Room cleans it: −spotSpook Room Spook; in ghost, harvestRate
+// T202: SPACE on a normal spot inside an empty Room cleans it: − its size in Room Spook; in ghost, harvestRate
 // of it banked as Spook. One TaskHousekeep tap each. Refused with a Guest inside, and on a spiritual spot
 // in either dimension.
 func TestClean(t *testing.T) {
@@ -98,8 +98,13 @@ func TestClean(t *testing.T) {
 	cellPt := func(c image.Point) image.Point {
 		return c.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 	}
-	free := g.floorCells(0)
-	g.dirt, g.dirtN = [][]spot{{{free[0], false}, {free[1], true}, {free[2], false}}, nil}, []int{3, 0} // by hand: 2 normal, 1 spiritual
+	var free []image.Point // floor cells 2 apart: out of each other's stain reach (20 px)
+	for _, c := range g.floorCells(0) {
+		if !slices.ContainsFunc(free, func(o image.Point) bool { return abs(o.X-c.X) < 2 && abs(o.Y-c.Y) < 2 }) {
+			free = append(free, c)
+		}
+	}
+	g.dirt, g.dirtN = [][]spot{{{free[0], false, spotSpook}, {free[1], true, spotSpook}, {free[2], false, spotSpook}}, nil}, []int{3, 0} // by hand: 2 normal, 1 spiritual
 	press(g, s, cellPt(free[0]))
 	if g.roomSpook[0] != 3*spotSpook || len(g.spots(0)) != 3 {
 		t.Fatalf("with Guests inside: Room Spook %d, spots %d; want untouched", g.roomSpook[0], len(g.spots(0)))
@@ -113,7 +118,7 @@ func TestClean(t *testing.T) {
 		t.Fatal("cleaned a spiritual spot")
 	}
 	press(g, s, cellPt(free[0]))
-	if g.roomSpook[0] != 2*spotSpook || slices.Contains(g.spots(0), spot{free[0], false}) || g.wallet[Spook] != 0 || g.taps[0][TaskHousekeep] != 1 {
+	if g.roomSpook[0] != 2*spotSpook || slices.Contains(g.spots(0), spot{free[0], false, spotSpook}) || g.wallet[Spook] != 0 || g.taps[0][TaskHousekeep] != 1 {
 		t.Fatalf("cleaned in real: Room Spook %d, spots %v, Spook %v, taps %v; want %d, that spot gone, no Spook, 1",
 			g.roomSpook[0], g.spots(0), g.wallet[Spook], g.taps[0][TaskHousekeep], 2*spotSpook)
 	}
@@ -171,9 +176,9 @@ func TestDirtyArrival(t *testing.T) {
 		free := g.floorCells(0)
 		var spots []spot // dirtLimit/spotSpook+1 normal spots, and a spiritual one, by hand
 		for i := range dirtLimit/spotSpook + 1 {
-			spots = append(spots, spot{free[i], false})
+			spots = append(spots, spot{free[i], false, spotSpook})
 		}
-		spots = append(spots, spot{free[len(spots)], true})
+		spots = append(spots, spot{free[len(spots)], true, spotSpook})
 		g.dirt, g.dirtN = [][]spot{spots, nil}, []int{len(spots), 0}
 		g.roomSpook[0] = len(spots) * spotSpook
 		p := g.arrive(0)

@@ -159,6 +159,7 @@ func TestConciergeKeptOut(t *testing.T) {
 		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
 	}
 	p := g.walkIn()
+	p.Routine = homebody // a Tourist goes out about 09:00, mid-test
 	if door = g.hotel.Doors[p.Room].Rect; g.conciergeBlocked(door) != g.blocked(door) {
 		t.Error("the Concierge is barred from a Room whose Party is still walking up")
 	}
