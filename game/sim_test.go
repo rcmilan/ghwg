@@ -71,7 +71,7 @@ func TestRunSim(t *testing.T) {
 // T056: an invariant broken mid-Run is one Failure naming it, not a panic.
 func TestSimInvariant(t *testing.T) {
 	r := RunSim(Config{Cols: 2, Rows: 1, Days: 1, Seed: 1, Strategy: &thief{}})
-	if len(r.Failures) != 1 || r.Failures[0].Reason != "money went up 50, but Checkouts paid 0 and Priests cost 0" || !r.Cheat {
+	if len(r.Failures) != 1 || r.Failures[0].Reason != "money went up 50, but Guests paid 0 and Priests cost 0" || !r.Cheat {
 		t.Fatalf("%+v, want the one money failure on a Cheat row", r)
 	}
 }
@@ -82,7 +82,7 @@ type thief struct{ done bool }
 func (s *thief) Act(View, *Pilot) {}
 func (s *thief) Cheat(g *Game) {
 	if g.clock > runStart+hourFrames && !s.done {
-		s.done, g.money = true, g.money+50
+		s.done, g.wallet[Money] = true, g.wallet[Money]+50
 	}
 }
 

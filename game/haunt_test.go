@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -36,98 +37,205 @@ func press(g *Game, s *script, pt image.Point) {
 	g.Update()
 }
 
-// T097 (D150): SPACE at an Occupied Room's door spot haunts it in the ghost dimension only, for
-// hauntMinutes; again restarts the timer.
-func TestHaunt(t *testing.T) {
-	g, s, p := settled(t)
-	spot := center(g.hotel.Rooms[p.Room].Spot())
-	press(g, s, spot)
-	if g.haunting(p.Room) {
-		t.Fatal("SPACE at the door haunted the Room in the real dimension")
+// pairIn: a fresh Run on a cols×rows grid with a staying pair at the Stay Spots of Room room.
+func pairIn(t *testing.T, cols, rows, room int) (*Game, *script, *Party) {
+	t.Helper()
+	g, s := headless(t, cols, rows, 1)
+	g.startRun()
+	r := g.hotel.Rooms[room]
+	a, b := entities.NewGuest(r.Stays[0], "Adam"), entities.NewGuest(r.Stays[len(r.Stays)-1], "Alex")
+	p := &Party{Guests: []*entities.Guest{&a, &b}, state: staying, Booking: Booking{Room: room, Nights: 1, Rate: 100, Checkout: 99 * dayFrames}}
+	g.parties = []*Party{p}
+	return g, s, p
+}
+
+// T188 (D181): a hex pays the wallet yield(room) Spook, counts one TaskHex tap and (re)starts the haunt:
+// the whole Room shakes for hauntMinutes, each Guest inside +1 Fear every fearEvery game minutes
+// (2026-11-08: the old haunt). Refused in real, when Hex is locked, and with no Guest inside.
+func TestHex(t *testing.T) {
+	g, _, p := pairIn(t, 2, 1, 0)
+	at := center(g.hotel.Rooms[0].Spot())
+	nothing := func(why string) {
+		t.Helper()
+		if g.hex(0, at) || g.wallet[Spook] != 0 || g.haunting(0) || g.taps[0][TaskHex] != 0 {
+			t.Fatalf("%s: a hex landed (Spook %v, haunting %v, taps %v)", why, g.wallet[Spook], g.haunting(0), g.taps[0][TaskHex])
+		}
 	}
+	nothing("in real")
 	g.ghost = true
-	press(g, s, spot)
-	if !g.haunting(p.Room) || g.state != StatePlay {
-		t.Fatal("SPACE at the door in ghost didn't haunt the Room")
+	g.locked = map[Unlock]bool{Hex: true}
+	nothing("Hex locked")
+	g.unlock(Hex)
+	p.state = out
+	nothing("its Party out")
+	p.state = staying
+	if g.hex(1, at) || g.taps[1][TaskHex] != 0 {
+		t.Fatal("a Vacant Room was hexed")
 	}
-	g.clock += hauntMinutes*minuteFrames - 2*minuteFrames
-	press(g, s, spot) // restarts
-	if g.haunted[p.Room] != g.clock+hauntMinutes*minuteFrames {
-		t.Fatalf("haunting again ends at %d, want %d", g.haunted[p.Room], g.clock+hauntMinutes*minuteFrames)
+
+	if !g.hex(0, at) {
+		t.Fatal("the hex was refused")
 	}
-	g.clock = g.haunted[p.Room]
-	if g.haunting(p.Room) {
-		t.Fatal("the haunt outlasted hauntMinutes")
+	if p.Guests[0].Fear != 0 || g.wallet[Spook] != 1 || g.taps[0][TaskHex] != 1 {
+		t.Fatalf("one hex: Fear %d, Spook %v, taps %v; want 0 (the haunt frightens, not the tap), 1, 1", p.Guests[0].Fear, g.wallet[Spook], g.taps[0][TaskHex])
 	}
-	other := 1 - p.Room     // Vacant: nothing to haunt
-	g.parties = []*Party{p} // Day 1 lets a second Party in (D163)
-	press(g, s, center(g.hotel.Rooms[other].Spot()))
-	if g.haunting(other) {
-		t.Fatal("a Vacant Room was haunted")
+	if len(g.floaters) != 1 || g.floaters[0].kind != floatSpook || g.floaters[0].x != float64(at.X) {
+		t.Fatalf("floaters %v, want one Spook \"+1\" at the tap", g.floaters)
+	}
+	o := g.hotel.Rooms[0].Origin
+	jitter := 0
+	for range 12 {
+		jitter += abs(g.shake(prop{cx: o.X + 1, cy: o.Y + 1, l: world.LayerProps}))
+		g.tick++
+	}
+	if jitter == 0 || g.shake(prop{cx: o.X + world.RoomW + 2, cy: o.Y + 1, l: world.LayerProps}) != 0 {
+		t.Fatal("the haunted Room's furniture didn't shake, or furniture outside it did")
+	}
+	for range hauntMinutes * minuteFrames {
+		g.clock++
+		if g.clock%minuteFrames == 0 {
+			g.scare()
+		}
+	}
+	if f := p.Guests[0].Fear; g.haunting(0) || f < hauntFear-1 || f > hauntFear { // the parity of its first minute
+		t.Fatalf("after a whole haunt: haunting %v, Fear %d; want over and about %d", g.haunting(0), f, hauntFear)
 	}
 }
 
-// T098 (D146): Fear rises while haunted and inside; at fearLimit the Party flees unpaid, and its Room is
-// Vacant at once for the next Walk-in.
+// T189 (D181): in ghost, SPACE on a floor tile beside any of a Room's four walls, door included, hexes it
+// there; two tiles away doesn't.
+func TestHexAllSides(t *testing.T) {
+	const ts = world.TileSize
+	g, s, _ := pairIn(t, 3, 2, 4) // Room 4: Corridors on all four sides
+	r := g.hotel.Rooms[4]
+	o := r.Origin
+	cell := func(x, y int) image.Point { return image.Pt(x*ts+ts/2, y*ts+ts/2) }
+	g.ghost = true
+	for side, at := range map[string]image.Point{
+		"west":  cell(o.X-1, o.Y+5),
+		"east":  cell(o.X+world.RoomW, o.Y+5),
+		"north": cell(o.X+4, o.Y-1),
+		"south": cell(o.X+2, o.Y+world.RoomH),
+		"door":  cell(r.Door.X, r.Door.Y+2),
+	} {
+		if g.hotel.Map.Solid(at.X/ts, at.Y/ts) {
+			t.Fatalf("%s: %v isn't floor", side, at.Div(ts))
+		}
+		taps := g.taps[4][TaskHex]
+		press(g, s, at)
+		if g.taps[4][TaskHex] != taps+1 {
+			t.Errorf("SPACE beside the %s wall: no hex", side)
+		}
+		if f := g.floaters[len(g.floaters)-1]; f.x != float64(at.X) || f.y != float64(at.Y) {
+			t.Errorf("%s: the \"+N\" floats from (%v,%v), want the tap's tile %v", side, f.x, f.y, at)
+		}
+	}
+	taps := g.taps[4][TaskHex]
+	press(g, s, cell(r.Door.X, r.Door.Y+3))
+	press(g, s, cell(o.X+4, o.Y-2))
+	if g.taps[4][TaskHex] != taps {
+		t.Fatal("SPACE two tiles from the walls hexed the Room")
+	}
+}
+
+// T190: yield(room) = 1 + Room Spook/hexScale, linear.
+func TestYield(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	for spook, want := range map[int]Num{0: 1, 1: 1 + 1.0/hexScale, hexScale: 2, 3 * hexScale: 4} {
+		if g.roomSpook[0] = spook; g.yield(0) != want {
+			t.Errorf("yield at Room Spook %d: %v, want %v", spook, g.yield(0), want)
+		}
+	}
+}
+
+// T191: at rotLimit a Room rots: each Guest inside loses rotComfort a game minute, so the Party pays
+// less, and its Spook floor shows full; at spookLimit it closes as before.
+func TestRot(t *testing.T) {
+	if rotLimit >= spookLimit {
+		t.Fatalf("rotLimit %d must be under spookLimit %d", rotLimit, spookLimit)
+	}
+	g, _, p := pairIn(t, 2, 1, 0)
+	pay := p.Payout()
+	g.roomSpook[0] = rotLimit - 1
+	g.scare()
+	if p.Guests[0].Comfort != 0 || g.roomShift(0) >= 1 {
+		t.Fatalf("under rotLimit: Comfort %d, floor %v; want 0 and under 1", p.Guests[0].Comfort, g.roomShift(0))
+	}
+	g.roomSpook[0] = rotLimit
+	g.scare()
+	g.scare()
+	if p.Guests[0].Comfort != -2*rotComfort || p.Payout() >= pay || g.roomShift(0) != 1 || g.closed(0) {
+		t.Fatalf("2 rotting minutes: Comfort %d, pay %d (was %d), floor %v, closed %v", p.Guests[0].Comfort, p.Payout(), pay, g.roomShift(0), g.closed(0))
+	}
+	for range 10 * comfortMax {
+		g.scare()
+	}
+	if p.Guests[0].Comfort != -comfortMax || p.Payout() <= 0 {
+		t.Fatalf("long rot: Comfort %d, pay %d; want floored at %d, still paying", p.Guests[0].Comfort, p.Payout(), -comfortMax)
+	}
+	if g.roomSpook[0] = spookLimit; !g.closed(0) {
+		t.Fatal("not Closed at spookLimit")
+	}
+}
+
+// T098 (D146): hexes raise Fear; at fearLimit the Party steps out to its door for coolMinutes and comes
+// back with its Fear cut (Step 2); at fearLimit again it flees unpaid, and its Room is Vacant at once.
 func TestFlee(t *testing.T) {
 	g, _, p := settled(t)
-	room := p.Room
+	g.ghost = true
+	room, at := p.Room, center(g.hotel.Rooms[p.Room].Spot())
+	shell := g.hotel.Rooms[room].Shell()
+	out := 0
 	for i := 0; !p.Fled; i++ {
-		if i > 2*fearLimit/fearPerMinute*minuteFrames {
-			t.Fatalf("no flight: Fear %d", p.Guests[0].Fear)
+		if i > 6*fearLimit*minuteFrames {
+			t.Fatalf("no flight: Fear %d, state %d", p.Guests[0].Fear, p.state)
 		}
-		if !g.haunting(room) {
-			g.haunt(room)
+		if i%minuteFrames == 0 && p.state == staying {
+			g.hex(room, at)
 		}
 		g.step(0, 0)
+		if p.state == cooling && !image.Pt(int(p.Guests[0].X), int(p.Guests[0].Y)).In(shell) {
+			out++
+		}
+	}
+	if p.scares != 2 || out < coolMinutes*minuteFrames/3 || g.wallet[Money] == 0 {
+		t.Fatalf("fled after %d limits, %d frames out cooling, $%v paid; want 2, a spell at the door, some rent", p.scares, out, g.wallet[Money])
 	}
 	if !g.vacant(room) || p.state != leaving {
 		t.Fatalf("fled: vacant %v state %d, want Vacant and leaving", g.vacant(room), p.state)
 	}
+	rent := g.wallet[Money]
 	for i := 0; len(g.parties) > 0 && g.parties[0] == p; i++ {
 		if i > 60*tps {
 			t.Fatal("the fled Party never left")
 		}
 		g.step(0, 0)
 	}
-	if g.money != 0 || p.Paid {
-		t.Fatalf("a fled Party paid: money %d", g.money)
+	if g.wallet[Money] != rent || p.Paid {
+		t.Fatalf("a fled Party paid past its rent: money %v, rent %v", g.wallet[Money], rent)
 	}
 }
 
-// T098: a Tourist out of the hotel can't be scared.
-func TestOutNotScared(t *testing.T) {
-	g, _, p := settled(t)
-	p.state = out
-	g.haunt(p.Room)
-	g.scare()
-	if p.Guests[0].Fear != 0 {
-		t.Fatalf("an outing Party gained Fear %d", p.Guests[0].Fear)
-	}
-}
-
-// T099 (D148): every point of Fear a haunt adds is a point of Spook.
-func TestSpook(t *testing.T) {
-	g, _ := headless(t, 2, 1, 1)
-	g.startRun()
-	r := g.hotel.Rooms[0]
-	a, b := entities.NewGuest(r.Stays[0], "Adam"), entities.NewGuest(r.Stays[len(r.Stays)-1], "Alex")
-	g.parties = []*Party{{Guests: []*entities.Guest{&a, &b}, state: staying, Booking: Booking{Room: 0, Checkout: 99 * dayFrames}}}
-	g.haunt(0)
-	g.scare()
-	if g.spook != 2*fearPerMinute || a.Fear != fearPerMinute {
-		t.Fatalf("one haunt-minute on a pair: Spook %d, Fear %d; want %d and %d", g.spook, a.Fear, 2*fearPerMinute, fearPerMinute)
-	}
-}
-
-// T101: the haunter haunts by keys alone through the Pilot, and the sim's invariants hold: Spook only
-// from a haunt, no fled Party pays.
+// T101: the haunter hexes by keys alone through the Pilot, and the sim's invariants hold: Spook only
+// from a hex or a Shadow, no fled Party pays.
 func TestHaunterSim(t *testing.T) {
 	r := RunSim(Config{Cols: 2, Rows: 1, Days: 2, Seed: 2, Strategy: Strategies["haunter"], React: 30, KeyGap: 6})
 	for _, f := range r.Failures {
 		t.Errorf("%s: %s", f.Clock, f.Reason)
 	}
 	if r.Haunts == 0 || r.Spook == 0 || r.Fled == 0 {
-		t.Fatalf("haunter: %d haunts, %d Spook, %d fled; want all > 0", r.Haunts, r.Spook, r.Fled)
+		t.Fatalf("haunter: %d hexes, %d Spook, %d fled; want all > 0", r.Haunts, r.Spook, r.Fled)
+	}
+}
+
+// T192: the hexer taps beside the walls of occupied Rooms by keys alone, and stops short of fearLimit.
+func TestHexerSim(t *testing.T) {
+	r := RunSim(Config{Cols: 2, Rows: 1, Days: 2, Seed: 2, Strategy: Strategies["hexer"], React: 30, KeyGap: 6})
+	for _, f := range r.Failures {
+		t.Errorf("%s: %s", f.Clock, f.Reason)
+	}
+	if r.Haunts == 0 || r.Spook == 0 || r.Fled != 0 {
+		t.Fatalf("hexer: %d hexes, %d Spook, %d fled; want hexes and Spook, none fled", r.Haunts, r.Spook, r.Fled)
 	}
 }

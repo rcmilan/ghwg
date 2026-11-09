@@ -1,23 +1,25 @@
 package game
 
 import (
+	"image"
+
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Mirror transitions (D170): SPACE at the Mirror plays one of nine effects, picked at random, from the
+// Mirror transitions (D170): SPACE at the Mirror plays one of eight effects, picked at random, from the
 // real picture to the ghost one. The world keeps running; the dimension switches halfway.
 const flipFrames = 48 // 0.8 s, every effect
 
-var transitions = [...]string{"shatter", "ripple", "crt", "glitch", "wave", "iris", "dissolve", "tiles", "card"}
+var transitions = [...]string{"ripple", "crt", "glitch", "wave", "iris", "dissolve", "tiles", "card"}
 
 // shift: a transition under way.
 type shift struct {
 	effect  int
 	start   int // g.tick it began
 	toGhost bool
-	seed    float32 // varies the effect: shard and slice patterns, the wave's axis
+	seed    float32 // varies the effect: slice and block patterns, the wave's axis
 }
 
 // startShift begins a transition to the other dimension; the talk's random source picks it, so the sim's
@@ -42,7 +44,7 @@ func (g *Game) updateShift() {
 }
 
 // ghostness: 0 shows the real picture, 1 the ghost one. Real → ghost runs it forward; ghost → real
-// backward (the shards fly back).
+// backward.
 func (s *shift) ghostness(tick int) float32 {
 	p := min(1, float32(tick-s.start)/flipFrames)
 	if !s.toGhost {
@@ -51,18 +53,30 @@ func (s *shift) ghostness(tick int) float32 {
 	return p
 }
 
+// sizeFx allocates the transition's two pictures at the screen size, once it is known or when it
+// changes, so drawShift never allocates (D190).
+func (g *Game) sizeFx(w, h int) {
+	if g.fx[0] == nil || g.fx[0].Bounds().Size() != image.Pt(w, h) {
+		g.fx = [2]*ebiten.Image{ebiten.NewImage(w, h), ebiten.NewImage(w, h)}
+	}
+}
+
+// warmUp draws a ghost frame and the transition once, on the first play frame: a compiled shader only
+// reaches the GPU on its first draw, which would otherwise be the first flip (D190). drawFrame then
+// paints over the screen.
+func (g *Game) warmUp(screen *ebiten.Image) {
+	g.warm = true
+	was := g.ghost
+	g.ghost = true
+	g.drawFrame(g.fx[1])
+	g.ghost = was
+	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
+	screen.DrawRectShader(w, h, g.transition, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{g.fx[0], g.fx[1]}})
+}
+
 // drawShift draws the whole screen in both dimensions and blends them through the transition.
 func (g *Game) drawShift(screen *ebiten.Image) {
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
-	if g.fx[0] == nil {
-		g.fx = [2]*ebiten.Image{ebiten.NewImage(w, h), ebiten.NewImage(w, h)}
-	}
-	if g.transition == nil {
-		var err error
-		if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil {
-			panic(err) // a compile error in a constant: a bug, caught on the first flip
-		}
-	}
 	was := g.ghost
 	for i, img := range g.fx {
 		img.Clear()
@@ -86,7 +100,7 @@ func (g *Game) drawShift(screen *ebiten.Image) {
 }
 
 // transitionSrc: image 0 is the real picture, image 1 the ghost one; P (0..1) is how far to ghost.
-// Effects, by index: shatter, ripple, crt, glitch, wave, iris, dissolve, tiles, card. Sizes are placeholders.
+// Effects, by index: ripple, crt, glitch, wave, iris, dissolve, tiles, card. Sizes are placeholders.
 const transitionSrc = `//kage:unit pixels
 package main
 
@@ -107,48 +121,6 @@ func see(p vec2, ghost bool) vec4 {
 func hash(v vec2) float { return fract(sin(dot(v, vec2(12.9898, 78.233))+Seed*91.7) * 43758.5453) }
 func black() vec4 { return vec4(0, 0, 0, 1) }
 func inside(p, size vec2) bool { return p.x >= 0 && p.y >= 0 && p.x < size.x && p.y < size.y }
-
-// shatter: the real picture cracks into triangle shards that fall away, nearest the player first.
-func shatter(at, size vec2) vec4 {
-	cell := 80.0
-	col := floor(at.x / cell)
-	out := seeGhost(at)
-	for i := 0; i < 9; i++ {
-		row := floor(at.y/cell) - float(i)
-		if row >= 0 {
-			for k := 0; k < 2; k++ {
-				o := vec2(col, row) * cell
-				flip := hash(vec2(col, row)+5) >= 0.5 // the cell's diagonal: \ or /
-				mid := o + cell*vec2(0.66, 0.33)
-				if flip {
-					mid = o + cell*vec2(0.33, 0.33)
-				}
-				if k == 1 {
-					mid = o + cell - (mid - o)
-				}
-				d := distance(mid, Center)/length(size)*0.55 + hash(vec2(col, row)+float(k))*0.1
-				t := clamp((P-d)/0.35, 0, 1)
-				q := at - vec2(0, t*t*(size.y+cell))
-				l := q - o
-				upper := l.x >= l.y
-				diag := abs(l.x - l.y)
-				if flip {
-					upper = l.x+l.y < cell
-					diag = abs(l.x + l.y - cell)
-				}
-				if l.x >= 0 && l.y >= 0 && l.x < cell && l.y < cell && upper == (k == 0) {
-					c := seeReal(q) * (1 - 0.4*t)
-					edge := min(min(l.x, l.y), min(min(cell-l.x, cell-l.y), diag))
-					if t == 0 && P > d-0.06 && edge < 1.5 {
-						c = vec4(1)
-					}
-					out = vec4(c.rgb, 1)
-				}
-			}
-		}
-	}
-	return out
-}
 
 // ripple: a ring spreads from the player, warping the picture; the ghost one is inside it.
 func ripple(at, size vec2) vec4 {
@@ -241,27 +213,24 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	size := imageSrc0Size()
 	e := floor(Effect + 0.5)
 	if e == 0 {
-		return shatter(at, size)
-	}
-	if e == 1 {
 		return ripple(at, size)
 	}
-	if e == 2 {
+	if e == 1 {
 		return crt(at, size)
 	}
-	if e == 3 {
+	if e == 2 {
 		return glitch(at, size)
 	}
-	if e == 4 {
+	if e == 3 {
 		return wave(at, size)
 	}
-	if e == 5 {
+	if e == 4 {
 		return iris(at, size)
 	}
-	if e == 6 {
+	if e == 5 {
 		return dissolve(at, size)
 	}
-	if e == 7 {
+	if e == 6 {
 		return tiles(at, size)
 	}
 	return card(at, size)

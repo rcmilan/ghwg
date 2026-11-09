@@ -24,6 +24,11 @@ func main() {
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
 	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
 	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
+	shop := flag.String("shop", "", "dev: start a Run on the Terminal's shop holding money,spook (e.g. 30,40), every unlock but the Mirror locked")
+	hexAt := flag.String("hex", "", "dev, with -shot: 8 frames before -at, the Concierge stands on map cell x,y and hexes the Room beside it")
+	shadow := flag.Float64("shadow", 0, "dev: start a Run where Room 101 gets a Shadow with this much essence, watched from the Corridor beside it")
+	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
+	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much Room Spook, so dirty (5 a spot)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -51,9 +56,30 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" {
+	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 {
 		g.Start(*ghost)
-		run = &shot{Game: g, path: *shotPath, at: *at}
+		if *shadow > 0 {
+			g.DevShadow(*shadow)
+		}
+		g.DevHaunt(*haunt)
+		g.DevDirt(*dirt)
+	}
+	if *shop != "" {
+		var money, spook float64
+		if _, err := fmt.Sscanf(*shop, "%g,%g", &money, &spook); err != nil {
+			log.Fatalf("-shop %q: want money,spook, like 30,40", *shop)
+		}
+		g.ShopPrint(money, spook)
+	}
+	if *shotPath != "" {
+		s := &shot{Game: g, path: *shotPath, at: *at}
+		if *hexAt != "" {
+			s.hex = new(image.Point)
+			if _, err := fmt.Sscanf(*hexAt, "%d,%d", &s.hex.X, &s.hex.Y); err != nil {
+				log.Fatalf("-hex %q: want x,y", *hexAt)
+			}
+		}
+		run = s
 	}
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)
@@ -66,6 +92,7 @@ type shot struct {
 	path      string
 	at, frame int
 	saved     bool
+	hex       *image.Point // -hex
 }
 
 func (s *shot) Update() error {
@@ -73,6 +100,9 @@ func (s *shot) Update() error {
 		return ebiten.Termination
 	}
 	for n := 0; s.frame < s.at && n < 2000; n++ { // ponytail: 2000 Updates per tick keeps the window responsive
+		if s.hex != nil && s.frame == s.at-8 {
+			s.Game.HexFrom(*s.hex)
+		}
 		if err := s.Game.Update(); err != nil {
 			return err
 		}

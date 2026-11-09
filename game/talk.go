@@ -24,6 +24,7 @@ const (
 	greetHello          // its first arrival
 	greetOut            // a Tourist going out
 	greetBack           // and coming back
+	greetClean          // back from the hall once its Room is clean (Live test 4, 2026-11-08)
 )
 
 // line: a Guest's line in a speech balloon, from tick at for sayFrames.
@@ -38,14 +39,14 @@ var (
 	backLines = [][2]string{{"What a day!", "My feet hurt!"}, {"Loved the museum!", "The park was better!"}, {"I'm starving!", "Room service!"}}
 	// In the Room, in thirds of a limit: [0] anyone says, [1] only a pair, said to the other.
 	calmLines = [3][2][]string{ // between haunts, by Room Spook
-		{{"Nice room!", "So comfy!", "Lovely view.", "Ahh, quiet."}, {"Isn't this nice?", "Best trip ever!"}},
-		{{"It's cold in here.", "Smells odd...", "Hm. Drafty."}, {"Did you move my bag?", "Chilly, isn't it?"}},
-		{{"I don't like this room.", "Did the lamp move?", "Can't relax here..."}, {"Let's not stay long.", "You feel watched too?"}},
+		{{"Nice room!", "So comfy!", "Lovely view.", "Ahh, quiet.", "Soft pillows!", "Great price."}, {"Isn't this nice?", "Best trip ever!", "Let's stay longer!"}},
+		{{"It's cold in here.", "Smells odd...", "Hm. Drafty.", "Was that a creak?", "My ears are ringing."}, {"Did you move my bag?", "Chilly, isn't it?", "Did you hum just now?"}},
+		{{"I don't like this room.", "Did the lamp move?", "Can't relax here...", "The mirror blinked.", "Stop whispering."}, {"Let's not stay long.", "You feel watched too?", "Who knocked?"}},
 	}
 	scaredLines = [3][2][]string{ // haunted, by Fear or Room Spook, whichever is higher
-		{{"What was that?", "Hello...?", "Who's there?"}, {"Did you hear that?", "Was that you?"}},
-		{{"Something's here...", "I want to leave.", "I'm scared..."}, {"Hold my hand!", "You feel that too?"}},
-		{{"HELP!", "I have to get out!"}, {"We have to go!", "RUN!"}},
+		{{"What was that?", "Hello...?", "Who's there?", "It moved!", "Huh?!"}, {"Did you hear that?", "Was that you?", "Don't joke like that!"}},
+		{{"Something's here...", "I want to leave.", "I'm scared...", "It's breathing...", "Make it stop!"}, {"Hold my hand!", "You feel that too?", "Don't leave me!"}},
+		{{"HELP!", "I have to get out!", "I can't breathe!", "NO NO NO!", "It's touching me!"}, {"We have to go!", "Pack the bags!", "Grab the bags!"}},
 	}
 )
 
@@ -72,6 +73,11 @@ func (g *Game) updateTalk() {
 		switch hi := clockGreeting(g.clock); {
 		case p.greet == greetHello:
 			p.talk = append(p.talk, line{0, "Hello!", g.tick})
+		case p.greet == greetClean:
+			p.talk = append(p.talk, line{0, "Clean at last!", g.tick})
+			if len(p.Guests) > 1 {
+				p.talk = append(p.talk, line{1, "Thank you!", g.tick + answerFrames})
+			}
 		case len(p.Guests) == 1:
 			p.talk = append(p.talk, line{0, hi, g.tick})
 		default:
@@ -87,12 +93,12 @@ func (g *Game) updateTalk() {
 }
 
 // updateRoomTalk runs each game minute: a Party in its Room, not asking nor talking, now and then says a
-// line by its Room's Spook ("Zzz..." asleep), or while haunted a scared one by its speaker's Fear or the
+// line by its Room's Spook ("Zzz..." asleep), or lately hexed a scared one by its speaker's Fear or the
 // Room Spook, whichever is higher. A single never says a line meant for its mate.
 func (g *Game) updateRoomTalk() {
 	asleep := asleep(g.clock)
 	for _, p := range g.parties {
-		haunted := g.haunting(p.Room)
+		haunted := g.scared(p.Room)
 		odds := calmOdds
 		if haunted {
 			odds = scaredOdds

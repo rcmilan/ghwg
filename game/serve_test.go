@@ -19,7 +19,7 @@ func TestServe(t *testing.T) {
 	if p.Guests[0].Comfort != 0 || !p.asking() {
 		t.Fatal("SPACE at the door in ghost served the Room")
 	}
-	g.ghost = false
+	g.ghost, p.want, g.hands = false, SupplyWater, SupplyWater
 	press(g, s, spot)
 	if c := p.Guests[0].Comfort; c != comfortStep || p.Guests[0].Fear != 7 || p.asking() {
 		t.Fatalf("served at once: Comfort %d Fear %d asking %v, want %d, 7, false", c, p.Guests[0].Fear, p.asking(), comfortStep)
@@ -97,11 +97,13 @@ func TestAsk(t *testing.T) {
 }
 
 // T110: a served Party banks more than an unserved one with the same Booking; a fled one still pays 0.
+// Step 2: the Checkout pays only the tip, the stay is paid by the hour (TestRent).
 func TestComfortPays(t *testing.T) {
 	g, _, p := settled(t)
-	plain := p.Rate * p.Nights
+	g.wallet[Money] = 0 // the walk in paid nothing
+	plain := p.Rate * p.Nights * tipPct / 100
 	if p.Payout() != plain {
-		t.Fatalf("unserved payout %d, want Rate × Nights = %d", p.Payout(), plain)
+		t.Fatalf("unserved tip %d, want %d%% of Rate × Nights = %d", p.Payout(), tipPct, plain)
 	}
 	p.asked = g.clock
 	g.serve(p.Room)
@@ -112,8 +114,8 @@ func TestComfortPays(t *testing.T) {
 	for range 60 * tps {
 		g.step(0, 0)
 	}
-	if g.money != 0 {
-		t.Fatalf("a fled Party paid $%d", g.money)
+	if g.wallet[Money] != 0 {
+		t.Fatalf("a fled Party paid $%v", g.wallet[Money])
 	}
 }
 

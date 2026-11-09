@@ -187,3 +187,26 @@ What turns a Strategy's intent into key presses at a human pace: walking the Con
 **View**:
 Everything a player can see at one moment: the Terminal's readout, the guests on screen, the Fog, the Clock. The Strategy's input.
 _Avoid_: state, snapshot
+
+## Economy
+
+**Wallet**:
+The hotel's two currencies, Money and Spook, and nothing else. Fear and Room Spook are stats, not currencies.
+
+**Cost**:
+A price in Money, Spook or both. It is paid whole or not at all.
+
+**Unlock**:
+A feature the player buys at the Terminal: the Mirror, the hex, a supply prop, Room Lock. Until a new game sets its start state, everything is unlocked.
+
+**Tap**:
+One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Person alike. Each tap counts toward its job, a (Room, Task) pair: Serve, Hex or Housekeep.
+_Avoid_: click
+
+**Courier**:
+The delivery person checkout sends from the Entrance. He drops Supplies and unlocks at the Stock, then each Shadow Person at its Room's door, then leaves. Priests are not carried; they walk in on their own.
+_Avoid_: delivery guy, mailman
+
+**Stock**:
+The Supplies the hotel holds, kept on one spot per Supply in the stock area, left of the entrance hall. The Courier fills it; the Concierge carries from it into Rooms.
+_Avoid_: inventory

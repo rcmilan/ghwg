@@ -5,22 +5,27 @@ import (
 	"image/color"
 	"math"
 
+	"ghosthotel/world"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// tintKeys is the darkness layer's color and alpha through the day (D94), by hour; tint interpolates
-// linearly between them, wrapping at midnight. The color changes only while the alpha is 0 or as it fades.
-var tintKeys = []struct{ h, r, g, b, a float64 }{
-	{0, .04, .06, .22, .72}, // night: deep blue
-	{4.5, .04, .06, .22, .72},
-	{6, .80, .42, .58, .35}, // dawn: pink
-	{7.5, .80, .42, .58, 0}, // clear through the day
-	{17, 1, .55, .22, 0},
-	{18.5, 1, .55, .22, .22}, // dusk: warm
-	{20, .70, .32, .30, .40},
-	{21.5, .04, .06, .22, .72},
-	{24, .04, .06, .22, .72},
-}
+type tintKey struct{ h, r, g, b, a float64 }
+
+// nightKey is the darkness at full night: deep blue.
+var nightKey = tintKey{0, .04, .06, .22, .72}
+
+// night is nightKey at hour h.
+func night(h float64) tintKey { k := nightKey; k.h = h; return k }
+
+// tintKeys are the darkness layer's color and alpha through the day (D94), by hour; tint interpolates
+// linearly between keys, wrapping at midnight. The color changes only while the alpha is 0 or as it
+// fades. Keys are at most a game hour apart per unit of change, so nothing jumps. T169, user's pick:
+// dawn goes from the blue hour to pale gold; dusk from copper to plum.
+var tintKeys = []tintKey{night(0), night(4.5),
+	{5.5, .16, .24, .52, .58}, {6.5, .98, .84, .52, .24}, {7.5, .98, .84, .52, 0},
+	{17, .95, .55, .28, 0}, {18.5, .90, .48, .24, .30}, {19.75, .36, .16, .40, .50}, {21, .08, .07, .26, .68},
+	night(22), night(24)}
 
 // tint is the darkness layer's straight color and alpha at clock c: r, g, b, a in 0..1.
 func tint(c int) [4]float64 {
@@ -36,17 +41,25 @@ func tint(c int) [4]float64 {
 	panic("unreachable")
 }
 
-// lobbyLit is how lit the Lobby is at clock c (S6 review): fully, but from 01:00 to 06:00, with a
-// quarter-hour fade each way.
+// The Lobby's lights (T170), in minutes of the day (placeholders): on through the evening, fading off
+// until lobbyOff (the end of a regular worker's shift), dark until daylight, then fading on from lobbyOn.
+const (
+	lobbyOff  = 60
+	lobbyOn   = 7 * 60
+	lobbyFade = 15
+)
+
+// lobbyLit is how lit the Lobby is at clock c, 0..1.
 func lobbyLit(c int) float64 {
 	m := float64(c%dayFrames) / minuteFrames
-	return min(1, max(0, (60-m)/15, (m-360)/15))
+	return min(1, max(0, (lobbyOff-m)/lobbyFade, (m-lobbyOn)/lobbyFade))
 }
 
 const (
 	lightRadius = 56   // world px: a ceiling light's pool
 	glowRadius  = 24   // world px: the Terminal's glow
-	lightCut    = 0.85 // how much of the darkness a pool removes at its center
+	lightCut    = 0.85 // how much of the darkness the Terminal's glow removes at its center
+	lampCut     = 0.55 // and a Corridor lamp's: dim but readable (T171, placeholder)
 	lightGlow   = 0.18 // a light's own tint, added at its center at full night
 )
 
@@ -89,19 +102,21 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 		g.dark.SubImage(r).(*ebiten.Image).Fill(shade(lit))
 	}
 	fill(g.hotel.Lobby, lobbyLit(g.clock))
+	g.drawSpill(ox, oy)
 	for _, r := range g.hotel.Rooms {
-		if image.Pt(int(g.player.X), int(g.player.Y)).In(r.Shell()) {
-			fill(r.Shell(), 1)
+		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
+			fill(image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize), 1) // not its front wall, seen from the Corridor (Live test 4, 2026-11-08)
 		}
 	}
 	type light struct {
 		at  image.Point
 		img *ebiten.Image
 		rgb [3]float32
+		cut float32
 	}
-	lights := []light{{g.hotel.Terminal.Min.Add(g.hotel.Terminal.Max).Div(2), g.glow, coolLight}}
+	lights := []light{{g.hotel.Terminal.Min.Add(g.hotel.Terminal.Max).Div(2), g.glow, coolLight, lightCut}}
 	for _, p := range g.hotel.Lights {
-		lights = append(lights, light{p, g.pool, warmLight})
+		lights = append(lights, light{p, g.pool, warmLight, lampCut})
 	}
 	place := func(l light) *ebiten.DrawImageOptions {
 		r := l.img.Bounds().Dx() / 2
@@ -113,7 +128,7 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	}
 	for _, l := range lights { // the pools: holes in the darkness
 		op := place(l)
-		op.ColorScale.ScaleAlpha(lightCut)
+		op.ColorScale.ScaleAlpha(l.cut)
 		op.Blend = ebiten.BlendDestinationOut
 		g.dark.DrawImage(l.img, op)
 	}

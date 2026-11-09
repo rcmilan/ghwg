@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 	"math"
+	"slices"
 
 	"ghosthotel/world"
 
@@ -115,7 +116,7 @@ func goTo(to image.Point) action {
 func (p *Pilot) route(v View, at, to image.Point) []image.Point {
 	own, c := -1, to.Div(world.TileSize)
 	for i, r := range p.hotel.Rooms {
-		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) {
+		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) || at.In(r.Shell()) { // into or out of a Room: its door is open
 			own = i
 		}
 	}
@@ -172,17 +173,46 @@ func (p *Pilot) Flip(ghost bool) {
 	})
 }
 
-// Haunt flips to ghost, walks to the Room's door spot and presses SPACE until the Room is haunted.
-func (p *Pilot) Haunt(room int) {
+// Hex flips to ghost, walks to the nearest floor tile beside the Room's walls (any side) and presses
+// SPACE until Spook rises: one hex.
+func (p *Pilot) Hex(room int) {
+	const ts = world.TileSize
 	p.Flip(true)
-	spot := p.hotel.Rooms[room].Spot()
-	p.GoTo(spot.Max.Sub(image.Pt(world.TileSize/2, world.TileSize/2))) // the cell off the doorway
-	taps := 0
+	var walk action
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		switch {
-		case taps > 0 && v.Rooms[room].Haunted:
+		if beside(p.hotel, v.Concierge) == room {
 			return true, true
-		case taps >= 3 || v.Rooms[room].Vacant || !v.Concierge.In(spot):
+		}
+		if walk == nil {
+			var best []image.Point
+			s := p.hotel.Rooms[room].Shell().Inset(-ts)
+			for y := s.Min.Y + ts/2; y < s.Max.Y; y += ts {
+				for x := s.Min.X + ts/2; x < s.Max.X; x += ts {
+					c := image.Pt(x, y)
+					if beside(p.hotel, c) != room {
+						continue
+					}
+					if path := p.route(v, v.Concierge, c); path != nil && (best == nil || len(path) < len(best)) {
+						best = path
+					}
+				}
+			}
+			if best == nil {
+				return true, false
+			}
+			walk = goTo(best[len(best)-1])
+		}
+		return walk(p, v)
+	})
+	spook, taps := Num(-1), 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		if spook < 0 {
+			spook = v.Spook
+		}
+		switch {
+		case taps > 0 && v.Spook > spook:
+			return true, true
+		case taps >= 3 || beside(p.hotel, v.Concierge) != room:
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++
@@ -191,8 +221,28 @@ func (p *Pilot) Haunt(room int) {
 	})
 }
 
-// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered. It
-// fails when the request is gone before then.
+// Fetch flips to real, walks in front of the item's supply prop and presses SPACE until the item is in the
+// hands (E5). It fails when the prop is empty, or after 3 taps.
+func (p *Pilot) Fetch(item Unlock) {
+	p.Flip(false)
+	r := supplySpot(p.hotel, supplyOf(item))
+	p.GoTo(image.Pt(r.Min.X+world.TileSize/2, r.Max.Y-world.TileSize/2))
+	taps := 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		switch {
+		case v.Hands == item:
+			return true, true
+		case taps >= 3 || v.Stock[item] == 0:
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// Serve flips to real, walks to the Room's door spot and presses SPACE until its request is answered, with
+// whatever the hands hold (Fetch first). It fails when the request is gone before then.
 func (p *Pilot) Serve(room int) {
 	p.Flip(false)
 	spot := p.hotel.Rooms[room].Spot()
@@ -211,53 +261,79 @@ func (p *Pilot) Serve(room int) {
 	})
 }
 
-// CallPriest opens the Terminal, picks the Room and the Priest, pays, and closes it. It fails when the
-// Terminal refuses (no money, or a Priest is already on the Room).
+// Clean walks to the dirt spot at (world px) in the Room and presses SPACE until the Room's spots drop.
+// It fails when they don't after 3 taps.
+func (p *Pilot) Clean(room int, at image.Point) {
+	p.GoTo(at)
+	n, taps := -1, 0
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		if n < 0 {
+			n = len(v.Rooms[room].Dirt)
+		}
+		switch {
+		case len(v.Rooms[room].Dirt) < n:
+			return true, true
+		case taps >= 3:
+			return true, false
+		case p.tap(ebiten.KeySpace):
+			taps++
+		}
+		return false, false
+	})
+}
+
+// CallPriest buys a Priest for the Room at the Terminal. It fails when the Terminal refuses (no money,
+// or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int, strong bool) {
-	pick := pickWeak
+	row := rowFatherK
 	if strong {
-		pick = pickStrong
+		row = rowFatherM
 	}
-	p.order(room, pick, func(r RoomView) bool { return r.Priest })
+	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
 // BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
 // Terminal refuses (no Spook, or one is already there).
 func (p *Pilot) BuyShadow(room int) {
-	p.order(room, pickShadow, func(r RoomView) bool { return r.Shadow })
+	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
 }
 
-// order opens the Terminal, picks the Room and the menu's pick, pays, and closes it; ok if got holds then.
-func (p *Pilot) order(room, pick int, got func(RoomView) bool) {
+// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
+// Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
+// when the item isn't for sale or the store refuses it.
+func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
+	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
+	tab := shop[i].Tab
+	pos := slices.Index(tabItems(tab), i)
 	p.OpenTerminal()
-	paid := false
+	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
-			return true, paid && got(v.Rooms[room])
+			return true, paid && got(v)
 		}
-		cols, _ := p.hotel.Grid()
-		c, r, tc, tr := t.Cursor%cols, t.Cursor/cols, room%cols, room/cols
+		if cart0 < 0 {
+			cart0 = t.Cart
+		}
+		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || t.Menu >= 0 && t.Menu != room:
+		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
-		case t.Menu == room && t.Pick != pick:
-			k = ebiten.KeyS
-		case t.Menu == room:
-			k = ebiten.KeySpace
-		case c < tc:
+		case t.Placing && t.Cursor != room:
 			k = ebiten.KeyD
-		case c > tc:
-			k = ebiten.KeyA
-		case r < tr:
+		case t.Placing:
+			k = ebiten.KeySpace
+		case !added && t.Tab != tab, added && t.Tab != tabCart:
+			k = ebiten.KeyD
+		case !added && t.Pick != pos:
 			k = ebiten.KeyS
-		case r > tr:
-			k = ebiten.KeyW
+		case added && t.Pick != t.Lines:
+			k = ebiten.KeyS
 		default:
 			k = ebiten.KeySpace
 		}
-		if p.tap(k) && k == ebiten.KeySpace && t.Menu == room {
+		if p.tap(k) && k == ebiten.KeySpace && added {
 			paid = true
 		}
 		return false, false

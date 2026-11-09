@@ -16,7 +16,7 @@ const (
 	comfortStep  = 25  // Comfort a serve gives each Guest inside when answered at once; less the longer they waited
 	comfortMax   = 75  // a fully looked-after Party pays +75%
 	comfortBonus = 1   // % more pay per point of the Party's mean Comfort
-	askMinutes   = 60  // game minutes a request waits before it expires
+	askMinutes   = 180 // game minutes a request waits before it expires: a fetch and a walk (E5, was 60)
 	askPenalty   = 10  // Comfort each Guest loses when its request expires
 	askPerDay    = 1.5 // requests a Party makes per awake day, on average
 	askGap       = 180 // game minutes at least from one request's end to the next
@@ -44,7 +44,7 @@ func (g *Game) updateAsks() {
 			g.expired++
 		case !p.asking() && p.state == staying && awake && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
 			g.rng.Float64() < askPerDay/float64((sleepHour-wakeHour)*60):
-			p.asked = g.clock
+			p.asked, p.want = g.clock, supplies[g.rng.IntN(len(supplies))].ID
 		}
 	}
 }
@@ -169,15 +169,31 @@ func tailGeoM(x, y, w, h, hx, hy int) ebiten.GeoM {
 	return m
 }
 
-// drawRequests draws a "!!" balloon by each asking Party's leader, in both dimensions and over the Fog
+// drawRequests draws a balloon with the wanted item by each asking Party's leader, in both dimensions and over the Fog
 // and the dark.
 func (g *Game) drawRequests(s *ebiten.Image, ox, oy int) {
 	if g.balloon == nil {
 		g.balloon, g.tail = balloonImages()
 	}
 	for _, p := range g.parties {
-		if p.asking() {
-			g.drawBalloon(s, g.balloon, p.Guests[0], ox, oy)
+		if p.asking() { // its item in the balloon (show, don't tell)
+			if g.askBox == nil {
+				g.askBox = paint(balloonW, balloonH, rounded(balloonW, balloonH, balloonR), func(int, int) bool { return false })
+			}
+			x, y := g.drawBalloon(s, g.askBox, p.Guests[0], ox, oy)
+			if icon := g.supplyIcon(p.want); icon != nil {
+				w, h := icon.Bounds().Dx(), icon.Bounds().Dy()
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(balloonScale, balloonScale)
+				op.GeoM.Translate(float64(x+(balloonW-w)*balloonScale/2), float64(y+(balloonH-h)*balloonScale/2))
+				s.DrawImage(icon, op)
+			}
+		}
+		if p.state == complaining { // a splat for "!!": the Room is dirty (dirt.go)
+			if g.dirtBox == nil {
+				g.dirtBox = dirtBalloonImage()
+			}
+			g.drawBalloon(s, g.dirtBox, p.Guests[0], ox, oy)
 		}
 	}
 }

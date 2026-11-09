@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"maps"
 	"slices"
 
 	"ghosthotel/entities"
@@ -15,54 +16,75 @@ type View struct {
 	Shifting  bool // the Mirror's transition is playing (D170): SPACE waits
 	Clock     string
 	Day       int
-	Money     int
-	Spook     int
+	Money     Num
+	Spook     Num
 	Rooms     []RoomView    // in the Terminal's order
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
 	Terminal  TerminalView
-	Hotel     *world.Hotel // the map as drawn: walls, doors, anchors. Read it, never write it.
+	Shop      []int          // the store items that can go in the cart now, by index into shop (D180)
+	Stock     map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
+	Courier   bool           // a courier is on his way with an order
+	Hands     Unlock         // the supply over the Concierge's head, "" for none (E5)
+	Hotel     *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
 type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
-	Closed             bool // at the Spook limit: no new Party (D147)
-	Priest             bool // one is on his way or at work
-	Shadow             bool // a Shadow Person lives in it (D169), shown on the Terminal
-	Spook              int  // its Room Spook, read off its colors (D162)
-	Away               bool // Occupied, but its Party isn't inside: the player saw it walk out
-	Asking             bool // its Guests want service: the "!!" balloon, seen from anywhere (D163)
-	// Seen only in the ghost dimension: its props shake, and its Guests glow with Fear.
-	Haunted bool
-	Fear    int // its most frightened Guest in sight
+	Closed             bool          // at the Spook limit: no new Party (D147)
+	Priest             bool          // one is on his way or at work
+	Shadow             bool          // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
+	Spook              int           // its Room Spook, read off its colors (D162)
+	Away               bool          // Occupied, but its Party isn't inside: the player saw it walk out
+	Asking             bool          // its Guests want service: the balloon, seen from anywhere (D163)
+	Wants              Unlock        // the supply in that balloon (E5)
+	Dirt               []image.Point // its normal dirt spots, the ones to clean, world px (dirt.go)
+	// Seen only in the ghost dimension: its Guests glow with Fear.
+	Fear int // its most frightened Guest in sight
 }
 
 type TerminalView struct {
 	Open    bool
 	Message string
-	Cursor  int // the selected Room
-	Menu    int // the Room whose menu is open, or -1
-	Pick    int // the menu's pick: pickWeak, pickStrong or pickShadow
+	Cursor  int  // the Room a Service is for
+	Tab     Tab  // the store's open tab
+	Pick    int  // the picked row in the tab; in the cart, len(cart) is the checkout
+	Placing bool // a Service waits for its Room
+	Cart    int  // units in the cart
+	Lines   int  // lines in the cart: the checkout row's Pick
 }
 
 func (g *Game) view() View {
 	v := View{
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
-		Clock: clockText(g.clock), Day: day(g.clock), Money: g.money, Spook: g.spook,
+		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Spook: g.wallet[Spook],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: TerminalView{g.state == StateTerminal, g.message, g.termCursor, g.termRoom, g.termPick},
+		Terminal: g.termView(),
+		Shop:     g.forSale(),
+		Stock:    maps.Clone(g.stock),
+		Courier:  len(g.couriers) > 0,
+		Hands:    g.hands,
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Spook: g.roomSpook[i]}
-		rv.Asking = slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Occupies(i) && p.asking() })
+			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i) || g.coming(rowShadow, i), Spook: g.roomSpook[i]}
+		for _, s := range g.spots(i) {
+			if s.spirit {
+				continue // only a Priest clears it
+			}
+			rv.Dirt = append(rv.Dirt, s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
+		}
+		for _, p := range g.parties {
+			if p.Occupies(i) && p.asking() {
+				rv.Asking, rv.Wants = true, p.want
+			}
+		}
 		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
 		})
 		if g.ghost {
-			rv.Haunted = g.haunting(i)
 			for _, guest := range g.guests() {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
@@ -77,4 +99,24 @@ func (g *Game) view() View {
 		}
 	}
 	return v
+}
+
+func (g *Game) termView() TerminalView {
+	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Placing: g.placing >= 0}
+	for _, l := range g.cart {
+		t.Cart += l.n
+	}
+	t.Lines = len(g.cart)
+	return t
+}
+
+// forSale: the items on sale that aren't owned unlocks (bought, on their way or in the cart).
+func (g *Game) forSale() []int {
+	var rows []int
+	for i := range shop {
+		if g.onSale(i) && !g.owned(i) {
+			rows = append(rows, i)
+		}
+	}
+	return rows
 }

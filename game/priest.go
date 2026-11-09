@@ -43,22 +43,30 @@ func (pr *priest) price() int {
 
 // callPriest pays for a Priest to the Room and sends him in from the Street; else why not.
 func (g *Game) callPriest(room int, strong bool) string {
-	name := fatherK.name // D166: Father K is the Weak Priest, Father M the Strong one
+	price := priestWeak // D166: Father K is the Weak Priest, Father M the Strong one
+	if strong {
+		price = priestStrong
+	}
+	if g.priestOn(room) {
+		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
+	}
+	if !g.pay(Cost{Money: Num(price)}) {
+		return fmt.Sprintf("NOT ENOUGH MONEY: $%d", price)
+	}
+	g.sendPriest(room, strong)
+	return ""
+}
+
+// sendPriest: a paid-for Priest walks in from the Entrance to the Room.
+func (g *Game) sendPriest(room int, strong bool) {
+	name := fatherK.name
 	if strong {
 		name = fatherM.name
 	}
 	pr := &priest{Guest: entities.NewGuest(g.hotel.Spawn, name), strong: strong}
 	pr.RoomIndex = room
-	if g.priestOn(room) {
-		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
-	}
-	if g.money < pr.price() {
-		return fmt.Sprintf("NOT ENOUGH MONEY: $%d", pr.price())
-	}
-	g.money -= pr.price()
 	pr.SetPath(g.hotel.Path(g.hotel.Spawn, g.workSpot(room), room))
 	g.priests = append(g.priests, pr)
-	return ""
 }
 
 // priestOn: a Priest is on his way to the Room or in it.
@@ -110,6 +118,9 @@ func (g *Game) roomShift(room int) float32 {
 		return 0
 	}
 	s := min(1, float64(g.roomSpook[room])/spookLimit)
+	if g.rotting(room) {
+		s = 1 // T191: a rotting Room shows full
+	}
 	if g.ghost && g.closed(room) {
 		s = 0.8 + 0.2*math.Cos(2*math.Pi*float64(g.tick)/(1.5*tps)) // a slow pulse, 1.5 s
 	}

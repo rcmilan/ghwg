@@ -29,8 +29,8 @@ type stand struct {
 
 func atTerminal(h *world.Hotel) image.Point { return h.ConciergeStart }
 
-// haunter haunts every Occupied Room it sees unhaunted, the least frightened first, and waits at the
-// Mirror in between.
+// haunter hexes every Room with Guests inside, past fearLimit (they flee), and waits at the Mirror in
+// between.
 type haunter struct{}
 
 func (haunter) Act(v View, p *Pilot) {
@@ -38,15 +38,9 @@ func (haunter) Act(v View, p *Pilot) {
 		p.Close()
 		return
 	}
-	best := -1
-	for i, r := range v.Rooms {
-		if !r.Vacant && !r.Haunted && (best < 0 || r.Fear < v.Rooms[best].Fear) {
-			best = i
-		}
-	}
-	switch {
+	switch best := hexRoom(v, fearLimit); {
 	case best >= 0:
-		p.Haunt(best)
+		p.Hex(best)
 	case v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize):
 		p.GoTo(v.Hotel.Mirror)
 	}
@@ -61,8 +55,8 @@ func (s stand) Act(v View, p *Pilot) {
 	}
 }
 
-// hauntPriest haunts a Room only while one more haunt leaves its Guests under the Fear limit, so its
-// Parties stay and pay, and calls a Weak Priest to a Closed Room as soon as it has the money.
+// hauntPriest hexes as the hexer, so its Parties stay and pay, and calls a Weak Priest to a Closed Room as
+// soon as it has the money.
 type hauntPriest struct{}
 
 func (hauntPriest) Act(v View, p *Pilot) {
@@ -76,47 +70,54 @@ func (hauntPriest) Act(v View, p *Pilot) {
 			return
 		}
 	}
-	for i, r := range v.Rooms {
-		if !r.Vacant && !r.Haunted && r.Fear+hauntMinutes*fearPerMinute < fearLimit {
-			p.Haunt(i)
-			return
-		}
-	}
-	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
-		p.GoTo(v.Hotel.Mirror)
-	}
+	hexer{}.Act(v, p)
 }
 
-// server stays real and serves every Room that asks; it waits at the Terminal in between.
+// server stays real, keeps the supplies stocked and serves every Room that asks (T198); it waits at the
+// Terminal in between.
 type server struct{}
 
 func (server) Act(v View, p *Pilot) {
+	if restock(v, p) {
+		return
+	}
 	if i := toServe(v); i >= 0 && !v.Terminal.Open {
-		p.Serve(i)
+		serveRoom(v, p, i)
 		return
 	}
 	stand{atTerminal}.Act(v, p)
 }
 
-// toServe: the first Room a serve would land on, or -1.
+// toServe: the first asking Room whose item is in the hands or in stock, or -1.
 func toServe(v View) int {
 	for i, r := range v.Rooms {
-		if r.Asking {
+		if r.Asking && (v.Hands == r.Wants || v.Stock[r.Wants] > 0) {
 			return i
 		}
 	}
 	return -1
 }
 
-// smart serves whenever a Room asks, haunts each Party once (so none flees), calls a Weak Priest to a
-// Closed Room (Spook for the least money), and buys a Shadow for each Room once it has the Spook (D169),
-// leaving a Room with one to its Shadow: a haunt on top makes its Party flee. Fear shows only in ghost, so
-// it shifts to look before it haunts.
+// serveRoom fetches the Room's item, unless it's already in the hands, and delivers it.
+func serveRoom(v View, p *Pilot, room int) {
+	if v.Hands != v.Rooms[room].Wants {
+		p.Fetch(v.Rooms[room].Wants)
+	}
+	p.Serve(room)
+}
+
+// smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost, hexes between serves short of fearLimit (so none flees) and of rotLimit
+// (so none pays less), calls a Weak Priest to a Closed Room (Spook for the least money), and buys a Shadow
+// for each Room once it has the Spook (D169), leaving a Room with one to its Shadow. Fear shows only in
+// ghost, so it shifts to look before it hexes.
 type smart struct{}
 
 func (smart) Act(v View, p *Pilot) {
 	if v.Terminal.Open {
 		p.Close()
+		return
+	}
+	if restock(v, p) {
 		return
 	}
 	for i, r := range v.Rooms {
@@ -130,19 +131,26 @@ func (smart) Act(v View, p *Pilot) {
 		}
 	}
 	if i := toServe(v); i >= 0 {
-		p.Serve(i)
+		serveRoom(v, p, i)
 		return
 	}
+	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Spook (dirt.go)
+		if (r.Vacant || r.Away) && len(r.Dirt) > 0 {
+			p.Flip(true)
+			p.Clean(i, r.Dirt[0])
+			return
+		}
+	}
 	for i, r := range v.Rooms {
-		if r.Vacant || r.Away || r.Haunted || r.Shadow {
+		if r.Vacant || r.Away || r.Shadow || r.Spook+1 >= rotLimit {
 			continue
 		}
 		switch {
 		case !v.Ghost:
 			p.Flip(true)
 			return
-		case r.Fear+hauntMinutes*fearPerMinute < fearLimit:
-			p.Haunt(i)
+		case r.Fear+2*hauntFear < fearLimit:
+			p.Hex(i)
 			return
 		}
 	}
