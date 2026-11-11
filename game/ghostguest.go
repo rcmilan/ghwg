@@ -2,9 +2,15 @@ package game
 
 import (
 	"image"
+	"strings"
+
+	"ghosthotel/assets"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // Ghost guests (07 G1): once the Mirror is unlocked each Room also books a ghost Party, apart from its
@@ -16,7 +22,7 @@ const (
 	// The haunt values (ghostHaunt, hauntBase, phantasmMax) are deliberately harsh placeholders: Mood falls
 	// fast and Money with it, until X2's moving Parties between Rooms balances them. Do not tune before.
 	ghostHaunt = 240 // x: game minutes between a ghost's haunts (the Mood pressure on a Room)
-	ghostAlpha = 0.55
+	ghostAlpha = 0.9
 )
 
 // phantasmBands: the Phantasm each kind from the second starts at; the lowest kind is below the first edge.
@@ -28,14 +34,14 @@ const phantasmStrong = 4
 
 type ghostKind struct {
 	Name string
-	Hue  [3]float32 // placeholder hues (A3, 2026-11-11): #6fd8e8, #a07ae8, #7ee89a, #e87aa8
+	Hue  [3]float32 // one flat arcade color per kind, the Pac-Man ghosts' (which kind gets which is a placeholder)
 }
 
 var ghostKinds = [...]ghostKind{
-	{"Wisp", [3]float32{111. / 255, 216. / 255, 232. / 255}},
-	{"Specter", [3]float32{160. / 255, 122. / 255, 232. / 255}},
-	{"Wraith", [3]float32{126. / 255, 232. / 255, 154. / 255}},
-	{"Poltergeist", [3]float32{232. / 255, 122. / 255, 168. / 255}},
+	{"Wisp", [3]float32{0, 1, 1}},                    // #00ffff
+	{"Specter", [3]float32{1, 184. / 255, 1}},        // #ffb8ff
+	{"Wraith", [3]float32{1, 184. / 255, 82. / 255}}, // #ffb852
+	{"Poltergeist", [3]float32{1, 0, 0}},             // #ff0000
 }
 
 // kindOf: the index in ghostKinds of the band a Phantasm falls in.
@@ -186,9 +192,12 @@ const silhouetteAlpha = 0.6
 // DevGhosts is main's -ghosts: a human Party and a strong ghost Party of the given Phantasm settle in Room 0
 // for 3 nights, the Concierge standing in it (use with -shot -at 9300 for them asleep, or -ghost).
 func (g *Game) DevGhosts(phantasm int) {
+	if phantasm <= 0 {
+		return
+	}
 	g.unlock(Mirror)
 	h := g.walkIn()
-	if h == nil || phantasm <= 0 {
+	if h == nil {
 		return
 	}
 	h.Routine, h.Nights = homebody, 3
@@ -199,6 +208,15 @@ func (g *Game) DevGhosts(phantasm int) {
 	p.Guests[0].Phantasm = phantasm
 	g.settleIn(h)
 	g.settleIn(p)
+	for k := range ghostKinds { // and one more of each kind, standing in a row (layers: they never bump)
+		q := g.arriveGhost(h.Room)
+		q.Guests, q.Nights = q.Guests[:1], 3
+		q.schedule(g.clock)
+		g.settleIn(q)
+		q.Guests[0].Phantasm = max(1, phantasmBands[max(0, k-1)]*min(k, 1))
+		q.Guests[0].X += float64(k*20 - 10)
+		q.Guests[0].Y += 10
+	}
 	r := g.hotel.Rooms[h.Room].Origin
 	g.player.X, g.player.Y = float64((r.X+world.RoomW/2)*world.TileSize), float64((r.Y+world.RoomH-3)*world.TileSize)
 	w, hh := g.mapSize()
@@ -212,4 +230,25 @@ func (g *Game) settleIn(p *Party) {
 		at := g.hotel.Rooms[p.Room].Stays[i]
 		guest.X, guest.Y, guest.Path = float64(at.X), float64(at.Y), nil
 	}
+}
+
+// covered: the prop tile is half of the Lobby's Mirror while it is still locked: drawn as the covered one.
+func (g *Game) covered(tile string) bool {
+	return !g.unlocked(Mirror) && strings.HasPrefix(tile, "prop_mirror_r")
+}
+
+// coverHalf: the covered Mirror's upper (r0) or lower (r1) 16x16 tile.
+func (g *Game) coverHalf(tile string) *ebiten.Image {
+	if g.cover == nil {
+		img, _, err := ebitenutil.NewImageFromFileSystem(assets.FS, "sprites/mirror_covered.png")
+		if err != nil {
+			panic(err)
+		}
+		g.cover = img
+	}
+	y := 0
+	if strings.HasPrefix(tile, "prop_mirror_r1") {
+		y = world.TileSize
+	}
+	return g.cover.SubImage(image.Rect(0, y, world.TileSize, y+world.TileSize)).(*ebiten.Image)
 }

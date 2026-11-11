@@ -105,6 +105,7 @@ type Game struct {
 	hands         Unlock                        // the supply the Concierge carries, "" for none (supply.go)
 	delivered     Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
 	askBox        *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	cover         *ebiten.Image                 // the covered Mirror's sprite (ghostguest.go)
 	mirrorAtStart bool                          // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
 	ghostArrivals []arrival                     // per Room: its next ghost Party's arrival (ghostguest.go)
 	areaShades    []*shade                      // the Shadow People strong ghosts switch on, one per area (shadow.go)
@@ -220,6 +221,9 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
+		if g.message != "" && !g.atMirror() {
+			g.message = ""
+		}
 		g.step(move(g.in))
 		g.updateShift()
 		switch {
@@ -227,8 +231,10 @@ func (g *Game) Update() error {
 		case g.shifting != nil: // SPACE waits for the transition (D170)
 		case g.atTerminal():
 			g.openTerminal()
-		case g.atMirror():
+		case g.atMirror() && g.unlocked(Mirror):
 			g.startShift()
+		case g.atMirror(): // covered until the courier installs it
+			g.message = "THE MIRROR IS COVERED"
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
 		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):

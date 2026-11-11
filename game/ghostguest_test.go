@@ -2,10 +2,14 @@ package game
 
 import (
 	"image"
+	"math"
 	"slices"
 	"testing"
 
 	"ghosthotel/entities"
+	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // ghostIn books a ghost Party into the Room and puts it, staying, on its first Stay Spot.
@@ -299,4 +303,68 @@ func TestMirrorStartLocked(t *testing.T) {
 		}
 	}
 	t.Fatal("no ghost booked after the Mirror arrived")
+}
+
+// While the Mirror is locked it is drawn covered and SPACE at it shifts nothing; bought, the courier
+// carries it to the Mirror's own spot and it unlocks on his drop there, not at the stock.
+func TestMirrorCoveredAndDelivered(t *testing.T) {
+	g, s := headless(t, 2, 1, 1)
+	g.startRun()
+	if !g.covered("prop_mirror_r0c0") || !g.covered("prop_mirror_r1c0") || g.covered("prop_lamp") {
+		t.Fatal("a locked Mirror isn't drawn covered (or something else is)")
+	}
+	g.sortedProps()
+	n := 0
+	for _, p := range g.sortedProps() {
+		if g.covered(g.ts.Tiles[p.id].Name) {
+			n++
+		}
+	}
+	if n != 2 {
+		t.Fatalf("%d of the map's props draw covered, want the Mirror's 2 tiles", n)
+	}
+	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
+	s.hold(ebiten.KeySpace)
+	g.Update()
+	if g.shifting != nil || g.message == "" {
+		t.Fatalf("SPACE at the covered Mirror: shifting %v, message %q; want a refusal", g.shifting != nil, g.message)
+	}
+	s.hold()
+	g.wallet[Money] = 10
+	if why := g.addToCart(row(t, Mirror), -1); why != "" {
+		t.Fatal(why)
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	c := g.couriers[0]
+	if len(c.drops) != 1 || c.drops[0].at != g.hotel.Mirror {
+		t.Fatalf("the Mirror's drop: %+v, want the Mirror's spot %v", c.drops, g.hotel.Mirror)
+	}
+	g.player.X, g.player.Y = float64(g.hotel.ConciergeStart.X), float64(g.hotel.ConciergeStart.Y)
+	for f := 0; g.unlocked(Mirror) == false; f++ {
+		if f > 3*60*tps {
+			t.Fatal("the Mirror never arrived")
+		}
+		g.step(0, 0)
+	}
+	if math.Hypot(c.X-float64(g.hotel.Mirror.X), c.Y-float64(g.hotel.Mirror.Y)) > world.TileSize || g.covered("prop_mirror_r0c0") {
+		t.Errorf("unlocked with the courier at (%v,%v), covered %v; want him at the Mirror and it uncovered", c.X, c.Y, g.covered("prop_mirror_r0c0"))
+	}
+	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
+	s.hold(ebiten.KeySpace)
+	g.Update()
+	if g.shifting == nil {
+		t.Error("SPACE at the installed Mirror doesn't shift")
+	}
+}
+
+// Ghost guests are flat arcade colors, one per kind.
+func TestGhostPalette(t *testing.T) {
+	want := [4][3]float32{{0, 1, 1}, {1, 184. / 255, 1}, {1, 184. / 255, 82. / 255}, {1, 0, 0}}
+	for k, w := range want {
+		if kindHue(k) != w {
+			t.Errorf("kind %d is %v, want %v", k, kindHue(k), w)
+		}
+	}
 }

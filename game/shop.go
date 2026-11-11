@@ -187,6 +187,8 @@ func (g *Game) ship(order []cartLine) {
 	stock := drop{at: g.stockDrop()}
 	for _, l := range order {
 		switch it := shop[l.item]; {
+		case it.ID == Mirror: // installed at its own wall spot, not at the stock
+			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
 		case it.Tab != tabServices:
 			stock.lines = append(stock.lines, l)
 		default:

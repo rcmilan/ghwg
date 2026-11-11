@@ -172,6 +172,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		lift float64   // world px off the floor: a fleeing Guest's hop (D164)
 		tint []float32 // ghost dimension: its flat color; nil for the character's own
 		a    float32   // opacity; 0 is 1
+		mode int       // the palette shader's mode; 0 is modeActor
 	}
 	actors := []actor{{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim}}
 	for _, realm := range [...]Realm{Human, Ghost} {
@@ -184,7 +185,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			switch {
 			case realm == Ghost: // hued by its kind
 				h := kindHue(kindOf(guest.Phantasm))
-				a.tint, a.a = h[:], ghostAlpha
+				a.tint, a.a, a.mode = h[:], ghostAlpha, modeFlat
 			case g.ghost: // a human in the ghost dimension: a silhouette
 				a.tint, a.a = silhouetteTint, silhouetteAlpha
 			}
@@ -215,7 +216,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
 		s := g.dreadAt(image.Pt(p.cx, p.cy))
-		if f := g.propFog(p); f > 0 {
+		if name := g.ts.Tiles[p.id].Name; g.covered(name) {
+			g.blit(screen, g.coverHalf(name), op, modeProp, 0, nil, s)
+		} else if f := g.propFog(p); f > 0 {
 			drawFogged(screen, g.tiles[p.id], op, f)
 		} else if maze(g.ts.Tiles[p.id].Name) {
 			g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
@@ -244,7 +247,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
-		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a)
+		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
 		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
 			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
 			for _, p := range g.props {
@@ -351,12 +354,12 @@ func (g *Game) sheet(name string) [2]*ebiten.Image {
 // drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
 // (x,y) is the foot box center in screen px; inside a fogged Room it fades out with the fog (D92).
 func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64) {
-	g.drawCharacterAs(s, x, y, name, a, fog, nil, 0)
+	g.drawCharacterAs(s, x, y, name, a, fog, nil, 0, modeActor)
 }
 
 // drawCharacterAs is drawCharacter with the ghost dimension's color given (nil: the character's own) and
 // an opacity (0: opaque).
-func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64, tint []float32, alpha float32) {
+func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64, tint []float32, alpha float32, mode int) {
 	if tint == nil {
 		tint = ghostTints[strings.Split(name, "#")[0]]
 	}
@@ -372,5 +375,5 @@ func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entitie
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1-fog) * alpha)
-	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, tint, 0)
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, mode, 0, tint, 0)
 }
