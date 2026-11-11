@@ -114,6 +114,13 @@ var palette = map[byte]image.Point{
 	's': {147, 417}, // cecece steel
 	'S': {147, 418}, // a4a4a4
 	'm': {16, 25},   // 787878
+	'k': {130, 140}, // 1e1e2e dark window
+	'K': {73, 392},  // 565972 window glint
+	'a': {124, 141}, // d9a16a wood, light
+	'e': {93, 20},   // c78c59 wood
+	'D': {88, 395},  // a85f46 wood, dark
+	'n': {197, 736}, // 6b5052 wood, darkest
+	'Z': {78, 407},  // f2b22b gold, shade
 }
 
 type drawing struct {
@@ -219,6 +226,78 @@ var drawings = []drawing{
 		................
 		................
 		................`},
+	{name: "icon_key", rows: `
+			..oooo..
+			.oyYYZo.
+			oyYooZZo
+			oYo..oZo
+			oYo..oZo
+			oYZooZZo
+			.oZZZZo.
+			..oYZo..
+			..oYZo..
+			..oYZooo
+			..oYZYZo
+			..oYZooo
+			..oYZYZo
+			..ooooo.`},
+	{name: "door_boarded", rows: `
+			oooooooooooooooo
+			oDDDDDDDDDDDDDDo
+			oDaaaaaaaaaaaaDo
+			oDaeeeeeeeeeeaDo
+			oDaooooooooooaDo
+			oDaokKKkkkkkoaDo
+			oDaokKkkkkkkoaDo
+			oooooooooooooooo
+			aaSaaaaaaaaaaSaa
+			aaaeaaeaaeaaeaaa
+			DDDDDDDDDDDDDDDD
+			oooooooooooooooo
+			oDaokkkkkkkkoaDo
+			oDaokkkkkkkkoaDo
+			oDaokkkkkkkkoaDo
+			oDaooooooooooaDo
+			oDaeeeeeeeeeeaDo
+			oooooooooooooooo
+			aaSaaaaaaaaaaSaa
+			aaaeaaeaaeaaeaaa
+			DDDDDDDDDDDDDDDD
+			oooooooooooooooo
+			oDaeeeeeeeeeeaDo
+			oDaeeeeeeeeeeaDo
+			oDaeeeeeeeeeeaDo
+			oooooooooooooooo
+			aaSaaaaaaaaaaSaa
+			aaaeaaeaaeaaeaaa
+			DDDDDDDDDDDDDDDD
+			oooooooooooooooo
+			oDaeeeeeeeeeeaDo
+			oooooooooooooooo`},
+	{name: "stock_box", rows: `
+			.oooooooooooooooooo.
+			oaaaaaaaaaaaaaaaaaao
+			oaaaaaaaaaaaaaaaaaao
+			oeeeeeeeeeeeeeeeeeeo
+			oDDDDDDDDDDDDDDDDDDo
+			oaeeeeeeeeeeeeeeeeDo
+			oannnnnnnnnnnnnnnnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanwwwwwwwwwwwwwvnDo
+			oanvvvvvvvvvvvvvvnDo
+			oannnnnnnnnnnnnnnnDo
+			oDDDDDDDDDDDDDDDDDDo
+			oooooooooooooooooooo`},
 	{name: "sparkle", rows: `
 		..........o..
 		....o....oWo.
