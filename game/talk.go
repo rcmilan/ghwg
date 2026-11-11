@@ -12,8 +12,7 @@ import (
 const (
 	sayFrames    = 120      // a line shows this long
 	answerFrames = 120      // a pair's follower answers this long after its leader
-	calmOdds     = 1.0 / 90 // a line a game minute in the Room, unhaunted
-	scaredOdds   = 1.0 / 20 // haunted
+	calmOdds     = 1.0 / 90 // a line a game minute in the Room
 )
 
 // greeting: what a Party will say once the Concierge first hears it.
@@ -38,15 +37,10 @@ var (
 	outLines  = [][2]string{{"The park?", "Then the museum!"}, {"Museum first?", "Yes! Then the park!"}, {"Let's walk!", "To the park!"}}
 	backLines = [][2]string{{"What a day!", "My feet hurt!"}, {"Loved the museum!", "The park was better!"}, {"I'm starving!", "Room service!"}}
 	// In the Room, in thirds of a limit: [0] anyone says, [1] only a pair, said to the other.
-	calmLines = [3][2][]string{ // between haunts, by Room Spook
+	calmLines = [3][2][]string{ // by Room dirt
 		{{"Nice room!", "So comfy!", "Lovely view.", "Ahh, quiet.", "Soft pillows!", "Great price."}, {"Isn't this nice?", "Best trip ever!", "Let's stay longer!"}},
 		{{"It's cold in here.", "Smells odd...", "Hm. Drafty.", "Was that a creak?", "My ears are ringing."}, {"Did you move my bag?", "Chilly, isn't it?", "Did you hum just now?"}},
 		{{"I don't like this room.", "Did the lamp move?", "Can't relax here...", "The mirror blinked.", "Stop whispering."}, {"Let's not stay long.", "You feel watched too?", "Who knocked?"}},
-	}
-	scaredLines = [3][2][]string{ // haunted, by Fear or Room Spook, whichever is higher
-		{{"What was that?", "Hello...?", "Who's there?", "It moved!", "Huh?!"}, {"Did you hear that?", "Was that you?", "Don't joke like that!"}},
-		{{"Something's here...", "I want to leave.", "I'm scared...", "It's breathing...", "Make it stop!"}, {"Hold my hand!", "You feel that too?", "Don't leave me!"}},
-		{{"HELP!", "I have to get out!", "I can't breathe!", "NO NO NO!", "It's touching me!"}, {"We have to go!", "Pack the bags!", "Grab the bags!"}},
 	}
 )
 
@@ -93,28 +87,19 @@ func (g *Game) updateTalk() {
 }
 
 // updateRoomTalk runs each game minute: a Party in its Room, not asking nor talking, now and then says a
-// line by its Room's Spook ("Zzz..." asleep), or lately hexed a scared one by its speaker's Fear or the
-// Room Spook, whichever is higher. A single never says a line meant for its mate.
+// line by its Room's dirt ("Zzz..." asleep). A single never says a line meant for its mate.
 func (g *Game) updateRoomTalk() {
 	asleep := asleep(g.clock)
 	for _, p := range g.parties {
-		haunted := g.scared(p.Room)
-		odds := calmOdds
-		if haunted {
-			odds = scaredOdds
-		}
-		if p.state != staying || p.asking() || len(p.talk) > 0 || g.chat.Float64() >= odds {
+		if p.state != staying || p.asking() || len(p.talk) > 0 || g.chat.Float64() >= calmOdds {
 			continue
 		}
 		who := g.chat.IntN(len(p.Guests))
-		tier := min(2, 3*g.roomSpook[p.Room]/spookLimit)
+		tier := min(2, 3*g.dirtLevel(p.Room)/dirtMax)
 		set := calmLines[tier]
-		if haunted {
-			set = scaredLines[max(tier, min(2, 3*p.Guests[who].Fear/fearLimit))]
-		}
 		lines := set[0]
 		switch {
-		case asleep && !haunted:
+		case asleep:
 			lines = []string{"Zzz..."}
 		case len(p.Guests) > 1:
 			lines = slices.Concat(set[0], set[1])

@@ -63,14 +63,14 @@ func (g *Game) fetch(k int) {
 	g.hands = id
 }
 
-// deliver hands item to the Room's asking Party: it pays Pay × calm at once (calm falls with Room Spook)
+// deliver hands item to the Room's asking Party: it pays Pay × calm at once (calm falls with the Room's dirt)
 // and gives serve's Comfort. False, and nothing taken, on the wrong item or with no ask.
 func (g *Game) deliver(room int, item Unlock) bool {
 	k := supplyOf(item)
 	if k < 0 || !g.wants(room, item) || !g.serve(room) {
 		return false
 	}
-	calm := Num(max(0, spookLimit-g.roomSpook[room])) / spookLimit
+	calm := Num(max(0, dirtMax-g.dirtLevel(room))) / dirtMax
 	door := g.hotel.Rooms[room].Door.Mul(world.TileSize)
 	pay := supplies[k].Pay * calm
 	g.earn(Money, pay, image.Pt(door.X+world.TileSize/2, door.Y))
@@ -83,7 +83,7 @@ func (g *Game) deliver(room int, item Unlock) bool {
 // wants: the Room's Party asks for item.
 func (g *Game) wants(room int, item Unlock) bool {
 	for _, p := range g.parties {
-		if p.Occupies(room) && p.asking() && p.state == staying && p.want == item {
+		if p.Occupies(room, Human) && p.asking() && p.state == staying && p.want == item {
 			return true
 		}
 	}

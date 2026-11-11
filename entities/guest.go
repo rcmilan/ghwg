@@ -8,23 +8,29 @@ import (
 )
 
 type Guest struct {
-	X, Y      float64
-	RoomIndex int           // the Room its Party is booked into, whose door opens for it; -1 before Booking
-	Path      []image.Point // remaining waypoints, world px; set with SetPath
-	Phasing   bool          // ignoring actor collisions after getting stuck (D22c)
-	Character string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
-	Leader    *Guest        // the Party leader this guest trails (D90); nil for a leader
-	Fear      int           // from haunts (D146); never decays
-	Comfort   int           // from serves (D146, D149); never decays
-	Anim      Anim
+	X, Y        float64
+	RoomIndex   int           // the Room its Party is booked into, whose door opens for it; -1 before Booking
+	Path        []image.Point // remaining waypoints, world px; set with SetPath
+	Phasing     bool          // ignoring actor collisions after getting stuck (D22c)
+	Character   string        // LimeZu sheet name: Adam, Amelia or Alex (D25)
+	Leader      *Guest        // the Party leader this guest trails (D90); nil for a leader
+	Fear        int           // from frights (D146); never decays
+	Sensitivity int           // how hard a fright lands (07 stats; V1 reads it)
+	FleeAt      int           // the Fear at which its Party steps out, then flees (D146)
+	Phantasm    int           // how ghostly it is: sight and strength (07 stats; V1 reads it)
+	Comfort     int           // from serves (D146, D149); never decays
+	Anim        Anim
 
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
 	phaseEnd float64 // remaining path at which Phasing ends
 }
 
+// DefaultFleeAt is the Fear a fresh Guest flees at.
+const DefaultFleeAt = 100
+
 func NewGuest(at image.Point, character string) Guest {
-	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, Anim: NewAnim()}
+	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, FleeAt: DefaultFleeAt, Anim: NewAnim()}
 }
 
 // Mate: a and b are in one Party. Mates never bump, push or yield to each other: the Party walks as one.

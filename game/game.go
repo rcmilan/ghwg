@@ -44,9 +44,9 @@ type Game struct {
 	tick       int      // simulation frames since launch
 	clock      int      // game time (clock.go)
 	fast       bool     // T held: the clock runs ×10
-	wallet     [2]Num   // Money and Spook (wallet.go, D178)
+	wallet     [2]Num   // Money and Ecto (wallet.go, D178)
 	ghost      bool     // the whole hotel is in the ghost dimension (D141); else the real one
-	roomSpook  []int    // per Room: its Spook level (D147, priest.go)
+	mood       []int    // per Room: its Mood, -100..100 (mood.go)
 	serves     int      // requests answered this Run (serve.go)
 	expired    int      // requests left to expire this Run
 	priests    []*priest
@@ -75,14 +75,14 @@ type Game struct {
 	transition *ebiten.Shader                // the Mirror's transitions (shift.go)
 	fx         [2]*ebiten.Image              // a transition's real and ghost pictures
 	shifting   *shift                        // the Mirror's transition under way, nil if none (D170)
-	ink        *ebiten.Image                 // scratch for tinted text (haunt.go)
+	ink        *ebiten.Image                 // scratch for tinted text (fear.go)
 	balloon    *ebiten.Image                 // a Guest's request (serve.go)
 	tail       *ebiten.Image                 // the balloon's tail, pointing down
 	boxes      map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)
 	warm       bool                          // the shaders have been drawn once (shift.go warmUp)
 	spill      *ebiten.Image                 // the hall light through the Archway, built on first use (spill.go)
 	hud        [2]counter                    // per Res: its counter on screen (hud.go)
-	skull      *ebiten.Image                 // the Spook counter's icon (hud.go)
+	skull      *ebiten.Image                 // the Ecto counter's icon (hud.go)
 	termTab    Tab                           // the store's open tab (shop.go)
 	placing    int                           // the Service row waiting for its Room, or -1 (terminal.go)
 	cart       []cartLine                    // the store's cart (shop.go)
@@ -91,7 +91,6 @@ type Game struct {
 	boughtAt   map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
 	icons      map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
 	couriers   []*courier                    // on their way with an order (courier.go)
-	hexed      []hexMark                     // per Room: its last hex (haunt.go)
 	walls      []wallRun                     // the wall graph Shadows travel (D185, wall.go)
 	wallCell   []int                         // each map cell's run, -1 if none (wall.go)
 	onRun      [][]*shade                    // this frame's Shadows by run, for drawShadow
@@ -167,8 +166,8 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
 // (D135: no Spin after this), no money.
 func (g *Game) startRun() {
-	g.parties, g.floaters, g.walkIns, g.fog, g.hexed, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
+	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
+	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
@@ -226,8 +225,6 @@ func (g *Game) Update() error {
 			g.fetch(g.atSupply())
 		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
 			g.deliver(g.atDoor(), g.hands)
-		case g.ghost && g.hexable() >= 0:
-			g.hex(g.hexable(), g.feet())
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)
@@ -243,7 +240,7 @@ func (g *Game) step(dx, dy float64) {
 	g.tick++
 	g.advanceClock()
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
-	g.hotel.UpdateDoors(g.actors(), g.occupied)
+	g.hotel.UpdateDoors(g.doorActors(), g.occupied)
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
@@ -288,14 +285,24 @@ func (g *Game) conciergeBlocked(r image.Rectangle) bool {
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
 func (g *Game) separate() {
+	for _, realm := range [...]Realm{Human, Ghost} {
+		g.separateIn(realm)
+	}
+}
+
+// separateIn: separate for the actors of one realm; the Concierge is in the one he stands in.
+func (g *Game) separateIn(realm Realm) {
 	type body struct {
 		x, y    *float64
 		give    float64
 		blocked func(image.Rectangle) bool
 		guest   *entities.Guest // nil: the Concierge
 	}
-	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil}}
-	for _, guest := range g.walkers() {
+	var bodies []body
+	if g.realm() == realm {
+		bodies = append(bodies, body{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil})
+	}
+	for _, guest := range g.walkers(realm) {
 		if guest.Phasing {
 			continue
 		}
@@ -343,8 +350,9 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// actors: everyone on the map the doors react to.
-func (g *Game) actors() []world.Actor {
+// doorActors: everyone on the map the doors react to, of either realm: a door is one structure, and its
+// Room is Occupied by the Human layer only until G1 gives the ghosts' side.
+func (g *Game) doorActors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
 		as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
@@ -421,7 +429,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 	c := ahead[i].Div(world.TileSize).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
-	for _, o := range g.walkers() {
+	for _, o := range g.walkers(g.realmOf(guest)) {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
@@ -443,10 +451,11 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	hit := func(x, y float64) bool {
 		return entities.FootBox(x, y).Overlaps(box) && (x-guest.X)*hx+(y-guest.Y)*hy > 0
 	}
-	if hit(g.player.X, g.player.Y) {
+	realm := g.realmOf(guest)
+	if g.realm() == realm && hit(g.player.X, g.player.Y) {
 		return g.player.X, g.player.Y, true
 	}
-	for _, o := range g.walkers() {
+	for _, o := range g.walkers(realm) {
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}

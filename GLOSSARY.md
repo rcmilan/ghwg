@@ -29,7 +29,7 @@ A point inside a Room where one Guest stays, one per bed, at its foot. From 23:0
 Where a Guest stands to use one of its Room's props (a window, the TV, a bookshelf, a wardrobe, a drawer, the mirror, a cushion), facing it. Found from the Room Type's tiles: the free floor cell in front of the prop, or on it for a cushion.
 
 **Shadow Person**:
-A ghost bought with Spook at the Terminal, one per Room, for the Run. While its Room's Guests are inside it runs along the back wall from one side wall to the other, more often the higher the Room's Spook, frightening them (never into fleeing). A Strong Priest banishes it.
+A ghost that lives on a Room's walls. While its Room's Guests are inside it runs along the back wall from one side wall to the other, more often the lower the Room's Mood, frightening them (never into fleeing). A Strong Priest banishes it. The Terminal no longer sells one (G1 brings in-Room ghost Guests that haunt as Shadows).
 _Avoid_: shadow ghost
 
 **Lobby**:
@@ -89,39 +89,40 @@ _Avoid_: flip (in player-facing text), toggle
 
 ## Haunting
 
-**Haunt**:
-What the Concierge does to an Occupied Room in the ghost Dimension, with SPACE in front of its door. A haunt lasts an hour of the Clock; haunting again restarts it.
-_Avoid_: scare (as the verb), attack
-
-**Poltergeist**:
-The haunt there is so far: the Room's furniture shakes, and its Guests gain Fear while they're inside.
-
 **Fear**:
-How frightened a Guest is. It rises while the Guest is inside a haunted Room and never falls. It shows only in the ghost Dimension, as a red glow.
+How frightened a Guest is. It rises when the Guest sees a Shadow Person and never falls. It shows only in the ghost Dimension, as a red glow. Each Guest has its own **Flee At** limit (100 by default).
 
 **Flee**:
-A Party leaving for good, unpaid, the moment one of its Guests reaches the Fear limit. Its Room is Vacant at once. Its Guests hop once in place, screaming, then run out at triple speed.
+A Party leaving for good, unpaid, the moment one of its Guests reaches its Flee At. Its Room is Vacant at once. Its Guests hop once in place, screaming, then run out at triple speed.
 _Avoid_: escape, check out (a fled Party never checks out)
 
-**Spook**:
-The currency haunting earns: one point for each point of Fear a haunt adds. Shown in the ghost Dimension, on the Terminal and as cyan "+N" over the door. It buys nothing yet.
-_Avoid_: scare points, ectoplasm
+**Ectoplasm**:
+The currency Fear and ghost cleaning earn: one point for each point of Fear a Shadow adds, and half the dirt cleaned in the ghost Dimension. Shown in the ghost Dimension, on the Terminal and as "+N" over the door. It pays part of some Hotel unlocks. (Called Spook before 07.)
 
-**Room Spook**:
-How haunted a Room is: it rises by the Fear each haunt adds to its Guests and never falls on its own. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple with it, and pulses once Closed; in the real Dimension it tints faintly green. Not the Spook currency, which the hotel keeps when a Room is cleaned.
+**Room Mood**:
+One number per Room, from -100 (dread) to 100 (cozy), the Room axis. Guests' mess lowers it, Priests raise it, and a fright lowers it by the Fear it gives. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple as it falls, and pulses once Closed; in the real Dimension it tints faintly green. Dirt, tips and the Guests' lines read it. Not the Ectoplasm currency, which the hotel keeps when a Room is cleaned. (Called Room Spook, 0 to 150 the other way, before 07: Mood = 100 - Room Spook x 4/3.)
+
+**Dirt**:
+06's scale of a Room's Mood, 0 (cozy) to 150 (Closed): Mood = 100 - dirt x 4/3. The dirt spots, the mess a Guest leaves and the calm lines stay tuned in it; the code converts at one place (mood.go).
+
+**Realm**:
+One of the hotel's two independent layers, Human and Ghost. A Party lives in one; actors of different realms never bump, yield, push or queue for each other, and a Room is Occupied per realm. The Concierge is in Ghost while he is in the ghost Dimension. Every Party is Human until G1.
+
+**Guest stats**:
+Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees) and Phantasm (how ghostly it is); the last two are read by V1.
 
 **Closed**:
-A Room at the Room Spook limit. No new Party comes to it; a Party already in it stays until its checkout. The Terminal shows it in both Dimensions.
+A Room at Mood -100. No new Party comes to it; a Party already in it stays until its checkout. The Terminal shows it in both Dimensions.
 _Avoid_: blocked, locked
 
 **Priest**:
-A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its Room Spook and leaves. A **Weak** Priest, Father K, halves it; a **Strong** one, Father M, clears it. Both wear a black cassock with a white collar.
+A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its dread and leaves. A **Weak** Priest, Father K, halves it; a **Strong** one, Father M, clears it. Both wear a black cassock with a white collar.
 _Avoid_: exorcist, cleaner
 
 ## Serving
 
 **Serve**:
-What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once and the less the higher the Room Spook (none in a Closed Room). A Party that isn't asking can't be served.
+What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once and the less the lower the Room Mood (none in a Closed Room). A Party that isn't asking can't be served.
 _Avoid_: tend, room service (as the term)
 
 **Comfort**:
@@ -191,20 +192,20 @@ _Avoid_: state, snapshot
 ## Economy
 
 **Wallet**:
-The hotel's two currencies, Money and Spook, and nothing else. Fear and Room Spook are stats, not currencies.
+The hotel's two currencies, Money and Ectoplasm, and nothing else. Fear and Room Mood are stats, not currencies.
 
 **Cost**:
-A price in Money, Spook or both. It is paid whole or not at all.
+A price in Money, Ectoplasm or both. It is paid whole or not at all.
 
 **Unlock**:
-A feature the player buys at the Terminal: the Mirror, the hex, a supply prop, Room Lock. Until a new game sets its start state, everything is unlocked.
+A feature the player buys at the Terminal: the Mirror, a supply prop, Room Lock. Until a new game sets its start state, everything is unlocked.
 
 **Tap**:
-One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Person alike. Each tap counts toward its job, a (Room, Task) pair: Serve, Hex or Housekeep.
+One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Person alike. Each tap counts toward its job, a (Room, Task) pair: Serve or Housekeep.
 _Avoid_: click
 
 **Courier**:
-The delivery person checkout sends from the Entrance. He drops Supplies and unlocks at the Stock, then each Shadow Person at its Room's door, then leaves. Priests are not carried; they walk in on their own.
+The delivery person checkout sends from the Entrance. He drops Supplies and unlocks at the Stock, then leaves. Priests are not carried; they walk in on their own.
 _Avoid_: delivery guy, mailman
 
 **Stock**:

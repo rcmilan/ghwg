@@ -96,16 +96,16 @@ func (g *Game) press() string {
 	return strings.ToUpper(shop[i].Name) + " IN THE CART"
 }
 
-// ShopPrint opens the store holding money and spook, every Hotel unlock still to buy: main's -shop dev
+// ShopPrint opens the store holding money and ecto, every Hotel unlock still to buy: main's -shop dev
 // start (T187).
-func (g *Game) ShopPrint(money, spook float64) {
+func (g *Game) ShopPrint(money, ecto float64) {
 	g.locked = map[Unlock]bool{}
 	for _, it := range shop {
 		if it.Tab == tabHotel {
 			g.locked[it.ID] = true
 		}
 	}
-	g.wallet = [2]Num{Num(money), Num(spook)}
+	g.wallet = [2]Num{Num(money), Num(ecto)}
 	g.openTerminal()
 }
 
@@ -142,11 +142,7 @@ func (g *Game) drawHead(s *ebiten.Image, x, y int, name string, c float32) {
 // icon: an item's picture, a cut sprite (A1) or a character's head; a Shadow's head is black.
 func (g *Game) icon(it Item) (*ebiten.Image, float32) {
 	if it.Head {
-		c := float32(1)
-		if it.ID == rowShadow {
-			c = 0
-		}
-		return g.sheet(it.Icon)[0].SubImage(head).(*ebiten.Image), c
+		return g.sheet(it.Icon)[0].SubImage(head).(*ebiten.Image), 1
 	}
 	if g.icons == nil {
 		g.icons = map[string]*ebiten.Image{}
@@ -174,7 +170,7 @@ func (g *Game) drawIcon(s *ebiten.Image, it Item, cx, cy, box int, a float32) {
 	s.DrawImage(img, op)
 }
 
-// drawPrice draws "$N" in Money's ink and a skull with N in Spook's, from (x,y); it returns the width.
+// drawPrice draws "$N" in Money's ink and a skull with N in Ecto's, from (x,y); it returns the width.
 func (g *Game) drawPrice(s *ebiten.Image, c Cost, x, y int, scale float64) int {
 	if g.skull == nil {
 		g.skull = bitmap(skullRows)
@@ -185,11 +181,11 @@ func (g *Game) drawPrice(s *ebiten.Image, c Cost, x, y int, scale float64) int {
 		g.tintedAt(s, v, x, y, scale, resInk(Money), 1)
 		x += int(float64(len(v)*glyphW+glyphW) * scale)
 	}
-	if c[Spook] > 0 {
-		g.stamp(s, g.skull, x, y+int(skullDY*scale), scale, resInk(Spook))
+	if c[Ecto] > 0 {
+		g.stamp(s, g.skull, x, y+int(skullDY*scale), scale, resInk(Ecto))
 		x += int(float64(len(skullRows[0])+2) * scale)
-		v := fmtNum(c[Spook])
-		g.tintedAt(s, v, x, y, scale, resInk(Spook), 1)
+		v := fmtNum(c[Ecto])
+		g.tintedAt(s, v, x, y, scale, resInk(Ecto), 1)
 		x += int(float64(len(v)*glyphW) * scale)
 	}
 	return x - x0
@@ -201,8 +197,8 @@ func priceW(c Cost, scale float64) int {
 	if c[Money] > 0 {
 		w += float64((len("$"+fmtNum(c[Money]))+1)*glyphW) * scale
 	}
-	if c[Spook] > 0 {
-		w += float64((len(skullRows[0])+2)+len(fmtNum(c[Spook]))*glyphW) * scale
+	if c[Ecto] > 0 {
+		w += float64((len(skullRows[0])+2)+len(fmtNum(c[Ecto]))*glyphW) * scale
 	}
 	return int(w)
 }
@@ -379,14 +375,14 @@ func (g *Game) drawPlacing(s *ebiten.Image) {
 			rect(s, x-3, y-3, tw+6, th+6, assets.Accent)
 		}
 		bg := assets.Floor
-		if !g.vacant(i) {
+		if !g.vacant(i, Human) {
 			bg = assets.Ink // grayed: Booked
 		}
 		rect(s, x, y, tw, th, bg)
 		g.tintedAt(s, room.Number+" "+strings.ToUpper(room.Type.Name), x+8, y+4, 2, assets.Ghost, 1)
 		var heads []string
 		for _, p := range g.parties {
-			if p.Occupies(i) {
+			if p.Occupies(i, Human) {
 				for _, guest := range p.Guests {
 					heads = append(heads, guest.Character)
 				}
@@ -405,6 +401,6 @@ func (g *Game) drawPlacing(s *ebiten.Image) {
 				text(s, strings.ToUpper(pr.Character), sx+head.Dx()+4, y+66, assets.Accent)
 			}
 		}
-		g.tintedAt(s, fmt.Sprintf("SPOOK %d", g.roomSpook[i]), x+8, y+th-22, 1, resInk(Spook), 1)
+		g.tintedAt(s, fmt.Sprintf("MOOD %d", g.roomMood(i)), x+8, y+th-22, 1, resInk(Ecto), 1)
 	}
 }

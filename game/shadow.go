@@ -2,7 +2,6 @@ package game
 
 import (
 	"cmp"
-	"fmt"
 	"image"
 	"math"
 	"slices"
@@ -13,10 +12,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// The Shadow Person (D169, D185): a ghost bought with Spook that lives on the walls (wall.go) and patrols its
+// The Shadow Person (D169, D185): a ghost that lives on the walls (wall.go) and patrols its
 // Room's back wall. Placeholders.
 const (
-	shadowPrice    = 80 // Spook
 	shadowSpeed    = 4 * conciergeSpeed
 	patrolSpeed    = shadowSpeed // a patrol runs as fast as its travel (Live test 5, 2026-11-08: a crawl read as broken)
 	shadowSeen     = 10          // Fear a patrol gives a Guest who sees it
@@ -60,19 +58,7 @@ func (g *Game) shaded(room int) bool { return room < len(g.shades) && len(g.shad
 // shadowCap: how many Shadows a Room holds (placeholder; R1 raises it with Room level).
 func (g *Game) shadowCap(room int) int { return 1 }
 
-// buyShadow pays shadowPrice Spook for a Shadow Person in the Room (placeShadow); else why not.
-func (g *Game) buyShadow(room int) string {
-	switch {
-	case len(g.shades[room]) >= g.shadowCap(room):
-		return "ROOM " + g.hotel.Rooms[room].Number + " HAS ITS SHADOWS ALREADY"
-	case !g.pay(Cost{Spook: shadowPrice}):
-		return fmt.Sprintf("NOT ENOUGH SPOOK: %d", shadowPrice)
-	}
-	g.placeShadow(room)
-	return ""
-}
-
-// placeShadow: a paid-for Shadow Person joins the Room, born mid-way along the wall nearest where the
+// placeShadow: a Shadow Person joins the Room, born mid-way along the wall nearest where the
 // courier leaves its box, the Room's front wall (Live test 4, 2026-11-08), then off to its back wall.
 func (g *Game) placeShadow(room int) {
 	at := g.doorDrop(room)
@@ -83,10 +69,10 @@ func (g *Game) placeShadow(room int) {
 	g.shades[room] = append(g.shades[room], sh)
 }
 
-// shadowGap: frames from a patrol's start to the next, from 1 an hour at 0 Room Spook to 1 every 20 game
-// minutes at spookLimit (2026-11-08: a Shadow scares only while seen, so it patrols more).
+// shadowGap: frames from a patrol's start to the next, from 1 an hour at a calm Room to 1 every 20 game
+// minutes at a Closed one (2026-11-08: a Shadow scares only while seen, so it patrols more).
 func (g *Game) shadowGap(room int) int {
-	s := min(1, float64(g.roomSpook[room])/spookLimit)
+	s := min(1, float64(g.dirtLevel(room))/dirtMax)
 	return int(60 / (1 + 2*s) * minuteFrames)
 }
 
@@ -117,7 +103,7 @@ func (g *Game) shadowAlpha(sh *shade) float64 {
 // inside: the Guests of the Room's Party inside it.
 func (g *Game) inside(room int) (*Party, []*entities.Guest) {
 	for _, p := range g.parties {
-		if p.Occupies(room) && p.state != out {
+		if p.Occupies(room, Human) && p.state != out {
 			var in []*entities.Guest
 			for _, guest := range p.Guests {
 				if image.Pt(int(guest.X), int(guest.Y)).In(g.hotel.Rooms[room].Shell()) {
@@ -157,7 +143,7 @@ func (g *Game) updateShadows() {
 					sh.essence--
 					for _, guest := range in {
 						if _, ok := sh.seen[guest]; !ok {
-							g.frighten(p, guest, shadowUnseen, fearLimit-1)
+							g.frighten(p, guest, shadowUnseen, guest.FleeAt-1)
 						}
 					}
 				}
@@ -185,7 +171,7 @@ func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 	for _, guest := range in {
 		if _, ok := sh.seen[guest]; !ok && g.sees(guest, sh.x, y) {
 			sh.seen[guest] = g.tick
-			g.frighten(p, guest, shadowSeen, fearLimit-1)
+			g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
 			who := slices.Index(p.Guests, guest)
 			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, sightLines[g.chat.IntN(len(sightLines))], g.tick})
 		}
@@ -208,13 +194,13 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 	return (x-guest.X)*fx+(y-guest.Y)*fy > 0
 }
 
-// frighten: n Fear to a Guest of p, but not past limit; the hotel and its Room gain the Spook (D148).
+// frighten: n Fear to a Guest of p, but not past limit; the hotel and its Room gain the Ecto (D148).
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
 	guest.Fear += n
-	g.earn(Spook, Num(n), noFloat) // the haunt floats its own batched "+N"
-	g.roomSpook[p.Room] += n
-	p.spookShown += n
+	g.earn(Ecto, Num(n), noFloat) // the haunt floats its own batched "+N"
+	g.addDirtLevel(p.Room, n)
+	p.ectoShown += n
 }
 
 // startle: how high a Guest is in its hop on seeing a Shadow, world px.
@@ -276,8 +262,7 @@ func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 // DevShadow is main's -shot -shadow, a dev print: a free Shadow for the first Room, with essence e, watched
 // by the Concierge from the Corridor beside it, where the view takes in the whole north wall.
 func (g *Game) DevShadow(e float64) {
-	g.wallet[Spook] += shadowPrice
-	g.buyShadow(0)
+	g.placeShadow(0)
 	g.shades[0][0].essence = e
 	o := g.hotel.Rooms[0].Origin
 	g.player.X, g.player.Y = float64((o.X+world.RoomW+1)*world.TileSize), float64((o.Y+3)*world.TileSize)

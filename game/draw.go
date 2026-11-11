@@ -158,7 +158,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
-	g.drawSpookFloor(screen, ox, oy)
+	g.drawMoodFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
 	g.drawSupplies(screen, ox, oy)
@@ -168,13 +168,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		name string
 		anim entities.Anim
 		fog  float64
-		fear float64 // of fearLimit
+		fear float64 // of its FleeAt
 		lift float64 // world px off the floor: a fleeing Guest's hop (D164)
 	}
 	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0, 0}}
 	for _, guest := range g.guests() {
 		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
-			min(1, float64(guest.Fear)/fearLimit), g.lift(guest)})
+			min(1, float64(guest.Fear)/float64(guest.FleeAt)), g.lift(guest)})
 	}
 	for _, pr := range g.priests {
 		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
@@ -198,8 +198,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	drawProp := func(p prop) {
 		op.GeoM.Reset()
 		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64((p.cx*world.TileSize+g.shake(p))*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
-		s := g.spookAt(image.Pt(p.cx, p.cy))
+		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+		s := g.dreadAt(image.Pt(p.cx, p.cy))
 		if f := g.propFog(p); f > 0 {
 			drawFogged(screen, g.tiles[p.id], op, f)
 		} else if maze(g.ts.Tiles[p.id].Name) {
@@ -248,10 +248,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	g.drawRequests(screen, ox, oy)
 	g.drawTalk(screen, ox, oy)
-	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Spook in ghost only
+	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {
-		case f.kind == floatMoney || f.kind == floatSpook && g.ghost: // a currency's kind is its Res (wallet.go)
+		case f.kind == floatMoney || f.kind == floatEcto && g.ghost: // a currency's kind is its Res (wallet.go)
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		}
 	}

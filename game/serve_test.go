@@ -36,10 +36,10 @@ func TestServe(t *testing.T) {
 	if p.Guests[0].Comfort != comfortMax {
 		t.Fatalf("Comfort %d, want capped at %d", p.Guests[0].Comfort, comfortMax)
 	}
-	for _, c := range []struct{ spook, gain int }{{spookLimit / 2, (comfortStep + 1) / 2}, {spookLimit, 0}} {
-		p.Guests[0].Comfort, p.asked, g.roomSpook[p.Room] = 0, g.clock, c.spook
+	for _, c := range []struct{ mood, gain int }{{0, (comfortStep + 1) / 2}, {moodMin, 0}} {
+		p.Guests[0].Comfort, p.asked, g.mood[p.Room] = 0, g.clock, c.mood
 		if g.serve(p.Room); p.Guests[0].Comfort != c.gain {
-			t.Errorf("served at once at Room Spook %d: Comfort %d, want %d", c.spook, p.Guests[0].Comfort, c.gain)
+			t.Errorf("served at once at Room Mood %d: Comfort %d, want %d", c.mood, p.Guests[0].Comfort, c.gain)
 		}
 	}
 }
@@ -119,7 +119,7 @@ func TestComfortPays(t *testing.T) {
 	}
 }
 
-// T112: server and smart serve through the Pilot's keys, smart also haunts and calls Priests, and the
+// T112: server and smart serve through the Pilot's keys, smart also calls Priests, and the
 // sim's invariants hold.
 func TestServeSims(t *testing.T) {
 	for _, name := range []string{"server", "smart"} {
@@ -127,8 +127,8 @@ func TestServeSims(t *testing.T) {
 		for _, f := range r.Failures {
 			t.Errorf("%s %s: %s", name, f.Clock, f.Reason)
 		}
-		if r.Serves == 0 || name == "smart" && r.Haunts == 0 {
-			t.Errorf("%s: %d serves, %d haunts", name, r.Serves, r.Haunts)
+		if r.Serves == 0 {
+			t.Errorf("%s: %d serves", name, r.Serves)
 		}
 	}
 }

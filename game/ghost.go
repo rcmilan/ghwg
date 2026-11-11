@@ -15,7 +15,7 @@ package main
 var Mode float // 0 prop, 1 maze, 2 actor
 var Shade float // maze: how bright its blue outlines are
 var Tint vec3 // actor: its color
-var Spook float // prop, maze: its Room's shift toward green and purple (D162), 0..1
+var Dread float // prop, maze: its Room's shift toward green and purple (D162), 0..1
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	c := imageSrc0At(src)
@@ -24,7 +24,7 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	}
 	l := dot(c.rgb/c.a, vec3(0.299, 0.587, 0.114))
 	purple, green := vec3(0.62, 0.22, 1), vec3(0.2, 1, 0.35)
-	blue := mix(vec3(33, 33, 222)/255, purple, Spook)
+	blue := mix(vec3(33, 33, 222)/255, purple, Dread)
 	rgb := blue
 	if Mode > 1.5 {
 		rgb = mix(Tint*0.25, Tint, smoothstep(0.2, 0.55, l))
@@ -47,7 +47,7 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 		if l >= 0.7 {
 			band = green
 		}
-		rgb = mix(rgb, band, Spook)
+		rgb = mix(rgb, band, Dread)
 	}
 	return vec4(rgb, 1) * c.a * color.a
 }
@@ -58,7 +58,7 @@ const (
 	modeMaze  = 1
 	modeActor = 2
 	floorBlue = 0.3  // the floor's seams: a dim blue grid, so the walls' outlines read first
-	realSpook = 0.15 // how far a Room at spookLimit tints green in the real dimension
+	realDread = 0.15 // how far a Closed Room tints green in the real dimension
 )
 
 // ghostTints: each character's arcade color. The Concierge is the yellow one.
@@ -82,12 +82,12 @@ func maze(name string) bool {
 }
 
 // blit draws src onto dst like DrawImage; in the ghost dimension through the palette, as mode (with
-// shade for a maze tile, tint for an actor). spook (0..1) is the Room's shift (D162): green and purple in
+// shade for a maze tile, tint for an actor). dread (0..1) is the Room's shift (D162): green and purple in
 // ghost, a faint green in real.
-func (g *Game) blit(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, mode int, shade float32, tint []float32, spook float32) {
+func (g *Game) blit(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, mode int, shade float32, tint []float32, dread float32) {
 	if !g.ghost {
 		o := *op
-		o.ColorScale.Scale(1-realSpook*spook, 1, 1-realSpook*spook, 1)
+		o.ColorScale.Scale(1-realDread*dread, 1, 1-realDread*dread, 1)
 		dst.DrawImage(src, &o)
 		return
 	}
@@ -96,6 +96,6 @@ func (g *Game) blit(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, mode in
 	}
 	b := src.Bounds()
 	sop := &ebiten.DrawRectShaderOptions{GeoM: op.GeoM, ColorScale: op.ColorScale, Images: [4]*ebiten.Image{src},
-		Uniforms: map[string]any{"Mode": float32(mode), "Shade": shade, "Tint": tint, "Spook": spook}}
+		Uniforms: map[string]any{"Mode": float32(mode), "Shade": shade, "Tint": tint, "Dread": dread}}
 	dst.DrawRectShader(b.Dx(), b.Dy(), g.palette, sop)
 }

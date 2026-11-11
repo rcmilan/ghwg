@@ -10,7 +10,7 @@ import (
 )
 
 // The HUD (D179): a counter per currency appears when its wallet value changes, rolls to it, slides in
-// from the screen's edge (Money from the left, Spook from the right), holds, then slides back out. Each
+// from the screen's edge (Money from the left, Ecto from the right), holds, then slides back out. Each
 // side is a column of notices, centered vertically on what it shows (2026-11-08): a notice coming in or
 // going makes the others ease to their new places. Placeholders.
 const (
@@ -92,9 +92,9 @@ func (g *Game) updateHUD() {
 	}
 	note := g.nextGuest() != ""
 	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * noteScale}, []bool{want(Money), note})
-	column([]*slot{&g.hud[Spook].slot}, []int{glyphH * hudScale}, []bool{want(Spook)})
+	column([]*slot{&g.hud[Ecto].slot}, []int{glyphH * hudScale}, []bool{want(Ecto)})
 	g.hud[Money].slide(want(Money))
-	g.hud[Spook].slide(want(Spook))
+	g.hud[Ecto].slide(want(Ecto))
 	g.guestNote.slide(note)
 }
 
@@ -120,14 +120,14 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 			v = "$" + v
 		}
 		w := len(v) * glyphW * hudScale
-		if Res(r) == Spook {
+		if Res(r) == Ecto {
 			w += (len(skullRows[0]) + 2) * hudScale
 		}
 		travel := float64(w + hudMargin)
 		x := int(-float64(w) + travel*ease) // from off the left edge
-		if Res(r) == Spook {
+		if Res(r) == Ecto {
 			x = int(float64(sw) - travel*ease) // from off the right edge
-			g.stamp(s, g.skull, x, y+skullDY*hudScale, hudScale, resInk(Spook))
+			g.stamp(s, g.skull, x, y+skullDY*hudScale, hudScale, resInk(Ecto))
 			x += (len(skullRows[0]) + 2) * hudScale
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
@@ -137,7 +137,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 // The debug font's glyph cell, px; its digits sit on rows 3..12 of the 16.
 const glyphW, glyphH = 6, 16
 
-// The Spook icon (the skull), drawn in the ink of the currency; skullDY lines it up with the digits.
+// The Ecto icon (the skull), drawn in the ink of the currency; skullDY lines it up with the digits.
 var skullRows = []string{
 	"..XXXXX..",
 	".XXXXXXX.",
@@ -184,7 +184,7 @@ var (
 	silver = color.RGBA{206, 212, 226, 255}
 	green  = color.RGBA{96, 226, 120, 255}
 	purple = color.RGBA{168, 92, 230, 255}
-	inks   = [2][2]color.RGBA{Money: {gold, silver}, Spook: {green, purple}}
+	inks   = [2][2]color.RGBA{Money: {gold, silver}, Ecto: {green, purple}}
 )
 
 // inkAt: r's color t frames into its cycle, eased from the first ink to the second at half a period and

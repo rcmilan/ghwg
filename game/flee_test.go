@@ -11,7 +11,7 @@ import (
 func TestFleeHop(t *testing.T) {
 	g, _, p := settled(t)
 	g.flee(p)
-	if !g.vacant(p.Room) {
+	if !g.vacant(p.Room, Human) {
 		t.Fatal("the Room isn't Vacant at once")
 	}
 	type pos struct{ x, y float64 }

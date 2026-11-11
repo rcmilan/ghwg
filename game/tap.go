@@ -5,7 +5,6 @@ type Task int
 
 const (
 	TaskServe Task = iota
-	TaskHex
 	TaskHousekeep
 	taskCount
 )

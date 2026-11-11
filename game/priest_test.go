@@ -4,19 +4,16 @@ import (
 	"testing"
 )
 
-// T103 (D147), T188: a haunt minute raises its Room's Spook by the Fear it gives; at spookLimit the Room is Closed and
-// takes no Walk-ins, while one under it does.
-func TestRoomSpook(t *testing.T) {
+// T103 (D147), T248: a fright lowers its Room's Mood by the Fear it gives; at Mood -100 the Room is Closed and
+// takes no Walk-ins, while one above it does.
+func TestRoomMood(t *testing.T) {
 	g, _, p := settled(t)
-	g.ghost = true
-	g.clock -= g.clock % (fearEvery * minuteFrames) // a Fear minute
-	g.hex(p.Room, center(g.hotel.Rooms[p.Room].Spot()))
-	g.scare()
-	if g.roomSpook[p.Room] != len(p.Guests) || g.roomSpook[1-p.Room] != 0 {
-		t.Fatalf("a haunt minute: Room Spook %v, want %d on Room %d only", g.roomSpook, len(p.Guests), p.Room)
+	g.frighten(p, p.Guests[0], 1, fearLimit)
+	if g.roomMood(p.Room) != moodOf(1) || g.roomMood(1-p.Room) != moodMax {
+		t.Fatalf("a fright: Moods %v, want %d in Room %d only", g.mood, moodOf(1), p.Room)
 	}
 	g.parties = nil
-	g.roomSpook[0] = spookLimit
+	g.mood[0] = moodMin
 	if !g.closed(0) || g.closed(1) {
 		t.Fatalf("closed: %v %v, want Room 0 only", g.closed(0), g.closed(1))
 	}
@@ -24,18 +21,18 @@ func TestRoomSpook(t *testing.T) {
 		t.Fatal("the Walk-in didn't take the open Room")
 	}
 	g.parties = nil
-	g.roomSpook[1] = spookLimit
+	g.mood[1] = moodMin
 	if q := g.walkIn(); q != nil {
 		t.Fatalf("a Walk-in took Closed Room %d", q.Room)
 	}
 }
 
-// T104 (D151): a Strong Priest is paid at once, walks in, works and clears the Spook, then walks out. One
+// T104 (D151): a Strong Priest is paid at once, walks in, works and clears the dirt, then walks out. One
 // Priest per Room at a time; no money, no Priest.
 func TestPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.roomSpook[0], g.wallet[Money] = spookLimit, priestStrong+priestWeak
+	g.mood[0], g.wallet[Money] = moodMin, priestStrong+priestWeak
 	if msg := g.callPriest(0, true); msg != "" || g.wallet[Money] != priestWeak {
 		t.Fatalf("call: %q, money %v; want no refusal and money %d", msg, g.wallet[Money], priestWeak)
 	}
@@ -46,50 +43,40 @@ func TestPriest(t *testing.T) {
 		if i > 60*tps+priestMinutes*minuteFrames {
 			t.Fatalf("the Priest never left: %+v", *g.priests[0])
 		}
-		if g.roomSpook[0] == 0 && g.priests[0].until == 0 {
-			t.Fatal("the Spook cleared before the Priest worked")
+		if g.roomMood(0) == moodMax && g.priests[0].until == 0 {
+			t.Fatal("the dirt cleared before the Priest worked")
 		}
 		g.step(0, 0)
 	}
-	if g.roomSpook[0] != 0 || g.closed(0) {
-		t.Fatalf("after a Strong Priest: Room Spook %d, want 0", g.roomSpook[0])
+	if g.roomMood(0) != moodMax || g.closed(0) {
+		t.Fatalf("after a Strong Priest: Room Mood %d, want %d", g.roomMood(0), moodMax)
 	}
-	g.roomSpook[1], g.wallet[Money] = 10, priestWeak-1
+	g.setDirtLevel(1, 10)
+	g.wallet[Money] = priestWeak - 1
 	if msg := g.callPriest(1, false); msg == "" || g.wallet[Money] != priestWeak-1 || len(g.priests) > 0 {
 		t.Fatal("a Priest was called without the money")
 	}
 }
 
-// T104: a Weak Priest halves the Room's Spook.
+// T104: a Weak Priest halves the Room's dread (Mood -100 → 0).
 func TestWeakPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.roomSpook[1], g.wallet[Money] = 151, priestWeak
+	g.mood[1], g.wallet[Money] = moodMin, priestWeak
 	g.callPriest(1, false)
 	for i := 0; len(g.priests) > 0 && i < 60*tps+priestMinutes*minuteFrames; i++ {
 		g.step(0, 0)
 	}
-	if g.roomSpook[1] != 75 {
-		t.Fatalf("after a Weak Priest: Room Spook %d, want 75", g.roomSpook[1])
+	if g.roomMood(1) != 0 {
+		t.Fatalf("after a Weak Priest: Room Mood %d, want 0", g.roomMood(1))
 	}
 }
 
-// T107: haunt-priest calls Priests through the Terminal by keys alone, and the sim's invariants hold.
-func TestHauntPriestSim(t *testing.T) {
-	r := RunSim(Config{Cols: 2, Rows: 1, Days: 7, Seed: 2, Strategy: Strategies["haunt-priest"], React: 30, KeyGap: 6})
-	for _, f := range r.Failures {
-		t.Errorf("%s: %s", f.Clock, f.Reason)
-	}
-	if r.Priests == 0 || r.PriestSpend != r.Priests*priestWeak {
-		t.Fatalf("haunt-priest: %d Priests for $%d; want some Weak ones", r.Priests, r.PriestSpend)
-	}
-}
-
-// T106 (D162): a Room shifts by Spook ÷ spookLimit; Closed, it pulses in ghost (0.6..1) and holds at 1 in real.
+// T106 (D162): a Room shifts by dirt ÷ dirtMax; Closed, it pulses in ghost (0.6..1) and holds at 1 in real.
 func TestRoomShift(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.roomSpook[0], g.roomSpook[1] = spookLimit/2, spookLimit
+	g.mood[0], g.mood[1] = 0, moodMin
 	if g.roomShift(0) != 0.5 || g.roomShift(1) != 1 || g.roomShift(-1) != 0 {
 		t.Fatalf("real: shifts %v %v, want 0.5 1", g.roomShift(0), g.roomShift(1))
 	}

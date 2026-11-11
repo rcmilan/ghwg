@@ -11,18 +11,18 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Housekeeping (D183, redesigned 2026-11-08): dirt is Room Spook made visible, the n-th spot standing for
-// spotSpook up to the bigFrom-th, then each one more (fewer, bigger stains as it grows, E6 close-out).
+// Housekeeping (D183, redesigned 2026-11-08): dirt is dirt made visible, the n-th spot standing for
+// spotUnit up to the bigFrom-th, then each one more (fewer, bigger stains as it grows, E6 close-out).
 // Guests leave mess; each Room books its next Party when one leaves; a Party finding too much dirt waits
 // in the hall, then walks away. Placeholders.
 const (
-	spotSpook      = 5    // Room Spook a Room's first bigFrom dirt spots each stand for
-	bigFrom        = 4    // spots past this many grow: the next stands for 2 × spotSpook, then 3 ×, …
-	harvestRate    = 0.5  // of a spot's Room Spook, banked as Spook when cleaned in ghost
+	spotUnit       = 5    // dirt a Room's first bigFrom dirt spots each stand for
+	bigFrom        = 4    // spots past this many grow: the next stands for 2 × spotUnit, then 3 ×, …
+	harvestRate    = 0.5  // of a spot's dirt, banked as Ecto when cleaned in ghost
 	messyOdds      = 0.15 // a Guest is messy
-	messyMess      = 5    // Room Spook a messy Guest leaves a night; the rest leave 1
+	messyMess      = 5    // dirt a messy Guest leaves a night; the rest leave 1
 	spiritOdds     = 0.35 // a new spot is spiritual: only ghost shows it, only a Priest clears it (Live test 5)
-	dirtLimit      = 10   // Room Spook of normal stains a Party puts up with; more and it complains
+	dirtLimit      = 10   // dirt of normal stains a Party puts up with; more and it complains
 	dirtComfort    = 10   // Comfort each Guest loses per spot of either kind it settles in with
 	intrudeComfort = 1    // Comfort each Guest loses per game minute the Concierge spends in its Room with it
 	patience       = 120  // game minutes a complaining Party waits in the hall
@@ -33,7 +33,7 @@ const (
 	stainGrowth    = 0.75 // a new spot grows an old stain, else starts a new one
 )
 
-// spot: one dirt stain, on a cell, standing for size Room Spook; spiritual ones show only in ghost and only
+// spot: one dirt stain, on a cell, standing for size dirt; spiritual ones show only in ghost and only
 // a Priest clears them.
 type spot struct {
 	cell   image.Point
@@ -64,7 +64,7 @@ func (g *Game) firstArrivals() []arrival {
 	return a
 }
 
-// mess: the Room Spook one Guest leaves a night, rolled at booking.
+// mess: the dirt one Guest leaves a night, rolled at booking.
 func (g *Game) mess() int {
 	if g.rng.Float64() < messyOdds {
 		return messyMess
@@ -75,14 +75,14 @@ func (g *Game) mess() int {
 // leaveMess: a leaving Party's mess, for the nights it stayed (a started night counts).
 func (g *Game) leaveMess(p *Party) {
 	nights := min(p.Nights, (g.clock-p.arrived)/dayFrames+1)
-	g.roomSpook[p.Room] += p.mess * nights
+	g.addDirtLevel(p.Room, p.mess*nights)
 }
 
-// spots: the Room's dirt spots, enough to cover its Room Spook, past bigFrom each a spotSpook bigger (a
+// spots: the Room's dirt spots, enough to cover its dirt, past bigFrom each a spotUnit bigger (a
 // Room at 200 has 12, not 40: E6 close-out, 2026-11-08). A new spot takes a free floor
 // cell picked from its own seed, so spots stay put, most often one touching an older spot, so the dirt
 // grows in stains (2026-11-08), and is spiritual spiritOdds of the time; a cleaned one leaves at once, and
-// Room Spook falling otherwise (a Priest) takes spiritual spots first, newest first.
+// dirt falling otherwise (a Priest) takes spiritual spots first, newest first.
 func (g *Game) spots(room int) []spot {
 	if len(g.dirt) != len(g.hotel.Rooms) {
 		g.dirt, g.dirtN = make([][]spot, len(g.hotel.Rooms)), make([]int, len(g.hotel.Rooms))
@@ -101,12 +101,12 @@ func (g *Game) spots(room int) []spot {
 				break
 			}
 		}
-		if total()-g.dirt[room][k].size < g.roomSpook[room] {
+		if total()-g.dirt[room][k].size < g.dirtLevel(room) {
 			break
 		}
 		g.dirt[room] = slices.Delete(g.dirt[room], k, k+1)
 	}
-	for total() < g.roomSpook[room] {
+	for total() < g.dirtLevel(room) {
 		free := g.floorCells(room)
 		if len(free) == 0 {
 			break
@@ -124,7 +124,7 @@ func (g *Game) spots(room int) []spot {
 		if len(near) > 0 && r.Float64() < stainGrowth {
 			free = near
 		}
-		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], r.Float64() < spiritOdds, spotSpook * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
+		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], r.Float64() < spiritOdds, spotUnit * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
 	}
 	return g.dirt[room]
 }
@@ -156,7 +156,7 @@ func (g *Game) floorCells(room int) []image.Point {
 // dirtShows: the spot shows in the current dimension: every one in ghost, the normal ones in real.
 func (g *Game) dirtShows(s spot) bool { return g.ghost || !s.spirit }
 
-// normalDirt: the Room Spook its normal stains carry, what its Guests see as dirt (Live test 5).
+// normalDirt: the dirt its normal stains carry, what its Guests see as dirt (Live test 5).
 func (g *Game) normalDirt(room int) int {
 	n := 0
 	for _, s := range g.spots(room) {
@@ -196,8 +196,8 @@ func (g *Game) normalAt(room int, cell image.Point) int {
 	return slices.IndexFunc(g.spots(room), func(s spot) bool { return s.cell == cell && !s.spirit })
 }
 
-// clean wipes the normal spot at cell: the Room loses the spot's size in Room Spook; in ghost, harvestRate of
-// it is banked as Spook. Only with no Guest inside. False if refused.
+// clean wipes the normal spot at cell: the Room loses the spot's size in dirt; in ghost, harvestRate of
+// it is banked as Ecto. Only with no Guest inside. False if refused.
 func (g *Game) clean(room int, cell image.Point) bool {
 	k := g.normalAt(room, cell)
 	if _, gs := g.inside(room); k < 0 || len(gs) > 0 {
@@ -205,11 +205,11 @@ func (g *Game) clean(room int, cell image.Point) bool {
 	}
 	s := g.dirt[room][k]
 	g.dirt[room] = slices.Delete(g.dirt[room], k, k+1)
-	cleaned := min(s.size, g.roomSpook[room])
-	g.roomSpook[room] -= cleaned
+	cleaned := min(s.size, g.dirtLevel(room))
+	g.addDirtLevel(room, -cleaned)
 	at := cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 	if g.ghost {
-		g.earn(Spook, Num(cleaned)*harvestRate, at)
+		g.earn(Ecto, Num(cleaned)*harvestRate, at)
 	}
 	g.tapped(room, TaskHousekeep)
 	g.wiped = append(g.wiped, wipe{s, g.tick})
@@ -287,9 +287,9 @@ const (
 	stainScale = 3  // a stain grows with the root of its size, up to this many times stainW
 )
 
-// stainWidth: a spot's stain bitmap, world px: stainW × √(size/spotSpook), capped at stainScale.
+// stainWidth: a spot's stain bitmap, world px: stainW × √(size/spotUnit), capped at stainScale.
 func stainWidth(size int) int {
-	return int(stainW * min(stainScale, math.Sqrt(float64(max(size, spotSpook))/spotSpook)))
+	return int(stainW * min(stainScale, math.Sqrt(float64(max(size, spotUnit))/spotUnit)))
 }
 
 // stainImage: a spot's stain, a blob of pixel discs seeded by its cell, as many and as spread as its
@@ -373,7 +373,7 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 func (g *Game) nextGuest() string {
 	next := -1
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.vacant(i) && !g.closed(i) && (next < 0 || a.at < next) {
+		if a.at > 0 && g.vacant(i, Human) && !g.closed(i) && (next < 0 || a.at < next) {
 			next = a.at
 		}
 	}
@@ -395,9 +395,9 @@ func dirtBalloonImage() *ebiten.Image {
 	})
 }
 
-// DevDirt is main's -dirt: every Room starts at n Room Spook, its spots of dirt.
+// DevDirt is main's -dirt: every Room starts at n dirt (Mood 100 - n×4/3), its spots of it.
 func (g *Game) DevDirt(n int) {
-	for i := range g.roomSpook {
-		g.roomSpook[i] = n
+	for i := range g.mood {
+		g.setDirtLevel(i, n)
 	}
 }
