@@ -15,11 +15,9 @@ type Strategy interface {
 
 // Strategies are the ones the CLI and the watch mode know by name (D106).
 var Strategies = map[string]Strategy{
-	"never":        stand{atTerminal}, // never haunts: stays real at the Terminal
-	"haunter":      haunter{},
-	"haunt-priest": hauntPriest{},
-	"server":       server{},
-	"smart":        smart{},
+	"never":  stand{atTerminal}, // stays real at the Terminal
+	"server": server{},
+	"smart":  smart{},
 }
 
 // stand keeps the Concierge at a spot, closing the Terminal if it is open.
@@ -29,23 +27,6 @@ type stand struct {
 
 func atTerminal(h *world.Hotel) image.Point { return h.ConciergeStart }
 
-// haunter hexes every Room with Guests inside, past fearLimit (they flee), and waits at the Mirror in
-// between.
-type haunter struct{}
-
-func (haunter) Act(v View, p *Pilot) {
-	if v.Terminal.Open {
-		p.Close()
-		return
-	}
-	switch best := hexRoom(v, fearLimit); {
-	case best >= 0:
-		p.Hex(best)
-	case v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize):
-		p.GoTo(v.Hotel.Mirror)
-	}
-}
-
 func (s stand) Act(v View, p *Pilot) {
 	switch {
 	case v.Terminal.Open:
@@ -53,24 +34,6 @@ func (s stand) Act(v View, p *Pilot) {
 	case v.Concierge.Div(world.TileSize) != s.at(v.Hotel).Div(world.TileSize):
 		p.GoTo(s.at(v.Hotel))
 	}
-}
-
-// hauntPriest hexes as the hexer, so its Parties stay and pay, and calls a Weak Priest to a Closed Room as
-// soon as it has the money.
-type hauntPriest struct{}
-
-func (hauntPriest) Act(v View, p *Pilot) {
-	if v.Terminal.Open {
-		p.Close()
-		return
-	}
-	for i, r := range v.Rooms {
-		if r.Closed && !r.Priest && v.Money >= priestWeak {
-			p.CallPriest(i, false)
-			return
-		}
-	}
-	hexer{}.Act(v, p)
 }
 
 // server stays real, keeps the supplies stocked and serves every Room that asks (T198); it waits at the
@@ -106,10 +69,8 @@ func serveRoom(v View, p *Pilot, room int) {
 	p.Serve(room)
 }
 
-// smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost, hexes between serves short of fearLimit (so none flees) and of rotLimit
-// (so none pays less), calls a Weak Priest to a Closed Room (Spook for the least money), and buys a Shadow
-// for each Room once it has the Spook (D169), leaving a Room with one to its Shadow. Fear shows only in
-// ghost, so it shifts to look before it hexes.
+// smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost (Ecto from the
+// dirt), calls a Weak Priest to a Closed Room, and waits at the Mirror in between.
 type smart struct{}
 
 func (smart) Act(v View, p *Pilot) {
@@ -125,32 +86,15 @@ func (smart) Act(v View, p *Pilot) {
 			p.CallPriest(i, false)
 			return
 		}
-		if !r.Shadow && v.Spook >= shadowPrice {
-			p.BuyShadow(i)
-			return
-		}
 	}
 	if i := toServe(v); i >= 0 {
 		serveRoom(v, p, i)
 		return
 	}
-	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Spook (dirt.go)
+	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Ecto (dirt.go)
 		if (r.Vacant || r.Away) && len(r.Dirt) > 0 {
 			p.Flip(true)
 			p.Clean(i, r.Dirt[0])
-			return
-		}
-	}
-	for i, r := range v.Rooms {
-		if r.Vacant || r.Away || r.Shadow || r.Spook+1 >= rotLimit {
-			continue
-		}
-		switch {
-		case !v.Ghost:
-			p.Flip(true)
-			return
-		case r.Fear+2*hauntFear < fearLimit:
-			p.Hex(i)
 			return
 		}
 	}

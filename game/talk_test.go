@@ -65,8 +65,8 @@ func TestGreetPair(t *testing.T) {
 	}
 }
 
-// T118, D165: in its Room a Party talks now and then: comfy unhaunted, creepy in a spooky Room, the top
-// scared lines at high Fear or high Room Spook, and nothing while asking. A single never says a pair's
+// T118, D165: in its Room a Party talks now and then: comfy in a cozy Room, creepy in a dreadful one,
+// and nothing while asking. A single never says a pair's
 // line; a pair says some.
 func TestRoomTalk(t *testing.T) {
 	g, _, p := settled(t)
@@ -89,7 +89,7 @@ func TestRoomTalk(t *testing.T) {
 	p.Guests = p.Guests[:1]
 	lines := said(10 * 60)
 	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(calmLines[0][0], l) }) {
-		t.Fatalf("a single, unhaunted from 09:00 to 19:00, said %v; want a few of %v", lines, calmLines[0][0])
+		t.Fatalf("a single, in a cozy Room from 09:00 to 19:00, said %v; want a few of %v", lines, calmLines[0][0])
 	}
 	mate := *p.Guests[0]
 	p.Guests = append(p.Guests, &mate)
@@ -103,26 +103,10 @@ func TestRoomTalk(t *testing.T) {
 	}
 	p.Guests = p.Guests[:1]
 	g.clock = (g.clock/dayFrames+1)*dayFrames + 9*hourFrames
-	g.roomSpook[p.Room] = spookLimit - 1
+	g.mood[p.Room] = moodMin + 1
 	lines = said(10 * 60)
 	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(calmLines[2][0], l) }) {
-		t.Fatalf("a single, unhaunted in a spooky Room, said %v; want a few of %v", lines, calmLines[2][0])
-	}
-	g.hexed = make([]hexMark, len(g.hotel.Rooms))
-	g.hexed[p.Room].clock = g.clock + dayFrames // scared all along
-	p.Guests[0].Fear = 0
-	lines = said(30)
-	if len(lines) == 0 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(scaredLines[2][0], l) }) {
-		t.Fatalf("a single unafraid, haunted in a spooky Room, said %v; want some of %v", lines, scaredLines[2][0])
-	}
-	g.roomSpook[p.Room] = 0
-	g.hexed[p.Room].clock = g.clock + dayFrames
-	for _, guest := range p.Guests {
-		guest.Fear = fearLimit - 1
-	}
-	lines = said(5 * 60)
-	if len(lines) < 3 || slices.ContainsFunc(lines, func(l string) bool { return !slices.Contains(scaredLines[2][0], l) }) {
-		t.Fatalf("a single haunted near the Fear limit, said %v; want a few of %v", lines, scaredLines[2][0])
+		t.Fatalf("a single in a dreadful Room, said %v; want a few of %v", lines, calmLines[2][0])
 	}
 	p.asked = g.clock
 	if lines := said(askMinutes - 1); len(lines) > 0 {

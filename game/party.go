@@ -65,8 +65,9 @@ type Booking struct {
 	Rate     int
 	Checkout int // clock frame the Party leaves its Room for good
 	Paid     bool
-	Fled     bool // ran from a haunt (D146): never pays
-	Walked   bool // walked away from a dirty Room (dirt.go): never pays
+	Realm    Realm // the layer it lives in (realm.go): Human today
+	Fled     bool  // ran from a haunt (D146): never pays
+	Walked   bool  // walked away from a dirty Room (dirt.go): never pays
 	// The Party's own times of day, in frames (D88's jitter), and a Tourist's first day out.
 	outAt, backAt, checkoutAt, firstOut int
 }
@@ -129,8 +130,10 @@ func (g *Game) stepOut(p *Party) {
 	}
 }
 
-// Occupies: the Room is Occupied from the Party's arrival until it pays at its door (D91) or flees.
-func (b Booking) Occupies(room int) bool { return b.Room == room && !b.Paid && !b.Fled && !b.Walked }
+// Occupies: the Room is Occupied in the realm from the Party's arrival until it pays at its door (D91) or flees.
+func (b Booking) Occupies(room int, realm Realm) bool {
+	return b.Room == room && b.Realm == realm && !b.Paid && !b.Fled && !b.Walked
+}
 
 // Party is 1–2 Guests on one Booking (D76): Guests[0] leads, the other trails it (D90).
 type Party struct {
@@ -141,7 +144,7 @@ type Party struct {
 	settled    bool          // it has reached its Stay Spots once: from then on its Room stays fogged (S6 review)
 	abed       bool          // its Guests are in bed or on their way (D167)
 	acts       []act         // what each Guest is doing in the Room by day (D168)
-	spookShown int           // Spook gained since its Room's last "+N" floater
+	ectoShown  int           // Ecto gained since its Room's last "+N" floater
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	want       Unlock        // the supply it asked for (supply.go)
 	askEnded   int           // the clock its last request was served, expired or lapsed
@@ -152,12 +155,12 @@ type Party struct {
 	greet      greeting      // owed once the Concierge hears it (D165)
 	talk       []line        // its lines showing or about to (D165)
 	arrived    int           // the clock it walked in
-	mess       int           // Room Spook its Guests leave a night (dirt.go)
+	mess       int           // dirt its Guests leave a night (dirt.go)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
 	Booking
 }
 
-// floater rises and fades: a "+$X" over a door after a Checkout (D87), or a ghost-only "+N" of Spook.
+// floater rises and fades: a "+$X" over a door after a Checkout (D87), or a ghost-only "+N" of Ecto.
 type floater struct {
 	x, y float64 // world px
 	text string
@@ -169,16 +172,25 @@ type floaterKind int
 
 const (
 	floatMoney floaterKind = iota
-	floatSpook
+	floatEcto
 )
 
 // guests: everyone on the map. A member walking out of the Entrance is gone once it reaches the Exit,
 // so it never blocks the Street while its mate catches up.
 func (g *Game) guests() []*entities.Guest {
 	var gs []*entities.Guest
+	for _, realm := range [...]Realm{Human, Ghost} {
+		gs = append(gs, g.guestsIn(realm)...)
+	}
+	return gs
+}
+
+// guestsIn: the guests of one realm on the map.
+func (g *Game) guestsIn(realm Realm) []*entities.Guest {
+	var gs []*entities.Guest
 	for _, p := range g.parties {
 		for _, guest := range p.Guests {
-			if p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
+			if p.Realm == realm && p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
 				gs = append(gs, guest)
 			}
 		}
@@ -186,9 +198,10 @@ func (g *Game) guests() []*entities.Guest {
 	return gs
 }
 
-func (g *Game) vacant(room int) bool {
+// vacant: no Party of the realm occupies the Room.
+func (g *Game) vacant(room int, realm Realm) bool {
 	for _, p := range g.parties {
-		if p.Occupies(room) {
+		if p.Occupies(room, realm) {
 			return false
 		}
 	}
@@ -207,12 +220,12 @@ func (g *Game) demand() int {
 func (g *Game) maybeWalkIn() {
 	booked := 0
 	for i := range g.hotel.Rooms {
-		if !g.vacant(i) {
+		if !g.vacant(i, Human) {
 			booked++
 		}
 	}
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.vacant(i) && !g.closed(i) && g.spawnClear() {
+		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.vacant(i, Human) && !g.closed(i) && g.spawnClear() {
 			g.arrivals[i] = arrival{}
 			g.arrive(i)
 			booked++
@@ -231,7 +244,7 @@ func (g *Game) spawnClear() bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.vacant(i) && !g.closed(i) && len(r.Stays) >= size {
+		if g.vacant(i, Human) && !g.closed(i) && len(r.Stays) >= size {
 			return i
 		}
 	}

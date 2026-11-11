@@ -39,7 +39,7 @@ func (g *Game) fogged(room int) bool {
 		return false
 	}
 	for _, p := range g.parties {
-		if p.Occupies(room) {
+		if p.Occupies(room, Human) {
 			return p.settled || !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {
 				return !image.Pt(int(guest.X), int(guest.Y)).In(shell)
 			})

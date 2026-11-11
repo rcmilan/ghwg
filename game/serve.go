@@ -49,17 +49,17 @@ func (g *Game) updateAsks() {
 }
 
 // serve answers the Room's request (D163): every Guest of its Party inside gains Comfort, comfortStep
-// if served at once, falling to 0 as the request nears expiry and as the Room Spook nears spookLimit, up
+// if served at once, falling to 0 as the request nears expiry and as the Room's dirt nears dirtMax, up
 // to comfortMax. Fear is untouched. False when the
 // Room's Party isn't asking.
 func (g *Game) serve(room int) bool {
 	r := g.hotel.Rooms[room]
 	for _, p := range g.parties {
-		if !p.Occupies(room) || !p.asking() || p.state != staying {
+		if !p.Occupies(room, Human) || !p.asking() || p.state != staying {
 			continue
 		}
-		wait, calm := askMinutes*minuteFrames, max(0, spookLimit-g.roomSpook[room])
-		gain := (comfortStep*(wait-(g.clock-p.asked))*calm + wait*spookLimit - 1) / (wait * spookLimit) // rounded up: worth 0 only in a Closed Room
+		wait, calm := askMinutes*minuteFrames, max(0, dirtMax-g.dirtLevel(room))
+		gain := (comfortStep*(wait-(g.clock-p.asked))*calm + wait*dirtMax - 1) / (wait * dirtMax) // rounded up: worth 0 only in a Closed Room
 		for _, guest := range p.Guests {
 			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) && gain > 0 {
 				guest.Comfort = min(comfortMax, guest.Comfort+gain)

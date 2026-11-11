@@ -173,54 +173,6 @@ func (p *Pilot) Flip(ghost bool) {
 	})
 }
 
-// Hex flips to ghost, walks to the nearest floor tile beside the Room's walls (any side) and presses
-// SPACE until Spook rises: one hex.
-func (p *Pilot) Hex(room int) {
-	const ts = world.TileSize
-	p.Flip(true)
-	var walk action
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		if beside(p.hotel, v.Concierge) == room {
-			return true, true
-		}
-		if walk == nil {
-			var best []image.Point
-			s := p.hotel.Rooms[room].Shell().Inset(-ts)
-			for y := s.Min.Y + ts/2; y < s.Max.Y; y += ts {
-				for x := s.Min.X + ts/2; x < s.Max.X; x += ts {
-					c := image.Pt(x, y)
-					if beside(p.hotel, c) != room {
-						continue
-					}
-					if path := p.route(v, v.Concierge, c); path != nil && (best == nil || len(path) < len(best)) {
-						best = path
-					}
-				}
-			}
-			if best == nil {
-				return true, false
-			}
-			walk = goTo(best[len(best)-1])
-		}
-		return walk(p, v)
-	})
-	spook, taps := Num(-1), 0
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		if spook < 0 {
-			spook = v.Spook
-		}
-		switch {
-		case taps > 0 && v.Spook > spook:
-			return true, true
-		case taps >= 3 || beside(p.hotel, v.Concierge) != room:
-			return true, false
-		case p.tap(ebiten.KeySpace):
-			taps++
-		}
-		return false, false
-	})
-}
-
 // Fetch flips to real, walks in front of the item's supply prop and presses SPACE until the item is in the
 // hands (E5). It fails when the prop is empty, or after 3 taps.
 func (p *Pilot) Fetch(item Unlock) {
@@ -290,12 +242,6 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 		row = rowFatherM
 	}
 	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
-}
-
-// BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
-// Terminal refuses (no Spook, or one is already there).
-func (p *Pilot) BuyShadow(room int) {
-	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
 }
 
 // Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a

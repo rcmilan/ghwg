@@ -60,7 +60,7 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-// T197: the right item at the door pays at once, less with Room Spook, and still gives Comfort, clears
+// T197: the right item at the door pays at once, less with Room Ecto, and still gives Comfort, clears
 // the ask, counts a serve tap and empties the hands. The wrong item, or no ask, does nothing.
 func TestDeliver(t *testing.T) {
 	g, s, p := settled(t)
@@ -82,9 +82,9 @@ func TestDeliver(t *testing.T) {
 	if g.hands != SupplyFood || g.wallet[Money] != pay {
 		t.Fatal("delivered with no ask")
 	}
-	g.wallet[Money], g.roomSpook[p.Room], p.asked = 0, spookLimit/2, g.clock
+	g.wallet[Money], g.mood[p.Room], p.asked = 0, 0, g.clock
 	g.deliver(p.Room, SupplyFood)
 	if g.wallet[Money] != pay/2 {
-		t.Fatalf("paid %v at half the Spook limit, want %v", g.wallet[Money], pay/2)
+		t.Fatalf("paid %v at Mood 0 (half the dirt), want %v", g.wallet[Money], pay/2)
 	}
 }

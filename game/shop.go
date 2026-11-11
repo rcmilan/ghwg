@@ -41,7 +41,6 @@ type Item struct {
 const (
 	rowFatherK Unlock = "father-k"
 	rowFatherM Unlock = "father-m"
-	rowShadow  Unlock = "shadow"
 )
 
 func noPriest(g *Game, room int) string {
@@ -58,29 +57,19 @@ var shop = []Item{
 	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 15}, Pack: 5},
 
 	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "mirror_standing", Cost: Cost{Money: 10}},
-	{ID: Hex, Tab: tabHotel, Name: "Hex", Blurb: "Curse a Room from any wall. No refunds.", Icon: "painting_scary_a", Cost: Cost{Money: 25},
-		Needs: []Unlock{Mirror}, Earned: Cost{Spook: 10}},
-	// Housekeeping (Money 50 + Spook 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
+	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Spook: 40},
-		Needs: []Unlock{Hex}, Earned: Cost{Spook: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 100, Spook: 50},
-		Needs: []Unlock{RoomLock}, Earned: Cost{Spook: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 500, Spook: 500},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Spook: 1000}},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Ecto: 40},
+		Needs: []Unlock{Mirror}, Earned: Cost{Ecto: 100}},
+	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 100, Ecto: 50},
+		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
+	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 500, Ecto: 500},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Ecto: 1000}},
 
-	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's Spook. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
+	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, false) }},
 	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, true) }},
-	{ID: rowShadow, Tab: tabServices, Name: "Shadow Person", Blurb: "Scares on its own. Works nights. Unpaid.", Icon: "Adam", Head: true, Cost: Cost{Spook: shadowPrice},
-		Needs: []Unlock{Mirror}, Earned: Cost{Spook: 50}, Send: func(g *Game, room int) { g.placeShadow(room) },
-		Refuse: func(g *Game, room int) string {
-			if g.shaded(room) {
-				return "ROOM " + g.hotel.Rooms[room].Number + " HAS A SHADOW ALREADY"
-			}
-			return ""
-		}},
 }
 
 // cartLine is one cart entry: n of a Supply, an unlock, or a Service for a Room (else room is -1).
@@ -88,7 +77,7 @@ type cartLine struct{ item, room, n int }
 
 func (l cartLine) cost() Cost {
 	c := shop[l.item].Cost
-	return Cost{c[Money] * Num(l.n), c[Spook] * Num(l.n)}
+	return Cost{c[Money] * Num(l.n), c[Ecto] * Num(l.n)}
 }
 
 // onSale: its Needs are owned and, since the last of them was bought, the hotel earned its Earned.
@@ -103,7 +92,7 @@ func (g *Game) onSale(i int) bool {
 		b := g.boughtAt[u]
 		since = [2]Num{max(since[0], b[0]), max(since[1], b[1])}
 	}
-	return g.earned[Money]-since[Money] >= it.Earned[Money] && g.earned[Spook]-since[Spook] >= it.Earned[Spook]
+	return g.earned[Money]-since[Money] >= it.Earned[Money] && g.earned[Ecto]-since[Ecto] >= it.Earned[Ecto]
 }
 
 // owned: an unlock already bought, on its way, or already in the cart.
@@ -148,7 +137,7 @@ func (g *Game) addToCart(i, room int) string {
 // affords: the cart plus one more of item i fits the wallet (2026-11-08: no adding what you can't pay).
 func (g *Game) affords(i int) bool {
 	t, c := g.cartTotal(), shop[i].Cost
-	return g.afford(Cost{t[Money] + c[Money], t[Spook] + c[Spook]})
+	return g.afford(Cost{t[Money] + c[Money], t[Ecto] + c[Ecto]})
 }
 
 // sameKind: both Priests (one per Room), or the same Service.
@@ -163,7 +152,7 @@ func (g *Game) cartTotal() Cost {
 	for _, l := range g.cart {
 		c := l.cost()
 		t[Money] += c[Money]
-		t[Spook] += c[Spook]
+		t[Ecto] += c[Ecto]
 	}
 	return t
 }
@@ -191,7 +180,7 @@ func (g *Game) placeOrder() string {
 }
 
 // ship sends a paid order on its way (D200): one courier from the Entrance takes the Supplies and unlocks
-// to the stock, then each Shadow to its Room's door, then leaves. Priests start at once: they walk in on
+// to the stock, then leaves. Priests start at once: they walk in on
 // their own.
 func (g *Game) ship(order []cartLine) {
 	c := &courier{Guest: entities.NewGuest(g.hotel.Spawn, courierName)}
@@ -200,8 +189,6 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case it.Tab != tabServices:
 			stock.lines = append(stock.lines, l)
-		case it.ID == rowShadow:
-			c.drops = append(c.drops, drop{g.doorDrop(l.room), []cartLine{l}})
 		default:
 			g.receive(l)
 		}
@@ -235,14 +222,14 @@ func (g *Game) receive(l cartLine) {
 	}
 }
 
-// price: "$40", "80 SPOOK" or both.
+// price: "$40", "80 ECTOPLASM" or both.
 func price(c Cost) string {
 	var p []string
 	if c[Money] > 0 {
 		p = append(p, "$"+fmtNum(c[Money]))
 	}
-	if c[Spook] > 0 {
-		p = append(p, fmtNum(c[Spook])+" SPOOK")
+	if c[Ecto] > 0 {
+		p = append(p, fmtNum(c[Ecto])+" ECTOPLASM")
 	}
 	return strings.Join(p, " + ")
 }

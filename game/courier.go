@@ -10,7 +10,7 @@ import (
 )
 
 // Courier and stock (D200): checkout sends a courier with the order. He drops Supplies and unlocks at the
-// stock, left of the entrance hall, and a Shadow at its Room's door, then leaves. Placeholders.
+// stock, left of the entrance hall, then leaves. Placeholders.
 const (
 	courierSpeed = conciergeSpeed
 	courierName  = "Courier"     // Alex in a brown uniform (T240)
@@ -89,18 +89,20 @@ func (c *courier) paid() Cost {
 	for _, d := range c.drops {
 		for _, l := range d.lines {
 			t[Money] += l.cost()[Money]
-			t[Spook] += l.cost()[Spook]
+			t[Ecto] += l.cost()[Ecto]
 		}
 	}
 	return t
 }
 
-// walkers: the guests and the couriers, for bumping, yielding and pushing: a courier and a Party walking
-// in met head-on and walked through each other (Live test 6, 2026-11-08).
-func (g *Game) walkers() []*entities.Guest {
-	gs := g.guests()
-	for _, c := range g.couriers {
-		gs = append(gs, &c.Guest)
+// walkers: the guests and the couriers of one realm, for bumping, yielding and pushing: a courier and a
+// Party walking in met head-on and walked through each other (Live test 6, 2026-11-08).
+func (g *Game) walkers(realm Realm) []*entities.Guest {
+	gs := g.guestsIn(realm)
+	if realm == Human {
+		for _, c := range g.couriers {
+			gs = append(gs, &c.Guest)
+		}
 	}
 	return gs
 }

@@ -12,21 +12,20 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Room Spook (D147) and the Priests who clean it (D151). Placeholders, retuned at T112.
+// Room Mood (D147) and the Priests who clean it (D151). Placeholders, retuned at T112.
 const (
-	spookLimit    = 150 // Room Spook at which a Room is Closed
-	priestWeak    = 40  // $: halves a Room's Spook
+	priestWeak    = 40  // $: halves a Room's dread
 	priestStrong  = 100 // $: clears it
 	priestMinutes = 30  // game minutes a Priest works in the Room
 	priestSpeed   = arriveSpeed
 )
 
-// closed: the Room's Spook is at the limit; it takes no new Party (D140), its own stays until checkout.
+// closed: the Room's Mood is at the floor; it takes no new Party (D140), its own stays until checkout.
 func (g *Game) closed(room int) bool {
-	return room < len(g.roomSpook) && g.roomSpook[room] >= spookLimit
+	return g.roomMood(room) <= moodMin
 }
 
-// priest walks from the Street into his Room, works priestMinutes, lowers its Spook and walks out.
+// priest walks from the Street into his Room, works priestMinutes, lowers its dread and walks out.
 type priest struct {
 	entities.Guest // RoomIndex is his Room: its door lets him through, Occupied or not
 	strong         bool
@@ -90,8 +89,9 @@ func (g *Game) updatePriests() {
 		case pr.until == 0:
 			pr.until = g.clock + priestMinutes*minuteFrames
 		case g.clock >= pr.until:
-			if g.roomSpook[pr.RoomIndex] /= 2; pr.strong {
-				g.roomSpook[pr.RoomIndex], g.shades[pr.RoomIndex] = 0, nil // Father M also banishes a Shadow (D169)
+			if g.halveDirt(pr.RoomIndex); pr.strong {
+				g.setDirtLevel(pr.RoomIndex, 0)
+				g.shades[pr.RoomIndex] = nil // Father M also banishes a Shadow (D169)
 			}
 			pr.done = true
 			pr.SetPath(g.hotel.Path(image.Pt(int(pr.X), int(pr.Y)), g.hotel.Exit, pr.RoomIndex))
@@ -102,9 +102,12 @@ func (g *Game) updatePriests() {
 	g.priests = kept
 }
 
-// spookAt is the Room Spook shift of world cell c (D162): its Room's Spook ÷ spookLimit, 0 outside the
+// halveDirt: a Priest's work, half the Room's dirt left.
+func (g *Game) halveDirt(room int) { g.setDirtLevel(room, g.dirtLevel(room)/2) }
+
+// dreadAt is the dread shift of world cell c (D162): its Room's dirt ÷ dirtMax, 0 outside the
 // Rooms. In ghost a Closed Room pulses between 0.6 and 1.
-func (g *Game) spookAt(c image.Point) float32 {
+func (g *Game) dreadAt(c image.Point) float32 {
 	for i, r := range g.hotel.Rooms {
 		if c.In(image.Rectangle{r.Origin, r.Origin.Add(image.Pt(world.RoomW, world.RoomH))}) {
 			return g.roomShift(i)
@@ -114,10 +117,10 @@ func (g *Game) spookAt(c image.Point) float32 {
 }
 
 func (g *Game) roomShift(room int) float32 {
-	if room < 0 || room >= len(g.roomSpook) {
+	if room < 0 || room >= len(g.mood) {
 		return 0
 	}
-	s := min(1, float64(g.roomSpook[room])/spookLimit)
+	s := min(1, float64(g.dirtLevel(room))/dirtMax)
 	if g.rotting(room) {
 		s = 1 // T191: a rotting Room shows full
 	}
@@ -127,8 +130,8 @@ func (g *Game) roomShift(room int) float32 {
 	return float32(s)
 }
 
-// drawSpookFloor redraws each spooked Room's floor over the hotel's, shifted by its Spook.
-func (g *Game) drawSpookFloor(screen *ebiten.Image, ox, oy int) {
+// drawMoodFloor redraws each dreadful Room's floor over the hotel's, shifted by its dread.
+func (g *Game) drawMoodFloor(screen *ebiten.Image, ox, oy int) {
 	const ts = world.TileSize
 	for i, r := range g.hotel.Rooms {
 		if s := g.roomShift(i); s > 0 {

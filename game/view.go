@@ -17,7 +17,7 @@ type View struct {
 	Clock     string
 	Day       int
 	Money     Num
-	Spook     Num
+	Ecto      Num
 	Rooms     []RoomView    // in the Terminal's order
 	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge image.Point   // world px
@@ -33,10 +33,10 @@ type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
-	Closed             bool          // at the Spook limit: no new Party (D147)
+	Closed             bool          // at Mood -100: no new Party (D147)
 	Priest             bool          // one is on his way or at work
 	Shadow             bool          // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
-	Spook              int           // its Room Spook, read off its colors (D162)
+	Mood               int           // its Room Mood, read off its colors (D162)
 	Away               bool          // Occupied, but its Party isn't inside: the player saw it walk out
 	Asking             bool          // its Guests want service: the balloon, seen from anywhere (D163)
 	Wants              Unlock        // the supply in that balloon (E5)
@@ -59,7 +59,7 @@ type TerminalView struct {
 func (g *Game) view() View {
 	v := View{
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
-		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Spook: g.wallet[Spook],
+		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Ecto: g.wallet[Ecto],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
 		Terminal: g.termView(),
 		Shop:     g.forSale(),
@@ -68,8 +68,8 @@ func (g *Game) view() View {
 		Hands:    g.hands,
 	}
 	for i, r := range g.hotel.Rooms {
-		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i) || g.coming(rowShadow, i), Spook: g.roomSpook[i]}
+		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
+			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
 		for _, s := range g.spots(i) {
 			if s.spirit {
 				continue // only a Priest clears it
@@ -77,7 +77,7 @@ func (g *Game) view() View {
 			rv.Dirt = append(rv.Dirt, s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
 		}
 		for _, p := range g.parties {
-			if p.Occupies(i) && p.asking() {
+			if p.Occupies(i, Human) && p.asking() {
 				rv.Asking, rv.Wants = true, p.want
 			}
 		}

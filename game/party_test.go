@@ -17,7 +17,7 @@ func TestArrival(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
 	p := g.walkIn()
-	if p == nil || p.Room < 0 || g.vacant(p.Room) || p.state != checkingIn {
+	if p == nil || p.Room < 0 || g.vacant(p.Room, Human) || p.state != checkingIn {
 		t.Fatalf("a Walk-in on a Vacant hotel: %+v; want it booked, its Room Occupied, walking in", p)
 	}
 	p.Routine = homebody // no day out: on the ×10 clock below, a Tourist's walk back can outlast the budget
@@ -46,7 +46,7 @@ func TestArrival(t *testing.T) {
 		g.step(0, 0)
 	}
 	// Step 2: the stay pays by the hour in the Room (arrival to Checkout is short of Nights × 24 h) plus the tip
-	if g.wallet[Money] < Num(rate*p.Nights)*2/3 || p.Occupies(room) {
+	if g.wallet[Money] < Num(rate*p.Nights)*2/3 || p.Occupies(room, Human) {
 		t.Errorf("after Checkout: money %v (want most of %d), Room still held by the Party", g.wallet[Money], rate*p.Nights)
 	}
 	if g.clock < p.Checkout {

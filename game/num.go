@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Num is every big number in the game (D178): Money, Spook, taps. A named float64 reaches 1e308; swapping it
+// Num is every big number in the game (D178): Money, Ecto, taps. A named float64 reaches 1e308; swapping it
 // for a mantissa/exponent pair later touches this file only.
 type Num float64
 
