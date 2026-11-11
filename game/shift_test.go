@@ -46,6 +46,7 @@ func TestShift(t *testing.T) {
 	if g.ghost {
 		t.Fatal("a Run starts in the ghost dimension")
 	}
+	g.unlock(Mirror) // a covered Mirror shifts nothing
 	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
 	for _, want := range []bool{true, false} {
 		s.hold()

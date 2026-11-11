@@ -28,6 +28,9 @@ func (p *Party) asking() bool { return p.asked > 0 }
 func (g *Game) updateAsks() {
 	awake := !asleep(g.clock)
 	for _, p := range g.parties {
+		if p.Realm != Human { // a ghost asks for nothing
+			continue
+		}
 		switch {
 		case p.asking() && p.state != staying:
 			p.asked, p.askEnded = 0, g.clock

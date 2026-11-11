@@ -60,6 +60,7 @@ func TestStoreOpens(t *testing.T) {
 	if g.onSale(lock) {
 		t.Fatal("buying the Mirror opened the Room lock at once")
 	}
+	g.boughtAt[Mirror] = g.earned // ghosts now come in with the Mirror and may earn Ectoplasm while the courier leaves
 	g.earn(Ecto, shop[lock].Earned[Ecto]-1, noFloat)
 	if g.onSale(lock) {
 		t.Fatal("Room lock open under its threshold")
@@ -131,6 +132,7 @@ func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
 		g.startRun()
+		g.unlock(Mirror) // Priests are sold once the Mirror is owned
 		g.ghost = ghost
 		g.earned = [2]Num{1000, 1000}
 		g.wallet = [2]Num{priestWeak, 0}

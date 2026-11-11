@@ -60,6 +60,7 @@ type Config struct {
 	Strategy      Strategy
 	React, KeyGap int  // the Pilot's pace (D104); 0, 0 is frame-perfect
 	NoCheck       bool // skip the invariants (D108)
+	Mirror        bool // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
 }
 
 type Failure struct{ Clock, Reason string }
@@ -73,6 +74,7 @@ type Result struct {
 	Sold        int   // Room-nights: Rooms Occupied at each Midnight
 	Available   int   // Rooms at each Midnight
 	Bookings    int
+	Ghosts      int // ghost Parties booked (07 G1): they pay no Money
 	Paid        int
 	Pairs       int // Bookings of two
 	Outings     int // Tourist days out
@@ -90,20 +92,21 @@ type Result struct {
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
 type sim struct {
-	cfg     Config
-	g       *Game
-	a       *autopilot
-	res     Result
-	booked  []*Party
-	seen    map[*Party]partyState // each Party's state last frame
-	paid    map[*Party]bool
-	fled    map[*Party]bool
-	phased  map[*entities.Guest]bool
-	legs    map[*Party]leg
-	called  map[*priest]bool
-	shipped map[*courier]bool
-	rent    map[*Party]Num // each Party's rent counted so far
-	closed  int            // Room-frames Closed
+	cfg       Config
+	g         *Game
+	a         *autopilot
+	res       Result
+	booked    []*Party
+	seen      map[*Party]partyState // each Party's state last frame
+	paid      map[*Party]bool
+	fled      map[*Party]bool
+	phased    map[*entities.Guest]bool
+	legs      map[*Party]leg
+	called    map[*priest]bool
+	shipped   map[*courier]bool
+	rent      map[*Party]Num  // each Party's rent counted so far
+	seenGhost map[*Party]bool // the ghost Parties counted
+	closed    int             // Room-frames Closed
 }
 
 type leg struct {
@@ -129,8 +132,9 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, seenGhost: map[*Party]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
+	g.mirrorAtStart = cfg.Mirror
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
 }
@@ -208,6 +212,13 @@ func (s *sim) frame() bool {
 	}
 	banked := g.delivered - delivered // paid at the door (E5)
 	for _, p := range g.parties {
+		if p.Realm == Ghost { // a ghost Party pays nothing, never flees nor complains: only counted
+			if !s.seenGhost[p] {
+				s.seenGhost[p] = true
+				s.res.Ghosts++
+			}
+			continue
+		}
 		banked, s.rent[p] = banked+p.rent-s.rent[p], p.rent
 		if !slices.Contains(s.booked, p) {
 			s.booked = append(s.booked, p)
@@ -283,9 +294,12 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	}
 }
 
-// scaring: some Room has a Shadow (D169) with its Party in the hotel.
+// scaring: some Room has a Shadow (D169) with its Party in the hotel, or a Corridor or the hall has one.
 func (s *sim) scaring() bool {
 	g := s.g
+	if len(g.areaShades) > 0 { // a ghost's Shadow in a Corridor or the hall scares whoever walks by
+		return true
+	}
 	return slices.ContainsFunc(g.parties, func(p *Party) bool {
 		return !p.Paid && p.state != out && g.shaded(p.Room)
 	})

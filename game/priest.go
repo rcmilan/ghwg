@@ -91,7 +91,8 @@ func (g *Game) updatePriests() {
 		case g.clock >= pr.until:
 			if g.halveDirt(pr.RoomIndex); pr.strong {
 				g.raiseMood(pr.RoomIndex, moodClean)
-				g.shades[pr.RoomIndex] = nil // Father M also banishes a Shadow (D169)
+				g.shades[pr.RoomIndex] = nil  // Father M also banishes a Shadow (D169)
+				g.hushed[pr.RoomIndex] = true // and a ghost's, until that ghost leaves the Room (shadow.go)
 			}
 			pr.done = true
 			pr.SetPath(g.hotel.Path(image.Pt(int(pr.X), int(pr.Y)), g.hotel.Exit, pr.RoomIndex))

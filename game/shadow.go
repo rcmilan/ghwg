@@ -49,6 +49,9 @@ type shade struct {
 	anim    entities.Anim
 	seen    map[*entities.Guest]int // the last pass's sightings: the tick each Guest saw it
 	roam    bool                    // dev -haunt: wanders the walls forever, unspent
+	area    bool                    // an area's Shadow, switched on by a strong ghost (G1): it stays put, fading with lvl
+	lvl     float64                 // an area Shadow's opacity, 0..1
+	on      bool                    // a strong ghost is in its area now
 }
 
 type shades []*shade // a Room's Shadow People
@@ -91,6 +94,9 @@ func daylight(c int) float64 { return 1 - tint(c)[3]/tint(0)[3] }
 // them, to nothing touching one), and its teleport's fade.
 func (g *Game) shadowAlpha(sh *shade) float64 {
 	a := shadowOpacity * math.Sqrt(max(0, sh.essence)/shadowEssence) // sqrt: a nearly spent Shadow still shows, faintly
+	if sh.area {
+		a *= sh.lvl
+	}
 	lo, hi := g.walls[sh.run].ends()
 	t := clamp(min(sh.x-lo, hi-sh.x)/shadowEdgeFade, 0, 1)
 	a *= t * t * (3 - 2*t)
@@ -101,9 +107,12 @@ func (g *Game) shadowAlpha(sh *shade) float64 {
 }
 
 // inside: the Guests of the Room's Party inside it.
-func (g *Game) inside(room int) (*Party, []*entities.Guest) {
+func (g *Game) inside(room int) (*Party, []*entities.Guest) { return g.insideIn(room, Human) }
+
+// insideIn: the Guests of the Room's Party of the realm inside it.
+func (g *Game) insideIn(room int, realm Realm) (*Party, []*entities.Guest) {
 	for _, p := range g.parties {
-		if p.Occupies(room, Human) && p.state != out {
+		if p.Occupies(room, realm) && p.state != out {
 			var in []*entities.Guest
 			for _, guest := range p.Guests {
 				if image.Pt(int(guest.X), int(guest.Y)).In(g.hotel.Rooms[room].Shell()) {
@@ -135,6 +144,9 @@ func (g *Game) updateShadows() {
 				sh.essence -= float64(m-sh.minute) * shadowSunDrain * daylight(g.clock)
 				sh.minute = m
 			}
+			if sh.area { // a ghost's Shadow is spent only by the ghost leaving
+				sh.essence = shadowEssence
+			}
 			arrived := g.move(sh)
 			if sh.patrol {
 				g.sighting(p, in, sh)
@@ -162,6 +174,116 @@ func (g *Game) updateShadows() {
 		}
 		g.shades[i] = slices.DeleteFunc(list, func(sh *shade) bool { return sh.essence <= 0 })
 	}
+	g.updateAreaShades()
+}
+
+// areaFade: frames an area's Shadows take to appear or fade (placeholder).
+const areaFade = 60
+
+// areaRun: the area (07 G1) the world point is in, named by its upper wall: the run of the first wall face
+// above it. A Room's is its back wall; a Corridor's or the entrance hall's, the wall above that stretch.
+// -1 if none.
+func (g *Game) areaRun(x, y float64) int {
+	m := g.hotel.Map
+	cx := int(x) / world.TileSize
+	for cy := int(y) / world.TileSize; cy >= 0; cy-- {
+		if k := g.wallCell[cy*m.W+cx]; k >= 0 {
+			return k
+		}
+	}
+	return -1
+}
+
+// roomOfRun: the Room whose back wall is the run, -1 if none.
+func (g *Game) roomOfRun(run int) int {
+	for i := range g.hotel.Rooms {
+		if r, _, _ := g.backWall(i); r == run {
+			return i
+		}
+	}
+	return -1
+}
+
+// areaOn: the area's Shadow People are switched on: a strong ghost stands somewhere in it.
+func (g *Game) areaOn(run int) bool {
+	if i := g.roomOfRun(run); i >= 0 { // a Room's Shadow moves between walls: any of its own counts
+		return slices.ContainsFunc(g.shades[i], func(sh *shade) bool { return sh.area && sh.on })
+	}
+	return slices.ContainsFunc(g.areaShades, func(sh *shade) bool { return sh.run == run && sh.on })
+}
+
+// areaGap: game minutes between the dashes of a Corridor's or the hall's Shadow (placeholder).
+const areaGap = 20
+
+// updateAreaShades runs each frame: every area holding a strong ghost of the map has its Shadow People on,
+// faded in; the ones whose ghost left fade out and go. In a Room it is the old Shadow (updateShadows): it
+// dashes along the back wall while a human is in, frightens one who sees it, a Strong Priest banishes it
+// (until the ghost leaves); kept at full essence while the ghost stays. In a Corridor or the hall it is the
+// same figure dashing along that wall now and then, frightening a human who sees it there. A weak ghost
+// switches nothing on. A flag on the area, not a figure bound to the ghost.
+func (g *Game) updateAreaShades() {
+	on := map[int]bool{}
+	for _, guest := range g.guestsIn(Ghost) {
+		if k := g.areaRun(guest.X, guest.Y); k >= 0 && strong(guest) {
+			on[k] = true
+		}
+	}
+	fade := func(sh *shade, up bool) {
+		sh.on = up
+		if up {
+			sh.lvl = min(1, sh.lvl+1.0/areaFade)
+		} else {
+			sh.lvl = max(0, sh.lvl-1.0/areaFade)
+		}
+	}
+	gone := func(sh *shade) bool { return sh.area && !sh.on && sh.lvl <= 0 }
+	for i := range g.shades {
+		run, _, _ := g.backWall(i)
+		if !on[run] {
+			delete(g.hushed, i)
+		}
+		if on[run] && len(g.shades[i]) == 0 && !g.hushed[i] {
+			g.placeShadow(i)
+			g.shades[i][0].area = true
+		}
+		for _, sh := range g.shades[i] {
+			if sh.area {
+				fade(sh, on[run] && !g.hushed[i])
+			}
+		}
+		g.shades[i] = slices.DeleteFunc(g.shades[i], gone)
+	}
+	for k := range on {
+		if g.roomOfRun(k) < 0 && !slices.ContainsFunc(g.areaShades, func(sh *shade) bool { return sh.run == k }) {
+			lo, hi := g.walls[k].ends()
+			g.areaShades = append(g.areaShades, &shade{name: shadowCast[g.chat.IntN(len(shadowCast))], essence: shadowEssence,
+				run: k, x: (lo + hi) / 2, goal: (lo + hi) / 2, area: true, anim: entities.NewAnim()})
+		}
+	}
+	for _, sh := range g.areaShades {
+		fade(sh, on[sh.run])
+		arrived := g.move(sh)
+		if sh.patrol {
+			for _, p := range g.parties {
+				if p.Realm != Human || p.state == out {
+					continue
+				}
+				var in []*entities.Guest
+				for _, guest := range p.Guests {
+					if g.areaRun(guest.X, guest.Y) == sh.run {
+						in = append(in, guest)
+					}
+				}
+				g.sighting(p, in, sh)
+			}
+			sh.patrol = !arrived
+		} else if arrived && g.clock >= sh.next {
+			lo, hi := g.walls[sh.run].ends()
+			sh.next, sh.patrol, sh.seen = g.clock+areaGap*minuteFrames, true, map[*entities.Guest]int{}
+			g.sendShade(sh, sh.run, lo+hi-sh.x)
+		}
+	}
+	g.areaShades = slices.DeleteFunc(g.areaShades, gone)
 }
 
 // sighting: each Guest inside who sees a patrolling Shadow for the first time this pass gets shadowSeen
@@ -227,6 +349,9 @@ func (g *Game) bucketShadows() {
 		for _, sh := range list {
 			g.onRun[sh.run] = append(g.onRun[sh.run], sh)
 		}
+	}
+	for _, sh := range g.areaShades {
+		g.onRun[sh.run] = append(g.onRun[sh.run], sh)
 	}
 }
 

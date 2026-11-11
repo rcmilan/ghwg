@@ -12,7 +12,7 @@ import (
 const paletteSrc = `//kage:unit pixels
 package main
 
-var Mode float // 0 prop, 1 maze, 2 actor
+var Mode float // 0 prop, 1 maze, 2 actor, 3 flat ghost
 var Shade float // maze: how bright its blue outlines are
 var Tint vec3 // actor: its color
 var Dread float // prop, maze: its Room's shift toward green and purple (D162), 0..1
@@ -26,7 +26,9 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	purple, green := vec3(0.62, 0.22, 1), vec3(0.2, 1, 0.35)
 	blue := mix(vec3(33, 33, 222)/255, purple, Dread)
 	rgb := blue
-	if Mode > 1.5 {
+	if Mode > 2.5 { // a ghost guest: one flat color, its shading kept as a darker tone, no white
+		rgb = mix(Tint*0.3, Tint, smoothstep(0.2, 0.45, l))
+	} else if Mode > 1.5 {
 		rgb = mix(Tint*0.25, Tint, smoothstep(0.2, 0.55, l))
 		if l > 0.9 {
 			rgb = vec3(1)
@@ -57,6 +59,7 @@ const (
 	modeProp  = 0
 	modeMaze  = 1
 	modeActor = 2
+	modeFlat  = 3    // a ghost guest (ghostguest.go)
 	floorBlue = 0.3  // the floor's seams: a dim blue grid, so the walls' outlines read first
 	realDread = 0.15 // how far a Closed Room tints green in the real dimension
 )

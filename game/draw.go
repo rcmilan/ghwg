@@ -168,23 +168,40 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		name string
 		anim entities.Anim
 		fog  float64
-		fear float64 // of its FleeAt
-		lift float64 // world px off the floor: a fleeing Guest's hop (D164)
+		fear float64   // of its FleeAt
+		lift float64   // world px off the floor: a fleeing Guest's hop (D164)
+		tint []float32 // ghost dimension: its flat color; nil for the character's own
+		a    float32   // opacity; 0 is 1
+		mode int       // the palette shader's mode; 0 is modeActor
+		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
 	}
-	actors := []actor{{g.player.X, g.player.Y, "Bob", g.player.Anim, 0, 0, 0}}
-	for _, guest := range g.guests() {
-		actors = append(actors, actor{guest.X, guest.Y, guest.Character, guest.Anim, g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
-			min(1, float64(guest.Fear)/float64(guest.FleeAt)), g.lift(guest)})
+	actors := []actor{{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim}}
+	for _, realm := range [...]Realm{Human, Ghost} {
+		if realm == Ghost && !g.ghost { // in real a ghost shows only through its area's Shadows
+			continue
+		}
+		for _, guest := range g.guestsIn(realm) {
+			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
+				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest)}
+			switch {
+			case realm == Ghost: // hued by its kind
+				h := kindHue(kindOf(guest.Phantasm))
+				a.tint, a.a, a.mode = h[:], ghostAlpha, modeFlat
+			case g.ghost: // a human in the ghost dimension: a silhouette
+				a.tint, a.a, a.mode, a.sil = silhouetteTint, silhouetteAlpha, modeFlat, true
+			}
+			actors = append(actors, a)
+		}
 	}
 	for _, pr := range g.priests {
-		actors = append(actors, actor{pr.X, pr.Y, pr.Character, pr.Anim, g.fogAt(image.Pt(int(pr.X), int(pr.Y))), 0, 0})
+		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y)))})
 	}
 	for _, c := range g.couriers {
 		name := courierName
 		if len(c.drops) > 0 {
 			name = courierBox
 		}
-		actors = append(actors, actor{c.X, c.Y, name, c.Anim, g.fogAt(image.Pt(int(c.X), int(c.Y))), 0, 0})
+		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y)))})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -200,12 +217,16 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
 		s := g.dreadAt(image.Pt(p.cx, p.cy))
+		img := g.tiles[p.id]
+		if g.covered(p) { // the lobby Mirror, until it's installed
+			img = g.coverHalf(g.ts.Tiles[p.id].Name)
+		}
 		if f := g.propFog(p); f > 0 {
-			drawFogged(screen, g.tiles[p.id], op, f)
+			drawFogged(screen, img, op, f)
 		} else if maze(g.ts.Tiles[p.id].Name) {
-			g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
+			g.blit(screen, img, op, modeMaze, 1, nil, s)
 		} else {
-			g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
+			g.blit(screen, img, op, modeProp, 0, nil, s)
 		}
 		if p.l == world.LayerWalls {
 			g.drawShadow(screen, p, ox, oy)
@@ -226,10 +247,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.ghost && a.fear >= fearWarn { // near fleeing: it trembles (2026-11-08)
 			x += []int{-1, 0, 1, 0}[g.tick/3%4] * zoom
 		}
+		if a.sil {
+			g.drawGlow(screen, x, y, [3]float32{1, 1, 1}, silhouetteGlow, silhouetteGlowScale)
+		}
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
-		g.drawCharacter(screen, x, y, a.name, a.anim, a.fog)
+		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
 		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
 			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
 			for _, p := range g.props {
@@ -336,6 +360,18 @@ func (g *Game) sheet(name string) [2]*ebiten.Image {
 // drawCharacter draws the current frame with its bottom center on the foot box's bottom center (T039).
 // (x,y) is the foot box center in screen px; inside a fogged Room it fades out with the fog (D92).
 func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64) {
+	g.drawCharacterAs(s, x, y, name, a, fog, nil, 0, modeActor)
+}
+
+// drawCharacterAs is drawCharacter with the ghost dimension's color given (nil: the character's own) and
+// an opacity (0: opaque).
+func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entities.Anim, fog float64, tint []float32, alpha float32, mode int) {
+	if tint == nil {
+		tint = ghostTints[strings.Split(name, "#")[0]]
+	}
+	if alpha == 0 {
+		alpha = 1
+	}
 	sheet := g.sheet(name)[0]
 	if a.Moving {
 		sheet = g.sheet(name)[1]
@@ -344,6 +380,6 @@ func (g *Game) drawCharacter(s *ebiten.Image, x, y int, name string, a entities.
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
-	op.ColorScale.ScaleAlpha(float32(1 - fog))
-	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, modeActor, 0, ghostTints[strings.Split(name, "#")[0]], 0)
+	op.ColorScale.ScaleAlpha(float32(1-fog) * alpha)
+	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, mode, 0, tint, 0)
 }

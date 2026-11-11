@@ -11,22 +11,23 @@ import (
 
 // View is what a player sees, nothing more (D105): a Strategy decides from it and the Pilot steers by it.
 type View struct {
-	Title     bool // the title screen is up
-	Ghost     bool // the hotel is in the ghost dimension
-	Shifting  bool // the Mirror's transition is playing (D170): SPACE waits
-	Clock     string
-	Day       int
-	Money     Num
-	Ecto      Num
-	Rooms     []RoomView    // in the Terminal's order
-	Guests    []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
-	Concierge image.Point   // world px
-	Terminal  TerminalView
-	Shop      []int          // the store items that can go in the cart now, by index into shop (D180)
-	Stock     map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
-	Courier   bool           // a courier is on his way with an order
-	Hands     Unlock         // the supply over the Concierge's head, "" for none (E5)
-	Hotel     *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
+	Title        bool // the title screen is up
+	Ghost        bool // the hotel is in the ghost dimension
+	Shifting     bool // the Mirror's transition is playing (D170): SPACE waits
+	Clock        string
+	Day          int
+	Money        Num
+	Ecto         Num
+	Rooms        []RoomView    // in the Terminal's order
+	Guests       []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
+	Concierge    image.Point   // world px
+	Terminal     TerminalView
+	Shop         []int          // the store items that can go in the cart now, by index into shop (D180)
+	Stock        map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
+	MirrorLocked bool           // the Mirror is covered: SPACE at it shifts nothing
+	Courier      bool           // a courier is on his way with an order
+	Hands        Unlock         // the supply over the Concierge's head, "" for none (E5)
+	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
 type RoomView struct {
@@ -61,11 +62,12 @@ func (g *Game) view() View {
 		Title: g.state == StateTitle, Ghost: g.ghost, Shifting: g.shifting != nil,
 		Clock: clockText(g.clock), Day: day(g.clock), Money: g.wallet[Money], Ecto: g.wallet[Ecto],
 		Concierge: image.Pt(int(g.player.X), int(g.player.Y)), Hotel: g.hotel,
-		Terminal: g.termView(),
-		Shop:     g.forSale(),
-		Stock:    maps.Clone(g.stock),
-		Courier:  len(g.couriers) > 0,
-		Hands:    g.hands,
+		Terminal:     g.termView(),
+		Shop:         g.forSale(),
+		Stock:        maps.Clone(g.stock),
+		Courier:      len(g.couriers) > 0,
+		Hands:        g.hands,
+		MirrorLocked: !g.unlocked(Mirror),
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
@@ -81,11 +83,11 @@ func (g *Game) view() View {
 				rv.Asking, rv.Wants = true, p.want
 			}
 		}
-		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
+		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guestsIn(Human), func(guest *entities.Guest) bool {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
 		})
 		if g.ghost {
-			for _, guest := range g.guests() {
+			for _, guest := range g.guestsIn(Human) {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
 				}
@@ -93,7 +95,7 @@ func (g *Game) view() View {
 		}
 		v.Rooms = append(v.Rooms, rv)
 	}
-	for _, guest := range g.guests() {
+	for _, guest := range g.visible() {
 		if at := image.Pt(int(guest.X), int(guest.Y)); g.fogAt(at) < 1 {
 			v.Guests = append(v.Guests, at.Div(world.TileSize))
 		}

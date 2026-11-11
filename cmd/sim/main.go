@@ -29,6 +29,7 @@ func main() {
 	seed := flag.Uint64("seed", 1, "the first Run's seed")
 	react := flag.Int("react", 30, "frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "frames between the Pilot's key taps")
+	mirror := flag.Bool("mirror", false, "start each Run with the Mirror unlocked, so ghosts book and haunt (a normal Run starts with it locked: no ghosts)")
 	noCheck := flag.Bool("nocheck", false, "skip the invariant checks")
 	csvPath := flag.String("csv", "", "write one row per Run to this file")
 	ectoRate := flag.Float64("ectorate", 0.5, "$ one Ectoplasm is worth in the score column: an assumed shop price (T112)")
@@ -58,7 +59,7 @@ func main() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				results[s][i] = game.RunSim(game.Config{Cols: cols, Rows: rows, Days: *days, Seed: *seed + uint64(i),
-					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck})
+					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror})
 			}()
 		}
 	}
@@ -67,11 +68,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d, score = $ + Ectoplasm × %g\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tfailures\t")
+	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, bookings, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
+		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		for _, r := range results[s] {
 			total := 0
@@ -80,6 +81,7 @@ func main() {
 			}
 			perDay = append(perDay, float64(total)/float64(*days))
 			sold, avail, bookings = sold+r.Sold, avail+r.Available, bookings+r.Bookings
+			ghosts += r.Ghosts
 			fled, ecto, serves, expired = fled+r.Fled, ecto+r.Ecto, serves+r.Serves, expired+r.Expired
 			walked, cleans = walked+r.Walked, cleans+r.Cleans
 			priests, spent, closed = priests+r.Priests, spent+r.PriestSpend, closed+r.ClosedHours
@@ -95,9 +97,9 @@ func main() {
 			name += " (cheat)"
 		}
 		n := float64(*runs)
-		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name,
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%d\t\n", name,
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
-			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
+			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
 			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, failed)
 	}
 	w.Flush()
@@ -127,7 +129,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "closed_hours", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "ghosts", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "closed_hours", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -140,7 +142,7 @@ func writeCSV(path string, results [][]game.Result) error {
 			}
 			w.Write([]string{r.Strategy, strconv.FormatUint(r.Seed, 10), strconv.FormatBool(r.Cheat), strings.Join(money, ";"),
 				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
-				strconv.Itoa(r.Bookings), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
+				strconv.Itoa(r.Bookings), strconv.Itoa(r.Ghosts), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
 				strconv.Itoa(r.Fled), strconv.Itoa(r.Ecto), strconv.Itoa(r.Serves), strconv.Itoa(r.Expired),
 				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), failure})
 		}

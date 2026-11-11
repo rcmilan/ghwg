@@ -72,12 +72,17 @@ func (g *Game) flee(p *Party) {
 // drawFear glows red around a Guest's body, as strong as its Fear (0..1 of fearLimit). (x,y) is its foot
 // box center in screen px.
 func (g *Game) drawFear(s *ebiten.Image, x, y int, fear float64) {
+	g.drawGlow(s, x, y, [3]float32{1, 0, 0}, float32(fear), 1)
+}
+
+// drawGlow draws the glow sprite around a body in color col at strength 0..1 and size scale (1: Fear's).
+func (g *Game) drawGlow(s *ebiten.Image, x, y int, col [3]float32, strength float32, scale float64) {
 	r := g.glow.Bounds().Dx() / 2
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 	op.GeoM.Translate(float64(-r), float64(-r))
-	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Scale(zoom*scale, zoom*scale)
 	op.GeoM.Translate(float64(x), float64(y-8*zoom))
-	op.ColorScale.Scale(float32(fear), 0, 0, float32(fear))
+	op.ColorScale.Scale(col[0]*strength, col[1]*strength, col[2]*strength, strength)
 	s.DrawImage(g.glow, op)
 }
 

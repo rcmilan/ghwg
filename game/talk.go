@@ -91,7 +91,7 @@ func (g *Game) updateTalk() {
 func (g *Game) updateRoomTalk() {
 	asleep := asleep(g.clock)
 	for _, p := range g.parties {
-		if p.state != staying || p.asking() || len(p.talk) > 0 || g.chat.Float64() >= calmOdds {
+		if p.Realm != Human || p.state != staying || p.asking() || len(p.talk) > 0 || g.chat.Float64() >= calmOdds {
 			continue
 		}
 		who := g.chat.IntN(len(p.Guests))

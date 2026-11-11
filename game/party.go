@@ -232,8 +232,11 @@ func (g *Game) maybeWalkIn() {
 
 // spawnClear: nobody stands within a tile of Spawn, so a Party appearing there can't land on another one
 // (a follower still waiting for its leader to pull ahead).
-func (g *Game) spawnClear() bool {
-	return !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
+func (g *Game) spawnClear() bool { return g.spawnClearIn(Human) }
+
+// spawnClearIn: spawnClear among the realm's own, which a Party of the other never blocks.
+func (g *Game) spawnClearIn(realm Realm) bool {
+	return !slices.ContainsFunc(g.guestsIn(realm), func(guest *entities.Guest) bool {
 		return math.Hypot(guest.X-float64(g.hotel.Spawn.X), guest.Y-float64(g.hotel.Spawn.Y)) < world.TileSize
 	})
 }
@@ -362,7 +365,9 @@ func (p *Party) outside(r world.Room) bool {
 // send gives a guest a path to `to`, around the Concierge where it stands now, the Guests waiting in
 // the hall and any `avoid` cells; straight through if they wall it off.
 func (g *Game) send(guest *entities.Guest, to image.Point, avoid ...image.Point) {
-	avoid = append(avoid, image.Pt(int(g.player.X), int(g.player.Y)))
+	if g.realmOf(guest) == g.realm() { // the Concierge of the other realm is no obstacle
+		avoid = append(avoid, image.Pt(int(g.player.X), int(g.player.Y)))
+	}
 	for _, p := range g.parties { // and around Parties waiting in the hall (dirt.go): they stand there for hours
 		for _, o := range p.Guests {
 			if p.state == complaining && len(o.Path) == 0 && o != guest && !o.Mate(guest) {
@@ -401,6 +406,9 @@ func (g *Game) intrude(p *Party) {
 // Tourist) → (Checkout at the door) → Street.
 // false once it is gone.
 func (g *Game) updateParty(p *Party) bool {
+	if p.Realm == Ghost {
+		return g.updateGhost(p)
+	}
 	exit := []image.Point{g.hotel.Exit, g.hotel.Exit}
 	switch p.state {
 	case checkingIn:
