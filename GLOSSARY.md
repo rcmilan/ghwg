@@ -232,3 +232,21 @@ _Avoid_: delivery guy, mailman
 **Stock**:
 The Supplies the hotel holds, kept on one spot per Supply in the stock area, left of the entrance hall. The Courier fills it; the Concierge carries from it into Rooms.
 _Avoid_: inventory
+
+**Room key**:
+A Service in the Terminal's SERVICES tab that opens a boarded Room: you pick the Room, the Courier walks the key to that Room's door, and on the drop the Room is owned. One key at a time; its price rises with each Room owned.
+_Avoid_: unlock, license, deed
+
+**Owned Room** / **Closed Room**:
+A Room is Owned once its key has been dropped at its door; before that it is a Closed Room: drawn with the boarded door, no Party of either realm books it, its door stays shut to the Concierge. A Run starts with every Room Closed. Not the same as a Room at Mood -100, which is Closed by Mood (a Closed Room in the sense of D140) and stays Owned.
+_Avoid_: locked Room, sealed Room
+
+**Key price rise**:
+The Room key costs more with each Room already owned: `keyBase` for the first, plus `keyStep` for each one after. A Run starts with Money for exactly the first key (`startMoney`). Placeholders.
+
+**Intro**:
+The opening of a new Run: the whole hotel in the ghost dimension with both Rooms boarded, a zoom into the Lobby, three lines one per SPACE (night shift, ghost shift, dimension shift), then the Mirror flip from ghost into real, once. The world and the Clock wait for it. `-skipintro` skips it; the sim and the dev prints never play it unless asked (`-intro`).
+_Avoid_: cutscene, tutorial
+
+**Opener**:
+The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks.

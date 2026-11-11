@@ -117,6 +117,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if !g.warm && g.state != StateTitle && g.fx[0] != nil {
 		g.warmUp(screen)
 	}
+	if g.drawIntro(screen) {
+		return
+	}
 	g.drawFrame(screen)
 }
 
@@ -287,6 +290,10 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 	const ts = world.TileSize
 	m := g.hotel.Map
 	for _, d := range g.hotel.Doors {
+		if d.Room >= 0 && !g.isOwned(d.Room) {
+			g.drawBoarded(screen, d, ox, oy)
+			continue
+		}
 		off := int(math.Round(d.Open() * ts))
 		for y := d.Rect.Min.Y / ts; y < d.Rect.Max.Y/ts; y++ {
 			for x := d.Rect.Min.X / ts; x < d.Rect.Max.X/ts; x++ {

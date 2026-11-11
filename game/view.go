@@ -34,6 +34,7 @@ type RoomView struct {
 	Number, Type, Beds string
 	Vacant             bool
 	Capacity, Rate     int
+	Boarded            bool          // not owned yet: the boarded door, no bookings (07 B1)
 	Closed             bool          // at Mood -100: no new Party (D147)
 	Priest             bool          // one is on his way or at work
 	Shadow             bool          // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
@@ -71,7 +72,7 @@ func (g *Game) view() View {
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
+			Boarded: !g.isOwned(i), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
 		for _, s := range g.spots(i) {
 			if s.spirit {
 				continue // only a Priest clears it

@@ -369,7 +369,7 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 func (g *Game) nextGuest() string {
 	next := -1
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.vacant(i, Human) && !g.closed(i) && (next < 0 || a.at < next) {
+		if a.at > 0 && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && (next < 0 || a.at < next) {
 			next = a.at
 		}
 	}

@@ -61,6 +61,7 @@ type Config struct {
 	React, KeyGap int  // the Pilot's pace (D104); 0, 0 is frame-perfect
 	NoCheck       bool // skip the invariants (D108)
 	Mirror        bool // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
+	Open          bool // start the Run with every Room owned (a normal Run starts with them boarded up, 07 B1)
 }
 
 type Failure struct{ Clock, Reason string }
@@ -76,17 +77,18 @@ type Result struct {
 	Bookings    int
 	Ghosts      int // ghost Parties booked (07 G1): they pay no Money
 	Paid        int
-	Pairs       int // Bookings of two
-	Outings     int // Tourist days out
-	Fled        int // Parties that ran from a haunt
-	Walked      int // Parties that walked away from a dirty Room (dirt.go)
-	Cleans      int // dirt spots cleaned
-	Ecto        int // at the end of the Run
-	Serves      int // requests answered
-	Expired     int // requests left to expire
-	Priests     int // called and paid
-	PriestSpend int // $ paid for them
-	ClosedHours int // Room-hours spent Closed
+	Pairs       int     // Bookings of two
+	Outings     int     // Tourist days out
+	Fled        int     // Parties that ran from a haunt
+	Walked      int     // Parties that walked away from a dirty Room (dirt.go)
+	Cleans      int     // dirt spots cleaned
+	Ecto        int     // at the end of the Run
+	Serves      int     // requests answered
+	Expired     int     // requests left to expire
+	Priests     int     // called and paid
+	PriestSpend int     // $ paid for them
+	ClosedHours int     // Room-hours spent Closed
+	MirrorAt    float64 // game hours from the Run start until the Mirror unlocked; -1 if it never did (07 B1)
 	Failures    []Failure
 }
 
@@ -133,8 +135,8 @@ func newSim(cfg Config) (*sim, error) {
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, seenGhost: map[*Party]bool{},
-		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
-	g.mirrorAtStart = cfg.Mirror
+		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1}}
+	g.mirrorAtStart, g.openAtStart = cfg.Mirror, cfg.Open
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
 }
@@ -168,6 +170,9 @@ func (s *sim) frame() bool {
 	g.Update()
 	if title {
 		return true
+	}
+	if s.res.MirrorAt < 0 && g.unlocked(Mirror) {
+		s.res.MirrorAt = float64(g.clock-runStart) / hourFrames
 	}
 	if clock/dayFrames != g.clock/dayFrames { // Midnight
 		for i := range g.hotel.Rooms {

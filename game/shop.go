@@ -29,9 +29,10 @@ type Item struct {
 	Icon   string // assets/sprites/<Icon>.png, or a character whose head is the icon (Head)
 	Head   bool
 	Cost   Cost
-	Pack   int      // Supplies: units into stock per buy
-	Needs  []Unlock // owned first, then
-	Earned Cost     // earned since the last of Needs was bought. No Needs and no Earned: on sale from the start
+	Price  func(g *Game) Cost // the price now, when it moves (the Room key); else Cost
+	Pack   int                // Supplies: units into stock per buy
+	Needs  []Unlock           // owned first, then
+	Earned Cost               // earned since the last of Needs was bought. No Needs and no Earned: on sale from the start
 	// Services only: why the Room can't take it ("" if it can), and the paid-for delivery.
 	Refuse func(g *Game, room int) string
 	Send   func(g *Game, room int)
@@ -68,16 +69,20 @@ var shop = []Item{
 
 	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, false) }},
+	{ID: rowKey, Tab: tabServices, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
+		Send: func(g *Game, room int) { g.openRoom(room) }},
 	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, true) }},
 }
 
 // cartLine is one cart entry: n of a Supply, an unlock, or a Service for a Room (else room is -1).
-type cartLine struct{ item, room, n int }
+type cartLine struct {
+	item, room, n int
+	each          Cost // one unit's price, fixed when it went in the cart
+}
 
 func (l cartLine) cost() Cost {
-	c := shop[l.item].Cost
-	return Cost{c[Money] * Num(l.n), c[Ecto] * Num(l.n)}
+	return Cost{l.each[Money] * Num(l.n), l.each[Ecto] * Num(l.n)}
 }
 
 // onSale: its Needs are owned and, since the last of them was bought, the hotel earned its Earned.
@@ -123,20 +128,20 @@ func (g *Game) addToCart(i, room int) string {
 		if slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.room == room && sameKind(l.item, i) }) {
 			return "ALREADY IN THE CART FOR ROOM " + g.hotel.Rooms[room].Number
 		}
-		g.cart = append(g.cart, cartLine{i, room, 1})
+		g.cart = append(g.cart, cartLine{i, room, 1, g.priceOf(i)})
 		return ""
 	}
 	if k := slices.IndexFunc(g.cart, func(l cartLine) bool { return l.item == i }); k >= 0 {
 		g.cart[k].n++
 		return ""
 	}
-	g.cart = append(g.cart, cartLine{i, -1, 1})
+	g.cart = append(g.cart, cartLine{i, -1, 1, g.priceOf(i)})
 	return ""
 }
 
 // affords: the cart plus one more of item i fits the wallet (2026-11-08: no adding what you can't pay).
 func (g *Game) affords(i int) bool {
-	t, c := g.cartTotal(), shop[i].Cost
+	t, c := g.cartTotal(), g.priceOf(i)
 	return g.afford(Cost{t[Money] + c[Money], t[Ecto] + c[Ecto]})
 }
 
@@ -189,6 +194,8 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
+		case it.ID == rowKey: // walked to the Room's own door
+			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
 		case it.Tab != tabServices:
 			stock.lines = append(stock.lines, l)
 		default:

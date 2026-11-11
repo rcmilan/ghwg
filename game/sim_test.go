@@ -42,7 +42,7 @@ func TestSimClock(t *testing.T) {
 			for _, c := range cases {
 				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) {
 					r := RunSim(Config{Cols: cols, Rows: rows, Days: c.days, Seed: uint64(cols*10 + rows),
-						Strategy: stand{c.at}, React: 30, KeyGap: 6})
+						Strategy: stand{c.at}, React: 30, KeyGap: 6, Open: true})
 					t.Logf("%+v", r)
 					for _, f := range r.Failures {
 						t.Errorf("%s: %s", f.Clock, f.Reason)
@@ -62,7 +62,7 @@ func TestSimClock(t *testing.T) {
 
 // T055: with Parties booked before they arrive (D139), even never's money is its paid Bookings.
 func TestRunSim(t *testing.T) {
-	r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: 1, Strategy: Strategies["never"], React: 30, KeyGap: 6})
+	r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: 1, Strategy: Strategies["never"], React: 30, KeyGap: 6, Open: true})
 	if r.Bookings == 0 || r.Paid == 0 || sum(r.MoneyByDay) == 0 || len(r.Failures) > 0 || r.Sold == 0 || r.Available != 4*2 {
 		t.Fatalf("never: %+v; want paid Bookings, money, Room-nights sold of 8, no failures", r)
 	}
@@ -88,7 +88,7 @@ func (s *thief) Cheat(g *Game) {
 
 // T058: a Run is a function of its Config.
 func TestSimDeterministic(t *testing.T) {
-	c := Config{Cols: 2, Rows: 1, Days: 3, Seed: 42, Strategy: Strategies["never"], React: 30, KeyGap: 6}
+	c := Config{Cols: 2, Rows: 1, Days: 3, Seed: 42, Strategy: Strategies["never"], React: 30, KeyGap: 6, Open: true}
 	if a, b := RunSim(c), RunSim(c); !reflect.DeepEqual(a, b) {
 		t.Fatalf("same seed, different Runs:\n%+v\n%+v", a, b)
 	}
@@ -107,5 +107,6 @@ func mustNew(t *testing.T) *Game {
 	if err != nil {
 		t.Fatal(err)
 	}
+	g.openAtStart = true // see headless
 	return g
 }
