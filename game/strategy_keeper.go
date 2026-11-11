@@ -11,7 +11,7 @@ func (keeper) Act(v View, p *Pilot) {
 		p.Close()
 		return
 	}
-	if restock(v, p) {
+	if openRooms(v, p) || restock(v, p) {
 		return
 	}
 	if i := toServe(v); i >= 0 && !v.Ghost {

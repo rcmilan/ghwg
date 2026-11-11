@@ -280,10 +280,10 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 			a, word = 0.35, "SOON"
 		case it.Tab == tabHotel && g.unlocked(it.ID):
 			a, word = 0.6, "OWNED"
-		case !g.afford(it.Cost):
+		case !g.afford(g.priceOf(i)):
 			a = 0.6
 		}
-		g.drawRow(s, k, it, strings.ToUpper(it.Name), it.Cost, word, a)
+		g.drawRow(s, k, it, strings.ToUpper(it.Name), g.priceOf(i), word, a)
 	}
 
 	// The detail pane: the picked item, big.
@@ -298,7 +298,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	y := bodyY + 112
 	g.tintedAt(s, strings.ToUpper(it.Name), paneX+12, y, 2, assets.Ghost, 1)
 	g.tintedAt(s, it.Blurb, paneX+12, y+32, 1, assets.Ghost, 1)
-	g.drawPrice(s, it.Cost, paneX+12, y+54, 2)
+	g.drawPrice(s, g.priceOf(i), paneX+12, y+54, 2)
 	var status []string
 	switch {
 	case !g.onSale(i):
@@ -380,6 +380,9 @@ func (g *Game) drawPlacing(s *ebiten.Image) {
 		}
 		rect(s, x, y, tw, th, bg)
 		g.tintedAt(s, room.Number+" "+strings.ToUpper(room.Type.Name), x+8, y+4, 2, assets.Ghost, 1)
+		if !g.isOwned(i) {
+			g.tintedAt(s, "BOARDED UP", x+8, y+44, 2, assets.Locked, 1)
+		}
 		var heads []string
 		for _, p := range g.parties {
 			if p.Occupies(i, Human) {

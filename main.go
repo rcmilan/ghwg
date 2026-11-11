@@ -33,6 +33,9 @@ func main() {
 	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
 	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
 	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
+	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
+	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
+	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -65,8 +68,14 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 {
-		g.Start(*ghost)
+	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0
+	if dev {
+		if *intro >= 0 {
+			g.StartIntro(*intro)
+		} else {
+			g.Start(*ghost)
+		}
+		g.DevKey(*key)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
@@ -87,6 +96,9 @@ func main() {
 	if *shotPath != "" {
 		s := &shot{Game: g, path: *shotPath, at: *at}
 		run = s
+	}
+	if *play == "" && !*skipIntro && !dev { // a person starting from the title: the opening
+		g.PlayIntro()
 	}
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)

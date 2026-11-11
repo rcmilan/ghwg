@@ -142,7 +142,7 @@ What the Concierge does for an Occupied Room whose Party is asking, in the real 
 _Avoid_: tend, room service (as the term)
 
 **Mood pay factor**:
-What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the hourly Money and the checkout tip, so a plain Room at Mood 0 pays its Rate.
+What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (paid every frame a Guest is inside its Room, from its first step in) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
@@ -170,7 +170,7 @@ _Avoid_: group
 A Party arriving from the Street, already booked, and walking straight to its Room. One comes only while a Room it fits is Vacant.
 
 **Routine**:
-A Party's daily schedule. **Homebody** stays in the Room. **Tourist** goes out each morning and returns at night.
+A Party's daily schedule. **Homebody** stays in the Room. **Tourist** goes out each morning, from the day after it arrives, and returns at night.
 
 ## Time
 
@@ -232,3 +232,21 @@ _Avoid_: delivery guy, mailman
 **Stock**:
 The Supplies the hotel holds, kept on one spot per Supply in the stock area, left of the entrance hall. The Courier fills it; the Concierge carries from it into Rooms.
 _Avoid_: inventory
+
+**Room key**:
+A Service in the Terminal's SERVICES tab that opens a boarded Room: you pick the Room, the Courier walks the key to that Room's door, and on the drop the Room is owned. One key at a time; its price rises with each Room owned.
+_Avoid_: unlock, license, deed
+
+**Owned Room** / **Closed Room**:
+A Room is Owned once its key has been dropped at its door; before that it is a Closed Room: drawn with the boarded door, no Party of either realm books it, its door stays shut to the Concierge. A Run starts with every Room Closed. Not the same as a Room at Mood -100, which is Closed by Mood (a Closed Room in the sense of D140) and stays Owned.
+_Avoid_: locked Room, sealed Room
+
+**Key price rise**:
+The Room key costs more with each Room already owned: `keyBase` for the first, plus `keyStep` for each one after. A Run starts with Money for exactly the first key (`startMoney`). Placeholders.
+
+**Intro**:
+The opening of a new Run: the title is the whole hotel in the ghost dimension with both Rooms boarded, no Concierge, ghosts on the street; SPACE brings three timed lines (SHIFT stressed); SPACE again and the Concierge walks in from the street while the view closes in and the world shifts to real, once. The world and the Clock wait for it. `-skipintro` skips it; the sim and the dev prints never play it unless asked (`-intro`).
+_Avoid_: cutscene, tutorial
+
+**Opener**:
+The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks.

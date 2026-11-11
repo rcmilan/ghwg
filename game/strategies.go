@@ -41,7 +41,7 @@ func (s stand) Act(v View, p *Pilot) {
 type server struct{}
 
 func (server) Act(v View, p *Pilot) {
-	if restock(v, p) {
+	if openRooms(v, p) || restock(v, p) {
 		return
 	}
 	if i := toServe(v); i >= 0 && !v.Terminal.Open {
@@ -78,7 +78,7 @@ func (smart) Act(v View, p *Pilot) {
 		p.Close()
 		return
 	}
-	if restock(v, p) {
+	if openRooms(v, p) || restock(v, p) {
 		return
 	}
 	for i, r := range v.Rooms {

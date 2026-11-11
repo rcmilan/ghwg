@@ -18,7 +18,6 @@ const (
 	outJitter        = 120 * minuteFrames
 	backHour         = 19 // and comes back at 19:00–22:00
 	backJitter       = 180 * minuteFrames
-	routineStartHour = 10             // booked from 10:00 on, a Tourist's routine starts the next day
 	hotelDayStart    = 6              // a Booking made before 06:00 belongs to the night before
 	pairOdds         = 0.4            // a Walk-in is a pair 40% of the time, else solo (D77)
 	trailGap         = world.TileSize // a follower stays about this far behind its leader (D90)
@@ -73,13 +72,11 @@ type Booking struct {
 }
 
 // schedule fixes the stay's days once booked at clock c (D88): checkout on the final hotel day (before
-// 06:00 counts as the night before), and a Tourist's first day out: today if booked before 10:00.
+// 06:00 counts as the night before), and a Tourist's first day out: the day after it arrives, so a Room pays
+// from its first hour and the Mirror is within reach on Day 1 (2026-11-11; it was today if booked before 10:00).
 func (b *Booking) schedule(c int) {
 	b.Checkout = ((c-hotelDayStart*hourFrames)/dayFrames+b.Nights)*dayFrames + b.checkoutAt
-	b.firstOut = c / dayFrames
-	if c%dayFrames >= routineStartHour*hourFrames {
-		b.firstOut++
-	}
+	b.firstOut = c/dayFrames + 1
 }
 
 // Out: a Tourist is away at clock c (D88), between its out and back times on every day of its routine
@@ -95,21 +92,27 @@ func (p *Party) Payout(pay Num) int {
 	return int(Num(p.Rate*p.Nights*tipPct) * pay / 100)
 }
 
-// charge runs each game hour: every Guest inside its Room pays its share of Rate/rentHours, raised
-// the Room's Mood pay factor; "+$N" floats at the door (Step 2).
+// charge runs each frame: every Guest inside its Room pays its share of Rate/rentHours a game hour, raised
+// the Room's Mood pay factor, so the Money counter climbs from the moment a Guest steps in (2026-11-11; it
+// paid in hourly lumps). On the hour "+$N" floats at the door: the whole dollars since the last one (Step 2).
 func (g *Game) charge(p *Party) {
-	if g.clock%hourFrames != 0 {
-		return
+	r, paid, frames := g.hotel.Rooms[p.Room], Num(0), Num(1)
+	if g.fast { // the Clock ran fastClock frames this step (advanceClock)
+		frames = fastClock
 	}
-	r, paid := g.hotel.Rooms[p.Room], Num(0)
 	for _, guest := range p.Guests {
 		if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
-			paid += Num(p.Rate) / rentHours / Num(len(p.Guests)) * g.moodPay(p.Room)
+			paid += frames * Num(p.Rate) / rentHours / hourFrames / Num(len(p.Guests)) * g.moodPay(p.Room)
 		}
 	}
 	if paid > 0 {
 		p.rent += paid
-		g.earn(Money, paid, r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, 0)))
+		g.earn(Money, paid, noFloat)
+	}
+	if n := Num(int(p.rent - p.floated)); g.clock%hourFrames == 0 && n > 0 {
+		p.floated += n
+		at := r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, 0))
+		g.floaters = append(g.floaters, floater{float64(at.X), float64(at.Y), "+$" + fmtNum(n), g.tick, floatMoney})
 	}
 }
 
@@ -147,7 +150,8 @@ type Party struct {
 	fledAt     int           // the tick it fled (D164)
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)
 	cooledAt   int           // the clock it stepped out
-	rent       Num           // Money paid by the hour so far (Step 2)
+	rent       Num           // Money paid in the Room so far (Step 2)
+	floated    Num           // of it, already shown in a "+$N" floater
 	tip        Num           // the checkout tip it banked
 	greet      greeting      // owed once the Concierge hears it (D165)
 	talk       []line        // its lines showing or about to (D165)
@@ -222,7 +226,7 @@ func (g *Game) maybeWalkIn() {
 		}
 	}
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.vacant(i, Human) && !g.closed(i) && g.spawnClear() {
+		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && g.spawnClear() {
 			g.arrivals[i] = arrival{}
 			g.arrive(i)
 			booked++
@@ -244,7 +248,7 @@ func (g *Game) spawnClearIn(realm Realm) bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.vacant(i, Human) && !g.closed(i) && len(r.Stays) >= size {
+		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && len(r.Stays) >= size {
 			return i
 		}
 	}
@@ -415,6 +419,7 @@ func (g *Game) updateParty(p *Party) bool {
 		if g.walkParty(p, arriveSpeed) && (p.settled || !g.settle(p)) {
 			p.state, p.settled = staying, true
 		}
+		g.charge(p) // it pays from its first step into the Room
 	case staying:
 		switch {
 		case g.clock >= p.Checkout:

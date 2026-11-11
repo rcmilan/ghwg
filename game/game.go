@@ -110,6 +110,11 @@ type Game struct {
 	mirrorAtStart bool                          // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
 	ghostArrivals []arrival                     // per Room: its next ghost Party's arrival (ghostguest.go)
 	areaShades    []*shade                      // the Shadow People strong ghosts switch on, one per area (shadow.go)
+	roomOwned     []bool                        // per Room: owned, so open for business; nil owns all (owned.go, 07 B1)
+	openAtStart   bool                          // the sim's Open and most tests: a Run starts with every Room owned
+	introOn       bool                          // a Run starts with the opening intro (intro.go); off for the sim, the tests and prints
+	intro         *intro                        // the intro under way, nil if none
+	wide          *ebiten.Image                 // the whole hotel at zoom, the intro's first shots (intro.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -195,6 +200,11 @@ func (g *Game) startRun() {
 	if !g.mirrorAtStart {
 		g.locked = map[Unlock]bool{Mirror: true}
 	}
+	g.roomOwned = nil // 07 B1: a normal Run starts with every Room closed and Money for one key
+	if !g.openAtStart {
+		g.closeRooms()
+	}
+	g.beginIntro()
 }
 
 func (g *Game) Update() error {
@@ -212,11 +222,13 @@ func (g *Game) Update() error {
 			}
 			g.state, g.message = StatePlay, ""
 		default:
-			g.state = StateTitle
+			g.toTitle()
 		}
 		return nil
 	}
 	switch {
+	case g.intro != nil: // the opening, the title included: the world waits for it
+		g.updateIntro()
 	case g.state == StateTitle:
 		if g.in.JustPressed(ebiten.KeySpace) {
 			g.startRun()
@@ -388,7 +400,7 @@ func (g *Game) doorActors() []world.Actor {
 // in there cost its Guests Comfort (intrude).
 func (g *Game) occupied(room int) bool {
 	_, gs := g.insideIn(room, g.realm())
-	return len(gs) > 0
+	return len(gs) > 0 || !g.isOwned(room) // a boarded Room stays shut (07 B1)
 }
 
 // walk advances a guest along its path. It waits in place while the next step would hit a shut door,
