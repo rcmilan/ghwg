@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 	"testing"
 
 	"ghosthotel/entities"
@@ -250,4 +251,52 @@ func TestGhostDrawn(t *testing.T) {
 		t.Error("the four kinds need four hues")
 	}
 	_ = image.Point{}
+}
+
+// A normal Run starts with the Mirror locked: humans only, no haunts. Bought at the Terminal ($10) and
+// delivered by the courier at the stock, it opens the ghost layer: then ghosts book and haunt.
+func TestMirrorStartLocked(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	if g.unlocked(Mirror) || !g.unlocked(SupplyWater) || len(g.locked) != 1 {
+		t.Fatalf("a new Run's locks %v, want only the Mirror", g.locked)
+	}
+	mirror := row(t, Mirror)
+	if !g.onSale(mirror) || g.owned(mirror) || !slices.Contains(g.forSale(), mirror) {
+		t.Fatal("the Mirror isn't on the Terminal's shelf")
+	}
+	g.fast = true
+	for g.clock < runStart+2*dayFrames {
+		g.step(0, 0)
+	}
+	for _, p := range g.parties {
+		if p.Realm == Ghost {
+			t.Fatal("a ghost booked before the Mirror was bought")
+		}
+	}
+	g.wallet[Money] = 10
+	if why := g.addToCart(mirror, -1); why != "" {
+		t.Fatal(why)
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	if g.unlocked(Mirror) || len(g.couriers) != 1 {
+		t.Fatalf("bought: unlocked %v, %d couriers; want the courier on his way, the Mirror not yet", g.unlocked(Mirror), len(g.couriers))
+	}
+	for f := 0; !g.unlocked(Mirror); f++ {
+		if f > 3*60*tps {
+			t.Fatal("the courier never delivered the Mirror")
+		}
+		g.step(0, 0)
+	}
+	for i := 0; i < 2*dayFrames; i++ {
+		g.step(0, 0)
+		for _, p := range g.parties {
+			if p.Realm == Ghost {
+				return
+			}
+		}
+	}
+	t.Fatal("no ghost booked after the Mirror arrived")
 }

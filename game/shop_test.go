@@ -131,6 +131,7 @@ func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
 		g.startRun()
+		g.unlock(Mirror) // Priests are sold once the Mirror is owned
 		g.ghost = ghost
 		g.earned = [2]Num{1000, 1000}
 		g.wallet = [2]Num{priestWeak, 0}

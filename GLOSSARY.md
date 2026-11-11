@@ -112,7 +112,7 @@ One of the hotel's two independent layers, Human and Ghost. A Party lives in one
 Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity is read by V1; Phantasm sets a ghost's kind and strength; Haunt sets how often it haunts.
 
 **Ghost guest** (Ghost Party):
-A Party of the Ghost realm. Once the Mirror is unlocked each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters hued by its ghost kind, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 55% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as dim silhouettes.
+A Party of the Ghost realm. Once the Mirror is bought and delivered (a Run starts without it) each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters hued by its ghost kind, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 55% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as dim silhouettes.
 _Avoid_: ghost Walk-in
 
 **Ghost kind**:
@@ -219,7 +219,7 @@ The hotel's two currencies, Money and Ectoplasm, and nothing else. Fear and Room
 A price in Money, Ectoplasm or both. It is paid whole or not at all.
 
 **Unlock**:
-A feature the player buys at the Terminal: the Mirror, a supply prop, Room Lock. Until a new game sets its start state, everything is unlocked.
+A feature the player buys at the Terminal: the Mirror, a supply prop, Room Lock. A normal Run starts with only the Mirror locked (the sim's `-mirror` flag starts it unlocked); the courier delivers a bought unlock at the stock.
 
 **Tap**:
 One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Person alike. Each tap counts toward its job, a (Room, Task) pair: Serve or Housekeep.

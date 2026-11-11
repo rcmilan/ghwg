@@ -12,9 +12,11 @@ import (
 // only through encounters (V1). Its Phantasm sets its kind, the Mood a haunt costs (mood.go) and whether it
 // is strong enough to switch an area's Shadow People on (shadow.go). All values are placeholders.
 const (
-	phantasmMax = 12  // a ghost's Phantasm is rolled 1..phantasmMax
-	ghostHaunt  = 240 // x: game minutes between a ghost's haunts (the Mood pressure on a Room)
-	ghostAlpha  = 0.55
+	phantasmMax = 12 // a ghost's Phantasm is rolled 1..phantasmMax
+	// The haunt values (ghostHaunt, hauntBase, phantasmMax) are deliberately harsh placeholders: Mood falls
+	// fast and Money with it, until X2's moving Parties between Rooms balances them. Do not tune before.
+	ghostHaunt = 240 // x: game minutes between a ghost's haunts (the Mood pressure on a Room)
+	ghostAlpha = 0.55
 )
 
 // phantasmBands: the Phantasm each kind from the second starts at; the lowest kind is below the first edge.
@@ -184,6 +186,7 @@ const silhouetteAlpha = 0.6
 // DevGhosts is main's -ghosts: a human Party and a strong ghost Party of the given Phantasm settle in Room 0
 // for 3 nights, the Concierge standing in it (use with -shot -at 9300 for them asleep, or -ghost).
 func (g *Game) DevGhosts(phantasm int) {
+	g.unlock(Mirror)
 	h := g.walkIn()
 	if h == nil || phantasm <= 0 {
 		return

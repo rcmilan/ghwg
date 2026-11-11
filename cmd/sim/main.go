@@ -29,6 +29,7 @@ func main() {
 	seed := flag.Uint64("seed", 1, "the first Run's seed")
 	react := flag.Int("react", 30, "frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "frames between the Pilot's key taps")
+	mirror := flag.Bool("mirror", false, "start each Run with the Mirror unlocked, so ghosts book and haunt (a normal Run starts with it locked: no ghosts)")
 	noCheck := flag.Bool("nocheck", false, "skip the invariant checks")
 	csvPath := flag.String("csv", "", "write one row per Run to this file")
 	ectoRate := flag.Float64("ectorate", 0.5, "$ one Ectoplasm is worth in the score column: an assumed shop price (T112)")
@@ -58,7 +59,7 @@ func main() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				results[s][i] = game.RunSim(game.Config{Cols: cols, Rows: rows, Days: *days, Seed: *seed + uint64(i),
-					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck})
+					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror})
 			}()
 		}
 	}

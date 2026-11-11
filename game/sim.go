@@ -60,6 +60,7 @@ type Config struct {
 	Strategy      Strategy
 	React, KeyGap int  // the Pilot's pace (D104); 0, 0 is frame-perfect
 	NoCheck       bool // skip the invariants (D108)
+	Mirror        bool // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
 }
 
 type Failure struct{ Clock, Reason string }
@@ -133,6 +134,7 @@ func newSim(cfg Config) (*sim, error) {
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, seenGhost: map[*Party]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
+	g.mirrorAtStart = cfg.Mirror
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
 }

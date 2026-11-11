@@ -105,6 +105,7 @@ type Game struct {
 	hands         Unlock                        // the supply the Concierge carries, "" for none (supply.go)
 	delivered     Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
 	askBox        *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	mirrorAtStart bool                          // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
 	ghostArrivals []arrival                     // per Room: its next ghost Party's arrival (ghostguest.go)
 	areaShades    []*shade                      // the Shadow People strong ghosts switch on, one per area (shadow.go)
 }
@@ -184,6 +185,10 @@ func (g *Game) startRun() {
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
+	g.locked = nil // a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's T272)
+	if !g.mirrorAtStart {
+		g.locked = map[Unlock]bool{Mirror: true}
+	}
 }
 
 func (g *Game) Update() error {
