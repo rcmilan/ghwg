@@ -3,7 +3,6 @@ package world
 import (
 	"fmt"
 	"image"
-	"math/rand/v2"
 	"slices"
 	"strings"
 	"testing"
@@ -22,7 +21,7 @@ func buildGrid(t *testing.T, cols, rows int) *Hotel {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h, err := Build(ts, types, cols, rows, rand.New(rand.NewPCG(1, 2)))
+	h, err := Build(ts, types, cols, rows)
 	if err != nil {
 		t.Fatal(err)
 	}

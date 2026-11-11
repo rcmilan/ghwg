@@ -33,10 +33,15 @@ type Item struct {
 	Pack   int                // Supplies: units into stock per buy
 	Needs  []Unlock           // owned first, then
 	Earned Cost               // earned since the last of Needs was bought. No Needs and no Earned: on sale from the start
-	// Services only: why the Room can't take it ("" if it can), and the paid-for delivery.
+	// Services only: why the Room can't take it ("" if it can), the paid-for delivery, and Once for one
+	// bought a single time: an unlock that picks a Room (the in-Room Mirror).
 	Refuse func(g *Game, room int) string
-	Send   func(g *Game, room int)
+	Send   func(g *Game, l cartLine)
+	Once   bool
 }
+
+// unlock: the item is an unlock, owned once bought: a HOTEL item or a Once Service.
+func (it Item) unlock() bool { return it.Tab == tabHotel || it.Once }
 
 // The Services aren't unlocks; their IDs only name them.
 const (
@@ -68,17 +73,18 @@ var shop = []Item{
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Ecto: 1000}},
 
 	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, false) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowKey, Tab: tabServices, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
-		Send: func(g *Game, room int) { g.openRoom(room) }},
+		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, room int) { g.sendPriest(room, true) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
 }
 
 // cartLine is one cart entry: n of a Supply, an unlock, or a Service for a Room (else room is -1).
 type cartLine struct {
 	item, room, n int
-	each          Cost // one unit's price, fixed when it went in the cart
+	each          Cost   // one unit's price, fixed when it went in the cart
+	beds          string // a change of type: the bed layout picked (roomtype_change.go)
 }
 
 func (l cartLine) cost() Cost {
@@ -106,7 +112,7 @@ func (g *Game) onSale(i int) bool {
 // owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
-	return it.Tab == tabHotel && (g.unlocked(it.ID) || g.coming(it.ID, -1) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
+	return it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
 }
 
 // addToCart puts item i in the cart, for the Room of a Service: "" or why not.
@@ -115,7 +121,7 @@ func (g *Game) addToCart(i, room int) string {
 	switch {
 	case !g.onSale(i):
 		return "COMING SOON"
-	case it.Tab == tabHotel && g.unlocked(it.ID):
+	case it.unlock() && g.unlocked(it.ID):
 		return "ALREADY OWNED"
 	case g.owned(i):
 		return "ALREADY IN THE CART"
@@ -131,14 +137,18 @@ func (g *Game) addToCart(i, room int) string {
 		if slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.room == room && sameKind(l.item, i) }) {
 			return "ALREADY IN THE CART FOR ROOM " + g.hotel.Rooms[room].Number
 		}
-		g.cart = append(g.cart, cartLine{i, room, 1, g.priceOf(i)})
+		l := cartLine{item: i, room: room, n: 1, each: g.priceOf(i)}
+		if it.ID == rowChange {
+			l.beds = bedKinds[g.termBeds].Beds
+		}
+		g.cart = append(g.cart, l)
 		return ""
 	}
 	if k := slices.IndexFunc(g.cart, func(l cartLine) bool { return l.item == i }); k >= 0 {
 		g.cart[k].n++
 		return ""
 	}
-	g.cart = append(g.cart, cartLine{i, -1, 1, g.priceOf(i)})
+	g.cart = append(g.cart, cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)})
 	return ""
 }
 
@@ -148,10 +158,11 @@ func (g *Game) affords(i int) bool {
 	return g.afford(Cost{t[Money] + c[Money], t[Ecto] + c[Ecto]})
 }
 
-// sameKind: both Priests (one per Room), or the same Service.
+// sameKind: both Priests (one per Room), both changes to a Room (its type, its Mirror), or the same Service.
 func sameKind(a, b int) bool {
 	priest := func(i int) bool { return shop[i].ID == rowFatherK || shop[i].ID == rowFatherM }
-	return a == b || priest(a) && priest(b)
+	change := func(i int) bool { return shop[i].ID == rowChange || shop[i].ID == RoomMirror }
+	return a == b || priest(a) && priest(b) || change(a) && change(b)
 }
 
 // cartTotal: what checkout charges.
@@ -224,14 +235,19 @@ func (g *Game) receive(l cartLine) {
 		}
 		g.stock[it.ID] += it.Pack * l.n
 	case tabHotel:
-		g.unlock(it.ID)
-		if g.boughtAt == nil {
-			g.boughtAt = map[Unlock][2]Num{}
-		}
-		g.boughtAt[it.ID] = g.earned
+		g.own(it.ID)
 	case tabServices:
-		it.Send(g, l.room)
+		it.Send(g, l)
 	}
+}
+
+// own: an unlock arrives: it is owned from now, and what opens after it counts earnings from here.
+func (g *Game) own(id Unlock) {
+	g.unlock(id)
+	if g.boughtAt == nil {
+		g.boughtAt = map[Unlock][2]Num{}
+	}
+	g.boughtAt[id] = g.earned
 }
 
 // price: "$40", "80 ECTOPLASM" or both.

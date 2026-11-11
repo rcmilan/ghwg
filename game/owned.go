@@ -61,12 +61,13 @@ func (g *Game) closeRooms() {
 }
 
 // openRoom: the key reached the Room's door. It is owned from now: its door unboards and its first Party and
-// ghost book as at a Run's start.
+// ghost book as at a Run's start. It opens with its own Mirror once the in-Room Mirror is bought (K1).
 func (g *Game) openRoom(room int) {
 	if g.roomOwned == nil || g.isOwned(room) {
 		return
 	}
 	g.roomOwned[room] = true
+	g.setRoom(room, g.hotel.Rooms[room].Type, true)
 	g.book(room, firstGap)
 	g.bookGhost(room, firstGap)
 }

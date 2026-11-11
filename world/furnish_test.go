@@ -1,7 +1,6 @@
 package world
 
 import (
-	"math/rand/v2"
 	"strings"
 	"testing"
 
@@ -21,43 +20,6 @@ func typeNamed(t *testing.T, name string) RoomType {
 	}
 	t.Fatalf("no Room Type %q", name)
 	return RoomType{}
-}
-
-// D46: each Room draws independently, equal odds, repeats allowed. D65: odds are per type name, not per variant.
-func TestDraw(t *testing.T) {
-	a, a2, b := RoomType{Name: "A"}, RoomType{Name: "A", Rate: 2}, RoomType{Name: "B"}
-	rng := rand.New(rand.NewPCG(3, 4))
-	seen := make([]map[string]int, 4)
-	mixed, variant := 0, 0
-	for range 400 {
-		next := Draw([]RoomType{a, a2, b}, 4, rng)
-		if len(next) != 4 {
-			t.Fatalf("drew %d types, want 4", len(next))
-		}
-		for i, rt := range next {
-			if seen[i] == nil {
-				seen[i] = map[string]int{}
-			}
-			seen[i][rt.Name]++
-			if rt.Rate == 2 {
-				variant++
-			}
-		}
-		if next[0].Name != next[1].Name {
-			mixed++
-		}
-	}
-	for i, s := range seen {
-		if s["A"] < 150 || s["B"] < 150 {
-			t.Errorf("room %d drew %v over 400 draws, want roughly even odds", i, s)
-		}
-	}
-	if variant < 300 || variant > 500 { // ~400: half of A's ~800 draws
-		t.Errorf("A's second variant drawn %d times over 1600 draws, want ~400", variant)
-	}
-	if mixed < 150 {
-		t.Errorf("rooms 0 and 1 differed in %d of 400 draws: draws are not independent", mixed)
-	}
 }
 
 // Furnish re-stamps the Rooms with the types given; doors, numbers and the hotel's outer side lines stay
@@ -141,23 +103,65 @@ func TestVariantsReachable(t *testing.T) {
 	}
 }
 
-// D84, T029: the draw goes tier → beds → variant, equal odds at each step, however many files each has.
-func TestDrawTierBedsVariant(t *testing.T) {
-	types := []RoomType{
-		{Name: "A", Beds: "Single"}, {Name: "A", Beds: "Twin"}, {Name: "A", Beds: "Twin", Rate: 2}, {Name: "A", Beds: "Double"},
-		{Name: "B", Beds: "Single"},
+// T276, T278 (K1): every Room opens as the Standard Single, on any grid. Land stamps one Room alone; with
+// mirror it hangs the in-Room Mirror on the back wall (the type's own wall mirror if it has one) and marks
+// the cells below it; without, no Room shows a mirror nor has a Guest look in one.
+func TestLand(t *testing.T) {
+	types, err := LoadRoomTypes(assets.FS, loadTileset(t))
+	if err != nil {
+		t.Fatal(err)
 	}
-	key := func(rt RoomType) [3]any { return [3]any{rt.Name, rt.Beds, rt.Rate} }
-	n := map[[3]any]int{}
-	for _, rt := range Draw(types, 12000, rand.New(rand.NewPCG(5, 6))) {
-		n[key(rt)]++
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		for _, r := range h.Rooms {
+			if r.Type.Name != "Standard" || r.Type.Beds != "Single" || !r.Mirror.Empty() {
+				t.Errorf("room %s opens as %s %s, mirror %v; want a Standard Single with none", r.Number, r.Type.Name, r.Type.Beds, r.Mirror)
+			}
+		}
+	})
+	h := buildGrid(t, 2, 1)
+	mirrors := func(i int) (n int) {
+		r := h.Rooms[i]
+		for l := range NumLayers {
+			for c := range RoomW * RoomH {
+				if strings.HasPrefix(h.Map.TS.Tiles[h.Map.At(l, r.Origin.X+c%RoomW, r.Origin.Y+c/RoomW)].Name, mirrorTile) {
+					n++
+				}
+			}
+		}
+		return n
 	}
-	for _, c := range []struct {
-		rt   RoomType
-		want int // of 12000: B 1/2; A's Single and Double 1/6; each Twin variant 1/12
-	}{{types[4], 6000}, {types[0], 2000}, {types[3], 2000}, {types[1], 1000}, {types[2], 1000}} {
-		if d := n[key(c.rt)] - c.want; d < -c.want/8 || d > c.want/8 {
-			t.Errorf("%v drawn %d times of 12000, want ~%d", key(c.rt), n[key(c.rt)], c.want)
+	looks := func(i int) bool {
+		for _, s := range h.Rooms[i].Spots {
+			if s.Verb == "look in" {
+				return true
+			}
+		}
+		return false
+	}
+	for _, beds := range []string{"Single", "Twin", "Double"} {
+		rt, ok := TypeOf(types, beds)
+		if !ok {
+			t.Fatalf("no Standard %s", beds)
+		}
+		before := h.Rooms[1]
+		h.Land(0, rt, false)
+		if r := h.Rooms[0]; r.Type.Beds != beds || len(r.Stays) != bedCapacity[beds] || mirrors(0) != 0 || looks(0) || !r.Mirror.Empty() {
+			t.Errorf("%s landed plain: beds %s, %d Stay Spots, %d mirror tiles, look-in %v, spot %v", beds, r.Type.Beds, len(r.Stays), mirrors(0), looks(0), r.Mirror)
+		}
+		h.Land(0, rt, true)
+		r := h.Rooms[0]
+		if mirrors(0) != 2 || r.Mirror.Empty() || !r.Mirror.In(r.Shell()) {
+			t.Fatalf("%s landed mirrored: %d mirror tiles, spot %v", beds, mirrors(0), r.Mirror)
+		}
+		mid := r.Mirror.Min.Add(r.Mirror.Max).Div(2).Div(TileSize)
+		if h.Map.Solid(mid.X, mid.Y) || h.Path(h.Spawn, mid.Mul(TileSize), 0) == nil {
+			t.Errorf("%s: the cell %v under the Mirror can't be stood on", beds, mid)
+		}
+		if n := h.Map.TS.Tiles[h.Map.At(LayerProps, mid.X, mid.Y-1)].Name; n != mirrorTile+"r1c0" || !h.Map.Wall(mid.X, mid.Y-1) {
+			t.Errorf("%s: over the spot is %q, want the Mirror on the wall", beds, n)
+		}
+		if after := h.Rooms[1]; after.Type.Beds != before.Type.Beds || mirrors(1) != 0 {
+			t.Errorf("%s: landing room 0 changed room 1", beds)
 		}
 	}
 }

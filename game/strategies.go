@@ -71,18 +71,20 @@ func serveRoom(v View, p *Pilot, room int) {
 
 // smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost (Ecto from the
 // dirt), calls a Weak Priest to a Closed Room, and waits at the Mirror in between.
-type smart struct{}
+type smart struct {
+	save bool // it buys nothing: the wallet is being saved for something else (the opener's upgrades)
+}
 
-func (smart) Act(v View, p *Pilot) {
+func (s smart) Act(v View, p *Pilot) {
 	if v.Terminal.Open {
 		p.Close()
 		return
 	}
-	if openRooms(v, p) || restock(v, p) {
+	if !s.save && (openRooms(v, p) || restock(v, p)) {
 		return
 	}
 	for i, r := range v.Rooms {
-		if r.Closed && !r.Priest && v.Money >= priestWeak {
+		if !s.save && r.Closed && !r.Priest && v.Money >= priestWeak {
 			p.CallPriest(i, false)
 			return
 		}

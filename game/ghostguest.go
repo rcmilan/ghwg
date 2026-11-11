@@ -108,7 +108,7 @@ func (g *Game) maybeGhostIn() {
 		}
 	}
 	for i, a := range g.ghostArrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Ghost) && !g.closed(i) && g.spawnClearIn(Ghost) {
+		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Ghost) && !g.closed(i) && !g.changing(i) && g.spawnClearIn(Ghost) {
 			g.ghostArrivals[i] = arrival{}
 			g.arriveGhost(i)
 			booked++
@@ -200,6 +200,7 @@ func (g *Game) DevGhosts(phantasm int) {
 		return
 	}
 	g.unlock(Mirror)
+	g.roomOwned = nil // every Room open: a dev start (boarded since 07 B1, none took the walk-in)
 	h := g.walkIn()
 	if h == nil {
 		return

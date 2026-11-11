@@ -42,7 +42,7 @@ func TestSimClock(t *testing.T) {
 			for _, c := range cases {
 				t.Run(fmt.Sprintf("%dx%d/%s", cols, rows, c.name), func(t *testing.T) {
 					r := RunSim(Config{Cols: cols, Rows: rows, Days: c.days, Seed: uint64(cols*10 + rows),
-						Strategy: stand{c.at}, React: 30, KeyGap: 6, Open: true})
+						Strategy: stand{c.at}, React: 30, KeyGap: 6, Open: true, Beds: "Twin"}) // Twin: pairs walk in too
 					t.Logf("%+v", r)
 					for _, f := range r.Failures {
 						t.Errorf("%s: %s", f.Clock, f.Reason)

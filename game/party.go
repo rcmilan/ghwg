@@ -226,7 +226,7 @@ func (g *Game) maybeWalkIn() {
 		}
 	}
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && g.spawnClear() {
+		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && g.spawnClear() {
 			g.arrivals[i] = arrival{}
 			g.arrive(i)
 			booked++
@@ -248,7 +248,7 @@ func (g *Game) spawnClearIn(realm Realm) bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && len(r.Stays) >= size {
+		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && len(r.Stays) >= size {
 			return i
 		}
 	}

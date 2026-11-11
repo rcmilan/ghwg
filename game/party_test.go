@@ -305,10 +305,8 @@ func TestPairFollows(t *testing.T) {
 func TestFollowerAhead(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
+	furnish(t, g, "Twin")
 	room := g.freeRoom(2)
-	if room < 0 {
-		t.Skip("no 2-Guest Room on this seed")
-	}
 	r := g.hotel.Rooms[room]
 	lead := entities.NewGuest(g.hotel.Spawn, "Adam")
 	mate := entities.NewGuest(r.Stays[1], "Alex")

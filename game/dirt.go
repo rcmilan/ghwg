@@ -348,6 +348,9 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 		s.DrawImage(g.stains[cell], op)
 	}
 	for i := range g.hotel.Rooms {
+		if g.reeling(i) { // its floor is rolling
+			continue
+		}
 		for _, s := range g.spots(i) {
 			draw(s, 1, 1)
 		}

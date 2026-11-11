@@ -30,16 +30,18 @@ func tabItems(t Tab) []int {
 	return rows
 }
 
-// rowCount: rows in the open tab; the cart's last row is the checkout.
+// rowCount: rows in the open tab; the cart's lines, then the checkout, then the CHANGES list: the Rooms'
+// changes of type still waiting, each cancellable (K1).
 func (g *Game) rowCount() int {
 	if g.termTab == tabCart {
-		return len(g.cart) + 1
+		return len(g.cart) + 1 + len(g.pending())
 	}
 	return len(tabItems(g.termTab))
 }
 
-// updateTerminal (D180): A/D picks the tab, W/S the row, SPACE adds to the cart, removes a cart line or
-// checks out. A Service first asks for its Room: A/D picks it, SPACE adds, ESC backs out (game.go).
+// updateTerminal (D180): A/D picks the tab, W/S the row, SPACE adds to the cart, removes a cart line,
+// checks out or cancels a waiting change. A Service first asks for its Room: A/D picks it (W/S the bed layout
+// of a change of type), SPACE adds, ESC backs out (game.go).
 func (g *Game) updateTerminal() {
 	key := g.in.JustPressed
 	if g.placing >= 0 {
@@ -49,6 +51,12 @@ func (g *Game) updateTerminal() {
 			g.termCursor, g.message = (g.termCursor+n-1)%n, ""
 		case key(ebiten.KeyD):
 			g.termCursor, g.message = (g.termCursor+1)%n, ""
+		case shop[g.placing].ID == rowChange && key(ebiten.KeyW):
+			g.pickBeds(-1)
+			g.message = ""
+		case shop[g.placing].ID == rowChange && key(ebiten.KeyS):
+			g.pickBeds(1)
+			g.message = ""
 		case key(ebiten.KeySpace):
 			if g.message = g.addToCart(g.placing, g.termCursor); g.message == "" {
 				g.message = strings.ToUpper(shop[g.placing].Name) + " FOR ROOM " + g.hotel.Rooms[g.termCursor].Number + " IN THE CART"
@@ -79,6 +87,12 @@ func (g *Game) press() string {
 			g.termPick = min(g.termPick, len(g.cart))
 			return "REMOVED"
 		}
+		if k := g.termPick - len(g.cart) - 1; k >= 0 {
+			c := g.pending()[k]
+			g.cancelChange(c)
+			g.termPick = min(g.termPick, g.rowCount()-1)
+			return "CHANGE CANCELLED: " + price(c.paid) + " BACK"
+		}
 		if why := g.placeOrder(); why != "" {
 			return why
 		}
@@ -86,8 +100,10 @@ func (g *Game) press() string {
 		return "ORDER PLACED"
 	}
 	i := tabItems(g.termTab)[g.termPick]
-	if shop[i].Tab == tabServices && g.onSale(i) && g.affords(i) {
-		g.placing = i
+	if it := shop[i]; it.Tab == tabServices && g.onSale(i) && !(it.Once && g.unlocked(it.ID)) && (g.affords(i) || it.ID == rowChange) { // a change's fee depends on the layout, picked next
+		if g.placing = i; it.ID == rowChange && !g.bedOpen(g.termBeds) {
+			g.termBeds = 0
+		}
 		return ""
 	}
 	if why := g.addToCart(i, -1); why != "" {
@@ -246,10 +262,12 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 
 	help := "A/D TAB   W/S ITEM   SPACE ADD TO CART   ESC CLOSE"
 	switch {
+	case g.placing >= 0 && shop[g.placing].ID == rowChange:
+		help = "A/D ROOM   W/S BEDS   SPACE ADD TO CART   ESC BACK"
 	case g.placing >= 0:
 		help = "A/D ROOM   SPACE ADD TO CART   ESC BACK"
 	case g.termTab == tabCart:
-		help = "A/D TAB   W/S LINE   SPACE REMOVE ONE / PLACE ORDER   ESC CLOSE"
+		help = "A/D TAB   W/S LINE   SPACE REMOVE ONE / PLACE ORDER / CANCEL A CHANGE   ESC CLOSE"
 	}
 	g.tintedAt(s, help, winX+12, termY+termH-30, 1, assets.Accent, 1)
 	g.tintedAt(s, clockText(g.clock), winX+winW-12-glyphW*len(clockText(g.clock)), termY+termH-30, 1, assets.Ghost, 1)
@@ -257,8 +275,13 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 
 // drawRow is one list row: highlight, icon, name and, at the right, a price or a word.
 func (g *Game) drawRow(s *ebiten.Image, k int, it Item, name string, c Cost, word string, a float32) {
+	g.drawRowAt(s, k, k == g.termPick, it, name, c, word, a)
+}
+
+// drawRowAt: drawRow on list row k, picked or not.
+func (g *Game) drawRowAt(s *ebiten.Image, k int, picked bool, it Item, name string, c Cost, word string, a float32) {
 	y := bodyY + k*rowH
-	if k == g.termPick {
+	if picked {
 		rect(s, listX, y, listW, rowH-4, assets.Floor)
 		rect(s, listX, y, 4, rowH-4, assets.Accent)
 	}
@@ -278,7 +301,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		switch {
 		case !g.onSale(i):
 			a, word = 0.35, "SOON"
-		case it.Tab == tabHotel && g.unlocked(it.ID):
+		case it.unlock() && g.unlocked(it.ID):
 			a, word = 0.6, "OWNED"
 		case !g.afford(g.priceOf(i)):
 			a = 0.6
@@ -310,8 +333,10 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		}
 	case it.Tab == tabSupplies:
 		status = append(status, fmt.Sprintf("%d PER CASE   IN STOCK: %d", it.Pack, g.stock[it.ID]))
-	case it.Tab == tabHotel && g.unlocked(it.ID):
+	case it.unlock() && g.unlocked(it.ID):
 		status = append(status, "OWNED")
+	case it.ID == rowChange:
+		status = append(status, "PICK THE ROOM, THEN ITS BEDS", "IT CHANGES WHEN THE ROOM IS EMPTY")
 	case it.Tab == tabServices:
 		status = append(status, "DELIVERED TO A ROOM OF YOUR CHOICE")
 	}
@@ -319,7 +344,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		g.tintedAt(s, v, paneX+12, y+92+k*18, 1, assets.Accent, 1)
 	}
 	switch {
-	case !g.onSale(i) || it.Tab == tabHotel && g.owned(i):
+	case !g.onSale(i) || it.unlock() && g.owned(i):
 	case g.affords(i):
 		g.drawButton(s, "ADD TO CART", paneX+12, bodyY+paneH-44, paneW-24)
 	default:
@@ -338,6 +363,8 @@ func (g *Game) drawCart(s *ebiten.Image) {
 		it := shop[l.item]
 		name := strings.ToUpper(it.Name)
 		switch {
+		case l.beds != "":
+			name = g.hotel.Rooms[l.room].Number + " > " + strings.ToUpper(l.beds)
 		case l.room >= 0:
 			name += " > " + g.hotel.Rooms[l.room].Number
 		case l.n > 1:
@@ -347,6 +374,18 @@ func (g *Game) drawCart(s *ebiten.Image) {
 	}
 	if len(g.cart) == 0 {
 		g.tintedAt(s, "YOUR CART IS EMPTY", listX+12, bodyY+8, 2, assets.Floor, 1)
+	}
+	if w := g.pending(); len(w) > 0 { // the CHANGES list, under the cart's lines: SPACE cancels one, refunded
+		at := max(len(g.cart), 1) // a list row for the heading, then one each
+		g.tintedAt(s, "CHANGES WAITING FOR THEIR ROOMS", listX+12, bodyY+at*rowH+10, 1, assets.Accent, 1)
+		for k, c := range w {
+			it := shop[slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowChange })]
+			name := g.hotel.Rooms[c.room].Number + " > " + strings.ToUpper(c.to.Beds)
+			if c.first {
+				name = g.hotel.Rooms[c.room].Number + " > MIRROR"
+			}
+			g.drawRowAt(s, at+1+k, g.termPick == len(g.cart)+1+k, it, "CANCEL "+name, c.paid, "", 1)
+		}
 	}
 	rect(s, paneX, bodyY, paneW, paneH, assets.Floor)
 	g.tintedAt(s, "ORDER TOTAL", paneX+12, bodyY+12, 2, assets.Ghost, 1)
@@ -365,7 +404,13 @@ func (g *Game) drawCart(s *ebiten.Image) {
 // drawPlacing asks a Service's Room: the Room cards, the picked one outlined.
 func (g *Game) drawPlacing(s *ebiten.Image) {
 	it := shop[g.placing]
-	g.tintedAt(s, "DELIVER "+strings.ToUpper(it.Name)+" TO WHICH ROOM?", listX, bodyY, 2, assets.Ghost, 1)
+	if it.ID == rowChange { // the bed layout too, and what it costs
+		head := "WHICH ROOM GETS " + strings.ToUpper(bedKinds[g.termBeds].Beds) + " BEDS?"
+		g.tintedAt(s, head, listX, bodyY, 2, assets.Ghost, 1)
+		g.drawPrice(s, changeCost(g), listX+(len(head)+2)*glyphW*2, bodyY, 2)
+	} else {
+		g.tintedAt(s, "DELIVER "+strings.ToUpper(it.Name)+" TO WHICH ROOM?", listX, bodyY, 2, assets.Ghost, 1)
+	}
 	cols, rows := g.hotel.Grid()
 	gx, gy, gw, gh := listX, bodyY+44, winW-32, paneH-44
 	tw, th := (gw-(cols-1)*tileGap)/cols, (gh-(rows-1)*tileGap)/rows
@@ -379,7 +424,16 @@ func (g *Game) drawPlacing(s *ebiten.Image) {
 			bg = assets.Ink // grayed: Booked
 		}
 		rect(s, x, y, tw, th, bg)
-		g.tintedAt(s, room.Number+" "+strings.ToUpper(room.Type.Name), x+8, y+4, 2, assets.Ghost, 1)
+		title := room.Number + " " + strings.ToUpper(room.Type.Beds)
+		for _, c := range g.changes {
+			if c.room == i && c.to.Beds != room.Type.Beds {
+				title += " > " + strings.ToUpper(c.to.Beds)
+			}
+		}
+		g.tintedAt(s, title, x+8, y+4, 2, assets.Ghost, 1)
+		if !room.Mirror.Empty() {
+			g.tintedAt(s, "MIRROR", x+tw-8-6*glyphW, y+th-22, 1, assets.Accent, 1)
+		}
 		if !g.isOwned(i) {
 			g.tintedAt(s, "BOARDED UP", x+8, y+44, 2, assets.Locked, 1)
 		}

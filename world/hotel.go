@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"math/rand/v2"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // The hotel is generated from a grid of Rooms (D54). Cols x Rows is the shipped grid; Build takes any.
@@ -63,6 +63,7 @@ type Room struct {
 	Stays  []image.Point     // Stay Spots, world px; len is the Room's capacity (D80)
 	Lanes  []image.Rectangle // each Stay Spot's bed, world px (D167)
 	Spots  []Spot            // activity spots, world px (D168)
+	Mirror image.Rectangle   // where SPACE shifts at its in-Room Mirror, world px; empty without one (K1)
 }
 
 // Hotel is the built map plus the anchors the game needs. Points are world px.
@@ -86,10 +87,12 @@ type Hotel struct {
 // cellCenter is the world-px center of cell (x,y).
 func cellCenter(x, y int) image.Point { return image.Pt(x*TileSize+TileSize/2, y*TileSize+TileSize/2) }
 
-// Build stamps the whole hotel for a cols x rows grid of Rooms, each Room's type drawn with Draw.
-func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hotel, error) {
-	if len(types) == 0 {
-		return nil, errors.New("world: no room types")
+// Build stamps the whole hotel for a cols x rows grid of Rooms, each a Standard Single (K1: the Run-start
+// draw is gone, so every Run starts the same).
+func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
+	start, ok := TypeOf(types, "Single")
+	if !ok {
+		return nil, errors.New("world: no Standard Single room type")
 	}
 	var missing []string
 	id := func(name string) TileID {
@@ -221,7 +224,9 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}
-	h.Furnish(Draw(types, len(h.Rooms), rng))
+	for i := range h.Rooms {
+		h.Land(i, start, false)
+	}
 
 	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
 	h.Exit = h.Spawn.Sub(image.Pt(TileSize, 0))
@@ -249,51 +254,68 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	return h, nil
 }
 
-// Draw picks each Room's Room Type for a Run, independently, repeats allowed (D46): a tier, then a bed layout
-// of that tier, then one of its variants, equal odds at each step (D84).
-func Draw(types []RoomType, n int, rng *rand.Rand) []RoomType {
-	pick := func(ts []RoomType, key func(RoomType) string) []RoomType { // the types sharing a random key
-		var keys []string
-		for _, t := range ts {
-			if !slices.Contains(keys, key(t)) {
-				keys = append(keys, key(t))
-			}
-		}
-		k := keys[rng.IntN(len(keys))]
-		return slices.DeleteFunc(slices.Clone(ts), func(t RoomType) bool { return key(t) != k })
+// TypeOf: the Standard Room Type of a bed layout (the first of its variants), what a Room opens as or
+// changes to (K1: the Deluxe tier is a later unlock).
+func TypeOf(types []RoomType, beds string) (RoomType, bool) {
+	i := slices.IndexFunc(types, func(t RoomType) bool { return t.Name == "Standard" && t.Beds == beds })
+	if i < 0 {
+		return RoomType{}, false
 	}
-	next := make([]RoomType, n)
-	for i := range next {
-		vs := pick(pick(types, func(t RoomType) string { return t.Name }), func(t RoomType) string { return t.Beds })
-		next[i] = vs[rng.IntN(len(vs))]
-	}
-	return next
+	return types[i], true
 }
 
-// Furnish gives every Room its Room Type, one per Room, and stamps its cells, tiles and collisions under
-// the hotel's outer side lines. Doors never move (D45), so the Doors and every anchor stay valid.
+// Furnish gives every Room its Room Type, one per Room, with no Mirror (Land).
 func (h *Hotel) Furnish(types []RoomType) {
 	for i := range h.Rooms {
-		r := &h.Rooms[i]
-		r.Type, r.Stays, r.Lanes, r.Spots = types[i], nil, nil, nil
-		for _, s := range types[i].Spots {
-			o := r.Origin.Mul(TileSize)
+		h.Land(i, types[i], false)
+	}
+}
+
+const mirrorTile = "prop_mirror_" // the Mirror's two tiles: r0c0 over r1c0
+
+// Land gives Room i its Room Type and stamps its cells, tiles and collisions under the hotel's outer side
+// lines. Doors never move (D45), so the Doors and every anchor stay valid. With mirror the Room has its
+// in-Room Mirror (K1): the type's own wall mirror if it has one, else one hung in the middle of its back
+// wall; without, a type's wall mirror is left off, and nobody looks in it.
+func (h *Hotel) Land(i int, t RoomType, mirror bool) {
+	r, ts := &h.Rooms[i], h.Map.TS
+	o := r.Origin.Mul(TileSize)
+	r.Type, r.Stays, r.Lanes, r.Spots, r.Mirror = t, nil, nil, nil, image.Rectangle{}
+	for _, s := range t.Spots {
+		if mirror || s.Verb != "look in" {
 			r.Spots = append(r.Spots, Spot{s.At.Add(o), s.Prop.Add(o), s.Verb})
 		}
-		for _, p := range types[i].Stays {
-			r.Stays = append(r.Stays, r.Origin.Mul(TileSize).Add(p))
-		}
-		for _, b := range types[i].Lanes {
-			r.Lanes = append(r.Lanes, b.Add(r.Origin.Mul(TileSize)))
-		}
-		for layer, cells := range r.Type.Tiles {
-			for c, tid := range cells {
-				if x := r.Origin.X + c%RoomW; layer != LayerDecor || !h.OuterLine(x) {
-					h.Map.Set(layer, x, r.Origin.Y+c/RoomW, tid)
+	}
+	for _, p := range t.Stays {
+		r.Stays = append(r.Stays, o.Add(p))
+	}
+	for _, b := range t.Lanes {
+		r.Lanes = append(r.Lanes, b.Add(o))
+	}
+	glass := image.Pt(RoomW/2, 1) // the Mirror's lower tile, room-local cell
+	for layer, cells := range t.Tiles {
+		for c, tid := range cells {
+			if name := ts.Tiles[tid].Name; strings.HasPrefix(name, mirrorTile) {
+				if !mirror {
+					tid = 0
+				} else if strings.HasPrefix(name, mirrorTile+"r1") {
+					glass = image.Pt(c%RoomW, c/RoomW)
 				}
+			}
+			if x := r.Origin.X + c%RoomW; layer != LayerDecor || !h.OuterLine(x) {
+				h.Map.Set(layer, x, r.Origin.Y+c/RoomW, tid)
 			}
 		}
 	}
+	if !mirror {
+		return
+	}
+	at := r.Origin.Add(glass)
+	for dy, name := range [...]string{mirrorTile + "r1c0", mirrorTile + "r0c0"} {
+		id, _ := ts.ID(name)
+		h.Map.Set(LayerProps, at.X, at.Y-dy, id)
+	}
+	r.Mirror = image.Rectangle{at.Add(image.Pt(-1, 1)).Mul(TileSize), at.Add(image.Pt(2, 2)).Mul(TileSize)} // the cells below it, as the Lobby's MirrorSpot
 }
 
 // OuterLine: column x carries a hotel outer side line in its decor layer.

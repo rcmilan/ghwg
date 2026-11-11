@@ -115,6 +115,9 @@ type Game struct {
 	introOn       bool                          // a Run starts with the opening intro (intro.go); off for the sim, the tests and prints
 	intro         *intro                        // the intro under way, nil if none
 	wide          *ebiten.Image                 // the whole hotel at zoom, the intro's first shots (intro.go)
+	changes       []*change                     // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
+	termBeds      int                           // the bed layout picked for a change at the Terminal, an index into bedKinds
+	bedsAtStart   string                        // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -142,7 +145,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(seed, seed))
-	h, err := world.Build(ts, types, cols, rows, rng)
+	h, err := world.Build(ts, types, cols, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +179,8 @@ func (g *Game) mapSize() (int, int) {
 	return g.hotel.Map.W * world.TileSize, g.hotel.Map.H * world.TileSize
 }
 
-// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
-// (D135: no Spin after this), no money.
+// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and a Standard Single (K1: the Run-start
+// draw is gone; Rooms change type one by one, roomtype_change.go), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
@@ -185,7 +188,17 @@ func (g *Game) startRun() {
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.state = StatePlay
-	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
+	first, ok := world.TypeOf(g.types, g.bedsAtStart)
+	if !ok {
+		first, _ = world.TypeOf(g.types, "Single")
+	}
+	for i := range g.hotel.Rooms {
+		g.hotel.Land(i, first, false)
+	}
+	for _, c := range g.changes {
+		c.pics.free()
+	}
+	g.changes, g.termBeds = nil, 0
 	g.floorImg = nil // re-rendered on the next Draw
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
@@ -196,10 +209,9 @@ func (g *Game) startRun() {
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
 	g.hushed = map[int]bool{}
-	g.locked = nil // a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's T272)
-	if !g.mirrorAtStart {
-		g.locked = map[Unlock]bool{Mirror: true}
-	}
+	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
+	// T272); and with K1's bed layouts and in-Room Mirror to buy
+	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true}
 	g.roomOwned = nil // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
@@ -252,6 +264,8 @@ func (g *Game) Update() error {
 			g.startShift()
 		case g.atMirror(): // covered until the courier installs it
 			g.message = "THE MIRROR IS COVERED"
+		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
+			g.startShift()
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
 		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
@@ -271,6 +285,7 @@ func (g *Game) step(dx, dy float64) {
 	g.advanceClock()
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+	g.updateChanges()
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
