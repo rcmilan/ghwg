@@ -27,7 +27,7 @@ func TestRoomsStartClosed(t *testing.T) {
 	}
 	g.unlock(Mirror) // ghosts would book too, if they could
 	for i := range g.hotel.Rooms {
-		if g.occupied(i) != true {
+		if !g.boarded(i) {
 			t.Errorf("Room %d is not shut", i)
 		}
 	}

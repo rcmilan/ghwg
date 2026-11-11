@@ -148,36 +148,60 @@ func TestTouristDays(t *testing.T) {
 	}
 }
 
-// D91, Live test 5 (2026-11-08): a Room's doorway is barred to the Concierge only while a Guest of its
-// Party is inside; while they walk up, are out or wait in the hall, he may go in. Inside with them, each
-// game minute costs its Room intrudeMood.
-func TestConciergeKeptOut(t *testing.T) {
+// T298 (K1, 2026-11-11): a door opens to whoever is near. The Concierge walks into a Room with its Guests in
+// it (D21 and D91 kept him out); each game minute in there with them costs the Room intrudeMood.
+func TestConciergeWalksIn(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	door := g.hotel.Doors[0].Rect
-	if g.conciergeBlocked(door) != g.blocked(door) { // a shut door blocks anyone
-		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
-	}
 	p := g.walkIn()
 	p.Routine = homebody // a Tourist goes out about 09:00, mid-test
-	if door = g.hotel.Doors[p.Room].Rect; g.conciergeBlocked(door) != g.blocked(door) {
-		t.Error("the Concierge is barred from a Room whose Party is still walking up")
-	}
 	for p.state != staying {
 		g.step(0, 0)
 	}
-	if !g.conciergeBlocked(door) {
-		t.Error("the Concierge can enter the doorway with the Guests inside")
+	r, door := g.hotel.Rooms[p.Room], g.hotel.Doors[p.Room].Rect
+	g.player.X, g.player.Y = float64(door.Min.X+world.TileSize/2), float64(r.Spot().Min.Y+world.TileSize/2)
+	for range 4 * tps {
+		g.step(0, -1) // up, through the door
 	}
-	r := g.hotel.Rooms[p.Room]
-	in := r.Door.Add(image.Pt(0, -2)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
-	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
+	if !g.feet().In(r.Shell()) || g.feet().In(door) {
+		t.Fatalf("the Concierge at %v did not walk into the Room with its Guests in", g.feet())
+	}
+	if g.fogged(p.Room) {
+		t.Error("the Room is fogged over the Concierge")
+	}
+	for g.clock%minuteFrames != 0 {
+		g.step(0, 0)
+	}
 	c := g.roomMood(p.Room)
 	for range 2 * minuteFrames {
 		g.step(0, 0)
 	}
 	if g.roomMood(p.Room) != c-2*intrudeMood {
 		t.Errorf("2 minutes in with the Guests: Mood %d → %d, want −%d", c, g.roomMood(p.Room), 2*intrudeMood)
+	}
+	// the courier and a Priest open any door too; another Room's Guest doesn't
+	g.player.X, g.player.Y = float64(g.hotel.ConciergeStart.X), float64(g.hotel.ConciergeStart.Y)
+	other := (p.Room + 1) % len(g.hotel.Rooms)
+	at := g.doorDrop(other)
+	open := func(add func()) float64 {
+		g.couriers, g.priests = nil, nil
+		for range 2 * world.DoorSlideFrames {
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+		}
+		add()
+		for range world.DoorSlideFrames {
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+		}
+		return g.hotel.Doors[other].Open()
+	}
+	if open(func() { g.couriers = []*courier{{Guest: entities.NewGuest(at, courierName)}} }) != 1 {
+		t.Error("the door did not open to a courier")
+	}
+	if open(func() { g.priests = []*priest{{Guest: entities.NewGuest(at, fatherK.name)}} }) != 1 {
+		t.Error("the door did not open to a Priest")
+	}
+	if open(func() { p.Guests[0].X, p.Guests[0].Y = float64(at.X), float64(at.Y) }) != 0 {
+		t.Error("the door opened to another Room's Guest")
 	}
 }
 

@@ -325,7 +325,7 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 			f.SetPath(slices.Clone(lead.Path[i:]))
 		} else {
 			to := image.Pt(int(lead.X), int(lead.Y))
-			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its foot instead (D167)
+			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its side instead (D167)
 				to = lead.Path[0]
 			}
 			f.SetPath(append(g.route(f, to), lead.Path...))

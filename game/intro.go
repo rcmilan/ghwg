@@ -150,7 +150,7 @@ func (g *Game) updateIntro() {
 		}
 		g.player.X, g.player.Y = w.X, w.Y
 		g.player.Anim.Update(w.X, w.Y)
-		g.hotel.UpdateDoors(g.doorActors(), g.occupied)
+		g.hotel.UpdateDoors(g.doorActors(), g.boarded)
 		if e := g.hotel.Doors[len(g.hotel.Doors)-1]; g.shifting == nil && g.ghost && entities.FootBox(w.X, w.Y).Overlaps(e.Rect) { // the shift starts as he steps into the Entrance
 			g.startShift()
 		}

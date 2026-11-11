@@ -254,8 +254,7 @@ func (g *Game) Update() error {
 			g.message = "THE MIRROR IS COVERED"
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
-		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
-			g.deliver(g.atDoor(), g.hands)
+		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)
@@ -271,7 +270,7 @@ func (g *Game) step(dx, dy float64) {
 	g.tick++
 	g.advanceClock()
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
-	g.hotel.UpdateDoors(g.doorActors(), g.occupied)
+	g.hotel.UpdateDoors(g.doorActors(), g.boarded)
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
@@ -299,19 +298,9 @@ func (g *Game) blocked(r image.Rectangle) bool {
 	return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r)
 }
 
-// conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
-// can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
-// the Room he's in. A bed's lane lets him lie in it (D167).
-func (g *Game) conciergeBlocked(r image.Rectangle) bool {
-	at, now := image.Pt(int(g.player.X), int(g.player.Y)), entities.FootBox(g.player.X, g.player.Y)
-	return g.blocked(r) && !g.inLane(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
-		if d.Room < 0 || !d.Rect.Overlaps(r) {
-			return false
-		}
-		inside := at.In(g.hotel.Rooms[d.Room].Shell()) || now.Overlaps(d.Rect) // already in the doorway: never trapped in it
-		return !d.Allows(-1, inside, g.occupied(d.Room))
-	})
-}
+// conciergeBlocked: blocked, but for a bed's side, which lets him lie in it (D167). He walks into any open
+// Room, its guests in or not (K1, 2026-11-11: D91's shut doorway is gone); only a boarded door stays shut.
+func (g *Game) conciergeBlocked(r image.Rectangle) bool { return g.blocked(r) && !g.inLane(r) }
 
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
@@ -381,27 +370,23 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// doorActors: everyone on the map the doors react to, of either realm: a door is one structure; whether its
-// Room is Occupied (shut to the Concierge) is per realm: the Guests of his own (occupied).
+// doorActors: everyone on the map the doors react to, of either realm: a door is one structure. The staff
+// (the Concierge, a Priest, a courier) open any door, a Guest its own.
 func (g *Game) doorActors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
 		as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
 	}
-	for _, pr := range g.priests { // his door pass: his own Room's door, Occupied or not
-		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: pr.RoomIndex})
+	for _, pr := range g.priests {
+		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
 	}
 	as = append(as, g.courierActors()...)
 	return as
 }
 
-// occupied: a Room's door is shut to the Concierge only while a Guest of its Party, of his own realm, is inside (Live test 5,
-// 2026-11-08; D91 barred it for the whole Booking); already inside, the door lets him out, and his minutes
-// in there cost its Guests Comfort (intrude).
-func (g *Game) occupied(room int) bool {
-	_, gs := g.insideIn(room, g.realm())
-	return len(gs) > 0 || !g.isOwned(room) // a boarded Room stays shut (07 B1)
-}
+// boarded: the Room isn't owned yet: its door stays shut to everyone (07 B1). An owned Room's door opens to
+// the Concierge whoever is in; his minutes in there with its Guests cost the Room Mood (intrude).
+func (g *Game) boarded(room int) bool { return !g.isOwned(room) }
 
 // walk advances a guest along its path. It waits in place while the next step would hit a shut door,
 // and sidesteps to its right (left if a wall is there) while the next step would bump into someone

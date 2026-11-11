@@ -18,6 +18,7 @@ const (
 	streetRows   = 3
 	archwayWidth = 4 // on even map widths; 5 on odd ones, so it stays centered (D55)
 	counterW     = 5 // counter cells: counter_left, counter_mid..., computer, counter_right (D87)
+	stockW       = 4 // stock strip cells: the fridge, the counter (2) and the shelf, clear of the Mirror's spot
 )
 
 // layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
@@ -79,7 +80,7 @@ type Hotel struct {
 	MirrorSpot     image.Rectangle // where SPACE shifts: the cells in front of the mirror and either side
 	Lights         []image.Point   // ceiling lights over the Corridors (D95)
 	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
-	Stock          image.Rectangle // the stock area, left of the entrance hall: one 2-cell spot per Supply (E8)
+	Stock          image.Rectangle // the stock strip, flush against the Hall Wall in the Lobby's west corner: solid, its props fetched from the row below (E8, K1)
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -240,7 +241,11 @@ func Build(ts *Tileset, types []RoomType, cols, rows int, rng *rand.Rand) (*Hote
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	h.Mirror = cellCenter(mirror, l.hall+2)
 	h.MirrorSpot = image.Rect((mirror-1)*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
-	h.Stock = image.Rect(3*TileSize, l.counter*TileSize, 9*TileSize, (l.counter+1)*TileSize) // in line with the counter
+	h.Stock = image.Rect(2*TileSize, (l.hall+2)*TileSize, (2+stockW)*TileSize, (l.hall+3)*TileSize)
+	m.Block = map[image.Point]bool{}
+	for x := 2; x < 2+stockW; x++ { // nobody walks over the props (K1, 2026-11-11)
+		m.Block[image.Pt(x, l.hall+2)] = true
+	}
 	return h, nil
 }
 

@@ -11,17 +11,18 @@ import (
 )
 
 // Supplies (D182, E5): what a Guest asks for, the prop it's fetched from, and what a delivery pays.
-// Each prop stands where E8's pallet was, in the stock strip, in the store's order. Pays are placeholders.
+// Each prop stands in the stock strip, against the Hall Wall, in the store's order. Pays are placeholders.
 type Supply struct {
 	ID   Unlock
 	Prop string // A1's sprite
 	Pay  Num    // Money a delivery pays, times calm
+	W    int    // strip cells the prop takes
 }
 
 var supplies = []Supply{
-	{SupplyWater, "fridge", 5},
-	{SupplyFood, "drawer_b", 10},
-	{SupplyTowel, "shelf_a", 7},
+	{SupplyWater, "fridge", 5, 1},
+	{SupplyFood, "drawer_b", 10, 2},
+	{SupplyTowel, "shelf_a", 7, 1},
 }
 
 func supplyOf(id Unlock) int {
@@ -33,11 +34,14 @@ func supplyOf(id Unlock) int {
 	return -1
 }
 
-// supplySpot: supply k's 2-cell spot in the stock strip and the cell row in front of it, where the
+// supplySpot: supply k's cells in the stock strip, solid, and the cell row in front of them, where the
 // Concierge stands to fetch.
 func supplySpot(h *world.Hotel, k int) image.Rectangle {
-	x := h.Stock.Min.X + k*2*world.TileSize
-	return image.Rect(x, h.Stock.Min.Y, x+2*world.TileSize, h.Stock.Max.Y+world.TileSize)
+	x := h.Stock.Min.X
+	for _, s := range supplies[:k] {
+		x += s.W * world.TileSize
+	}
+	return image.Rect(x, h.Stock.Min.Y, x+supplies[k].W*world.TileSize, h.Stock.Max.Y+world.TileSize)
 }
 
 // atSupply: the supply the Concierge stands at, or -1.
@@ -101,7 +105,8 @@ func (g *Game) supplyIcon(id Unlock) *ebiten.Image {
 	return nil
 }
 
-// drawSupplies draws each supply prop on its spot, and, with the Concierge at one, its icon and count over it.
+// drawSupplies draws each supply prop on its spot, against the wall, and, with the Concierge at one, its icon
+// and count over it. drawWorld calls it in the y-sorted pass, after the Hall Wall's face.
 func (g *Game) drawSupplies(screen *ebiten.Image, ox, oy int) {
 	at := g.atSupply()
 	for k, s := range supplies {
@@ -111,7 +116,7 @@ func (g *Game) drawSupplies(screen *ebiten.Image, ox, oy int) {
 		}
 		spot := supplySpot(g.hotel, k)
 		w, h := img.Bounds().Dx(), img.Bounds().Dy()
-		x, y := spot.Min.X+(2*world.TileSize-w)/2, g.hotel.Stock.Max.Y-h
+		x, y := spot.Min.X+(spot.Dx()-w)/2, g.hotel.Stock.Max.Y-h
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(x*zoom-ox), float64(y*zoom-oy))
@@ -121,7 +126,7 @@ func (g *Game) drawSupplies(screen *ebiten.Image, ox, oy int) {
 		}
 		icon := g.supplyIcon(s.ID)
 		label := fmt.Sprintf("x%d", g.stock[s.ID])
-		ix, iy := (spot.Min.X+world.TileSize)*zoom-ox-(icon.Bounds().Dx()*zoom+6*len(label))/2, (y-2)*zoom-oy-icon.Bounds().Dy()*zoom
+		ix, iy := (spot.Min.X+spot.Max.X)/2*zoom-ox-(icon.Bounds().Dx()*zoom+6*len(label))/2, (y-2)*zoom-oy-icon.Bounds().Dy()*zoom
 		op.GeoM.Reset()
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(ix), float64(iy))
