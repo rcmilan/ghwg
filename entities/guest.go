@@ -18,7 +18,7 @@ type Guest struct {
 	Sensitivity int           // how hard a fright lands (07 stats; V1 reads it)
 	FleeAt      int           // the Fear at which its Party steps out, then flees (D146)
 	Phantasm    int           // how ghostly it is: sight and strength (07 stats; V1 reads it)
-	Comfort     int           // from serves (D146, D149); never decays
+	Haunt       int           // x, haunt frequency: game minutes between its haunts (a ghost; G1 reads it)
 	Anim        Anim
 
 	best     float64 // shortest remaining path seen on this path
@@ -29,8 +29,11 @@ type Guest struct {
 // DefaultFleeAt is the Fear a fresh Guest flees at.
 const DefaultFleeAt = 100
 
+// DefaultHaunt is the gap between a fresh ghost's haunts, in game minutes (placeholder).
+const DefaultHaunt = 60
+
 func NewGuest(at image.Point, character string) Guest {
-	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, FleeAt: DefaultFleeAt, Anim: NewAnim()}
+	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, FleeAt: DefaultFleeAt, Haunt: DefaultHaunt, Anim: NewAnim()}
 }
 
 // Mate: a and b are in one Party. Mates never bump, push or yield to each other: the Party walks as one.

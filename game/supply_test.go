@@ -60,7 +60,7 @@ func TestFetch(t *testing.T) {
 	}
 }
 
-// T197: the right item at the door pays at once, less with Room Ecto, and still gives Comfort, clears
+// T197: the right item at the door pays at once, less with Room Ecto, and still serves, clears
 // the ask, counts a serve tap and empties the hands. The wrong item, or no ask, does nothing.
 func TestDeliver(t *testing.T) {
 	g, s, p := settled(t)
@@ -73,9 +73,9 @@ func TestDeliver(t *testing.T) {
 	g.hands = SupplyFood
 	press(g, s, door)
 	pay := supplies[supplyOf(SupplyFood)].Pay
-	if p.asking() || g.hands != "" || g.wallet[Money] != pay || p.Guests[0].Comfort != comfortStep || g.taps[p.Room][TaskServe] != 1 {
-		t.Fatalf("delivered: asking %v hands %q money %v Comfort %d taps %v, want false, empty, %v, %d, 1",
-			p.asking(), g.hands, g.wallet[Money], p.Guests[0].Comfort, g.taps[p.Room][TaskServe], pay, comfortStep)
+	if p.asking() || g.hands != "" || g.wallet[Money] != pay || g.taps[p.Room][TaskServe] != 1 {
+		t.Fatalf("delivered: asking %v hands %q money %v taps %v, want false, empty, %v, 1",
+			p.asking(), g.hands, g.wallet[Money], g.taps[p.Room][TaskServe], pay)
 	}
 	g.hands = SupplyFood
 	press(g, s, door)
@@ -84,7 +84,7 @@ func TestDeliver(t *testing.T) {
 	}
 	g.wallet[Money], g.mood[p.Room], p.asked = 0, 0, g.clock
 	g.deliver(p.Room, SupplyFood)
-	if g.wallet[Money] != pay/2 {
-		t.Fatalf("paid %v at Mood 0 (half the dirt), want %v", g.wallet[Money], pay/2)
+	if want := pay * Num(1-float64(moodMax-moodServe)/(moodMax-moodMin)); g.wallet[Money] != want { // the serve lifts the Mood first
+		t.Fatalf("paid %v at Mood 0, want %v", g.wallet[Money], want)
 	}
 }

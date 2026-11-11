@@ -15,6 +15,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+// noMood: the -mood flag is not set.
+const noMood = 1000
+
 func main() {
 	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. smart")
 	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
@@ -28,6 +31,7 @@ func main() {
 	shadow := flag.Float64("shadow", 0, "dev: start a Run where Room 101 gets a Shadow with this much essence, watched from the Corridor beside it")
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
 	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
+	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -55,13 +59,16 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 {
+	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood {
 		g.Start(*ghost)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
 		g.DevHaunt(*haunt)
 		g.DevDirt(*dirt)
+		if *mood != noMood {
+			g.DevMood(*mood)
+		}
 	}
 	if *shop != "" {
 		var money, ecto float64

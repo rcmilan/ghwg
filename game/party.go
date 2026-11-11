@@ -90,17 +90,13 @@ func (b Booking) Out(c int) bool {
 }
 
 // Payout is the tip the Party banks at Checkout (Step 2; D86 paid the whole stay here): tipPct of Rate ×
-// Nights, raised comfortBonus% per point of its Guests' mean Comfort (T110).
-func (p *Party) Payout() int {
-	c := 0
-	for _, guest := range p.Guests {
-		c += guest.Comfort
-	}
-	return p.Rate * p.Nights * tipPct * (100*len(p.Guests) + comfortBonus*c) / (100 * 100 * len(p.Guests))
+// Nights, times pay, the Room's Mood pay factor (moodPay).
+func (p *Party) Payout(pay Num) int {
+	return int(Num(p.Rate*p.Nights*tipPct) * pay / 100)
 }
 
 // charge runs each game hour: every Guest inside its Room pays its share of Rate/rentHours, raised
-// comfortBonus% per point of its Comfort; "+$N" floats at the door (Step 2).
+// the Room's Mood pay factor; "+$N" floats at the door (Step 2).
 func (g *Game) charge(p *Party) {
 	if g.clock%hourFrames != 0 {
 		return
@@ -108,7 +104,7 @@ func (g *Game) charge(p *Party) {
 	r, paid := g.hotel.Rooms[p.Room], Num(0)
 	for _, guest := range p.Guests {
 		if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
-			paid += Num(p.Rate) / rentHours / Num(len(p.Guests)) * Num(100+comfortBonus*guest.Comfort) / 100
+			paid += Num(p.Rate) / rentHours / Num(len(p.Guests)) * g.moodPay(p.Room)
 		}
 	}
 	if paid > 0 {
@@ -152,6 +148,7 @@ type Party struct {
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)
 	cooledAt   int           // the clock it stepped out
 	rent       Num           // Money paid by the hour so far (Step 2)
+	tip        Num           // the checkout tip it banked
 	greet      greeting      // owed once the Concierge hears it (D165)
 	talk       []line        // its lines showing or about to (D165)
 	arrived    int           // the clock it walked in
@@ -391,15 +388,13 @@ func (g *Game) updateParties() {
 	g.parties = kept
 }
 
-// intrude: each game minute the Concierge spends in the Room with its Guests costs each intrudeComfort
+// intrude: each game minute the Concierge spends in the Room with its Guests costs its Room intrudeMood
 // (Live test 5, 2026-11-08): he may come in, lingering is rude.
 func (g *Game) intrude(p *Party) {
 	if _, gs := g.inside(p.Room); g.clock%minuteFrames != 0 || len(gs) == 0 || !g.feet().In(g.hotel.Rooms[p.Room].Shell()) {
 		return
 	}
-	for _, guest := range p.Guests {
-		guest.Comfort = max(-comfortMax, guest.Comfort-intrudeComfort)
-	}
+	g.addMood(p.Room, -intrudeMood)
 }
 
 // updateParty runs one frame of a Party's stay: Street → Room (and out to the Street by day, a
@@ -473,8 +468,9 @@ func (g *Game) updateParty(p *Party) bool {
 // checkout banks the Party's payout as it steps out of its door; the Room is Vacant at once (D87).
 func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
+	p.tip = Num(p.Payout(g.moodPay(p.Room))) // the Room as the Party leaves it, mess aside
 	g.leaveMess(p)
 	g.book(p.Room, bookGap)
 	door := r.Door.Mul(world.TileSize)
-	g.earn(Money, Num(p.Payout()), door.Add(image.Pt(world.TileSize/2, 0)))
+	g.earn(Money, p.tip, door.Add(image.Pt(world.TileSize/2, 0)))
 }

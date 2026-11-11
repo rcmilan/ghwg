@@ -155,7 +155,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered := g.delivered
+	delivered, serves := g.delivered, g.serves
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -202,8 +202,8 @@ func (s *sim) frame() bool {
 		}
 		finished := slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == i && pr.done && working[pr] })
 		swept := i < len(cleans) && g.taps[i][TaskHousekeep] > cleans[i][TaskHousekeep]
-		if !s.cfg.NoCheck && i < len(moods) && g.mood[i] > moods[i] && !finished && !swept {
-			s.fail("room %d's Mood rose %d with no Priest finishing nor a clean there", i, g.mood[i]-moods[i])
+		if !s.cfg.NoCheck && i < len(moods) && g.mood[i] > moods[i] && !finished && !swept && g.serves == serves {
+			s.fail("room %d's Mood rose %d with no Priest finishing, clean or serve there", i, g.mood[i]-moods[i])
 		}
 	}
 	banked := g.delivered - delivered // paid at the door (E5)
@@ -220,7 +220,7 @@ func (s *sim) frame() bool {
 			}
 		}
 		if p.Paid && !s.paid[p] {
-			s.paid[p], banked = true, banked+Num(p.Payout())
+			s.paid[p], banked = true, banked+p.tip
 			s.res.Paid++
 			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))

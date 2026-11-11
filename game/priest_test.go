@@ -9,8 +9,8 @@ import (
 func TestRoomMood(t *testing.T) {
 	g, _, p := settled(t)
 	g.frighten(p, p.Guests[0], 1, fearLimit)
-	if g.roomMood(p.Room) != moodOf(1) || g.roomMood(1-p.Room) != moodMax {
-		t.Fatalf("a fright: Moods %v, want %d in Room %d only", g.mood, moodOf(1), p.Room)
+	if g.roomMood(p.Room) != moodStart-dirtMood(1) || g.roomMood(1-p.Room) != moodMax {
+		t.Fatalf("a fright: Moods %v, want %d in Room %d only", g.mood, moodStart-dirtMood(1), p.Room)
 	}
 	g.parties = nil
 	g.mood[0] = moodMin
@@ -43,13 +43,13 @@ func TestPriest(t *testing.T) {
 		if i > 60*tps+priestMinutes*minuteFrames {
 			t.Fatalf("the Priest never left: %+v", *g.priests[0])
 		}
-		if g.roomMood(0) == moodMax && g.priests[0].until == 0 {
+		if g.roomMood(0) != moodMin && g.priests[0].until == 0 {
 			t.Fatal("the dirt cleared before the Priest worked")
 		}
 		g.step(0, 0)
 	}
-	if g.roomMood(0) != moodMax || g.closed(0) {
-		t.Fatalf("after a Strong Priest: Room Mood %d, want %d", g.roomMood(0), moodMax)
+	if g.roomMood(0) != moodClean || g.closed(0) {
+		t.Fatalf("after a Strong Priest: Room Mood %d, want %d", g.roomMood(0), moodClean)
 	}
 	g.setDirtLevel(1, 10)
 	g.wallet[Money] = priestWeak - 1
@@ -58,7 +58,7 @@ func TestPriest(t *testing.T) {
 	}
 }
 
-// T104: a Weak Priest halves the Room's dread (Mood -100 → 0).
+// T104: a Weak Priest halves the Room's dirt (Mood -100 → half the dirt left).
 func TestWeakPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
@@ -67,8 +67,8 @@ func TestWeakPriest(t *testing.T) {
 	for i := 0; len(g.priests) > 0 && i < 60*tps+priestMinutes*minuteFrames; i++ {
 		g.step(0, 0)
 	}
-	if g.roomMood(1) != 0 {
-		t.Fatalf("after a Weak Priest: Room Mood %d, want 0", g.roomMood(1))
+	if want := moodOf(dirtMax / 2); g.roomMood(1) != want {
+		t.Fatalf("after a Weak Priest: Room Mood %d, want %d", g.roomMood(1), want)
 	}
 }
 

@@ -90,7 +90,7 @@ func (g *Game) updatePriests() {
 			pr.until = g.clock + priestMinutes*minuteFrames
 		case g.clock >= pr.until:
 			if g.halveDirt(pr.RoomIndex); pr.strong {
-				g.setDirtLevel(pr.RoomIndex, 0)
+				g.raiseMood(pr.RoomIndex, moodClean)
 				g.shades[pr.RoomIndex] = nil // Father M also banishes a Shadow (D169)
 			}
 			pr.done = true
@@ -103,9 +103,9 @@ func (g *Game) updatePriests() {
 }
 
 // halveDirt: a Priest's work, half the Room's dirt left.
-func (g *Game) halveDirt(room int) { g.setDirtLevel(room, g.dirtLevel(room)/2) }
+func (g *Game) halveDirt(room int) { g.raiseMood(room, moodOf(g.dirtLevel(room)/2)) }
 
-// dreadAt is the dread shift of world cell c (D162): its Room's dirt ÷ dirtMax, 0 outside the
+// dreadAt is the dread shift of world cell c (D162): its Room's dread, 0 outside the
 // Rooms. In ghost a Closed Room pulses between 0.6 and 1.
 func (g *Game) dreadAt(c image.Point) float32 {
 	for i, r := range g.hotel.Rooms {
@@ -120,7 +120,7 @@ func (g *Game) roomShift(room int) float32 {
 	if room < 0 || room >= len(g.mood) {
 		return 0
 	}
-	s := min(1, float64(g.dirtLevel(room))/dirtMax)
+	s := g.dread(room)
 	if g.rotting(room) {
 		s = 1 // T191: a rotting Room shows full
 	}

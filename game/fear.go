@@ -12,10 +12,9 @@ import (
 
 // Fear (D146) and the Ecto it earns (D148). Fear comes from the Shadow's sightings (shadow.go). Placeholders.
 const (
-	fearLimit  = entities.DefaultFleeAt // a Guest's default FleeAt: a Party with a member at it flees, unpaid
-	ectoEvery  = 10                     // game minutes between a Room's "+N" Ecto floaters (the Shadow's)
-	rotComfort = 1                      // Comfort each Guest inside a rotting Room loses a game minute
-	fearWarn   = 0.75                   // of fearLimit: past it, a Guest trembles in ghost, a warning before it flees
+	fearLimit = entities.DefaultFleeAt // a Guest's default FleeAt: a Party with a member at it flees, unpaid
+	ectoEvery = 10                     // game minutes between a Room's "+N" Ecto floaters (the Shadow's)
+	fearWarn  = 0.75                   // of fearLimit: past it, a Guest trembles in ghost, a warning before it flees
 )
 
 func (g *Game) rotting(room int) bool { return g.roomMood(room) <= rotMood }
@@ -33,8 +32,7 @@ func (g *Game) atDoor() int {
 
 func (g *Game) feet() image.Point { return image.Pt(int(g.player.X), int(g.player.Y)) }
 
-// scare runs each game minute: a Guest inside a rotting Room loses rotComfort, down to -comfortMax. A
-// Shadow scares only on its patrols (shadow.go). A Party with a member at fearLimit steps
+// scare runs each game minute: a Shadow scares only on its patrols (shadow.go). A Party with a member at fearLimit steps
 // out the first time and flees the second (Step 2).
 func (g *Game) scare() {
 	for _, p := range g.parties {
@@ -42,12 +40,6 @@ func (g *Game) scare() {
 			continue
 		}
 		r := g.hotel.Rooms[p.Room]
-		for _, guest := range p.Guests {
-			in := image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
-			if in && g.rotting(p.Room) {
-				guest.Comfort = max(-comfortMax, guest.Comfort-rotComfort) // below 0: the Party pays under its Rate
-			}
-		}
 		if p.ectoShown > 0 && g.clock/minuteFrames%ectoEvery == 0 {
 			door := r.Door.Mul(world.TileSize)
 			g.floaters = append(g.floaters, floater{float64(door.X + world.TileSize/2), float64(door.Y), "+" + fmtNum(Num(p.ectoShown)), g.tick, floatEcto})

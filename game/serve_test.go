@@ -2,64 +2,65 @@ package game
 
 import "testing"
 
-// T109, D163: SPACE at an Occupied Room's door in real answers its Party's request: Comfort rises by
-// comfortStep when answered at once, less after a wait; Fear doesn't move. With no request, or in ghost,
-// nothing happens.
+// T109, T264, D163: SPACE at an Occupied Room's door in real answers its Party's request: the Room's Mood
+// rises by moodServe when answered at once, less after a wait; Fear doesn't move. With no request, or in
+// ghost, nothing happens. An expired ask lowers Mood by moodExpire.
 func TestServe(t *testing.T) {
 	g, s, p := settled(t)
 	spot := center(g.hotel.Rooms[p.Room].Spot())
+	g.mood[p.Room] = 0
 	p.Guests[0].Fear = 7
 	press(g, s, spot)
-	if p.Guests[0].Comfort != 0 {
+	if g.roomMood(p.Room) != 0 {
 		t.Fatal("a Party that didn't ask was served")
 	}
 	p.asked = g.clock
 	g.ghost = true
 	press(g, s, spot)
-	if p.Guests[0].Comfort != 0 || !p.asking() {
+	if g.roomMood(p.Room) != 0 || !p.asking() {
 		t.Fatal("SPACE at the door in ghost served the Room")
 	}
 	g.ghost, p.want, g.hands = false, SupplyWater, SupplyWater
 	press(g, s, spot)
-	if c := p.Guests[0].Comfort; c != comfortStep || p.Guests[0].Fear != 7 || p.asking() {
-		t.Fatalf("served at once: Comfort %d Fear %d asking %v, want %d, 7, false", c, p.Guests[0].Fear, p.asking(), comfortStep)
+	if m := g.roomMood(p.Room); m != moodServe || p.Guests[0].Fear != 7 || p.asking() {
+		t.Fatalf("served at once: Mood %d Fear %d asking %v, want %d, 7, false", m, p.Guests[0].Fear, p.asking(), moodServe)
 	}
+	g.mood[p.Room] = 0
 	p.asked = g.clock - askMinutes*minuteFrames/2
 	g.serve(p.Room)
-	if c := p.Guests[0].Comfort; c != comfortStep+(comfortStep+1)/2 { // rounded up
-		t.Fatalf("served after half the wait: Comfort %d, want %d", c, comfortStep+(comfortStep+1)/2)
+	if m := g.roomMood(p.Room); m != (moodServe+1)/2 { // rounded up
+		t.Fatalf("served after half the wait: Mood %d, want %d", m, (moodServe+1)/2)
 	}
-	for range comfortMax {
-		p.asked = g.clock
-		g.serve(p.Room)
+	g.mood[p.Room] = 0
+	p.asked = g.clock - askMinutes*minuteFrames
+	g.serve(p.Room)
+	if m := g.roomMood(p.Room); m != 0 {
+		t.Fatalf("served at expiry: Mood %d, want 0", m)
 	}
-	if p.Guests[0].Comfort != comfortMax {
-		t.Fatalf("Comfort %d, want capped at %d", p.Guests[0].Comfort, comfortMax)
-	}
-	for _, c := range []struct{ mood, gain int }{{0, (comfortStep + 1) / 2}, {moodMin, 0}} {
-		p.Guests[0].Comfort, p.asked, g.mood[p.Room] = 0, g.clock, c.mood
-		if g.serve(p.Room); p.Guests[0].Comfort != c.gain {
-			t.Errorf("served at once at Room Mood %d: Comfort %d, want %d", c.mood, p.Guests[0].Comfort, c.gain)
-		}
+	g.mood[p.Room] = moodMax - 5
+	p.asked = g.clock
+	g.serve(p.Room)
+	if m := g.roomMood(p.Room); m != moodMax {
+		t.Fatalf("Mood %d, want capped at %d", m, moodMax)
 	}
 }
 
-// D163: an unanswered request expires after askMinutes and costs Comfort; one whose Party leaves its
-// Room lapses unpunished; nobody asks at night, nor again within askGap.
+// D163, T264: an unanswered request expires after askMinutes and costs the Room moodExpire Mood; one whose
+// Party leaves its Room lapses unpunished; nobody asks at night, nor again within askGap.
 func TestAsk(t *testing.T) {
 	g, _, p := settled(t)
-	p.Guests[0].Comfort = comfortStep
+	g.mood[p.Room] = 0
 	p.asked = g.clock
 	for range askMinutes {
 		g.clock += minuteFrames
 		g.updateAsks()
 	}
-	if p.asking() || p.Guests[0].Comfort != comfortStep-askPenalty {
-		t.Fatalf("expired: asking %v Comfort %d, want false and %d", p.asking(), p.Guests[0].Comfort, comfortStep-askPenalty)
+	if p.asking() || g.roomMood(p.Room) != -moodExpire {
+		t.Fatalf("expired: asking %v Mood %d, want false and %d", p.asking(), g.roomMood(p.Room), -moodExpire)
 	}
 	p.asked, p.state = g.clock, goingOut
 	g.updateAsks()
-	if p.asking() || p.Guests[0].Comfort != comfortStep-askPenalty {
+	if p.asking() || g.roomMood(p.Room) != -moodExpire {
 		t.Fatal("a request didn't lapse cleanly as its Party left")
 	}
 	p.state = staying
@@ -98,17 +99,18 @@ func TestAsk(t *testing.T) {
 
 // T110: a served Party banks more than an unserved one with the same Booking; a fled one still pays 0.
 // Step 2: the Checkout pays only the tip, the stay is paid by the hour (TestRent).
-func TestComfortPays(t *testing.T) {
+func TestMoodPaysTip(t *testing.T) {
 	g, _, p := settled(t)
 	g.wallet[Money] = 0 // the walk in paid nothing
 	plain := p.Rate * p.Nights * tipPct / 100
-	if p.Payout() != plain {
-		t.Fatalf("unserved tip %d, want %d%% of Rate × Nights = %d", p.Payout(), tipPct, plain)
+	g.mood[p.Room] = 0
+	if p.Payout(g.moodPay(p.Room)) != plain {
+		t.Fatalf("tip at Mood 0 %d, want %d%% of Rate × Nights = %d", p.Payout(g.moodPay(p.Room)), tipPct, plain)
 	}
 	p.asked = g.clock
 	g.serve(p.Room)
-	if p.Payout() <= plain {
-		t.Fatalf("served payout %d, want more than %d", p.Payout(), plain)
+	if p.Payout(g.moodPay(p.Room)) <= plain {
+		t.Fatalf("served payout %d, want more than %d", p.Payout(g.moodPay(p.Room)), plain)
 	}
 	g.flee(p)
 	for range 60 * tps {
