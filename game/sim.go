@@ -294,9 +294,12 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	}
 }
 
-// scaring: some Room has a Shadow (D169) with its Party in the hotel.
+// scaring: some Room has a Shadow (D169) with its Party in the hotel, or a Corridor or the hall has one.
 func (s *sim) scaring() bool {
 	g := s.g
+	if len(g.areaShades) > 0 { // a ghost's Shadow in a Corridor or the hall scares whoever walks by
+		return true
+	}
 	return slices.ContainsFunc(g.parties, func(p *Party) bool {
 		return !p.Paid && p.state != out && g.shaded(p.Room)
 	})

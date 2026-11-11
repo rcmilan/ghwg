@@ -20,7 +20,7 @@ const noMood = 1000
 
 func main() {
 	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. smart")
-	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
+	seed := flag.Uint64("seed", 1, "dev: the Run's seed (with -play, or alone for the same hotel in a print)")
 	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
@@ -49,6 +49,11 @@ func main() {
 	var err error
 	if *play == "" {
 		g, err = game.New()
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "seed" && err == nil { // -seed alone: the same hotel again, for prints
+				g, err = game.NewSeed(*seed)
+			}
+		})
 	} else {
 		var cols, rows int
 		if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {

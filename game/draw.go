@@ -173,6 +173,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		tint []float32 // ghost dimension: its flat color; nil for the character's own
 		a    float32   // opacity; 0 is 1
 		mode int       // the palette shader's mode; 0 is modeActor
+		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
 	}
 	actors := []actor{{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim}}
 	for _, realm := range [...]Realm{Human, Ghost} {
@@ -187,7 +188,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 				h := kindHue(kindOf(guest.Phantasm))
 				a.tint, a.a, a.mode = h[:], ghostAlpha, modeFlat
 			case g.ghost: // a human in the ghost dimension: a silhouette
-				a.tint, a.a = silhouetteTint, silhouetteAlpha
+				a.tint, a.a, a.mode, a.sil = silhouetteTint, silhouetteAlpha, modeFlat, true
 			}
 			actors = append(actors, a)
 		}
@@ -216,14 +217,16 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
 		s := g.dreadAt(image.Pt(p.cx, p.cy))
-		if name := g.ts.Tiles[p.id].Name; g.covered(name) {
-			g.blit(screen, g.coverHalf(name), op, modeProp, 0, nil, s)
-		} else if f := g.propFog(p); f > 0 {
-			drawFogged(screen, g.tiles[p.id], op, f)
+		img := g.tiles[p.id]
+		if g.covered(p) { // the lobby Mirror, until it's installed
+			img = g.coverHalf(g.ts.Tiles[p.id].Name)
+		}
+		if f := g.propFog(p); f > 0 {
+			drawFogged(screen, img, op, f)
 		} else if maze(g.ts.Tiles[p.id].Name) {
-			g.blit(screen, g.tiles[p.id], op, modeMaze, 1, nil, s)
+			g.blit(screen, img, op, modeMaze, 1, nil, s)
 		} else {
-			g.blit(screen, g.tiles[p.id], op, modeProp, 0, nil, s)
+			g.blit(screen, img, op, modeProp, 0, nil, s)
 		}
 		if p.l == world.LayerWalls {
 			g.drawShadow(screen, p, ox, oy)
@@ -243,6 +246,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		x, y := at(a.x, a.y-a.lift)
 		if g.ghost && a.fear >= fearWarn { // near fleeing: it trembles (2026-11-08)
 			x += []int{-1, 0, 1, 0}[g.tick/3%4] * zoom
+		}
+		if a.sil {
+			g.drawGlow(screen, x, y, [3]float32{1, 1, 1}, silhouetteGlow, silhouetteGlowScale)
 		}
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)

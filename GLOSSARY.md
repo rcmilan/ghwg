@@ -112,7 +112,7 @@ One of the hotel's two independent layers, Human and Ghost. A Party lives in one
 Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity is read by V1; Phantasm sets a ghost's kind and strength; Haunt sets how often it haunts.
 
 **Ghost guest** (Ghost Party):
-A Party of the Ghost realm. Once the Mirror is bought and delivered (a Run starts without it) each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters in its ghost kind's flat arcade color, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 90% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as dim silhouettes.
+A Party of the Ghost realm. Once the Mirror is bought and delivered (a Run starts without it) each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters in its ghost kind's flat arcade color, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 90% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as flat white silhouettes with a small white glow.
 _Avoid_: ghost Walk-in
 
 **Ghost kind**:
@@ -122,7 +122,7 @@ A name for a band of the Phantasm scale, with one flat arcade color (a placehold
 A ghost whose Phantasm is at or above the strong threshold (every kind but the Wisp) is strong: it switches an area's Shadow People on. A weak one does not.
 
 **Area Shadow**:
-The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, drawn mid-way on the area's upper wall, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. Seen in real only, not hidden by a Room's Fog, and it frightens no one yet (V1).
+The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. It is the ordinary Shadow Person: it dashes along the area's upper wall (a Room's while humans are in; a Corridor's or the hall's now and then), frightens the humans who see it, is hidden by a Room's Fog like its props, and Father M banishes it until that ghost leaves. Humans' sight rules are V1's.
 
 **In Room**:
 A Party is in its Room (`inRoom`) when it is staying and every Guest is inside the Room's walls, in either realm. A ghost haunts only while in Room.

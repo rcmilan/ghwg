@@ -105,6 +105,7 @@ type Game struct {
 	hands         Unlock                        // the supply the Concierge carries, "" for none (supply.go)
 	delivered     Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
 	askBox        *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	hushed        map[int]bool                  // Rooms whose ghost Shadow Father M banished, until its ghost leaves (shadow.go)
 	cover         *ebiten.Image                 // the covered Mirror's sprite (ghostguest.go)
 	mirrorAtStart bool                          // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
 	ghostArrivals []arrival                     // per Room: its next ghost Party's arrival (ghostguest.go)
@@ -112,8 +113,11 @@ type Game struct {
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
-func New() (*Game, error) {
-	g, err := newWorld(world.Cols, world.Rows, rand.Uint64())
+func New() (*Game, error) { return NewSeed(rand.Uint64()) }
+
+// NewSeed is New with the Run's seed given (dev prints: the same hotel again).
+func NewSeed(seed uint64) (*Game, error) {
+	g, err := newWorld(world.Cols, world.Rows, seed)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +190,7 @@ func (g *Game) startRun() {
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
+	g.hushed = map[int]bool{}
 	g.locked = nil // a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's T272)
 	if !g.mirrorAtStart {
 		g.locked = map[Unlock]bool{Mirror: true}

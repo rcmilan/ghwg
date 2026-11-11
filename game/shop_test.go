@@ -60,6 +60,7 @@ func TestStoreOpens(t *testing.T) {
 	if g.onSale(lock) {
 		t.Fatal("buying the Mirror opened the Room lock at once")
 	}
+	g.boughtAt[Mirror] = g.earned // ghosts now come in with the Mirror and may earn Ectoplasm while the courier leaves
 	g.earn(Ecto, shop[lock].Earned[Ecto]-1, noFloat)
 	if g.onSale(lock) {
 		t.Fatal("Room lock open under its threshold")

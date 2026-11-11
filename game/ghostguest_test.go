@@ -162,8 +162,8 @@ func TestAreaShadow(t *testing.T) {
 	for range areaFade + 1 {
 		g.updateAreaShades()
 	}
-	if len(g.areaShades) != 0 || on(ghost.X, ghost.Y) {
-		t.Errorf("the Shadows stayed after the ghost left: %d left", len(g.areaShades))
+	if len(g.areaShades) != 0 || len(g.shades[0]) != 0 || on(ghost.X, ghost.Y) {
+		t.Errorf("the Shadows stayed after the ghost left: %d left", len(g.areaShades)+len(g.shades[0]))
 	}
 	if kindOf(phantasmStrong-1) != 0 || kindOf(phantasmStrong) == 0 || kindOf(phantasmMax) != len(ghostKinds)-1 {
 		t.Errorf("kinds: Phantasm %d is %d, %d is %d, %d is %d", phantasmStrong-1, kindOf(phantasmStrong-1), phantasmStrong, kindOf(phantasmStrong), phantasmMax, kindOf(phantasmMax))
@@ -310,18 +310,26 @@ func TestMirrorStartLocked(t *testing.T) {
 func TestMirrorCoveredAndDelivered(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
 	g.startRun()
-	if !g.covered("prop_mirror_r0c0") || !g.covered("prop_mirror_r1c0") || g.covered("prop_lamp") {
-		t.Fatal("a locked Mirror isn't drawn covered (or something else is)")
+	mc := g.hotel.Mirror.Div(world.TileSize)
+	lobby := func(dy int, tile string) prop {
+		id, _ := g.ts.ID(tile)
+		return prop{cx: mc.X, cy: mc.Y - dy, l: world.LayerDecor, id: id}
+	}
+	room := g.hotel.Rooms[0].Origin
+	inRoom, _ := g.ts.ID("prop_mirror_r0c0")
+	if !g.covered(lobby(2, "prop_mirror_r0c0")) || !g.covered(lobby(1, "prop_mirror_r1c0")) ||
+		g.covered(prop{cx: room.X + 2, cy: room.Y + 3, l: world.LayerProps, id: inRoom}) {
+		t.Fatal("a locked lobby Mirror isn't drawn covered, or a Room's mirror prop is")
 	}
 	g.sortedProps()
 	n := 0
 	for _, p := range g.sortedProps() {
-		if g.covered(g.ts.Tiles[p.id].Name) {
+		if g.covered(p) {
 			n++
 		}
 	}
 	if n != 2 {
-		t.Fatalf("%d of the map's props draw covered, want the Mirror's 2 tiles", n)
+		t.Fatalf("%d of the map's props draw covered, want the lobby Mirror's 2 tiles", n)
 	}
 	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
 	s.hold(ebiten.KeySpace)
@@ -348,8 +356,8 @@ func TestMirrorCoveredAndDelivered(t *testing.T) {
 		}
 		g.step(0, 0)
 	}
-	if math.Hypot(c.X-float64(g.hotel.Mirror.X), c.Y-float64(g.hotel.Mirror.Y)) > world.TileSize || g.covered("prop_mirror_r0c0") {
-		t.Errorf("unlocked with the courier at (%v,%v), covered %v; want him at the Mirror and it uncovered", c.X, c.Y, g.covered("prop_mirror_r0c0"))
+	if math.Hypot(c.X-float64(g.hotel.Mirror.X), c.Y-float64(g.hotel.Mirror.Y)) > world.TileSize || g.covered(lobby(2, "prop_mirror_r0c0")) {
+		t.Errorf("unlocked with the courier at (%v,%v); want him at the Mirror and it uncovered", c.X, c.Y)
 	}
 	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
 	s.hold(ebiten.KeySpace)
@@ -366,5 +374,57 @@ func TestGhostPalette(t *testing.T) {
 		if kindHue(k) != w {
 			t.Errorf("kind %d is %v, want %v", k, kindHue(k), w)
 		}
+	}
+}
+
+// A strong ghost's Shadow is the old one: it dashes along the Room's back wall while a human is in, and a
+// human who sees it (or is in the Room for its pass) is frightened. The ghost's own realm isn't.
+func TestAreaShadowMovesAndScares(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	g.locked = nil
+	h := g.walkIn()
+	h.Routine, h.Nights = homebody, 3
+	h.schedule(g.clock)
+	g.settleIn(h)
+	p := ghostIn(t, g, h.Room, phantasmStrong)
+	p.Nights = 3
+	p.schedule(g.clock)
+	ghost, human := p.Guests[0], h.Guests[0]
+	lo, hi, fear := math.Inf(1), math.Inf(-1), 0
+	g.fast = true
+	for g.clock < runStart+2*dayFrames {
+		g.step(0, 0)
+		if list := g.shades[h.Room]; len(list) > 0 {
+			lo, hi = min(lo, list[0].x), max(hi, list[0].x)
+		}
+		fear = max(fear, human.Fear)
+		if human.Fear >= human.FleeAt {
+			break
+		}
+	}
+	if hi-lo < 2*world.TileSize {
+		t.Errorf("the area Shadow only moved %.0f px (%.0f..%.0f); want it dashing along the wall", hi-lo, lo, hi)
+	}
+	if fear == 0 {
+		t.Error("a human in the Room with the Shadow was never frightened")
+	}
+	if ghost.Fear != 0 {
+		t.Errorf("the ghost, in its own realm, got Fear %d", ghost.Fear)
+	}
+}
+
+// A Room's props in a fogged Room are under its fog, whatever they are, and the covered Mirror is the
+// lobby's alone.
+func TestRoomPropsFogged(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	o := g.hotel.Rooms[0].Origin
+	g.fog = make([]float64, len(g.hotel.Rooms))
+	g.fog[0] = 1
+	id, _ := g.ts.ID("prop_mirror_r0c0")
+	room := prop{cx: o.X + 2, cy: o.Y + 4, l: world.LayerProps, id: id}
+	if g.propFog(room) == 0 || g.covered(room) {
+		t.Errorf("a mirror prop in a fogged Room: fog %v covered %v; want it fogged and drawn as itself", g.propFog(room), g.covered(room))
 	}
 }

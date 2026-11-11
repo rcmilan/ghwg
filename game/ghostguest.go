@@ -184,10 +184,14 @@ func (g *Game) visible() []*entities.Guest {
 	return g.guestsIn(Human)
 }
 
-// A human seen from the ghost dimension: a dim silhouette, so the ghosts read first (placeholders).
-var silhouetteTint = []float32{.28, .28, .4}
+// A human seen from the ghost dimension: a flat white silhouette with a small white glow (placeholders).
+var silhouetteTint = []float32{1, 1, 1}
 
-const silhouetteAlpha = 0.6
+const (
+	silhouetteAlpha     = 0.9
+	silhouetteGlow      = 0.3 // a faint white glow, like Fear's red one
+	silhouetteGlowScale = 0.6 // and smaller
+)
 
 // DevGhosts is main's -ghosts: a human Party and a strong ghost Party of the given Phantasm settle in Room 0
 // for 3 nights, the Concierge standing in it (use with -shot -at 9300 for them asleep, or -ghost).
@@ -208,6 +212,8 @@ func (g *Game) DevGhosts(phantasm int) {
 	p.Guests[0].Phantasm = phantasm
 	g.settleIn(h)
 	g.settleIn(p)
+	h.Guests[0].X += 30 // the human stands clear of the ghosts, to be seen
+	h.Guests[0].Y += 22
 	for k := range ghostKinds { // and one more of each kind, standing in a row (layers: they never bump)
 		q := g.arriveGhost(h.Room)
 		q.Guests, q.Nights = q.Guests[:1], 3
@@ -232,9 +238,11 @@ func (g *Game) settleIn(p *Party) {
 	}
 }
 
-// covered: the prop tile is half of the Lobby's Mirror while it is still locked: drawn as the covered one.
-func (g *Game) covered(tile string) bool {
-	return !g.unlocked(Mirror) && strings.HasPrefix(tile, "prop_mirror_r")
+// covered: the prop is a tile of the lobby's Mirror (the two cells above its standing spot) while the Mirror
+// is still locked: drawn covered. A Room's own mirror prop is a separate upgrade (K1) and is never covered.
+func (g *Game) covered(p prop) bool {
+	c := g.hotel.Mirror.Div(world.TileSize)
+	return !g.unlocked(Mirror) && p.cx == c.X && (p.cy == c.Y-2 || p.cy == c.Y-1) && strings.HasPrefix(g.ts.Tiles[p.id].Name, "prop_mirror_")
 }
 
 // coverHalf: the covered Mirror's upper (r0) or lower (r1) 16x16 tile.
