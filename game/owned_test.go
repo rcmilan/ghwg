@@ -119,17 +119,13 @@ func TestRoomKey(t *testing.T) {
 	}
 }
 
-// the intro's state machine, without rendering: the whole hotel, the zoom, three lines one per SPACE, the flip
-// out of ghost into real, then the Run begins with the world and the Clock untouched.
+// the opening's state machine, without rendering: the title is the hotel in ghost with ghosts on the street;
+// SPACE brings the three lines on a timer; SPACE again walks the Concierge in from the street while the world
+// shifts to real; then the Run begins with the Clock untouched.
 func TestIntro(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
-	g.introOn = true
-	s.hold(ebiten.KeySpace)
-	g.Update() // the title
-	if g.intro == nil || !g.ghost || g.intro.phase() != introWide {
-		t.Fatalf("intro %+v, ghost %v after the title; want the whole hotel in ghost", g.intro, g.ghost)
-	}
-	clock := g.clock
+	g.openAtStart = false
+	g.PlayIntro()
 	frame := func(space bool) {
 		if space {
 			s.hold(ebiten.KeySpace)
@@ -138,62 +134,95 @@ func TestIntro(t *testing.T) {
 		}
 		g.Update()
 	}
+	in := g.intro
+	if g.state != StateTitle || in == nil || in.phase != introTitle || !g.ghost || len(in.ghosts) == 0 || g.ownedCount() != 0 {
+		t.Fatalf("state %d, intro %+v, ghost %v; want the title on the boarded hotel in ghost, ghosts on the street", g.state, in, g.ghost)
+	}
+	clock, x := g.clock, in.ghosts[0].X
 	frame(false)
-	for g.intro.phase() == introWide {
+	if in.ghosts[0].X == x || g.state != StateTitle {
+		t.Fatal("the street ghosts stand still on the title, or the title left without SPACE")
+	}
+	frame(true)
+	frame(false)
+	if in.phase != introText {
+		t.Fatalf("phase %d after SPACE on the title, want the lines", in.phase)
+	}
+	for in.frame < (len(introLines)-1)*introLineGap { // the lines come on their own
 		frame(false)
 	}
-	if g.intro.frame != introHold || g.intro.phase() != introZoom {
-		t.Fatalf("the whole hotel held %d frames", g.intro.frame)
+	if in.phase != introText {
+		t.Fatal("the lines moved on without SPACE")
 	}
-	for g.intro.phase() == introZoom {
-		frame(false)
+	frame(true)
+	if in.phase != introEnter || image.Pt(int(g.player.X), int(g.player.Y)) != g.hotel.Spawn || len(in.walk.Path) == 0 {
+		t.Fatalf("phase %d, the Concierge at %v; want him on the street, bound for his desk", in.phase, image.Pt(int(g.player.X), int(g.player.Y)))
 	}
-	for line := range introText {
-		if g.intro.phase() != introLines || g.intro.line != line {
-			t.Fatalf("phase %d line %d; want line %d showing", g.intro.phase(), g.intro.line, line)
-		}
-		frame(false)
-		frame(false)
-		if g.intro.line != line {
-			t.Fatalf("line %d moved on without SPACE", line)
-		}
-		frame(true)
-	}
-	if g.intro.phase() != introFlip || g.shifting == nil || g.shifting.toGhost {
-		t.Fatalf("after the third line: %+v, shifting %v; want a flip to real", g.intro, g.shifting)
-	}
+	shifted := false
 	for f := 0; g.intro != nil; f++ {
-		if f > 2*flipFrames {
-			t.Fatal("the flip never ended")
+		if f > 60*tps {
+			t.Fatal("the Concierge never reached his desk")
 		}
 		frame(false)
+		shifted = shifted || g.shifting != nil && !g.shifting.toGhost
 	}
-	if g.ghost || g.shifting != nil || g.clock != clock {
-		t.Fatalf("ghost %v, clock %d (was %d); want real, the Clock untouched", g.ghost, g.clock, clock)
+	if at := image.Pt(int(g.player.X), int(g.player.Y)); !shifted || g.ghost || at != g.hotel.ConciergeStart || g.clock != clock {
+		t.Fatalf("shifted %v, ghost %v, at %v, clock %d (was %d); want real, at the desk, the Clock untouched", shifted, g.ghost, at, g.clock, clock)
 	}
 	frame(false)
 	if g.clock == clock {
-		t.Error("the world is still waiting after the intro")
+		t.Error("the world is still waiting after the opening")
+	}
+	s.hold(ebiten.KeyEscape) // back to the title: a new hotel waits behind it
+	g.Update()
+	if g.state != StateTitle || g.intro == nil || g.intro.phase != introTitle {
+		t.Error("ESC did not bring the title's opening back")
 	}
 }
 
-// SPACE skips the zoom to the lines; a Run without introOn (the sim, the prints) has no intro at all.
+// SPACE shows every line at once; a Run without introOn (the sim, the prints) has no opening at all.
 func TestIntroSkips(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
-	g.introOn = true
-	s.hold(ebiten.KeySpace)
-	g.Update()
-	s.hold()
-	g.Update()
-	s.hold(ebiten.KeySpace)
-	g.Update()
-	if g.intro.phase() != introLines {
-		t.Errorf("phase %d after SPACE in the zoom, want the lines", g.intro.phase())
+	g.PlayIntro()
+	for _, space := range []bool{true, false, true} {
+		s.hold()
+		if space {
+			s.hold(ebiten.KeySpace)
+		}
+		g.Update()
+	}
+	if g.intro.phase != introText || g.intro.frame < (len(introLines)-1)*introLineGap {
+		t.Errorf("phase %d frame %d after SPACE in the lines, want them all showing", g.intro.phase, g.intro.frame)
 	}
 	g.introOn = false
 	g.startRun()
 	if g.intro != nil || g.ghost {
 		t.Error("a Run with the intro off still has one")
+	}
+}
+
+// 2026-11-11: no wrong first buy. With no Room open only the key is on sale; the Mirror comes after, from rent.
+func TestNoStrandingBuy(t *testing.T) {
+	g := closedRun(t)
+	for i, it := range shop {
+		if want := it.ID == rowKey; g.onSale(i) != want {
+			t.Errorf("%s on sale %v with no Room open, want %v", it.Name, g.onSale(i), want)
+		}
+	}
+	g.roomOwned[0] = true
+	if !g.onSale(row(t, Mirror)) {
+		t.Error("the Mirror is not on sale with a Room open")
+	}
+}
+
+// 2026-11-11: the Mirror is within reach on Day 1 (16 h from 08:00), every Run: the first Room pays from its
+// first hour (a Tourist stays in the day it arrives).
+func TestMirrorOnDayOne(t *testing.T) {
+	for seed := uint64(1); seed <= 12; seed++ {
+		r := RunSim(Config{Cols: 2, Rows: 1, Days: 1, Seed: seed, Name: "opener", Strategy: Strategies["opener"], React: 30, KeyGap: 6})
+		if r.MirrorAt < 0 || r.MirrorAt > 12 {
+			t.Errorf("seed %d: mirror at %.1f h, want it by 20:00 on Day 1", seed, r.MirrorAt)
+		}
 	}
 }
 

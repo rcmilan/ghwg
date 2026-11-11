@@ -107,6 +107,7 @@ type sim struct {
 	called    map[*priest]bool
 	shipped   map[*courier]bool
 	rent      map[*Party]Num  // each Party's rent counted so far
+	byDay     []Num           // MoneyByDay before rounding
 	seenGhost map[*Party]bool // the ghost Parties counted
 	closed    int             // Room-frames Closed
 }
@@ -134,7 +135,7 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, seenGhost: map[*Party]bool{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1}}
 	g.mirrorAtStart, g.openAtStart = cfg.Mirror, cfg.Open
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
@@ -259,7 +260,8 @@ func (s *sim) frame() bool {
 		s.seen[p] = p.state
 	}
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
-		s.res.MoneyByDay[d] += int(g.wallet[Money] - money)
+		s.byDay[d] += g.wallet[Money] - money // rent comes in by the frame, in cents: summed before it is rounded
+		s.res.MoneyByDay[d] = int(s.byDay[d])
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)

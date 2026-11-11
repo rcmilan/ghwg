@@ -34,7 +34,7 @@ func main() {
 	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
 	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
 	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
-	intro := flag.Int("intro", -1, "dev: start a Run at the intro: 0 from the start, 1..3 on that line, 4 the flip (with -shot -at)")
+	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
 	flag.Parse()
 

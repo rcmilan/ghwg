@@ -61,6 +61,7 @@ func TestNoHex(t *testing.T) {
 	g, s, p := pairIn(t, 3, 2, 4)
 	o := g.hotel.Rooms[4].Origin
 	g.ghost = true
+	p.Rate = 0 // no rent ticking in: only SPACE could move the wallet
 	moods := slices.Clone(g.mood)
 	press(g, s, image.Pt((o.X-1)*ts+ts/2, (o.Y+5)*ts+ts/2)) // beside the west wall
 	if g.wallet != [2]Num{} || len(g.floaters) > 0 || p.Guests[0].Fear != 0 || !slices.Equal(g.mood, moods) || g.taps[4] != [taskCount]Num{} {
@@ -113,14 +114,14 @@ func TestFlee(t *testing.T) {
 	if !g.vacant(room, Human) || p.state != leaving {
 		t.Fatalf("fled: vacant %v state %d, want Vacant and leaving", g.vacant(room, Human), p.state)
 	}
-	rent := g.wallet[Money]
+	rent := p.rent // its own: the Room's next Party pays from its first step in
 	for i := 0; len(g.parties) > 0 && g.parties[0] == p; i++ {
 		if i > 60*tps {
 			t.Fatal("the fled Party never left")
 		}
 		g.step(0, 0)
 	}
-	if g.wallet[Money] != rent || p.Paid {
-		t.Fatalf("a fled Party paid past its rent: money %v, rent %v", g.wallet[Money], rent)
+	if p.rent != rent || p.Paid {
+		t.Fatalf("a fled Party paid past its rent: %v, was %v", p.rent, rent)
 	}
 }

@@ -117,7 +117,7 @@ func TestScheduleDraw(t *testing.T) {
 }
 
 // D88: a Tourist is out between its out and back times on every day of its routine but the checkout
-// day; booked after 10:00, its routine starts the next day.
+// day; its routine starts the day after it arrives.
 func TestTouristDays(t *testing.T) {
 	at := func(d, h, m int) int { return (d-1)*dayFrames + h*hourFrames + m*minuteFrames }
 	b := Booking{Nights: 3, Routine: tourist, outAt: 9 * hourFrames, backAt: 20 * hourFrames, checkoutAt: 11 * hourFrames}
@@ -138,8 +138,8 @@ func TestTouristDays(t *testing.T) {
 	}
 	early := b
 	early.schedule(at(1, 8, 30))
-	if !early.Out(at(1, 9, 30)) {
-		t.Error("a Tourist booked at 08:30 isn't out at 09:30 the same day")
+	if early.Out(at(1, 9, 30)) || !early.Out(at(2, 9, 30)) { // 2026-11-11: it stays in the day it arrives
+		t.Error("a Tourist booked at 08:30 went out the same day, or stayed in the next")
 	}
 	home := b
 	home.Routine = homebody

@@ -113,6 +113,7 @@ func TestMoodPaysTip(t *testing.T) {
 		t.Fatalf("served payout %d, want more than %d", p.Payout(g.moodPay(p.Room)), plain)
 	}
 	g.flee(p)
+	g.parties, g.arrivals = []*Party{p}, make([]arrival, len(g.hotel.Rooms)) // nobody else is in or comes: only the fled Party could pay
 	for range 60 * tps {
 		g.step(0, 0)
 	}

@@ -117,14 +117,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if !g.warm && g.state != StateTitle && g.fx[0] != nil {
 		g.warmUp(screen)
 	}
-	if g.drawIntro(screen) {
-		return
-	}
 	g.drawFrame(screen)
 }
 
 // drawFrame draws the screen in the current dimension.
 func (g *Game) drawFrame(screen *ebiten.Image) {
+	if g.intro != nil { // the opening draws its own, title included (intro.go)
+		g.drawIntro(screen)
+		return
+	}
 	screen.Fill(assets.Night)
 	if g.ghost && g.state != StateTitle {
 		screen.Fill(color.Black)
@@ -178,7 +179,16 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		mode int       // the palette shader's mode; 0 is modeActor
 		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
 	}
-	actors := []actor{{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim}}
+	var actors []actor
+	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
+		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim})
+	}
+	if g.intro != nil && g.ghost { // and has ghosts strolling the street
+		for _, gh := range g.intro.ghosts {
+			h := kindHue(kindOf(gh.Phantasm))
+			actors = append(actors, actor{x: gh.X, y: gh.Y, name: gh.Character, anim: gh.Anim, tint: h[:], a: ghostAlpha, mode: modeFlat})
+		}
+	}
 	for _, realm := range [...]Realm{Human, Ghost} {
 		if realm == Ghost && !g.ghost { // in real a ghost shows only through its area's Shadows
 			continue

@@ -222,11 +222,13 @@ func (g *Game) Update() error {
 			}
 			g.state, g.message = StatePlay, ""
 		default:
-			g.state = StateTitle
+			g.toTitle()
 		}
 		return nil
 	}
 	switch {
+	case g.intro != nil: // the opening, the title included: the world waits for it
+		g.updateIntro()
 	case g.state == StateTitle:
 		if g.in.JustPressed(ebiten.KeySpace) {
 			g.startRun()
@@ -234,8 +236,6 @@ func (g *Game) Update() error {
 	case g.state == StateTerminal: // the world and the Clock wait (D73)
 		g.updateTerminal()
 		g.updateHUD()
-	case g.intro != nil: // the opening: the world waits for it too
-		g.updateIntro()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		if g.message != "" && !g.atMirror() {

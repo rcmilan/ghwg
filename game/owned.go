@@ -16,9 +16,10 @@ import (
 // with each Room owned. All amounts are placeholders, chosen so a Run reaches the Mirror early (the user's
 // pacing goal): the Mirror ($10, shop.go) is about 4 game hours of one Room's rent.
 const (
-	keyBase    = 20      // $: the first Room key
-	keyStep    = 20      // $: each Room already owned adds this to the next key
-	startMoney = keyBase // $: a Run starts with exactly one key's worth
+	keyBase     = 20      // $: the first Room key
+	keyStep     = 20      // $: each Room already owned adds this to the next key
+	mirrorPrice = 10      // $: the Mirror
+	startMoney  = keyBase // $: a Run starts with exactly one key's worth
 )
 
 // rowKey is the Room key's Service row.
