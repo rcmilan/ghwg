@@ -253,17 +253,17 @@ var drawings = []drawing{
 			aaSaaaaaaaaaaSaa
 			aaaeaaeaaeaaeaaa
 			DDDDDDDDDDDDDDDD
-			oooooooooooooooo
-			oDaokkkkkkkkoaDo
-			oDaokkkkkkkkoaDo
-			oDaokkkkkkkkoaDo
-			oDaooooooooooaDo
-			oDaeeeeeeeeeeaDo
-			oooooooooooooooo
-			aaSaaaaaaaaaaSaa
-			aaaeaaeaaeaaeaaa
-			DDDDDDDDDDDDDDDD
-			oooooooooooooooo
+			oDaokkkkkkkoaSao
+			oDaokkkkkkoaeaoo
+			oDaokkkkkoaeaoDo
+			oDaokkkoaeaooaDo
+			oDaokkoaeaokoaDo
+			oDaokoaeaokkoaDo
+			oDaooaeaokkkoaDo
+			oDaoaeaokkkkoaDo
+			ooaeaokkkkkkoaDo
+			oaeaokkkkkkkoaDo
+			oSaokkkkkkkkoaDo
 			oDaeeeeeeeeeeaDo
 			oDaeeeeeeeeeeaDo
 			oDaeeeeeeeeeeaDo
