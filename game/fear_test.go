@@ -68,30 +68,19 @@ func TestNoHex(t *testing.T) {
 	}
 }
 
-// T191: at rotMood a Room rots: each Guest inside loses rotComfort a game minute, so the Party pays
-// less, and its floor shows full; at moodMin it closes as before.
+// T191: at rotMood a Room rots: its floor shows full; at moodMin it closes as before.
 func TestRot(t *testing.T) {
 	if rotMood <= moodMin {
 		t.Fatalf("rotMood %d must be above moodMin %d", rotMood, moodMin)
 	}
-	g, _, p := pairIn(t, 2, 1, 0)
-	pay := p.Payout()
+	g, _, _ := pairIn(t, 2, 1, 0)
 	g.mood[0] = rotMood + 1
-	g.scare()
-	if p.Guests[0].Comfort != 0 || g.roomShift(0) >= 1 {
-		t.Fatalf("above rotMood: Comfort %d, floor %v; want 0 and under 1", p.Guests[0].Comfort, g.roomShift(0))
+	if g.rotting(0) || g.roomShift(0) >= 1 {
+		t.Fatalf("above rotMood: rotting %v, floor %v; want no and under 1", g.rotting(0), g.roomShift(0))
 	}
 	g.mood[0] = rotMood
-	g.scare()
-	g.scare()
-	if p.Guests[0].Comfort != -2*rotComfort || p.Payout() >= pay || g.roomShift(0) != 1 || g.closed(0) {
-		t.Fatalf("2 rotting minutes: Comfort %d, pay %d (was %d), floor %v, closed %v", p.Guests[0].Comfort, p.Payout(), pay, g.roomShift(0), g.closed(0))
-	}
-	for range 10 * comfortMax {
-		g.scare()
-	}
-	if p.Guests[0].Comfort != -comfortMax || p.Payout() <= 0 {
-		t.Fatalf("long rot: Comfort %d, pay %d; want floored at %d, still paying", p.Guests[0].Comfort, p.Payout(), -comfortMax)
+	if !g.rotting(0) || g.roomShift(0) != 1 || g.closed(0) {
+		t.Fatalf("at rotMood: rotting %v, floor %v, closed %v", g.rotting(0), g.roomShift(0), g.closed(0))
 	}
 	if g.mood[0] = moodMin; !g.closed(0) {
 		t.Fatal("not Closed at moodMin")

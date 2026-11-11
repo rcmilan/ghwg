@@ -72,7 +72,7 @@ func (g *Game) placeShadow(room int) {
 // shadowGap: frames from a patrol's start to the next, from 1 an hour at a calm Room to 1 every 20 game
 // minutes at a Closed one (2026-11-08: a Shadow scares only while seen, so it patrols more).
 func (g *Game) shadowGap(room int) int {
-	s := min(1, float64(g.dirtLevel(room))/dirtMax)
+	s := g.dread(room)
 	return int(60 / (1 + 2*s) * minuteFrames)
 }
 

@@ -150,7 +150,7 @@ func TestTouristDays(t *testing.T) {
 
 // D91, Live test 5 (2026-11-08): a Room's doorway is barred to the Concierge only while a Guest of its
 // Party is inside; while they walk up, are out or wait in the hall, he may go in. Inside with them, each
-// game minute costs each Guest intrudeComfort.
+// game minute costs its Room intrudeMood.
 func TestConciergeKeptOut(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
@@ -172,12 +172,12 @@ func TestConciergeKeptOut(t *testing.T) {
 	r := g.hotel.Rooms[p.Room]
 	in := r.Door.Add(image.Pt(0, -2)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
-	c := p.Guests[0].Comfort
+	c := g.roomMood(p.Room)
 	for range 2 * minuteFrames {
 		g.step(0, 0)
 	}
-	if p.Guests[0].Comfort != c-2*intrudeComfort {
-		t.Errorf("2 minutes in with the Guests: Comfort %d → %d, want −%d", c, p.Guests[0].Comfort, 2*intrudeComfort)
+	if g.roomMood(p.Room) != c-2*intrudeMood {
+		t.Errorf("2 minutes in with the Guests: Mood %d → %d, want −%d", c, g.roomMood(p.Room), 2*intrudeMood)
 	}
 }
 

@@ -95,7 +95,7 @@ func (g *Game) updateRoomTalk() {
 			continue
 		}
 		who := g.chat.IntN(len(p.Guests))
-		tier := min(2, 3*g.dirtLevel(p.Room)/dirtMax)
+		tier := min(2, int(3*g.dread(p.Room)))
 		set := calmLines[tier]
 		lines := set[0]
 		switch {

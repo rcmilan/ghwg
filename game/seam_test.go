@@ -35,9 +35,9 @@ func TestNoOldCurrencyName(t *testing.T) {
 	}
 }
 
-// T248: Room Mood = 100 - old Room level × 4/3 (06's Room scale is kept as "dirt"). For every old value 0..150 the
-// table of what a Room does is identical to trunk's: spot count, Closed, rotting, the Priest's halve, and
-// the Ecto harvested by cleaning everything in ghost.
+// T248, T266: dirt is Mood's face: none from moodSpots up, then one spot unit per ~3.75 points. For every dirt
+// value 0..dirtMax the table of what a Room does is 06's: spot count, Closed, the Priest's halve, and the Ecto
+// harvested by cleaning; a clean takes the Mood to moodClean.
 func TestMoodMatchesTrunk(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
@@ -47,10 +47,13 @@ func TestMoodMatchesTrunk(t *testing.T) {
 		}
 		return n
 	}
-	for s := 0; s <= 150; s++ {
+	if g.roomMood(0) != moodStart || g.dirtLevel(0) != 0 || moodOf(0) != moodSpots {
+		t.Fatalf("a new Run: Mood %d, dirt %d; no dirt at Mood %d", g.roomMood(0), g.dirtLevel(0), moodSpots)
+	}
+	for s := 0; s <= dirtMax; s++ {
 		m := moodOf(s)
-		if d := float64(m) - (100 - float64(s)*4/3); d > 0.5 || d < -0.5 {
-			t.Fatalf("dirt %d: Mood %d, want 100 - %d×4/3 = %.1f", s, m, s, 100-float64(s)*4/3)
+		if d := float64(m) - max(moodMin, moodSpots-float64(s)*4/3); d > 0.5 || d < -0.5 {
+			t.Fatalf("dirt %d: Mood %d, want %d - %d×4/3 = %.1f", s, m, moodSpots, s, moodSpots-float64(s)*4/3)
 		}
 		g.mood[0], g.dirt, g.dirtN = m, nil, nil
 		if g.dirtLevel(0) != s {
@@ -59,23 +62,23 @@ func TestMoodMatchesTrunk(t *testing.T) {
 		if n := len(g.spots(0)); n != oldSpots(s) {
 			t.Fatalf("dirt %d: %d spots, trunk had %d", s, n, oldSpots(s))
 		}
-		if g.closed(0) != (s >= 150) || g.rotting(0) != (s >= 100) {
-			t.Fatalf("dirt %d: closed %v rotting %v, trunk: %v %v", s, g.closed(0), g.rotting(0), s >= 150, s >= 100)
+		if g.closed(0) != (s >= dirtMax) || g.rotting(0) != (m <= rotMood) {
+			t.Fatalf("dirt %d: closed %v rotting %v", s, g.closed(0), g.rotting(0))
 		}
 		if g.halveDirt(0); g.dirtLevel(0) != s/2 {
 			t.Fatalf("dirt %d: a Priest leaves %d, trunk left %d", s, g.dirtLevel(0), s/2)
 		}
-		// the harvest: every spot cleaned by hand in ghost banks half the dirt it held
+		// the harvest: one clean in ghost banks half the dirt it held
 		g.mood[0], g.ghost, g.wallet = m, true, [2]Num{}
 		g.dirt = nil
 		for _, sp := range g.spots(0) {
 			g.dirt[0][slices.Index(g.dirt[0], sp)].spirit = false
 		}
-		for _, sp := range slices.Clone(g.dirt[0]) {
-			g.clean(0, sp.cell)
+		if s > 0 {
+			g.clean(0, g.dirt[0][0].cell)
 		}
-		if g.wallet[Ecto] != Num(s)*harvestRate || g.roomMood(0) != moodMax {
-			t.Fatalf("dirt %d: cleaned for %v Ecto, Mood %d; want %v and %d", s, g.wallet[Ecto], g.roomMood(0), Num(s)*harvestRate, moodMax)
+		if g.wallet[Ecto] != Num(s)*harvestRate || g.roomMood(0) != moodClean || len(g.spots(0)) != 0 {
+			t.Fatalf("dirt %d: cleaned for %v Ecto, Mood %d; want %v and %d", s, g.wallet[Ecto], g.roomMood(0), Num(s)*harvestRate, moodClean)
 		}
 		g.ghost = false
 	}
@@ -172,6 +175,9 @@ func TestFleeAt(t *testing.T) {
 	}
 	if p.Guests[0].Sensitivity != 0 || p.Guests[0].Phantasm != 0 {
 		t.Fatal("Sensitivity and Phantasm start at 0")
+	}
+	if p.Guests[0].Haunt != entities.DefaultHaunt {
+		t.Fatal("Haunt starts at its default")
 	}
 }
 

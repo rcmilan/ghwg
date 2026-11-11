@@ -100,16 +100,16 @@ _Avoid_: escape, check out (a fled Party never checks out)
 The currency Fear and ghost cleaning earn: one point for each point of Fear a Shadow adds, and half the dirt cleaned in the ghost Dimension. Shown in the ghost Dimension, on the Terminal and as "+N" over the door. It pays part of some Hotel unlocks. (Called Spook before 07.)
 
 **Room Mood**:
-One number per Room, from -100 (dread) to 100 (cozy), the Room axis. Guests' mess lowers it, Priests raise it, and a fright lowers it by the Fear it gives. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple as it falls, and pulses once Closed; in the real Dimension it tints faintly green. Dirt, tips and the Guests' lines read it. Not the Ectoplasm currency, which the hotel keeps when a Room is cleaned. (Called Room Spook, 0 to 150 the other way, before 07: Mood = 100 - Room Spook x 4/3.)
+One number per Room, from -100 (dread) to 100 (cozy), the Room axis. It moves only on events, never drifts: a perfect serve raises it by 25 (less as the request nears expiry), an expired request lowers it by 10, Guests' mess, the Concierge lingering inside, a fright (by the Fear it gives) and a haunt lower it, and a clean or a Priest raises it (a clean to +50, never lowering it). Dirt spots show below +50. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple as it falls, and pulses once Closed; in the real Dimension it tints faintly green. Dirt, pay (the Mood pay factor) and the Guests' lines read it. Not the Ectoplasm currency, which the hotel keeps when a Room is cleaned. (Called Room Spook, 0 to 150 the other way, before 07; per-Guest Comfort is gone, Mood replaced it.)
 
 **Dirt**:
-06's scale of a Room's Mood, 0 (cozy) to 150 (Closed): Mood = 100 - dirt x 4/3. The dirt spots, the mess a Guest leaves and the calm lines stay tuned in it; the code converts at one place (mood.go).
+Room Mood made visible: no spots from Mood +50 up, then one spot per about 3.75 points down to Mood -100 (Closed). The spots, the mess a Guest leaves and the calm lines stay tuned in 06's dirt scale (0 at +50 to 113 at -100); the code converts at one place (mood.go).
 
 **Realm**:
 One of the hotel's two independent layers, Human and Ghost. A Party lives in one; actors of different realms never bump, yield, push or queue for each other, and a Room is Occupied per realm. The Concierge is in Ghost while he is in the ghost Dimension. Every Party is Human until G1.
 
 **Guest stats**:
-Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees) and Phantasm (how ghostly it is); the last two are read by V1.
+Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity and Phantasm are read by V1, Haunt by G1.
 
 **Closed**:
 A Room at Mood -100. No new Party comes to it; a Party already in it stays until its checkout. The Terminal shows it in both Dimensions.
@@ -122,14 +122,19 @@ _Avoid_: exorcist, cleaner
 ## Serving
 
 **Serve**:
-What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. Every Guest of its Party inside gains Comfort, the most when served at once and the less the lower the Room Mood (none in a Closed Room). A Party that isn't asking can't be served.
+What the Concierge does for an Occupied Room whose Party is asking, in the real Dimension, with SPACE in front of its door: room service. The Room's Mood rises by 25 when served at once, falling to 0 as the request nears expiry. A Party that isn't asking can't be served.
 _Avoid_: tend, room service (as the term)
 
-**Comfort**:
-How well looked after a Guest is. It rises with each serve, up to a cap, and never falls. It doesn't lower Fear. At Checkout the Party pays more the more Comfort its Guests have.
+**Mood pay factor**:
+What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the hourly Money and the checkout tip, so a plain Room at Mood 0 pays its Rate.
+_Avoid_: comfort bonus
+
+**Haunt (x)**:
+A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. G1 makes ghosts haunt; the Mood side exists already.
+_Avoid_: Restlessness (a candidate name)
 
 **Request**:
-A Party in its Room asking to be served, once or twice an awake day: a "!!" balloon by its leader's head, always on screen. It ends when served, when the Party leaves the Room, or after an hour unanswered, when it expires and its Guests lose Comfort.
+A Party in its Room asking to be served, once or twice an awake day: a "!!" balloon by its leader's head, always on screen. It ends when served, when the Party leaves the Room, or after three game hours unanswered, when it expires and its Room loses 10 Mood.
 _Avoid_: call, order
 
 ## People
@@ -164,7 +169,7 @@ The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, R
 One 24-hour turn of the Clock, counted from Day 1.
 
 **Checkout**:
-A Party leaving its Room for good on its final Day. It pays Rate × nights, raised by its Guests' Comfort, at the Room's door, the money is banked at once, and the Room becomes Vacant.
+A Party leaving its Room for good on its final Day. It pays Rate × nights × the Room's Mood pay factor as a tip, at the Room's door, the money is banked at once, and the Room becomes Vacant.
 
 ## Light
 

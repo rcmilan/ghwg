@@ -115,7 +115,7 @@ func TestShadowFear(t *testing.T) {
 			guest.X, guest.Y, guest.Path, guest.Fear, guest.Anim.Facing = float64(pt.X), float64(pt.Y), nil, fear, face
 		}
 		p.talk = nil
-		ecto, dirt := g.wallet[Ecto], g.dirtLevel(room)
+		ecto, mood := g.wallet[Ecto], g.roomMood(room)
 		sh := home(g, room)
 		for g.updateShadows(); sh.patrol; g.updateShadows() {
 		}
@@ -125,8 +125,8 @@ func TestShadowFear(t *testing.T) {
 				t.Fatalf("mates facing alike gained %d and %d Fear", gained, guest.Fear-fear)
 			}
 		}
-		if g.wallet[Ecto]-ecto != Num(gained*len(p.Guests)) || g.dirtLevel(room)-dirt != gained*len(p.Guests) {
-			t.Fatalf("Ecto +%v, Room dirt +%d; want the Fear given, %d", g.wallet[Ecto]-ecto, g.dirtLevel(room)-dirt, gained*len(p.Guests))
+		if g.wallet[Ecto]-ecto != Num(gained*len(p.Guests)) || mood-g.roomMood(room) != len(p.Guests)*dirtMood(gained) {
+			t.Fatalf("Ecto +%v, Room Mood -%d; want the Fear given, %d, and its weight in Mood", g.wallet[Ecto]-ecto, mood-g.roomMood(room), gained*len(p.Guests))
 		}
 		return gained
 	}
