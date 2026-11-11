@@ -32,6 +32,7 @@ func main() {
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
 	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
 	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
+	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -59,13 +60,14 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood {
+	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 {
 		g.Start(*ghost)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
 		g.DevHaunt(*haunt)
 		g.DevDirt(*dirt)
+		g.DevGhosts(*ghosts)
 		if *mood != noMood {
 			g.DevMood(*mood)
 		}

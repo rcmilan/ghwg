@@ -81,11 +81,11 @@ func (g *Game) view() View {
 				rv.Asking, rv.Wants = true, p.want
 			}
 		}
-		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guests(), func(guest *entities.Guest) bool {
+		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guestsIn(Human), func(guest *entities.Guest) bool {
 			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
 		})
 		if g.ghost {
-			for _, guest := range g.guests() {
+			for _, guest := range g.guestsIn(Human) {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
 				}
@@ -93,7 +93,7 @@ func (g *Game) view() View {
 		}
 		v.Rooms = append(v.Rooms, rv)
 	}
-	for _, guest := range g.guests() {
+	for _, guest := range g.visible() {
 		if at := image.Pt(int(guest.X), int(guest.Y)); g.fogAt(at) < 1 {
 			v.Guests = append(v.Guests, at.Div(world.TileSize))
 		}

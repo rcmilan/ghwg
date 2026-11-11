@@ -158,8 +158,17 @@ func TestBookings(t *testing.T) {
 	for range 2 * minuteFrames {
 		g.step(0, 0)
 	}
-	if len(g.parties) != 1 || g.parties[0].Room != 0 {
-		t.Fatalf("at the first arrival: %d Parties, want 1 in Room 0", len(g.parties))
+	humans := 0 // the Mirror is unlocked: a ghost Party books beside it (ghostguest_test.go)
+	for _, p := range g.parties {
+		if p.Realm == Human {
+			humans++
+			if p.Room != 0 {
+				t.Fatalf("the first arrival is in Room %d, want 0", p.Room)
+			}
+		}
+	}
+	if humans != 1 {
+		t.Fatalf("at the first arrival: %d human Parties, want 1 in Room 0", humans)
 	}
 	g, _ = headless(t, 2, 1, 1)
 	g.startRun()
@@ -169,6 +178,7 @@ func TestBookings(t *testing.T) {
 		g.parties = append(g.parties, &Party{Guests: []*entities.Guest{&guest}, state: staying,
 			Booking: Booking{Room: i, Nights: 1, Rate: 1, Checkout: 1 << 30}})
 	}
+	g.locked = map[Unlock]bool{Mirror: true} // human bookings only
 	for range 2 * hourFrames {
 		g.step(0, 0)
 	}

@@ -29,7 +29,7 @@ A point inside a Room where one Guest stays, one per bed, at its foot. From 23:0
 Where a Guest stands to use one of its Room's props (a window, the TV, a bookshelf, a wardrobe, a drawer, the mirror, a cushion), facing it. Found from the Room Type's tiles: the free floor cell in front of the prop, or on it for a cushion.
 
 **Shadow Person**:
-A ghost that lives on a Room's walls. While its Room's Guests are inside it runs along the back wall from one side wall to the other, more often the lower the Room's Mood, frightening them (never into fleeing). A Strong Priest banishes it. The Terminal no longer sells one (G1 brings in-Room ghost Guests that haunt as Shadows).
+A ghost that lives on a Room's walls. While its Room's Guests are inside it runs along the back wall from one side wall to the other, more often the lower the Room's Mood, frightening them (never into fleeing). A Strong Priest banishes it. The Terminal no longer sells one. A strong ghost Guest switches an area's Shadow People on (see Area Shadow).
 _Avoid_: shadow ghost
 
 **Lobby**:
@@ -106,10 +106,26 @@ One number per Room, from -100 (dread) to 100 (cozy), the Room axis. It moves on
 Room Mood made visible: no spots from Mood +50 up, then one spot per about 3.75 points down to Mood -100 (Closed). The spots, the mess a Guest leaves and the calm lines stay tuned in 06's dirt scale (0 at +50 to 113 at -100); the code converts at one place (mood.go).
 
 **Realm**:
-One of the hotel's two independent layers, Human and Ghost. A Party lives in one; actors of different realms never bump, yield, push or queue for each other, and a Room is Occupied per realm. The Concierge is in Ghost while he is in the ghost Dimension. Every Party is Human until G1.
+One of the hotel's two independent layers, Human and Ghost. A Party lives in one; actors of different realms never bump, yield, push or queue for each other, and a Room is Occupied per realm. The Concierge is in Ghost while he is in the ghost Dimension. Every Party is Human until the Mirror is unlocked: then each Room also books a Ghost Party.
 
 **Guest stats**:
-Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity and Phantasm are read by V1, Haunt by G1.
+Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity is read by V1; Phantasm sets a ghost's kind and strength; Haunt sets how often it haunts.
+
+**Ghost guest** (Ghost Party):
+A Party of the Ghost realm. Once the Mirror is unlocked each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters hued by its ghost kind, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 55% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as dim silhouettes.
+_Avoid_: ghost Walk-in
+
+**Ghost kind**:
+A name for a band of the Phantasm scale, with one placeholder hue: Wisp (cyan, the lowest, weak), Specter (violet), Wraith (green) and Poltergeist (rose, the highest); the last three are strong. The band edges and the strong threshold are placeholders (`phantasmBands`, `phantasmStrong`), tuned in the sim.
+
+**Strong ghost**, **weak ghost**:
+A ghost whose Phantasm is at or above the strong threshold (every kind but the Wisp) is strong: it switches an area's Shadow People on. A weak one does not.
+
+**Area Shadow**:
+The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, drawn mid-way on the area's upper wall, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. Seen in real only, not hidden by a Room's Fog, and it frightens no one yet (V1).
+
+**In Room**:
+A Party is in its Room (`inRoom`) when it is staying and every Guest is inside the Room's walls, in either realm. A ghost haunts only while in Room.
 
 **Closed**:
 A Room at Mood -100. No new Party comes to it; a Party already in it stays until its checkout. The Terminal shows it in both Dimensions.
@@ -130,7 +146,7 @@ What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at 
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
-A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. G1 makes ghosts haunt; the Mood side exists already.
+A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. A ghost haunts only while in its Room.
 _Avoid_: Restlessness (a candidate name)
 
 **Request**:

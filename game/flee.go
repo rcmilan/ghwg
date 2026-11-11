@@ -30,8 +30,8 @@ func (g *Game) lift(guest *entities.Guest) float64 {
 // hears (D165): the Concierge hears a Guest within hearRange; in real, only one outside the Rooms with no
 // wall between them.
 func (g *Game) hears(guest *entities.Guest) bool {
-	if math.Hypot(guest.X-g.player.X, guest.Y-g.player.Y) > hearRange*world.TileSize {
-		return false
+	if math.Hypot(guest.X-g.player.X, guest.Y-g.player.Y) > hearRange*world.TileSize || !g.ghost && g.realmOf(guest) == Ghost {
+		return false // a ghost is unheard in real
 	}
 	return g.ghost || !g.indoors(guest) && g.sight(image.Pt(int(guest.X), int(guest.Y)), image.Pt(int(g.player.X), int(g.player.Y)))
 }

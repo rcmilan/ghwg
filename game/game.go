@@ -34,77 +34,79 @@ const (
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
 type Game struct {
-	state      int
-	hotel      *world.Hotel
-	types      []world.RoomType // every loaded Room Type, drawn from at each Run start
-	ts         *world.Tileset
-	cam        Camera
-	player     entities.Player
-	parties    []*Party // every Party on the map
-	tick       int      // simulation frames since launch
-	clock      int      // game time (clock.go)
-	fast       bool     // T held: the clock runs ×10
-	wallet     [2]Num   // Money and Ecto (wallet.go, D178)
-	ghost      bool     // the whole hotel is in the ghost dimension (D141); else the real one
-	mood       []int    // per Room: its Mood, -100..100 (mood.go)
-	serves     int      // requests answered this Run (serve.go)
-	expired    int      // requests left to expire this Run
-	priests    []*priest
-	shades     []shades // per Room: its Shadow People (D169, D185, shadow.go)
-	termCursor int      // the Terminal's selected Room
-	termPick   int      // the store's selected row in its tab, or in the cart (the last row is checkout)
-	walkIns    int      // Walk-ins this Run
-	floaters   []floater
-	locked     map[Unlock]bool  // nil: everything unlocked (unlock.go)
-	taps       [][taskCount]Num // per Room and Task: taps done (tap.go)
-	fog        []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
-	message    string
-	rng        *rand.Rand
-	chat       *rand.Rand                    // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
-	in         input                         // the keys (input.go)
-	headless   bool                          // no window: step skips what only drawing needs
-	auto       *autopilot                    // a Strategy plays instead of a person (sim.go)
-	tiles      []*ebiten.Image               // by world.TileID
-	characters map[string][2]*ebiten.Image   // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
-	bases      map[string][2]*image.RGBA     // each character's sheets as drawn, to recolor (D166)
-	floorImg   *ebiten.Image                 // the floor layer pre-rendered at 1px per world px
-	props      []prop                        // every other static tile, by SortY
-	dark       *ebiten.Image                 // the darkness layer, the size of what drawWorld draws onto (light.go)
-	pool, glow *ebiten.Image                 // light sprites: a ceiling light's pool, the Terminal's glow
-	palette    *ebiten.Shader                // the ghost dimension's arcade palette (ghost.go)
-	transition *ebiten.Shader                // the Mirror's transitions (shift.go)
-	fx         [2]*ebiten.Image              // a transition's real and ghost pictures
-	shifting   *shift                        // the Mirror's transition under way, nil if none (D170)
-	ink        *ebiten.Image                 // scratch for tinted text (fear.go)
-	balloon    *ebiten.Image                 // a Guest's request (serve.go)
-	tail       *ebiten.Image                 // the balloon's tail, pointing down
-	boxes      map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)
-	warm       bool                          // the shaders have been drawn once (shift.go warmUp)
-	spill      *ebiten.Image                 // the hall light through the Archway, built on first use (spill.go)
-	hud        [2]counter                    // per Res: its counter on screen (hud.go)
-	skull      *ebiten.Image                 // the Ecto counter's icon (hud.go)
-	termTab    Tab                           // the store's open tab (shop.go)
-	placing    int                           // the Service row waiting for its Room, or -1 (terminal.go)
-	cart       []cartLine                    // the store's cart (shop.go)
-	stock      map[Unlock]int                // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
-	earned     [2]Num                        // lifetime earnings this Run (wallet.go): open store items
-	boughtAt   map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
-	icons      map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
-	couriers   []*courier                    // on their way with an order (courier.go)
-	walls      []wallRun                     // the wall graph Shadows travel (D185, wall.go)
-	wallCell   []int                         // each map cell's run, -1 if none (wall.go)
-	onRun      [][]*shade                    // this frame's Shadows by run, for drawShadow
-	dirt       [][]spot                      // per Room: its dirt spots (dirt.go)
-	dirtN      []int                         // per Room: spots ever placed, the next one's seed
-	wiped      []wipe                        // cleaned spots, fading
-	arrivals   []arrival                     // per Room: its next Party's arrival (dirt.go)
-	stains     map[image.Point]*ebiten.Image // dirt spots' stains, by cell (dirt.go)
-	dirtBox    *ebiten.Image                 // the dirt complaint balloon (dirt.go)
-	guestNote  slot                          // the next-guest notice in the left column (hud.go)
-	guestText  string                        // its text, kept while it slides out
-	hands      Unlock                        // the supply the Concierge carries, "" for none (supply.go)
-	delivered  Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
-	askBox     *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	state         int
+	hotel         *world.Hotel
+	types         []world.RoomType // every loaded Room Type, drawn from at each Run start
+	ts            *world.Tileset
+	cam           Camera
+	player        entities.Player
+	parties       []*Party // every Party on the map
+	tick          int      // simulation frames since launch
+	clock         int      // game time (clock.go)
+	fast          bool     // T held: the clock runs ×10
+	wallet        [2]Num   // Money and Ecto (wallet.go, D178)
+	ghost         bool     // the whole hotel is in the ghost dimension (D141); else the real one
+	mood          []int    // per Room: its Mood, -100..100 (mood.go)
+	serves        int      // requests answered this Run (serve.go)
+	expired       int      // requests left to expire this Run
+	priests       []*priest
+	shades        []shades // per Room: its Shadow People (D169, D185, shadow.go)
+	termCursor    int      // the Terminal's selected Room
+	termPick      int      // the store's selected row in its tab, or in the cart (the last row is checkout)
+	walkIns       int      // Walk-ins this Run
+	floaters      []floater
+	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
+	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
+	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
+	message       string
+	rng           *rand.Rand
+	chat          *rand.Rand                    // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
+	in            input                         // the keys (input.go)
+	headless      bool                          // no window: step skips what only drawing needs
+	auto          *autopilot                    // a Strategy plays instead of a person (sim.go)
+	tiles         []*ebiten.Image               // by world.TileID
+	characters    map[string][2]*ebiten.Image   // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
+	bases         map[string][2]*image.RGBA     // each character's sheets as drawn, to recolor (D166)
+	floorImg      *ebiten.Image                 // the floor layer pre-rendered at 1px per world px
+	props         []prop                        // every other static tile, by SortY
+	dark          *ebiten.Image                 // the darkness layer, the size of what drawWorld draws onto (light.go)
+	pool, glow    *ebiten.Image                 // light sprites: a ceiling light's pool, the Terminal's glow
+	palette       *ebiten.Shader                // the ghost dimension's arcade palette (ghost.go)
+	transition    *ebiten.Shader                // the Mirror's transitions (shift.go)
+	fx            [2]*ebiten.Image              // a transition's real and ghost pictures
+	shifting      *shift                        // the Mirror's transition under way, nil if none (D170)
+	ink           *ebiten.Image                 // scratch for tinted text (fear.go)
+	balloon       *ebiten.Image                 // a Guest's request (serve.go)
+	tail          *ebiten.Image                 // the balloon's tail, pointing down
+	boxes         map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)
+	warm          bool                          // the shaders have been drawn once (shift.go warmUp)
+	spill         *ebiten.Image                 // the hall light through the Archway, built on first use (spill.go)
+	hud           [2]counter                    // per Res: its counter on screen (hud.go)
+	skull         *ebiten.Image                 // the Ecto counter's icon (hud.go)
+	termTab       Tab                           // the store's open tab (shop.go)
+	placing       int                           // the Service row waiting for its Room, or -1 (terminal.go)
+	cart          []cartLine                    // the store's cart (shop.go)
+	stock         map[Unlock]int                // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
+	earned        [2]Num                        // lifetime earnings this Run (wallet.go): open store items
+	boughtAt      map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
+	icons         map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
+	couriers      []*courier                    // on their way with an order (courier.go)
+	walls         []wallRun                     // the wall graph Shadows travel (D185, wall.go)
+	wallCell      []int                         // each map cell's run, -1 if none (wall.go)
+	onRun         [][]*shade                    // this frame's Shadows by run, for drawShadow
+	dirt          [][]spot                      // per Room: its dirt spots (dirt.go)
+	dirtN         []int                         // per Room: spots ever placed, the next one's seed
+	wiped         []wipe                        // cleaned spots, fading
+	arrivals      []arrival                     // per Room: its next Party's arrival (dirt.go)
+	stains        map[image.Point]*ebiten.Image // dirt spots' stains, by cell (dirt.go)
+	dirtBox       *ebiten.Image                 // the dirt complaint balloon (dirt.go)
+	guestNote     slot                          // the next-guest notice in the left column (hud.go)
+	guestText     string                        // its text, kept while it slides out
+	hands         Unlock                        // the supply the Concierge carries, "" for none (supply.go)
+	delivered     Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
+	askBox        *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	ghostArrivals []arrival                     // per Room: its next ghost Party's arrival (ghostguest.go)
+	areaShades    []*shade                      // the Shadow People strong ghosts switch on, one per area (shadow.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -181,6 +183,7 @@ func (g *Game) startRun() {
 	g.couriers, g.hands, g.delivered = nil, "", 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
+	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
 }
 
 func (g *Game) Update() error {
@@ -350,8 +353,8 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// doorActors: everyone on the map the doors react to, of either realm: a door is one structure, and its
-// Room is Occupied by the Human layer only until G1 gives the ghosts' side.
+// doorActors: everyone on the map the doors react to, of either realm: a door is one structure; whether its
+// Room is Occupied (shut to the Concierge) is per realm: the Guests of his own (occupied).
 func (g *Game) doorActors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
@@ -364,11 +367,11 @@ func (g *Game) doorActors() []world.Actor {
 	return as
 }
 
-// occupied: a Room's door is shut to the Concierge only while a Guest of its Party is inside (Live test 5,
+// occupied: a Room's door is shut to the Concierge only while a Guest of its Party, of his own realm, is inside (Live test 5,
 // 2026-11-08; D91 barred it for the whole Booking); already inside, the door lets him out, and his minutes
 // in there cost its Guests Comfort (intrude).
 func (g *Game) occupied(room int) bool {
-	_, gs := g.inside(room)
+	_, gs := g.insideIn(room, g.realm())
 	return len(gs) > 0
 }
 
