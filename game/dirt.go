@@ -195,10 +195,10 @@ func (g *Game) normalAt(room int, cell image.Point) int {
 }
 
 // clean wipes the Room's dirt (the spot at cell is the one tapped): its Mood rises to moodClean, never
-// lowers, and in ghost harvestRate of the dirt cleaned is banked as Ecto. Only with no Guest inside. False
+// lowers, and in ghost harvestRate of the dirt cleaned is banked as Ecto. Its Guests may be inside (2026-11-11). False
 // if refused.
 func (g *Game) clean(room int, cell image.Point) bool {
-	if _, gs := g.inside(room); g.normalAt(room, cell) < 0 || len(gs) > 0 {
+	if g.normalAt(room, cell) < 0 {
 		return false
 	}
 	cleaned, gone := g.dirtLevel(room), slices.Clone(g.spots(room))

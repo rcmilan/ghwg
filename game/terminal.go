@@ -404,9 +404,6 @@ func (g *Game) drawCart(s *ebiten.Image) {
 		for k, c := range w {
 			it := shop[slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowChange })]
 			name := g.hotel.Rooms[c.room].Number + " > " + strings.ToUpper(c.to.Beds)
-			if c.first {
-				name = g.hotel.Rooms[c.room].Number + " > MIRROR"
-			}
 			g.drawRowAt(s, at+1+k, g.termPick == len(g.cart)+1+k, it, name, c.paid, "", 1)
 		}
 	}

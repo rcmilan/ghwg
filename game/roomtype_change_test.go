@@ -214,7 +214,8 @@ func TestChangeBookedRoom(t *testing.T) {
 	}
 }
 
-// T278: the in-Room Mirror is bought once, with Ectoplasm, for its first Room. From then on a change costs
+// T278, T301: the in-Room Mirror is bought once, with Ectoplasm, for its first Room, where it is hung at
+// once, guests in or not, with no reel and no wait. From then on a change costs
 // Ectoplasm too, and every Room that changes, or that a key opens, has its own Mirror: SPACE under it shifts.
 // A boarded Room can't change.
 func TestRoomMirror(t *testing.T) {
@@ -247,13 +248,9 @@ func TestRoomMirror(t *testing.T) {
 	if why := g.addToCart(m, 0); why != "ALREADY OWNED" || slices.Contains(g.forSale(), m) {
 		t.Errorf("a second in-Room Mirror: %q", why)
 	}
-	g.step(0, 0)
 	r := g.hotel.Rooms[0]
-	if r.Mirror.Empty() || r.Type.Beds != "Single" {
-		t.Fatalf("the first Room: mirror %v, %s; want its Mirror on, still Single", r.Mirror, r.Type.Beds)
-	}
-	for g.changing(0) {
-		g.step(0, 0)
+	if r.Mirror.Empty() || r.Type.Beds != "Single" || g.changing(0) {
+		t.Fatalf("the first Room: mirror %v, %s, changing %v; want its Mirror on at once, still Single, no reel", r.Mirror, r.Type.Beds, g.changing(0))
 	}
 	if c := changeCost(g); c != (Cost{Money: bedKinds[1].Fee, Ecto: changeEcto}) {
 		t.Errorf("a change costs %v after the in-Room Mirror, want Money and Ectoplasm", c)
@@ -279,7 +276,8 @@ func TestRoomMirror(t *testing.T) {
 		t.Error("SPACE under the Room's Mirror did not shift")
 	}
 
-	// cancelling the first Room's change takes the whole purchase back
+	// with a Party in and a change waiting: the Mirror is hung now, the change still waits; cancelling it
+	// refunds its fee only
 	g = closedRun(t)
 	g.roomOwned[0] = true
 	g.own(Mirror)
@@ -288,28 +286,29 @@ func TestRoomMirror(t *testing.T) {
 	g.settleIn(p)
 	p.Rate = 0 // no rent in the wallet
 	g.wallet = [2]Num{bedKinds[1].Fee, roomMirrorEcto}
-	if why := order(t, g, 0, "Twin"); why != "" { // a change already waiting on the Room: the Mirror joins it
+	if why := order(t, g, 0, "Twin"); why != "" {
 		t.Fatal(why)
 	}
 	if why := g.addToCart(m, 0); why != "" || g.placeOrder() != "" {
 		t.Fatal(why)
 	}
-	if len(g.pending()) != 1 || !g.unlocked(RoomMirror) || g.wallet != [2]Num{} {
-		t.Fatalf("%d changes waiting, wallet %v; want the one, carrying the Mirror", len(g.pending()), g.wallet)
+	if r = g.hotel.Rooms[0]; r.Mirror.Empty() || r.Type.Beds != "Single" || len(g.pending()) != 1 || g.wallet != [2]Num{} {
+		t.Fatalf("a Party in: mirror %v, %s, %d changes waiting, wallet %v; want the Mirror on, the change to Twin waiting", r.Mirror, r.Type.Beds, len(g.pending()), g.wallet)
+	}
+	if _, in := g.inside(0); len(in) == 0 {
+		t.Error("hanging the Mirror moved the Party out")
 	}
 	g.cancelChange(g.pending()[0])
-	if g.wallet != [2]Num{bedKinds[1].Fee, roomMirrorEcto} || g.unlocked(RoomMirror) || !slices.Contains(g.forSale(), m) {
-		t.Errorf("cancelled: wallet %v, unlocked %v; want it all back and the Mirror for sale again", g.wallet, g.unlocked(RoomMirror))
+	if g.wallet != [2]Num{bedKinds[1].Fee, 0} || !g.unlocked(RoomMirror) || g.hotel.Rooms[0].Mirror.Empty() {
+		t.Errorf("cancelled: wallet %v, unlocked %v; want the fee back and the Mirror kept", g.wallet, g.unlocked(RoomMirror))
 	}
 }
 
-// T297: the opener plays K1's part of the opening through the Terminal: Twin beds, a Room changed to Twin,
-// the in-Room Mirror for it. The pacing goal (2026-11-11: the first Room with its own Mirror at about 60 game
-// hours, 10 minutes of regular play, none past 90) is NOT met, and K1's prices can't meet it alone: a booked
-// Room's change waits out its Parties' stays (up to 3 nights), and a haunted Room earns next to nothing (X2).
-// Over 60 Runs of 6 days, 27 finish the loop, at 52..124 h (cmd/sim -strategy opener -runs 60 -days 6). Until
-// that is decided, this holds only what works: no Run fails, every one buys Twin beds and orders a change,
-// and the loop is finished on some seeds; the times are logged.
+// T297, T303: the opener plays K1's part of the opening through the Terminal: Twin beds, a Room changed to
+// Twin, the in-Room Mirror for it. The pacing goal (2026-11-11): the in-Room Mirror is bought within 10 minutes
+// of regular play (60 game hours) on most Runs, and on none past 90 h. It holds since the Mirror is hung at
+// once and a Room is cleaned with its guests in: 8 seeds finish at 29..77 h. The Mirror's price is not the
+// lever (90, 120 and 150 Ectoplasm give the same ends); the wait is for Twin beds and the first change.
 func TestPacing(t *testing.T) {
 	var at []float64
 	for seed := uint64(1); seed <= 8; seed++ {
@@ -326,7 +325,7 @@ func TestPacing(t *testing.T) {
 	}
 	sort.Float64s(at)
 	t.Logf("the first Room with its own Mirror, game hours, on %d of 8 seeds: %.1f", len(at), at)
-	if len(at) == 0 {
-		t.Error("no Run reached the in-Room Mirror")
+	if len(at) != 8 || at[len(at)/2] > 60 || at[len(at)-1] > 90 {
+		t.Errorf("the in-Room Mirror on %d of 8 seeds, at %.1f h; want all 8, the median within 60 h, none past 90", len(at), at)
 	}
 }

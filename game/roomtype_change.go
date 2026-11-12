@@ -13,9 +13,10 @@ import (
 // HOTEL unlocks; the "Change type" Service switches a Room to any unlocked layout, Single too, each change
 // for a fee. An empty Room changes at once, its reel rolling in the world when the Terminal closes; a Room
 // in use waits, taking no booking in either realm, and changes when it empties. The in-Room Mirror is bought
-// once, with Ectoplasm, for its first Room; after it every Room that changes, or that a key opens, has one,
+// once, with Ectoplasm, for its first Room, where it is hung at once, guests in or not (the furniture doesn't
+// change); after it every Room that changes, or that a key opens, has one,
 // and every change costs Ectoplasm too. A Room's Mood stays with the Room. Amounts are placeholders, kept
-// low: the pacing goal (the first in-Room Mirror near 10 minutes of regular play) is not met yet (TestPacing).
+// low for the pacing goal: the in-Room Mirror bought within 10 minutes of regular play (TestPacing).
 const (
 	BedsTwin   Unlock = "beds-twin"
 	BedsDouble Unlock = "beds-double"
@@ -38,12 +39,11 @@ var bedKinds = [...]bedKind{{"Single", "", 10}, {"Twin", BedsTwin, 15}, {"Double
 
 // change is a Room's paid-for change of type: waiting for the Room to empty, or its reel rolling.
 type change struct {
-	room  int
-	to    world.RoomType
-	paid  Cost // refunded if it's cancelled while it waits
-	first bool // it carries the in-Room Mirror's purchase: cancelling it locks the Mirror again
-	reel  int  // the tick its reel began: the Room has changed; 0 while it waits
-	pics  reelPics
+	room int
+	to   world.RoomType
+	paid Cost // refunded if it's cancelled while it waits
+	reel int  // the tick its reel began: the Room has changed; 0 while it waits
+	pics reelPics
 }
 
 // bedOpen: bed layout k is unlocked.
@@ -108,18 +108,11 @@ func noRoomMirror(g *Game, room int) string {
 	return ""
 }
 
-// buyRoomMirror: the in-Room Mirror is owned, and its first Room gets it: with the change that Room already
-// waits for, if any (the two are then one: cancelled and refunded together), else with one of its own, to
-// the type it has.
+// buyRoomMirror: the in-Room Mirror is owned, and its first Room gets it now, as it stands: no reel, no wait
+// (2026-11-11). A change the Room waits for keeps waiting.
 func (g *Game) buyRoomMirror(l cartLine) {
 	g.own(RoomMirror)
-	for _, c := range g.pending() {
-		if c.room == l.room {
-			c.first, c.paid[Ecto] = true, c.paid[Ecto]+l.cost()[Ecto]
-			return
-		}
-	}
-	g.changes = append(g.changes, &change{room: l.room, to: g.hotel.Rooms[l.room].Type, paid: l.cost(), first: true})
+	g.setRoom(l.room, g.hotel.Rooms[l.room].Type, true)
 }
 
 // init sets the Refuse of K1's store rows here, as owned.go does: they read the shop.
@@ -138,12 +131,6 @@ func init() {
 func (g *Game) cancelChange(c *change) {
 	g.wallet[Money] += c.paid[Money]
 	g.wallet[Ecto] += c.paid[Ecto]
-	if c.first {
-		if g.locked == nil {
-			g.locked = map[Unlock]bool{}
-		}
-		g.locked[RoomMirror] = true
-	}
 	g.changes = slices.DeleteFunc(g.changes, func(o *change) bool { return o == c })
 }
 

@@ -69,7 +69,7 @@ func serveRoom(v View, p *Pilot, room int) {
 	p.Serve(room)
 }
 
-// smart keeps the supplies stocked, serves whenever a Room asks, cleans empty Rooms in ghost (Ecto from the
+// smart keeps the supplies stocked, serves whenever a Room asks, cleans dirty Rooms in ghost (Ecto from the
 // dirt), calls a Weak Priest to a Closed Room, and waits at the Mirror in between.
 type smart struct {
 	save bool // it buys nothing: the wallet is being saved for something else (the opener's upgrades)
@@ -93,8 +93,8 @@ func (s smart) Act(v View, p *Pilot) {
 		serveRoom(v, p, i)
 		return
 	}
-	for i, r := range v.Rooms { // empty and dirty: clean it before its Party walks away, in ghost for the Ecto (dirt.go)
-		if (r.Vacant || r.Away) && len(r.Dirt) > 0 {
+	for i, r := range v.Rooms { // dirty, its Party in or not: clean it, in ghost for the Ecto (dirt.go)
+		if !r.Boarded && len(r.Dirt) > 0 {
 			p.Flip(true)
 			p.Clean(i, r.Dirt[0])
 			return

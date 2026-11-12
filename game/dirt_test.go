@@ -93,9 +93,9 @@ func TestSpots(t *testing.T) {
 	}
 }
 
-// T202, T266: SPACE on a normal spot inside an empty Room cleans the Room: its Mood rises to moodClean and
-// all its spots go; in ghost, harvestRate of the dirt cleaned is banked as Ecto. One TaskHousekeep tap
-// each. Refused with a Guest inside, and on a spiritual spot. A clean never lowers a Mood already above.
+// T202, T266, T302: SPACE on a normal spot inside a Room cleans the Room, its Guests inside or not: its Mood
+// rises to moodClean and all its spots go; in ghost, harvestRate of the dirt cleaned is banked as Ecto. One
+// TaskHousekeep tap each. Refused on a spiritual spot. A clean never lowers a Mood already above.
 func TestClean(t *testing.T) {
 	g, s, p := pairIn(t, 2, 1, 0)
 	g.setDirtLevel(0, 3*spotUnit)
@@ -109,12 +109,9 @@ func TestClean(t *testing.T) {
 		}
 	}
 	g.dirt, g.dirtN = [][]spot{{{free[0], false, spotUnit}, {free[1], true, spotUnit}, {free[2], false, spotUnit}}, nil}, []int{3, 0} // by hand: 2 normal, 1 spiritual
-	mood := g.roomMood(0)
-	press(g, s, cellPt(free[0]))
-	if g.roomMood(0) != mood || len(g.spots(0)) != 3 {
-		t.Fatalf("with Guests inside: Mood %d, spots %d; want untouched", g.roomMood(0), len(g.spots(0)))
+	if _, in := g.inside(0); len(in) == 0 || p.state != staying {
+		t.Fatal("the pair is not inside its Room")
 	}
-	p.state = out
 	g.ghost = true
 	press(g, s, cellPt(free[1]))
 	g.ghost = false

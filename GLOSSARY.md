@@ -142,7 +142,7 @@ What the Concierge does for an Occupied Room whose Party is asking, in the real 
 _Avoid_: tend, room service (as the term)
 
 **Mood pay factor**:
-What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (paid every frame a Guest is inside its Room, from its first step in) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
+What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (owed for every moment a Guest is inside its Room, from its first step in, and paid on the hour in whole dollars, as the "+$N" at the door) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
@@ -260,5 +260,5 @@ How a Room Change shows: the Room's whole footprint rolls like a slot machine's 
 _Avoid_: slot machine (as a mechanic: nothing is random), transition
 
 **In-Room Mirror**:
-A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, for a first Room; from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
+A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, for a first Room, where it is hung at once, its Guests in or not; from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
 _Avoid_: vanity, second Mirror, Room mirror (the store row's name only)

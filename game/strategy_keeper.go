@@ -19,7 +19,7 @@ func (keeper) Act(v View, p *Pilot) {
 		return
 	}
 	for i, r := range v.Rooms {
-		if (r.Vacant || r.Away) && len(r.Dirt) > 0 {
+		if !r.Boarded && len(r.Dirt) > 0 {
 			p.Clean(i, r.Dirt[0])
 			return
 		}
