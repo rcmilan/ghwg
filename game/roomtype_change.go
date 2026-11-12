@@ -58,14 +58,17 @@ func (g *Game) pickBeds(d int) {
 	}
 }
 
-// changeCost: a change to the Terminal's picked layout: its fee, plus Ectoplasm once the in-Room Mirror is in.
-func changeCost(g *Game) Cost {
-	c := Cost{Money: bedKinds[g.termBeds].Fee}
+// bedFee: a change to layout k: its fee, plus Ectoplasm once the in-Room Mirror is in.
+func (g *Game) bedFee(k int) Cost {
+	c := Cost{Money: bedKinds[k].Fee}
 	if g.unlocked(RoomMirror) {
 		c[Ecto] = changeEcto
 	}
 	return c
 }
+
+// changeCost: a change to the Terminal's picked layout.
+func changeCost(g *Game) Cost { return g.bedFee(g.termBeds) }
 
 // changing: the Room has a change waiting or rolling: it takes no booking.
 func (g *Game) changing(room int) bool {
@@ -119,21 +122,16 @@ func (g *Game) buyRoomMirror(l cartLine) {
 	g.changes = append(g.changes, &change{room: l.room, to: g.hotel.Rooms[l.room].Type, paid: l.cost(), first: true})
 }
 
-// init appends K1's store rows, and sets their Refuse here, as owned.go does: they read the shop.
+// init sets the Refuse of K1's store rows here, as owned.go does: they read the shop.
 func init() {
-	shop = append(shop,
-		Item{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Icon: "drawer_a", Cost: Cost{Money: 20},
-			Needs: []Unlock{Mirror}, Earned: Cost{Money: 10}},
-		Item{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "cabinet", Cost: Cost{Money: 40},
-			Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 40}},
-		Item{ID: rowChange, Tab: tabServices, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "wardrobe_broken", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
-			Refuse: noChange, Send: func(g *Game, l cartLine) {
-				t, _ := world.TypeOf(g.types, l.beds)
-				g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
-			}},
-		Item{ID: RoomMirror, Tab: tabServices, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "cabinet_mirror", Cost: Cost{Ecto: roomMirrorEcto},
-			Needs: []Unlock{Mirror}, Refuse: noRoomMirror, Send: (*Game).buyRoomMirror},
-	)
+	for i := range shop {
+		switch shop[i].ID {
+		case rowChange:
+			shop[i].Refuse = noChange
+		case RoomMirror:
+			shop[i].Refuse = noRoomMirror
+		}
+	}
 }
 
 // cancelChange calls off a waiting change and refunds it in full; the Room books again.
@@ -225,5 +223,14 @@ func (g *Game) DevChange(beds string, cart bool) {
 	if cart {
 		g.openTerminal()
 		g.termTab, g.termPick = tabCart, 1
+	}
+}
+
+// DevTerm is main's -term: the Terminal open on a tab and a row, the row's Room pick up if place.
+func (g *Game) DevTerm(tab, row int, place bool) {
+	g.openTerminal()
+	g.termTab, g.termPick = Tab(tab), row
+	if place {
+		g.message = g.press()
 	}
 }

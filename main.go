@@ -37,6 +37,7 @@ func main() {
 	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
 	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -cart shows the CHANGES list)")
 	cart := flag.Bool("cart", false, "dev, with -change: open the Terminal on its CART tab")
+	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it (e.g. 1,3,1: the Room pick of Change type)")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
 	flag.Parse()
 
@@ -95,6 +96,11 @@ func main() {
 			log.Fatalf("-shop %q: want money,ecto, like 30,40", *shop)
 		}
 		g.ShopPrint(money, ecto)
+	}
+	if *term != "" {
+		var tab, row, place int
+		fmt.Sscanf(*term, "%d,%d,%d", &tab, &row, &place)
+		g.DevTerm(tab, row, place == 1)
 	}
 	if *shotPath != "" {
 		s := &shot{Game: g, path: *shotPath, at: *at}

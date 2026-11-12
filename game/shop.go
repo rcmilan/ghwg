@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"ghosthotel/entities"
+	"ghosthotel/world"
 )
 
 // The Terminal is a web store (D180, redesigned 2026-11-08): tabs of items, a cart, a checkout.
@@ -33,15 +34,18 @@ type Item struct {
 	Pack   int                // Supplies: units into stock per buy
 	Needs  []Unlock           // owned first, then
 	Earned Cost               // earned since the last of Needs was bought. No Needs and no Earned: on sale from the start
-	// Services only: why the Room can't take it ("" if it can), the paid-for delivery, and Once for one
+	// For a Room only (Send set): why the Room can't take it ("" if it can), the paid-for delivery, and Once for one
 	// bought a single time: an unlock that picks a Room (the in-Room Mirror).
 	Refuse func(g *Game, room int) string
 	Send   func(g *Game, l cartLine)
 	Once   bool
 }
 
-// unlock: the item is an unlock, owned once bought: a HOTEL item or a Once Service.
-func (it Item) unlock() bool { return it.Tab == tabHotel || it.Once }
+// room: the item is for one Room, picked when it goes in the cart, whatever its tab.
+func (it Item) room() bool { return it.Send != nil }
+
+// unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
+func (it Item) unlock() bool { return it.Tab == tabHotel && !it.room() || it.Once }
 
 // The Services aren't unlocks; their IDs only name them.
 const (
@@ -56,13 +60,23 @@ func noPriest(g *Game, room int) string {
 	return ""
 }
 
-// shop is the catalog, in its order. Prices, packs and thresholds are placeholders.
+// shop is the catalog, in its order: a tab lists its rows as they stand here, so a new row goes next to its
+// kind (the keys, then the Priests), not at the end. Prices, packs and thresholds are placeholders.
 var shop = []Item{
 	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Icon: "icon_water", Cost: Cost{Money: 10}, Pack: 5},
 	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Icon: "food_4", Cost: Cost{Money: 20}, Pack: 5},
 	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 15}, Pack: 5},
 
-	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "mirror_standing", Cost: Cost{Money: mirrorPrice}},
+	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "icon_mirror", Cost: Cost{Money: mirrorPrice}},
+	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Icon: "icon_bed_twin", Cost: Cost{Money: 20},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 10}},
+	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "icon_bed_double", Cost: Cost{Money: 40},
+		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 40}},
+	{ID: rowChange, Tab: tabHotel, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
+		Send: func(g *Game, l cartLine) {
+			t, _ := world.TypeOf(g.types, l.beds)
+			g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
+		}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
 	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Ecto: 40},
@@ -72,12 +86,14 @@ var shop = []Item{
 	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 500, Ecto: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Ecto: 1000}},
 
-	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowKey, Tab: tabServices, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
+	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
+	{ID: RoomMirror, Tab: tabServices, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
+		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
 }
 
 // cartLine is one cart entry: n of a Supply, an unlock, or a Service for a Room (else room is -1).
@@ -127,7 +143,7 @@ func (g *Game) addToCart(i, room int) string {
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
 		return "NOT ENOUGH IN THE WALLET"
-	case it.Tab == tabServices:
+	case it.room():
 		if why := it.Refuse(g, room); why != "" {
 			return why
 		}
@@ -210,7 +226,7 @@ func (g *Game) ship(order []cartLine) {
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
 		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
-		case it.Tab != tabServices:
+		case !it.room():
 			stock.lines = append(stock.lines, l)
 		default:
 			g.receive(l)
@@ -228,16 +244,16 @@ func (g *Game) ship(order []cartLine) {
 // receive: an order cartLine arrives. A Supply goes into stock, an unlock is owned, a Service starts.
 func (g *Game) receive(l cartLine) {
 	it := shop[l.item]
-	switch it.Tab {
-	case tabSupplies:
+	switch {
+	case it.room():
+		it.Send(g, l)
+	case it.Tab == tabSupplies:
 		if g.stock == nil {
 			g.stock = map[Unlock]int{}
 		}
 		g.stock[it.ID] += it.Pack * l.n
-	case tabHotel:
+	default:
 		g.own(it.ID)
-	case tabServices:
-		it.Send(g, l)
 	}
 }
 

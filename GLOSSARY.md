@@ -252,7 +252,7 @@ _Avoid_: cutscene, tutorial
 The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart while it saves for the Twin Bed Layout, changes a Room to it and buys the In-Room Mirror for that Room. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks; `room mirror at (h)`, until the first Room has its own.
 
 **Room Change**:
-A Service in the Terminal's SERVICES tab ("Change type") that gives a Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled for a full refund. The Room's Mood is untouched.
+A row of the Terminal's HOTEL tab ("Change type"), bought for one Room, that gives a Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled for a full refund. The Room's Mood is untouched.
 _Avoid_: upgrade, renovation, Spin
 
 **Reel**:

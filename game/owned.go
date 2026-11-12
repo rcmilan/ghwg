@@ -108,7 +108,10 @@ func (g *Game) sprite(name string) *ebiten.Image {
 		g.icons = map[string]*ebiten.Image{}
 	}
 	img, ok := g.icons[name]
-	if !ok {
+	if rows := tileIcons[name]; !ok && rows != nil {
+		img = g.tileIcon(rows)
+		g.icons[name] = img
+	} else if !ok {
 		img, _, _ = ebitenutil.NewImageFromFileSystem(assets.FS, "sprites/"+name+".png")
 		g.icons[name] = img
 	}

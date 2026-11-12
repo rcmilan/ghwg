@@ -85,7 +85,7 @@ func TestChangeEmptyRoom(t *testing.T) {
 	g.wallet[Money] = 100
 	g.setDirtLevel(0, 3*spotUnit)
 	mood, dirt, walls := g.roomMood(0), g.dirtLevel(0), len(g.walls)
-	if i := row(t, rowChange); shop[i].Tab != tabServices || !g.onSale(i) {
+	if i := row(t, rowChange); shop[i].Tab != tabHotel || !g.onSale(i) {
 		t.Fatal("Change type is not a Service on sale")
 	}
 	if why := order(t, g, 0, "Single"); why != "ROOM 101 IS ALREADY SINGLE" {
