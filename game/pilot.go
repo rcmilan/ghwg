@@ -246,15 +246,23 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
+// Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the store asks
+// for the Room. ok once the Room is changing or has changed.
+func (p *Pilot) Change(room int, beds string) {
+	p.buy(rowChange, room, beds, func(v View) bool { return v.Rooms[room].Changing || v.Rooms[room].Beds == beds })
+}
+
 // Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
 // Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
 // when the item isn't for sale or the store refuses it.
-func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
+func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) { p.buy(id, room, "", got) }
+
+func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
 	tab := shop[i].Tab
 	pos := slices.Index(tabItems(tab), i)
 	p.OpenTerminal()
-	cart0, paid := -1, false
+	cart0, paid, spins := -1, false, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
@@ -268,6 +276,13 @@ func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
 		switch {
 		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
+		case t.Placing && beds != "" && t.Beds != beds && spins > len(bedKinds): // not unlocked: give up
+			return true, false
+		case t.Placing && beds != "" && t.Beds != beds:
+			if k = ebiten.KeyS; p.tap(k) {
+				spins++
+			}
+			return false, false
 		case t.Placing && t.Cursor != room:
 			k = ebiten.KeyD
 		case t.Placing:

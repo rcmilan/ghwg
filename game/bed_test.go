@@ -9,8 +9,9 @@ import (
 	"ghosthotel/world"
 )
 
-// T141, D167: a staying Party walks into bed at sleepHour, each Guest up its own lane, and back to its Stay
-// Spot at wakeHour; one checking in at night goes to bed once in. Haunted in bed, it flees and leaves.
+// T141, D167: a staying Party walks into bed at sleepHour and back to its Stay Spot at wakeHour; one checking
+// in at night goes to bed once in. Haunted in bed, it flees and leaves. T299 (K1): each Guest gets in and
+// out by its bed's side, level with the pillow, never over the bed's foot.
 func TestSleep(t *testing.T) {
 	for _, beds := range []string{"Twin", "Double"} {
 		g := mustNew(t)
@@ -26,6 +27,11 @@ func TestSleep(t *testing.T) {
 					return
 				}
 				g.step(0, 0)
+				for _, guest := range p.Guests {
+					if b, ok := g.bedAt(guest.X, guest.Y); ok && int(guest.Y) > sleepSpot(b).Y+2 { // a push may nudge it a pixel
+						t.Fatalf("%s, %s: a Guest at %v crossed the foot of the bed %v", beds, what, at(guest), b)
+					}
+				}
 			}
 			t.Fatalf("%s, %s: %s", beds, what, where(p.Guests))
 		}
@@ -47,26 +53,36 @@ func TestSleep(t *testing.T) {
 	}
 }
 
-// T143, D167: the Concierge walks up a bed's lane from its Stay Spot to the pillow, never onto a bed from
-// its side.
+// T143, T299: the Concierge lies in a bed from its side cell, never from its foot.
 func TestConciergeInBed(t *testing.T) {
-	g := mustNew(t)
-	g.startRun()
-	furnish(t, g, "Single")
-	r := g.hotel.Rooms[0]
-	bed, foot := r.Lanes[0], r.Stays[0]
-	g.player.X, g.player.Y = float64(foot.X), float64(foot.Y)
-	for range 2 * tps {
-		g.step(0, -1)
-	}
-	if at, ok := g.bedAt(g.player.X, g.player.Y); !ok || at != bed || g.player.Y > float64(sleepSpot(bed).Y)+1 {
-		t.Fatalf("walking up from the Stay Spot he stopped at (%.1f,%.1f), want the sleep spot %v", g.player.X, g.player.Y, sleepSpot(bed))
-	}
-	g.player.X, g.player.Y = float64(bed.Max.X+world.TileSize/2), float64(sleepSpot(bed).Y)
-	for range tps {
-		g.step(-1, 0)
-	}
-	if _, ok := g.bedAt(g.player.X, g.player.Y); ok || g.player.X-entities.FootW/2 < float64(bed.Max.X) {
-		t.Fatalf("from beside the bed he stepped onto it: (%.1f,%.1f)", g.player.X, g.player.Y)
+	for _, beds := range []string{"Single", "Twin", "Double"} {
+		g := mustNew(t)
+		g.startRun()
+		furnish(t, g, beds)
+		r := g.hotel.Rooms[0]
+		for i, bed := range r.Lanes {
+			foot, side := r.Stays[i], g.bedSide(r.Lanes[i])
+			if g.hotel.Map.Solid(side.X/world.TileSize, side.Y/world.TileSize) || side.Y != sleepSpot(bed).Y {
+				t.Fatalf("%s bed %d: its side %v is not free floor level with the pillow", beds, i, side)
+			}
+			g.player.X, g.player.Y = float64(foot.X), float64(foot.Y)
+			for range 2 * tps {
+				g.step(0, -1)
+			}
+			if _, ok := g.bedAt(g.player.X, g.player.Y); ok {
+				t.Fatalf("%s bed %d: walking up from the Stay Spot he got onto the bed at (%.1f,%.1f)", beds, i, g.player.X, g.player.Y)
+			}
+			g.player.X, g.player.Y = float64(side.X), float64(side.Y)
+			dx := sign(float64(sleepSpot(bed).X - side.X))
+			for range 3 * tps {
+				if int(g.player.X) == sleepSpot(bed).X {
+					break
+				}
+				g.step(dx, 0)
+			}
+			if at, ok := g.bedAt(g.player.X, g.player.Y); !ok || at != bed || int(g.player.X) != sleepSpot(bed).X {
+				t.Fatalf("%s bed %d: from its side %v he stopped at (%.1f,%.1f), want the sleep spot %v", beds, i, side, g.player.X, g.player.Y, sleepSpot(bed))
+			}
+		}
 	}
 }

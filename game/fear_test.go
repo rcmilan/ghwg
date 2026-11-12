@@ -43,6 +43,7 @@ func pairIn(t *testing.T, cols, rows, room int) (*Game, *script, *Party) {
 	t.Helper()
 	g, s := headless(t, cols, rows, 1)
 	g.startRun()
+	furnish(t, g, "Twin") // every Room opens Single (K1)
 	r := g.hotel.Rooms[room]
 	a, b := entities.NewGuest(r.Stays[0], "Adam"), entities.NewGuest(r.Stays[len(r.Stays)-1], "Alex")
 	p := &Party{Guests: []*entities.Guest{&a, &b}, state: staying, Booking: Booking{Room: room, Nights: 1, Rate: 100, Checkout: 99 * dayFrames}}

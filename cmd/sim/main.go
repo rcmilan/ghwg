@@ -31,6 +31,7 @@ func main() {
 	keyGap := flag.Int("keygap", 6, "frames between the Pilot's key taps")
 	open := flag.Bool("open", false, "start each Run with every Room owned (a normal Run starts with them boarded up and Money for one key)")
 	mirror := flag.Bool("mirror", false, "start each Run with the Mirror unlocked, so ghosts book and haunt (a normal Run starts with it locked: no ghosts)")
+	beds := flag.String("beds", "", "start each Run with every Room of this bed layout: Single, Twin or Double (a normal Run starts all Single; Twin and Double bring pairs)")
 	noCheck := flag.Bool("nocheck", false, "skip the invariant checks")
 	csvPath := flag.String("csv", "", "write one row per Run to this file")
 	ectoRate := flag.Float64("ectorate", 0.5, "$ one Ectoplasm is worth in the score column: an assumed shop price (T112)")
@@ -60,7 +61,7 @@ func main() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				results[s][i] = game.RunSim(game.Config{Cols: cols, Rows: rows, Days: *days, Seed: *seed + uint64(i),
-					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror, Open: *open})
+					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror, Open: *open, Beds: *beds})
 			}()
 		}
 	}
@@ -69,14 +70,18 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d, score = $ + Ectoplasm × %g\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\tfailures\t")
+	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
 	var failures []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		mirrorSum, mirrorN := 0.0, 0
+		var roomMirror []float64
 		for _, r := range results[s] {
+			if r.RoomMirror >= 0 {
+				roomMirror = append(roomMirror, r.RoomMirror)
+			}
 			if r.MirrorAt >= 0 {
 				mirrorSum, mirrorN = mirrorSum+r.MirrorAt, mirrorN+1
 			}
@@ -109,10 +114,17 @@ func main() {
 				mirrorAt += fmt.Sprintf(" (%d/%d)", mirrorN, *runs)
 			}
 		}
-		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%s\t%d\t\n", name,
+		roomMirrorAt := "-" // the first in-Room Mirror: median, min..max over the Runs that got one (K1's pacing goal)
+		if slices.Sort(roomMirror); len(roomMirror) > 0 {
+			roomMirrorAt = fmt.Sprintf("%.1f, %.1f..%.1f", roomMirror[len(roomMirror)/2], roomMirror[0], roomMirror[len(roomMirror)-1])
+			if len(roomMirror) < *runs {
+				roomMirrorAt += fmt.Sprintf(" (%d/%d)", len(roomMirror), *runs)
+			}
+		}
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%s\t%s\t%d\t\n", name,
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
 			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
-			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, failed)
+			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
 	}
 	w.Flush()
 	if len(failures) > 0 {
@@ -141,7 +153,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "ghosts", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "closed_hours", "mirror_at_h", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "ghosts", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "closed_hours", "mirror_at_h", "room_mirror_at_h", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -156,7 +168,7 @@ func writeCSV(path string, results [][]game.Result) error {
 				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
 				strconv.Itoa(r.Bookings), strconv.Itoa(r.Ghosts), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
 				strconv.Itoa(r.Fled), strconv.Itoa(r.Ecto), strconv.Itoa(r.Serves), strconv.Itoa(r.Expired),
-				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), strconv.FormatFloat(r.MirrorAt, 'f', 1, 64), failure})
+				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), strconv.FormatFloat(r.MirrorAt, 'f', 1, 64), strconv.FormatFloat(r.RoomMirror, 'f', 1, 64), failure})
 		}
 	}
 	w.Flush()

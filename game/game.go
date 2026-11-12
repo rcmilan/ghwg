@@ -115,6 +115,9 @@ type Game struct {
 	introOn       bool                          // a Run starts with the opening intro (intro.go); off for the sim, the tests and prints
 	intro         *intro                        // the intro under way, nil if none
 	wide          *ebiten.Image                 // the whole hotel at zoom, the intro's first shots (intro.go)
+	changes       []*change                     // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
+	termBeds      int                           // the bed layout picked for a change at the Terminal, an index into bedKinds
+	bedsAtStart   string                        // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -142,7 +145,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(seed, seed))
-	h, err := world.Build(ts, types, cols, rows, rng)
+	h, err := world.Build(ts, types, cols, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -176,8 +179,8 @@ func (g *Game) mapSize() (int, int) {
 	return g.hotel.Map.W * world.TileSize, g.hotel.Map.H * world.TileSize
 }
 
-// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
-// (D135: no Spin after this), no money.
+// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and a Standard Single (K1: the Run-start
+// draw is gone; Rooms change type one by one, roomtype_change.go), no money.
 func (g *Game) startRun() {
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
@@ -185,7 +188,17 @@ func (g *Game) startRun() {
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.state = StatePlay
-	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
+	first, ok := world.TypeOf(g.types, g.bedsAtStart)
+	if !ok {
+		first, _ = world.TypeOf(g.types, "Single")
+	}
+	for i := range g.hotel.Rooms {
+		g.hotel.Land(i, first, false)
+	}
+	for _, c := range g.changes {
+		c.pics.free()
+	}
+	g.changes, g.termBeds = nil, 0
 	g.floorImg = nil // re-rendered on the next Draw
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
@@ -196,10 +209,9 @@ func (g *Game) startRun() {
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
 	g.hushed = map[int]bool{}
-	g.locked = nil // a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's T272)
-	if !g.mirrorAtStart {
-		g.locked = map[Unlock]bool{Mirror: true}
-	}
+	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
+	// T272); and with K1's bed layouts and in-Room Mirror to buy
+	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true}
 	g.roomOwned = nil // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
@@ -252,10 +264,11 @@ func (g *Game) Update() error {
 			g.startShift()
 		case g.atMirror(): // covered until the courier installs it
 			g.message = "THE MIRROR IS COVERED"
+		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
+			g.startShift()
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
-		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
-			g.deliver(g.atDoor(), g.hands)
+		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)
@@ -271,7 +284,8 @@ func (g *Game) step(dx, dy float64) {
 	g.tick++
 	g.advanceClock()
 	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
-	g.hotel.UpdateDoors(g.doorActors(), g.occupied)
+	g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+	g.updateChanges()
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
@@ -299,19 +313,9 @@ func (g *Game) blocked(r image.Rectangle) bool {
 	return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r)
 }
 
-// conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
-// can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
-// the Room he's in. A bed's lane lets him lie in it (D167).
-func (g *Game) conciergeBlocked(r image.Rectangle) bool {
-	at, now := image.Pt(int(g.player.X), int(g.player.Y)), entities.FootBox(g.player.X, g.player.Y)
-	return g.blocked(r) && !g.inLane(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
-		if d.Room < 0 || !d.Rect.Overlaps(r) {
-			return false
-		}
-		inside := at.In(g.hotel.Rooms[d.Room].Shell()) || now.Overlaps(d.Rect) // already in the doorway: never trapped in it
-		return !d.Allows(-1, inside, g.occupied(d.Room))
-	})
-}
+// conciergeBlocked: blocked, but for a bed's side, which lets him lie in it (D167). He walks into any open
+// Room, its guests in or not (K1, 2026-11-11: D91's shut doorway is gone); only a boarded door stays shut.
+func (g *Game) conciergeBlocked(r image.Rectangle) bool { return g.blocked(r) && !g.inLane(r) }
 
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
@@ -381,27 +385,23 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// doorActors: everyone on the map the doors react to, of either realm: a door is one structure; whether its
-// Room is Occupied (shut to the Concierge) is per realm: the Guests of his own (occupied).
+// doorActors: everyone on the map the doors react to, of either realm: a door is one structure. The staff
+// (the Concierge, a Priest, a courier) open any door, a Guest its own.
 func (g *Game) doorActors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
 		as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
 	}
-	for _, pr := range g.priests { // his door pass: his own Room's door, Occupied or not
-		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: pr.RoomIndex})
+	for _, pr := range g.priests {
+		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
 	}
 	as = append(as, g.courierActors()...)
 	return as
 }
 
-// occupied: a Room's door is shut to the Concierge only while a Guest of its Party, of his own realm, is inside (Live test 5,
-// 2026-11-08; D91 barred it for the whole Booking); already inside, the door lets him out, and his minutes
-// in there cost its Guests Comfort (intrude).
-func (g *Game) occupied(room int) bool {
-	_, gs := g.insideIn(room, g.realm())
-	return len(gs) > 0 || !g.isOwned(room) // a boarded Room stays shut (07 B1)
-}
+// boarded: the Room isn't owned yet: its door stays shut to everyone (07 B1). An owned Room's door opens to
+// the Concierge whoever is in; his minutes in there with its Guests cost the Room Mood (intrude).
+func (g *Game) boarded(room int) bool { return !g.isOwned(room) }
 
 // walk advances a guest along its path. It waits in place while the next step would hit a shut door,
 // and sidesteps to its right (left if a wall is there) while the next step would bump into someone

@@ -27,6 +27,8 @@ type View struct {
 	MirrorLocked bool           // the Mirror is covered: SPACE at it shifts nothing
 	Courier      bool           // a courier is on his way with an order
 	Hands        Unlock         // the supply over the Concierge's head, "" for none (E5)
+	Beds         []string       // the bed layouts a Room can change to: the unlocked ones (K1)
+	RoomMirror   bool           // the in-Room Mirror is bought
 	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 }
 
@@ -35,6 +37,8 @@ type RoomView struct {
 	Vacant             bool
 	Capacity, Rate     int
 	Boarded            bool          // not owned yet: the boarded door, no bookings (07 B1)
+	Changing           bool          // a change of type is waiting on it or rolling: no bookings (K1)
+	Mirror             bool          // it has its own Mirror
 	Closed             bool          // at Mood -100: no new Party (D147)
 	Priest             bool          // one is on his way or at work
 	Shadow             bool          // a Shadow Person lives in it (D169), shown on the Terminal, or one is on its way
@@ -50,12 +54,13 @@ type RoomView struct {
 type TerminalView struct {
 	Open    bool
 	Message string
-	Cursor  int  // the Room a Service is for
-	Tab     Tab  // the store's open tab
-	Pick    int  // the picked row in the tab; in the cart, len(cart) is the checkout
-	Placing bool // a Service waits for its Room
-	Cart    int  // units in the cart
-	Lines   int  // lines in the cart: the checkout row's Pick
+	Cursor  int    // the Room a Service is for
+	Tab     Tab    // the store's open tab
+	Pick    int    // the picked row in the tab; in the cart, len(cart) is the checkout
+	Placing bool   // a Service waits for its Room
+	Beds    string // the bed layout picked for a change of type
+	Cart    int    // units in the cart
+	Lines   int    // lines in the cart: the checkout row's Pick
 }
 
 func (g *Game) view() View {
@@ -69,10 +74,16 @@ func (g *Game) view() View {
 		Courier:      len(g.couriers) > 0,
 		Hands:        g.hands,
 		MirrorLocked: !g.unlocked(Mirror),
+		RoomMirror:   g.unlocked(RoomMirror),
+	}
+	for k, b := range bedKinds {
+		if g.bedOpen(k) {
+			v.Beds = append(v.Beds, b.Beds)
+		}
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Boarded: !g.isOwned(i), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
+			Boarded: !g.isOwned(i), Changing: g.changing(i), Mirror: !r.Mirror.Empty(), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
 		for _, s := range g.spots(i) {
 			if s.spirit {
 				continue // only a Priest clears it
@@ -105,7 +116,7 @@ func (g *Game) view() View {
 }
 
 func (g *Game) termView() TerminalView {
-	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Placing: g.placing >= 0}
+	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Placing: g.placing >= 0, Beds: bedKinds[g.termBeds].Beds}
 	for _, l := range g.cart {
 		t.Cart += l.n
 	}

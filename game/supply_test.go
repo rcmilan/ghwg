@@ -89,3 +89,35 @@ func TestDeliver(t *testing.T) {
 		t.Fatalf("paid %v at Mood 0, want %v", g.wallet[Money], want)
 	}
 }
+
+// T300 (K1): the stock props stand flush against the Hall Wall and are solid; each is fetched from the cell
+// row below it, where the courier drops the stock too, clear of the Mirror's spot.
+func TestStockSolid(t *testing.T) {
+	for _, grid := range [][2]int{{2, 1}, {3, 3}} {
+		g, _ := headless(t, grid[0], grid[1], 1)
+		g.startRun()
+		h, m := g.hotel, g.hotel.Map
+		const ts = world.TileSize
+		if h.Stock.Dx() != (supplySpot(h, len(supplies)-1).Max.X - h.Stock.Min.X) {
+			t.Fatalf("%v: the strip %v is not the props' cells", grid, h.Stock)
+		}
+		for x := h.Stock.Min.X / ts; x < h.Stock.Max.X/ts; x++ {
+			y := h.Stock.Min.Y / ts
+			if !m.Solid(x, y) || !g.blocked(image.Rect(x*ts+4, y*ts+4, x*ts+12, y*ts+12)) {
+				t.Errorf("%v: stock cell (%d,%d) can be walked over", grid, x, y)
+			}
+			if !m.Wall(x, y-1) {
+				t.Errorf("%v: stock cell (%d,%d) is not against the wall", grid, x, y)
+			}
+			if m.Solid(x, y+1) {
+				t.Errorf("%v: no free cell below stock cell (%d,%d)", grid, x, y)
+			}
+		}
+		if h.Stock.Overlaps(h.MirrorSpot) {
+			t.Errorf("%v: the stock %v covers the Mirror's spot %v", grid, h.Stock, h.MirrorSpot)
+		}
+		if d := g.stockDrop().Div(ts); m.Solid(d.X, d.Y) || h.Path(h.Spawn, g.stockDrop(), -1) == nil {
+			t.Errorf("%v: the courier can't reach the stock drop %v", grid, g.stockDrop())
+		}
+	}
+}

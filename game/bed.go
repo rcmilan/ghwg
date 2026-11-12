@@ -2,12 +2,14 @@ package game
 
 import (
 	"image"
+	"strings"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
-// Beds and sleep (D167). Each Stay Spot's bed is a lane up from the Spot to the pillow.
+// Beds and sleep (D167). Each Stay Spot's bed is a lane up from the Spot to the pillow. A bed is entered from
+// its side, never from its foot (K1, 2026-11-11).
 const sleepDepth = 12 // world px from a bed's bottom edge up to its sleeper's feet: the head on the pillow
 
 func asleep(c int) bool { return hour(c) < wakeHour || hour(c) >= sleepHour }
@@ -30,12 +32,39 @@ func (g *Game) bedAt(x, y float64) (image.Rectangle, bool) {
 	return image.Rectangle{}, false
 }
 
-// inLane: foot box r lies in a bed's lane, from its Stay Spot's cell up to the sleep spot, where the bed
-// lets the Concierge in (cosmetic only; D91 keeps him out of Occupied Rooms).
+// bedSide: the free floor cell beside the bed's bottom row, nearest its lane, where a sleeper steps in and
+// out: its center, level with the sleep spot. A Double's wall-side sleeper crosses the other half; Twin
+// beds may share the column between them. The bed's foot if it has no free side (no shipped Room Type).
+func (g *Game) bedSide(b image.Rectangle) image.Point {
+	const ts = world.TileSize
+	m, x, y := g.hotel.Map, b.Min.X/ts, b.Max.Y/ts-1
+	bed := func(x int) bool {
+		return strings.HasPrefix(m.TS.Tiles[m.At(world.LayerProps, x, y)].Name, "prop_bed_")
+	}
+	best := 0
+	for _, d := range [...]int{-1, 1} {
+		n := x + d
+		for bed(n) {
+			n += d
+		}
+		if !m.Solid(n, y) && (best == 0 || abs(n-x) < abs(best-x)) {
+			best = n
+		}
+	}
+	if best == 0 {
+		return image.Pt((b.Min.X+b.Max.X)/2, b.Max.Y+ts/2)
+	}
+	return image.Pt(best*ts+ts/2, sleepSpot(b).Y)
+}
+
+// inLane: foot box r lies in a bed's bottom row, between its side cell and its sleep spot, where the bed lets
+// the Concierge lie in it. Its foot stays shut.
 func (g *Game) inLane(r image.Rectangle) bool {
+	const ts = world.TileSize
 	for _, room := range g.hotel.Rooms {
 		for _, b := range room.Lanes {
-			if r.In(image.Rect(b.Min.X, sleepSpot(b).Y-entities.FootH/2, b.Max.X, b.Max.Y+world.TileSize)) {
+			side := g.bedSide(b).X
+			if r.In(image.Rect(min(b.Min.X, side-ts/2), b.Max.Y-ts, max(b.Max.X, side+ts/2), b.Max.Y)) {
 				return true
 			}
 		}
@@ -43,29 +72,29 @@ func (g *Game) inLane(r image.Rectangle) bool {
 	return false
 }
 
-// route: a guest's path to `to` (Hotel.Path in its own Room, around avoid). From a bed it first walks
-// down to the bed's foot, never off its side.
+// route: a guest's path to `to` (Hotel.Path in its own Room, around avoid). From a bed it first steps off
+// its side, never off its foot.
 func (g *Game) route(guest *entities.Guest, to image.Point, avoid ...image.Point) []image.Point {
-	from, foot := image.Pt(int(guest.X), int(guest.Y)), []image.Point(nil)
+	from, side := image.Pt(int(guest.X), int(guest.Y)), []image.Point(nil)
 	if b, ok := g.bedAt(guest.X, guest.Y); ok {
-		from = image.Pt((b.Min.X+b.Max.X)/2, b.Max.Y+world.TileSize/2)
-		foot = []image.Point{from}
+		from = g.bedSide(b)
+		side = []image.Point{from}
 	}
 	path := g.hotel.Path(from, to, guest.RoomIndex, avoid...)
 	if path == nil {
 		return nil
 	}
-	return append(foot, path...)
+	return append(side, path...)
 }
 
-// toBed: a path into the Guest's own bed (lane i of its Room): up from the bed's foot, or along it when
-// already lying in it.
+// toBed: a path into the Guest's own bed (lane i of its Room): round to the bed's side and in sideways, or
+// along it when already lying in it.
 func (g *Game) toBed(guest *entities.Guest, r world.Room, i int) []image.Point {
 	i = bedOf(g.realmOf(guest), r, i)
 	if b, ok := g.bedAt(guest.X, guest.Y); ok && b == r.Lanes[i] {
 		return []image.Point{sleepSpot(b)}
 	}
-	return append(g.route(guest, r.Stays[i]), sleepSpot(r.Lanes[i]))
+	return append(g.route(guest, g.bedSide(r.Lanes[i])), sleepSpot(r.Lanes[i]))
 }
 
 // bedOf: the bed of the Room's i-th Guest of a realm: a ghost takes the last bed first, so in a twin Room a

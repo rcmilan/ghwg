@@ -10,6 +10,7 @@ type Tilemap struct {
 	W, H  int
 	Cells [NumLayers][]TileID // W*H each, row-major
 	TS    *Tileset
+	Block map[image.Point]bool // cells solid whatever their tiles: a prop drawn as a sprite stands there (K1's stock props)
 }
 
 func NewTilemap(ts *Tileset, w, h int) *Tilemap {
@@ -34,7 +35,7 @@ func (m *Tilemap) Set(l, x, y int, id TileID) { m.Cells[l][y*m.W+x] = id }
 
 // Solid reports whether any layer has a collision rect in cell (x,y). Outside the map is solid.
 func (m *Tilemap) Solid(x, y int) bool {
-	if !m.inside(x, y) {
+	if !m.inside(x, y) || m.Block[image.Pt(x, y)] {
 		return true
 	}
 	for l := range m.Cells {
@@ -90,6 +91,9 @@ func (m *Tilemap) BlockedBox(r image.Rectangle) bool {
 	}
 	for y := r.Min.Y / TileSize; y <= (r.Max.Y-1)/TileSize; y++ {
 		for x := r.Min.X / TileSize; x <= (r.Max.X-1)/TileSize; x++ {
+			if m.Block[image.Pt(x, y)] {
+				return true
+			}
 			origin := image.Pt(x*TileSize, y*TileSize)
 			for l := range m.Cells {
 				for _, s := range m.TS.Tiles[m.At(l, x, y)].Solid {

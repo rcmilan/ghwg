@@ -170,26 +170,17 @@ func TestAreaShadow(t *testing.T) {
 	}
 }
 
-// T261: a Room shuts to the Concierge while Guests of his own realm are inside: a ghost doesn't shut it in
-// real, a human doesn't in ghost.
+// T261 kept the Concierge out of a Room holding Guests of his own realm; K1 dropped the door rule (T298):
+// only a boarded Room is shut, whoever is in it, in either realm.
 func TestDoorPerRealm(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
 	ghostIn(t, g, 0, 1)
-	if g.ghost = false; g.occupied(0) {
-		t.Error("a ghost inside shuts the Room to the Concierge in real")
-	}
-	if g.ghost = true; !g.occupied(0) {
-		t.Error("a ghost inside doesn't shut the Room to the ghost Concierge")
-	}
-	h := g.walkIn()
-	g.settleIn(h)
-	if g.ghost = false; !g.occupied(h.Room) {
-		t.Error("a human inside doesn't shut the Room in real")
-	}
-	g.setGhostRoom(h.Room)
-	if g.ghost = true; g.occupied(h.Room) {
-		t.Error("a human inside shuts the Room to the ghost Concierge")
+	g.settleIn(g.walkIn())
+	for _, ghost := range []bool{false, true} {
+		if g.ghost = ghost; g.boarded(0) {
+			t.Errorf("ghost %v: a Room with Guests in is shut to the Concierge", ghost)
+		}
 	}
 }
 
@@ -262,8 +253,8 @@ func TestGhostDrawn(t *testing.T) {
 func TestMirrorStartLocked(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	if g.unlocked(Mirror) || !g.unlocked(SupplyWater) || len(g.locked) != 1 {
-		t.Fatalf("a new Run's locks %v, want only the Mirror", g.locked)
+	if g.unlocked(Mirror) || !g.unlocked(SupplyWater) || g.unlocked(BedsTwin) || g.unlocked(BedsDouble) || g.unlocked(RoomMirror) || len(g.locked) != 4 {
+		t.Fatalf("a new Run's locks %v, want the Mirror and K1's beds and in-Room Mirror", g.locked)
 	}
 	mirror := row(t, Mirror)
 	if !g.onSale(mirror) || g.owned(mirror) || !slices.Contains(g.forSale(), mirror) {

@@ -165,7 +165,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawMoodFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
-	g.drawSupplies(screen, ox, oy)
+	g.drawReels(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -226,6 +226,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
 	drawProp := func(p prop) {
+		if g.reelingAt(p.l, p.cx, p.cy) { // rolling with its Room's reel
+			return
+		}
 		op.GeoM.Reset()
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
@@ -254,7 +257,18 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	propsUpTo(0) // the rugs, under the stains; furniture goes over them (Live test 7, 2026-11-08)
 	g.drawDirt(screen, ox, oy)
+	stockY, stocked := float64(g.hotel.Stock.Max.Y), false
+	stock := func() { // the stock props: over the wall they stand against, under whoever stands in front
+		if !stocked {
+			propsUpTo(stockY)
+			g.drawSupplies(screen, ox, oy)
+			stocked = true
+		}
+	}
 	for _, a := range actors {
+		if z(a) >= stockY {
+			stock()
+		}
 		propsUpTo(z(a))
 		x, y := at(a.x, a.y-a.lift)
 		if g.ghost && a.fear >= fearWarn { // near fleeing: it trembles (2026-11-08)
@@ -276,6 +290,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			}
 		}
 	}
+	stock()
 	propsUpTo(math.Inf(1))
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
 		g.drawHands(screen, hx, hy)
@@ -302,6 +317,9 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 	for _, d := range g.hotel.Doors {
 		if d.Room >= 0 && !g.isOwned(d.Room) {
 			g.drawBoarded(screen, d, ox, oy)
+			continue
+		}
+		if d.Room >= 0 && g.reeling(d.Room) { // it rolls with its Room's reel
 			continue
 		}
 		off := int(math.Round(d.Open() * ts))

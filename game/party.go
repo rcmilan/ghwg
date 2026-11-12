@@ -92,27 +92,25 @@ func (p *Party) Payout(pay Num) int {
 	return int(Num(p.Rate*p.Nights*tipPct) * pay / 100)
 }
 
-// charge runs each frame: every Guest inside its Room pays its share of Rate/rentHours a game hour, raised
-// the Room's Mood pay factor, so the Money counter climbs from the moment a Guest steps in (2026-11-11; it
-// paid in hourly lumps). On the hour "+$N" floats at the door: the whole dollars since the last one (Step 2).
+// charge runs each frame: every Guest inside its Room owes its share of Rate/rentHours a game hour, raised
+// the Room's Mood pay factor, from the moment it steps in. It pays on the hour: the whole dollars owed go into
+// the wallet as "+$N" floats at the door, so the floater and the Money counter show the same payment
+// (2026-11-11: the counter climbed each frame while the door showed hourly lumps). Cents carry to the next hour.
+// With T held the Clock steps fastClock frames and can jump over the hour's own frame: the turn is what counts.
 func (g *Game) charge(p *Party) {
-	r, paid, frames := g.hotel.Rooms[p.Room], Num(0), Num(1)
+	r, frames := g.hotel.Rooms[p.Room], Num(1)
 	if g.fast { // the Clock ran fastClock frames this step (advanceClock)
 		frames = fastClock
 	}
 	for _, guest := range p.Guests {
 		if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
-			paid += frames * Num(p.Rate) / rentHours / hourFrames / Num(len(p.Guests)) * g.moodPay(p.Room)
+			p.owed += frames * Num(p.Rate) / rentHours / hourFrames / Num(len(p.Guests)) * g.moodPay(p.Room)
 		}
 	}
-	if paid > 0 {
-		p.rent += paid
-		g.earn(Money, paid, noFloat)
-	}
-	if n := Num(int(p.rent - p.floated)); g.clock%hourFrames == 0 && n > 0 {
-		p.floated += n
-		at := r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, 0))
-		g.floaters = append(g.floaters, floater{float64(at.X), float64(at.Y), "+$" + fmtNum(n), g.tick, floatMoney})
+	if n := Num(int(p.owed)); g.clock/hourFrames != (g.clock-int(frames))/hourFrames && n > 0 { // the hour turned this step, T held or not
+		p.owed -= n
+		p.rent += n
+		g.earn(Money, n, r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, 0)))
 	}
 }
 
@@ -151,7 +149,7 @@ type Party struct {
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)
 	cooledAt   int           // the clock it stepped out
 	rent       Num           // Money paid in the Room so far (Step 2)
-	floated    Num           // of it, already shown in a "+$N" floater
+	owed       Num           // rent run up since the last hour, not yet paid
 	tip        Num           // the checkout tip it banked
 	greet      greeting      // owed once the Concierge hears it (D165)
 	talk       []line        // its lines showing or about to (D165)
@@ -226,7 +224,7 @@ func (g *Game) maybeWalkIn() {
 		}
 	}
 	for i, a := range g.arrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && g.spawnClear() {
+		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && g.spawnClear() {
 			g.arrivals[i] = arrival{}
 			g.arrive(i)
 			booked++
@@ -248,7 +246,7 @@ func (g *Game) spawnClearIn(realm Realm) bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && len(r.Stays) >= size {
+		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && len(r.Stays) >= size {
 			return i
 		}
 	}
@@ -325,7 +323,7 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 			f.SetPath(slices.Clone(lead.Path[i:]))
 		} else {
 			to := image.Pt(int(lead.X), int(lead.Y))
-			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its foot instead (D167)
+			if _, abed := g.bedAt(lead.X, lead.Y); abed && len(lead.Path) > 0 { // a bed is solid: join its side instead (D167)
 				to = lead.Path[0]
 			}
 			f.SetPath(append(g.route(f, to), lead.Path...))

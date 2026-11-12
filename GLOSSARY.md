@@ -9,7 +9,7 @@ One of the guest-room slots in the hotel's grid. Rooms are numbered by floor and
 _Avoid_: slot, ROOM A
 
 **Room Type**:
-The template a Room is built from: a tier (Standard, Deluxe) times a Bed Layout. It sets the Room's look, Rate, props and Stay Spots. Authored in Tiled.
+The template a Room is built from: a tier (Standard, Deluxe) times a Bed Layout. It sets the Room's look, Rate, props and Stay Spots. Authored in Tiled. Every Room opens as the Standard Single; a Room Change gives it another.
 _Avoid_: prefab (in player-facing text), room template
 
 **Bed Layout**:
@@ -23,7 +23,7 @@ What a Party pays per night in a Room. It comes from the Room Type when the Book
 _Avoid_: price, fee
 
 **Stay Spot**:
-A point inside a Room where one Guest stays, one per bed, at its foot. From 23:00 to 07:00 the Guest sleeps in that bed.
+A point inside a Room where one Guest stays, one per bed, at its foot. From 23:00 to 07:00 the Guest sleeps in that bed, getting in and out by the bed's side, never over its foot.
 
 **Activity Spot**:
 Where a Guest stands to use one of its Room's props (a window, the TV, a bookshelf, a wardrobe, a drawer, the mirror, a cushion), facing it. Found from the Room Type's tiles: the free floor cell in front of the prop, or on it for a cushion.
@@ -67,10 +67,10 @@ The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shi
 A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out or flees.
 
 **Vacant**:
-A Room with no Booking; the Concierge may enter it.
+A Room with no Booking.
 
 **Occupied**:
-A Room with a Booking, from the moment its Party arrives until it checks out or flees. Its door opens only for its own Party, even while that Party is out.
+A Room with a Booking, from the moment its Party arrives until it checks out or flees. Its door opens to its own Party and to the staff (the Concierge, the Courier, a Priest), never to another Room's Guests. The Concierge's minutes inside with its Guests cost the Room Mood.
 _Avoid_: locked (as a room state)
 
 **Fog**:
@@ -142,7 +142,7 @@ What the Concierge does for an Occupied Room whose Party is asking, in the real 
 _Avoid_: tend, room service (as the term)
 
 **Mood pay factor**:
-What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (paid every frame a Guest is inside its Room, from its first step in) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
+What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (owed for every moment a Guest is inside its Room, from its first step in, and paid on the hour in whole dollars, as the "+$N" at the door) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
@@ -175,7 +175,7 @@ A Party's daily schedule. **Homebody** stays in the Room. **Tourist** goes out e
 ## Time
 
 **Run**:
-One playthrough, from the title screen until returning to it. A Run starts on Day 1 at 08:00 with every Room Vacant and given its Room Type for the whole Run. Money resets, and the Run never ends on its own.
+One playthrough, from the title screen until returning to it. A Run starts on Day 1 at 08:00 with every Room Vacant and a Standard Single. Money resets, and the Run never ends on its own.
 _Avoid_: game, session
 
 **Clock**:
@@ -219,7 +219,7 @@ The hotel's two currencies, Money and Ectoplasm, and nothing else. Fear and Room
 A price in Money, Ectoplasm or both. It is paid whole or not at all.
 
 **Unlock**:
-A feature the player buys at the Terminal: the Mirror, a supply prop, Room Lock. A normal Run starts with only the Mirror locked (the sim's `-mirror` flag starts it unlocked); the courier delivers a bought unlock at the stock, and the Mirror at its own wall spot (it is drawn covered, and shifts nothing, until then).
+A feature the player buys at the Terminal: the Mirror, a supply prop, Room Lock. A normal Run starts with the Mirror locked (the sim's `-mirror` flag starts it unlocked), and with it the Twin and Double Bed Layouts and the In-Room Mirror; the courier delivers a bought unlock at the stock, and the Mirror at its own wall spot (it is drawn covered, and shifts nothing, until then).
 
 **Tap**:
 One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Person alike. Each tap counts toward its job, a (Room, Task) pair: Serve or Housekeep.
@@ -230,7 +230,7 @@ The delivery person checkout sends from the Entrance. He drops Supplies and unlo
 _Avoid_: delivery guy, mailman
 
 **Stock**:
-The Supplies the hotel holds, kept on one spot per Supply in the stock area, left of the entrance hall. The Courier fills it; the Concierge carries from it into Rooms.
+The Supplies the hotel holds, each in its own prop (fridge, counter, shelf) in the stock strip, against the Hall Wall in the Lobby's west corner. The props are solid; the Concierge fetches from the cell below each, and the Courier fills them from there.
 _Avoid_: inventory
 
 **Room key**:
@@ -238,7 +238,7 @@ A Service in the Terminal's SERVICES tab that opens a boarded Room: you pick the
 _Avoid_: unlock, license, deed
 
 **Owned Room** / **Closed Room**:
-A Room is Owned once its key has been dropped at its door; before that it is a Closed Room: drawn with the boarded door, no Party of either realm books it, its door stays shut to the Concierge. A Run starts with every Room Closed. Not the same as a Room at Mood -100, which is Closed by Mood (a Closed Room in the sense of D140) and stays Owned.
+A Room is Owned once its key has been dropped at its door; before that it is a Closed Room: drawn with the boarded door, no Party of either realm books it, its door stays shut to everyone, and it can't take a Room Change. A Run starts with every Room Closed. Not the same as a Room at Mood -100, which is Closed by Mood (a Closed Room in the sense of D140) and stays Owned.
 _Avoid_: locked Room, sealed Room
 
 **Key price rise**:
@@ -249,4 +249,16 @@ The opening of a new Run: the title is the whole hotel in the ghost dimension wi
 _Avoid_: cutscene, tutorial
 
 **Opener**:
-The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks.
+The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart while it saves for the Twin Bed Layout, changes a Room to it and buys the In-Room Mirror for that Room. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks; `room mirror at (h)`, until the first Room has its own.
+
+**Room Change**:
+A row of the Terminal's HOTEL tab ("Change type"), bought for one Room, that gives a Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled for a full refund. The Room's Mood is untouched.
+_Avoid_: upgrade, renovation, Spin
+
+**Reel**:
+How a Room Change shows: the Room's whole footprint rolls like a slot machine's reel, the old Room out the bottom, the new one in from the top, in the world and in either Dimension. The Room takes no Booking while it rolls.
+_Avoid_: slot machine (as a mechanic: nothing is random), transition
+
+**In-Room Mirror**:
+A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, for a first Room, where it is hung at once, its Guests in or not; from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
+_Avoid_: vanity, second Mirror, Room mirror (the store row's name only)

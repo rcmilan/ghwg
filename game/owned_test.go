@@ -27,7 +27,7 @@ func TestRoomsStartClosed(t *testing.T) {
 	}
 	g.unlock(Mirror) // ghosts would book too, if they could
 	for i := range g.hotel.Rooms {
-		if g.occupied(i) != true {
+		if !g.boarded(i) {
 			t.Errorf("Room %d is not shut", i)
 		}
 	}
@@ -241,7 +241,7 @@ func TestOpenerReachesMirror(t *testing.T) {
 
 func TestStrategiesOpenRooms(t *testing.T) {
 	for _, name := range []string{"server", "smart", "keeper"} {
-		r := RunSim(Config{Cols: 2, Rows: 1, Days: 3, Seed: 2, Name: name, Strategy: Strategies[name], React: 30, KeyGap: 6})
+		r := RunSim(Config{Cols: 2, Rows: 1, Days: 5, Seed: 2, Name: name, Strategy: Strategies[name], React: 30, KeyGap: 6})
 		for _, f := range r.Failures {
 			t.Errorf("%s %s: %s", name, f.Clock, f.Reason)
 		}

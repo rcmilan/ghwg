@@ -18,9 +18,9 @@ func TestMoodPay(t *testing.T) {
 	g.mood[p.Room] = 0
 	base := p.Payout(g.moodPay(p.Room))
 	hour := func() Num {
-		g.clock, p.rent = (g.clock/hourFrames+1)*hourFrames, 0
+		g.clock, p.owed = (g.clock/hourFrames+1)*hourFrames+1, 0 // off the hour: a frame's rent, owed
 		g.charge(p)
-		return p.rent
+		return p.owed
 	}
 	one := hour()
 	if one <= 0 || base != p.Rate*p.Nights*tipPct/100 {
@@ -35,6 +35,25 @@ func TestMoodPay(t *testing.T) {
 			t.Errorf("Mood %d: tip %d, want %d", mood, got, want)
 		}
 	}
+	// on the hour the whole dollars owed are paid, as one "+$N" at the door: the counter and the floater agree
+	g.mood[p.Room] = 0
+	g.clock, p.owed, p.rent = (g.clock/hourFrames+1)*hourFrames, 2.75, 0
+	money, floats := g.wallet[Money], len(g.floaters)
+	g.charge(p)
+	if g.wallet[Money] != money+2 || p.rent != 2 || p.owed >= 1 || len(g.floaters) != floats+1 || g.floaters[floats].text != "+$2" {
+		t.Errorf("on the hour: wallet +%v, rent %v, owed %v, %d floaters; want $2 paid and floated, the cents carried", g.wallet[Money]-money, p.rent, p.owed, len(g.floaters)-floats)
+	}
+	g.clock++
+	if g.charge(p); g.wallet[Money] != money+2 {
+		t.Error("rent reached the wallet between the hours")
+	}
+	// T held: the Clock jumps over the hour's own frame, and the hour still pays
+	g.fast, p.owed = true, 3
+	g.clock = (g.clock/hourFrames+1)*hourFrames + 3
+	if g.charge(p); g.wallet[Money] < money+5 {
+		t.Errorf("fast Clock past the hour: wallet +%v, want the hour paid", g.wallet[Money]-money)
+	}
+	g.fast = false
 }
 
 // T266: spots show only below moodSpots, one per ~3.75 points (spotUnit dirt of 3/4 point each), up to the

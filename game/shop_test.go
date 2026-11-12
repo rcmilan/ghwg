@@ -127,7 +127,7 @@ func TestCartRules(t *testing.T) {
 }
 
 // T185: A/D picks the tab, W/S the row, SPACE adds (a Service asks its Room), the cart's last row checks
-// out; in either dimension.
+// out, which closes the store; in either dimension.
 func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
@@ -155,12 +155,8 @@ func TestStoreKeys(t *testing.T) {
 			t.Fatalf("ghost %v: cart %v, placing %d; want Father K in the cart", ghost, g.cart, g.placing)
 		}
 		tap(ebiten.KeyD, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
-		if g.state != StateTerminal || !g.priestOn(1) || g.priestOn(0) || g.wallet[Money] != 0 {
-			t.Fatalf("ghost %v: open %v, Priest on %v %v, money %v; want Father K on Room 1 only", ghost, g.state == StateTerminal, g.priestOn(0), g.priestOn(1), g.wallet[Money])
-		}
-		tap(ebiten.KeyEscape)
-		if g.state != StatePlay {
-			t.Fatal("ESC didn't close the store")
+		if g.state != StatePlay || !g.priestOn(1) || g.priestOn(0) || g.wallet[Money] != 0 {
+			t.Fatalf("ghost %v: open %v, Priest on %v %v, money %v; want Father K on Room 1 only and the store closed", ghost, g.state == StateTerminal, g.priestOn(0), g.priestOn(1), g.wallet[Money])
 		}
 	}
 }
