@@ -286,14 +286,14 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 			}
 			opened = true
 			paid = paid || pressed && t.Depth == 1 // bought: the store is back on the grid
-			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds)
+			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds) || t.Depth == 2 && !slices.Contains(t.Rows, i)
 			k, last := ebiten.KeySpace, false
 			switch {
 			case leave:
 				k = ebiten.KeyEscape
 			case t.Depth == 1 && t.Cursor != room:
 				k = ebiten.KeyD
-			case t.Depth == 2 && t.Pick != pos:
+			case t.Depth == 2 && t.Pick != slices.Index(t.Rows, i):
 				k = ebiten.KeyS
 			case t.Depth == 3 && t.Beds != beds:
 				k = ebiten.KeyS

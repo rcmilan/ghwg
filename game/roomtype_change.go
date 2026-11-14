@@ -20,15 +20,21 @@ import (
 const (
 	BedsTwin   Unlock = "beds-twin"
 	BedsDouble Unlock = "beds-double"
+	Deluxe     Unlock = "deluxe" // the Deluxe tier (2026-11-14): bought with Ectoplasm, it puts the "Deluxe" upgrade on every Room
+	rowDeluxe  Unlock = "upgrade-deluxe"
 	RoomMirror Unlock = "room-mirror" // the in-Room Mirror, a Service bought once
 	rowChange  Unlock = "change-type"
 
 	reelFrames     = 60 // one Room's reel roll, ~1 s (D48)
 	roomMirrorEcto = 90 // Ectoplasm: the in-Room Mirror
 	changeEcto     = 5  // Ectoplasm: each change, once the in-Room Mirror is bought
+	deluxeEcto     = 60 // Ectoplasm: the Deluxe tier (placeholder, tuned in 4c)
+	deluxeFee      = 25 // Ectoplasm: a Room's upgrade to Deluxe (placeholder)
+	deluxeTier     = "Deluxe"
 )
 
-// bedKinds: the layouts a Room changes between, the unlock each needs ("" for none) and its fee.
+// bedKinds: the layouts a Room changes between, the unlock each needs ("" for none) and its fee. A change keeps
+// the Room's tier: a Deluxe Room stays Deluxe.
 type bedKind struct {
 	Beds  string
 	Needs Unlock
@@ -36,6 +42,35 @@ type bedKind struct {
 }
 
 var bedKinds = [...]bedKind{{"Single", "", 50}, {"Twin", BedsTwin, 75}, {"Double", BedsDouble, 125}}
+
+// typeLabel: a Room Type as the hotel view names it: "TWIN", "DELUXE TWIN".
+func typeLabel(t world.RoomType) string {
+	if t.Name == deluxeTier {
+		return "DELUXE " + strings.ToUpper(t.Beds)
+	}
+	return strings.ToUpper(t.Beds)
+}
+
+// noDeluxe: why the Room can't be upgraded to Deluxe, or "".
+func noDeluxe(g *Game, room int) string {
+	r := g.hotel.Rooms[room]
+	switch {
+	case !g.isOwned(room):
+		return "ROOM " + r.Number + " IS BOARDED UP"
+	case g.changing(room):
+		return "ROOM " + r.Number + " IS ALREADY CHANGING"
+	case r.Type.Name == deluxeTier:
+		return "ROOM " + r.Number + " IS ALREADY DELUXE"
+	}
+	return ""
+}
+
+// upgrade: the Room's paid-for upgrade to Deluxe (2026-11-14): a change to the Deluxe of the beds it has, so it
+// waits for the Room to empty and reels like one. The Room pays the Deluxe Rate from its next Booking on.
+func (g *Game) upgrade(l cartLine) {
+	t, _ := world.TypeIn(g.types, deluxeTier, g.hotel.Rooms[l.room].Type.Beds)
+	g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
+}
 
 // change is a Room's paid-for change of type: waiting for the Room to empty, or its reel rolling.
 type change struct {
@@ -129,6 +164,8 @@ func init() {
 			shop[i].Refuse = noChange
 		case RoomMirror:
 			shop[i].Refuse = noRoomMirror
+		case rowDeluxe:
+			shop[i].Refuse, shop[i].Send = noDeluxe, (*Game).upgrade
 		}
 	}
 }

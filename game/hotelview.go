@@ -4,6 +4,7 @@ import (
 	"ghosthotel/assets"
 	"image"
 	"image/color"
+	"slices"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -63,12 +64,35 @@ func (g *Game) buyNow(i, room int) string {
 	return why
 }
 
+// roomRows: the Room's actions in the hotel view, shop indexes in the catalog's order: the key alone for a Room
+// not bought, and never the key for one that is (2026-11-14). "Change type" is left
+// out while there is nothing to change to (2026-11-14): one bed layout unlocked, no change waiting to call off,
+// and no in-Room Mirror the Room could get by changing to the beds it has.
+func (g *Game) roomRows(room int) []int {
+	open := 0
+	for k := range bedKinds {
+		if g.bedOpen(k) {
+			open++
+		}
+	}
+	mirror := g.unlocked(RoomMirror) && g.hotel.Rooms[room].Mirror.Empty()
+	return slices.DeleteFunc(tabItems(tabRooms), func(i int) bool {
+		switch key := shop[i].ID == rowKey; {
+		case !g.isOwned(room): // boarded up: its key, nothing else
+			return !key
+		case key: // bought: no key to buy
+			return true
+		}
+		return shop[i].ID == rowChange && open < 2 && !mirror && g.changeFor(room) == nil
+	})
+}
+
 // updateView is the hotel view's keys.
 func (g *Game) updateView() {
 	key := g.in.JustPressed
 	n, room := len(g.hotel.Rooms), g.termCursor
 	cols, _ := g.hotel.Grid()
-	rows := tabItems(tabRooms)
+	rows := g.roomRows(room)
 	back := key(ebiten.KeyA) || key(ebiten.KeyD)
 	switch g.termDepth {
 	case 1:
@@ -188,7 +212,7 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
-			label += " > " + strings.ToUpper(c.to.Beds)
+			label += " > " + typeLabel(c.to)
 		}
 		rect(screen, r.Min.X, r.Min.Y-glyphH-2, len(label)*glyphW+8, glyphH+2, storeInk)
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
@@ -234,7 +258,7 @@ func (g *Game) drawActions(screen *ebiten.Image, r image.Rectangle) {
 			}
 		}
 	} else {
-		for k, i := range tabItems(tabRooms) {
+		for k, i := range g.roomRows(room) {
 			it, name, c, word, a := shop[i], strings.ToUpper(shop[i].Name), g.priceOf(i), "", float32(1)
 			w := g.changeFor(room)
 			switch {
@@ -243,7 +267,7 @@ func (g *Game) drawActions(screen *ebiten.Image, r image.Rectangle) {
 			case it.unlock() && g.unlocked(it.ID):
 				a, word = 0.5, "OWNED"
 			case it.ID == rowChange && w != nil:
-				name, c = "CANCEL > "+strings.ToUpper(w.to.Beds), w.paid
+				name, c = "CANCEL > "+typeLabel(w.to), w.paid
 			case it.ID == rowChange:
 				if c = (Cost{}); !g.isOwned(room) || g.changing(room) { // its fee comes with the beds
 					a = 0.5
@@ -260,7 +284,7 @@ func (g *Game) drawActions(screen *ebiten.Image, r image.Rectangle) {
 	rect(g.panel, box.Min.X, box.Min.Y, box.Dx(), box.Dy(), storeInk)
 	rect(g.panel, box.Min.X+3, box.Min.Y+3, box.Dx()-6, box.Dy()-6, storePage)
 	rect(g.panel, box.Min.X+3, box.Min.Y+3, box.Dx()-6, head, storeBar)
-	title := "ROOM " + g.hotel.Rooms[room].Number + "  " + strings.ToUpper(g.hotel.Rooms[room].Type.Beds)
+	title := "ROOM " + g.hotel.Rooms[room].Number + "  " + typeLabel(g.hotel.Rooms[room].Type)
 	g.tintedAt(g.panel, title, listX, box.Min.Y+4, 2, storeBarInk, 1)
 	for k, l := range lines {
 		g.drawRowAt(g.panel, k, l.picked, l.it, l.name, l.c, l.word, l.a)

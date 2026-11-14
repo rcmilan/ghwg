@@ -83,6 +83,8 @@ var shop = []Item{
 		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
 	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
+	{ID: Deluxe, Tab: tabHotel, Name: "Deluxe rooms", Blurb: "Finer rooms. Guests pay the difference.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeEcto},
+		Needs: []Unlock{Mirror}},
 	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Icon: "icon_grow_col",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Icon: "icon_grow_floor",
@@ -95,9 +97,11 @@ var shop = []Item{
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowChange, Tab: tabRooms, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
 		Send: func(g *Game, l cartLine) {
-			t, _ := world.TypeOf(g.types, l.beds)
+			t, _ := world.TypeIn(g.types, g.hotel.Rooms[l.room].Type.Name, l.beds) // the Room keeps its tier
 			g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
 		}},
+	{ID: rowDeluxe, Tab: tabRooms, Name: "Deluxe", Blurb: "This Room, finer. Once it's empty.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeFee},
+		Needs: []Unlock{Deluxe}, Send: func(g *Game, l cartLine) {}}, // its Send and Refuse are set in roomtype_change.go's init
 	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},

@@ -232,7 +232,7 @@ func (g *Game) startRun() {
 	g.hushed = map[int]bool{}
 	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
 	// T272); and with K1's bed layouts and in-Room Mirror to buy
-	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true}
+	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
 	g.roomOwned = nil // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
