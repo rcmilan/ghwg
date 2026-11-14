@@ -230,7 +230,7 @@ func (g *Game) updateKeepers() {
 		}
 		arrived := g.walk(&k.Guest, speed)
 		if !g.headless {
-			k.Anim.Update(k.X, k.Y)
+			k.Anim.Update(k.X, k.Y, g.dt)
 		}
 		g.payday(k)
 		g.keeperTalk(k)

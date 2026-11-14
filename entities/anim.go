@@ -29,22 +29,22 @@ const (
 // Anim is an actor's facing and animation clock, driven by how its position changes each frame.
 type Anim struct {
 	Facing       Facing
-	Moving       bool // run sheet while moving, idle_anim while standing
-	clock        int  // frames into the current pass of the strip
-	hold         int  // idle: frames left to hold the first frame before the next pass
+	Moving       bool    // run sheet while moving, idle_anim while standing
+	clock        float64 // frames into the current pass of the strip
+	hold         float64 // idle: frames left to hold the first frame before the next pass
 	lastX, lastY float64
 	started      bool
 }
 
 func NewAnim() Anim { return Anim{Facing: FaceDown, hold: idlePause()} }
 
-func idlePause() int { return idlePauseMin + rand.IntN(idlePauseMax-idlePauseMin+1) }
+func idlePause() float64 { return float64(idlePauseMin + rand.IntN(idlePauseMax-idlePauseMin+1)) }
 
-// Update takes the actor's position after this frame's movement and pushes.
-func (a *Anim) Update(x, y float64) {
+// Update takes the actor's position after this step's movement and pushes, dt frames of world time.
+func (a *Anim) Update(x, y, dt float64) {
 	dx, dy := x-a.lastX, y-a.lastY
 	a.lastX, a.lastY = x, y
-	moving := a.started && math.Max(math.Abs(dx), math.Abs(dy)) > stillEps
+	moving := a.started && math.Max(math.Abs(dx), math.Abs(dy)) > stillEps*dt
 	a.started = true
 	if moving {
 		a.Facing = facing(a.Facing, dx, dy)
@@ -56,9 +56,9 @@ func (a *Anim) Update(x, y float64) {
 			a.hold = idlePause() // stand still a moment before fidgeting
 		}
 	case !moving && a.hold > 0:
-		a.hold--
+		a.hold -= dt
 	default:
-		a.clock++
+		a.clock += dt
 		if !moving && a.clock >= idleCycle {
 			a.clock, a.hold = 0, idlePause()
 		}
@@ -93,5 +93,5 @@ func facing(cur Facing, dx, dy float64) Facing {
 
 // Frame is the index (0..23) into the 24-frame strip of the current sheet.
 func (a Anim) Frame() int {
-	return int(a.Facing)*FramesPerFacing + a.clock*animFPS/tps%FramesPerFacing
+	return int(a.Facing)*FramesPerFacing + int(a.clock)*animFPS/tps%FramesPerFacing
 }

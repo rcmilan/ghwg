@@ -352,7 +352,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
-		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
+		x, y := at(f.x, f.y-(g.now()-float64(f.at))*floaterRisePerFr)
 		switch {
 		case f.kind == floatMoney || f.kind == floatEcto && g.ghost: // a currency's kind is its Res (wallet.go)
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)

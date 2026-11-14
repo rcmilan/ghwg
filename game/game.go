@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"time"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -47,7 +48,7 @@ type Game struct {
 	parties       []*Party // every Party on the map
 	tick          int      // simulation frames since launch
 	clock         int      // game time (clock.go)
-	fast          bool     // T held: the clock runs ×10
+	fast          bool     // T held: the world runs ×fastScale (clock.go)
 	wallet        [2]Num   // Money and Ecto (wallet.go, D178)
 	ghost         bool     // the whole hotel is in the ghost dimension (D141); else the real one
 	mood          []int    // per Room: its Mood, -100..100 (mood.go)
@@ -142,6 +143,10 @@ type Game struct {
 	talkCue       slot                           // TALK on the HUD's right (hud.go)
 	offered       Num                            // Money paid for offers this Run (the sim's money check)
 	focus         *ebiten.Shader                 // the talk's close-in and blur (talkmove.go)
+	scale         float64                        // the world time scale (D1, clock.go): 1 normal, under 1 slow motion
+	dt            float64                        // this step's frames of world time, at most 1; a whole frame (and ticked) outside a step, for the tests
+	acc           float64                        // world time since the last whole frame, 0..1
+	ticked        bool                           // a whole frame of world time ended this step: its per-frame logic runs
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -173,7 +178,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ts: ts, in: &script{}, headless: true}
+	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ts: ts, in: &script{}, headless: true, scale: 1, dt: 1, ticked: true}
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
@@ -326,13 +331,36 @@ func (g *Game) Update() error {
 	return nil
 }
 
-// step advances the world one frame with the Concierge walking in direction (dx,dy). No input, no
-// rendering: the headless sim drives it directly.
+// step advances the world one real frame, by the time scale (clock.go), with the Concierge walking in
+// direction (dx,dy). No input, no rendering: the headless sim drives it directly.
 func (g *Game) step(dx, dy float64) {
-	g.tick++
-	g.advanceClock()
-	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
-	g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+	start := time.Now()
+	for left := g.timeScale(); left > 0; left-- {
+		g.advance(dx, dy, min(left, 1))
+		if !g.headless && time.Since(start) > stepBudget { // a window never spends more of a frame than this on the world, whatever the scale: it runs slower instead
+			break
+		}
+	}
+	if !g.headless {
+		w, h := g.mapSize()
+		g.cam.Follow(g.player.X, g.player.Y, w, h)
+	}
+	g.updateHUD()
+}
+
+// stepBudget: the most of a real frame (16.7 ms) a window's step spends on the world.
+const stepBudget = 4 * time.Millisecond
+
+// advance runs dt (at most 1) frames of world time.
+func (g *Game) advance(dx, dy, dt float64) {
+	g.dt, g.acc = dt, g.acc+dt
+	if g.ticked = g.acc >= 1; g.ticked {
+		g.acc--
+		g.tick++
+		g.advanceClock()
+	}
+	g.player.Move(dx, dy, conciergeSpeed*dt, g.conciergeBlocked)
+	g.hotel.UpdateDoors(g.doorActors(), g.boarded, dt)
 	g.updateChanges()
 	g.updateParties()
 	g.updateTalk()
@@ -346,18 +374,15 @@ func (g *Game) step(dx, dy float64) {
 		g.busyStep()
 	}
 	if !g.headless {
-		g.player.Anim.Update(g.player.X, g.player.Y)
+		g.player.Anim.Update(g.player.X, g.player.Y, dt)
 		for _, guest := range g.guests() {
-			guest.Anim.Update(guest.X, guest.Y)
+			guest.Anim.Update(guest.X, guest.Y, dt)
 		}
 		for _, pr := range g.priests {
-			pr.Anim.Update(pr.X, pr.Y)
+			pr.Anim.Update(pr.X, pr.Y, dt)
 		}
-		w, h := g.mapSize()
-		g.cam.Follow(g.player.X, g.player.Y, w, h)
 	}
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
-	g.updateHUD()
 }
 
 // blocked: a foot box would hit a wall or a shut door.
@@ -460,7 +485,9 @@ func (g *Game) boarded(room int) bool { return !g.isOwned(room) }
 // and sidesteps to its right (left if a wall is there) while the next step would bump into someone
 // ahead, so two guests meeting head-on pass each other.
 func (g *Game) walk(guest *entities.Guest, speed float64) bool {
-	guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	if g.ticked {
+		guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	}
 	g.steer(guest)
 	if !guest.Phasing && g.yields(guest) {
 		return false
@@ -469,7 +496,7 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	if len(path) > 0 {
 		g.paces++
 	}
-	done := guest.FollowPath(speed)
+	done := guest.FollowPath(speed * g.dt)
 	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
 		guest.X, guest.Y, guest.Path = x, y, path
 		return false
@@ -522,7 +549,7 @@ const steerMax = 40
 // steer: a member of staff looks ahead as it walks: someone on the next cells of its way, it takes another way
 // round them now, well before they meet. With no other way it walks on (walk lets it through).
 func (g *Game) steer(guest *entities.Guest) {
-	if len(guest.Path) == 0 || guest.Phasing || g.tick%steerEvery != 0 || guest.Detours() >= steerMax {
+	if len(guest.Path) == 0 || guest.Phasing || !g.ticked || g.tick%steerEvery != 0 || guest.Detours() >= steerMax {
 		return
 	}
 	m := g.hotel.Map

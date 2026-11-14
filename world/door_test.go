@@ -28,7 +28,7 @@ func TestDoorAllows(t *testing.T) { // K1 (2026-11-11): the staff open any Room'
 }
 
 func TestDoorSolidUnlessFullyOpen(t *testing.T) {
-	for slide, solid := range map[int]bool{0: true, DoorSlideFrames / 2: true, DoorSlideFrames - 1: true, DoorSlideFrames: false} {
+	for slide, solid := range map[float64]bool{0: true, DoorSlideFrames / 2: true, DoorSlideFrames - 1: true, DoorSlideFrames: false} {
 		d := Door{slide: slide}
 		if d.Solid() != solid {
 			t.Errorf("open %.2f: solid %v, want %v", d.Open(), d.Solid(), solid)
@@ -69,7 +69,7 @@ func TestUpdateDoors(t *testing.T) {
 	doorway := footAt(image.Pt(mid, d.Rect.Min.Y+20))
 	run := func(frames int, boarded bool, actors ...Actor) {
 		for range frames {
-			h.UpdateDoors(actors, func(int) bool { return boarded })
+			h.UpdateDoors(actors, func(int) bool { return boarded }, 1)
 		}
 	}
 	reset := func() {

@@ -81,7 +81,7 @@ func TestShadowTravel(t *testing.T) {
 				t.Fatalf("blinked at x %v, want a wall end of the shared stretch: %v or %v", x, lo, hi)
 			}
 			if sh.x != x || fade != teleportFrames/2-1 || g.shadowAlpha(sh) > 0.1 {
-				t.Fatalf("a teleport at fade %d: x %v → %v, alpha %.2f; want a vertical blink, faded out, at half", fade, x, sh.x, g.shadowAlpha(sh))
+				t.Fatalf("a teleport at fade %v: x %v → %v, alpha %.2f; want a vertical blink, faded out, at half", fade, x, sh.x, g.shadowAlpha(sh))
 			}
 		case fade > 0:
 			if sh.x != x {

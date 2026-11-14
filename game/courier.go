@@ -53,7 +53,7 @@ func (g *Game) updateCouriers() {
 		c.out = true
 		arrived := g.walk(&c.Guest, courierSpeed)
 		if !g.headless {
-			c.Anim.Update(c.X, c.Y)
+			c.Anim.Update(c.X, c.Y, g.dt)
 		}
 		g.comeNear(&c.Guest, &c.voice, func() []string {
 			if len(c.drops) > 0 {
