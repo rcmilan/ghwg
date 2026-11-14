@@ -102,10 +102,10 @@ func TestAsk(t *testing.T) {
 func TestMoodPaysTip(t *testing.T) {
 	g, _, p := settled(t)
 	g.wallet[Money] = 0 // the walk in paid nothing
-	plain := p.Rate * p.Nights * tipPct / 100
+	plain := p.Rate
 	g.mood[p.Room] = 0
 	if p.Payout(g.moodPay(p.Room)) != plain {
-		t.Fatalf("tip at Mood 0 %d, want %d%% of Rate × Nights = %d", p.Payout(g.moodPay(p.Room)), tipPct, plain)
+		t.Fatalf("tip at Mood 0 %d, want one night's Rate %d", p.Payout(g.moodPay(p.Room)), plain)
 	}
 	p.asked = g.clock
 	g.serve(p.Room)

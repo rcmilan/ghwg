@@ -42,7 +42,6 @@ const (
 // and tips at a finished Checkout; Fear at the limit makes it step out once, then flee. Placeholders.
 const (
 	rentHours   = 24 // game hours in the Room that pay one night's Rate
-	tipPct      = 10 // of Rate × Nights, a finished stay's Checkout tip
 	coolMinutes = 30 // game minutes a Party cools down at its door
 	coolFear    = 2  // Fear is divided by this when it steps out: a second limit comes sooner
 )
@@ -86,31 +85,35 @@ func (b Booking) Out(c int) bool {
 	return b.Routine == tourist && d >= b.firstOut && d < b.Checkout/dayFrames && t >= b.outAt && t < b.backAt
 }
 
-// Payout is the tip the Party banks at Checkout (Step 2; D86 paid the whole stay here): tipPct of Rate ×
-// Nights, times pay, the Room's Mood pay factor (moodPay).
-func (p *Party) Payout(pay Num) int {
-	return int(Num(p.Rate*p.Nights*tipPct) * pay / 100)
-}
+// Payout is the tip the Party banks at Checkout (Z1, 2026-11-13): one night's Rate, whatever the stay's
+// length, times pay, the Room's Mood pay factor (moodPay).
+func (p *Party) Payout(pay Num) int { return int(Num(p.Rate) * pay) }
 
-// charge runs each frame: every Guest inside its Room owes its share of Rate/rentHours a game hour, raised
-// the Room's Mood pay factor, from the moment it steps in. It pays on the hour: the whole dollars owed go into
-// the wallet as "+$N" floats at the door, so the floater and the Money counter show the same payment
-// (2026-11-11: the counter climbed each frame while the door showed hourly lumps). Cents carry to the next hour.
-// With T held the Clock steps fastClock frames and can jump over the hour's own frame: the turn is what counts.
+// charge runs each frame of a stay (Z1, 2026-11-13): rent is paid up front, per Guest, on the Guest's own
+// clock. The moment a Guest steps into its Room it pays its share of the hour (Rate/rentHours, split between
+// the Party, times the Room's Mood pay factor as it stands) as a "+$N" at the door, then again every game
+// hour from that entry, in the Room or out of it. Whole dollars; a Guest's cents carry to its next hour.
+// The loop pays every hour the Clock passed, so T held skips none.
 func (g *Game) charge(p *Party) {
-	r, frames := g.hotel.Rooms[p.Room], Num(1)
-	if g.fast { // the Clock ran fastClock frames this step (advanceClock)
-		frames = fastClock
+	if p.due == nil {
+		p.due, p.cents = make([]int, len(p.Guests)), make([]Num, len(p.Guests))
 	}
-	for _, guest := range p.Guests {
-		if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
-			p.owed += frames * Num(p.Rate) / rentHours / hourFrames / Num(len(p.Guests)) * g.moodPay(p.Room)
+	r := g.hotel.Rooms[p.Room]
+	for i, guest := range p.Guests {
+		if p.due[i] == 0 {
+			if !image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
+				continue
+			}
+			p.due[i] = g.clock
 		}
-	}
-	if n := Num(int(p.owed)); g.clock/hourFrames != (g.clock-int(frames))/hourFrames && n > 0 { // the hour turned this step, T held or not
-		p.owed -= n
-		p.rent += n
-		g.earn(Money, n, r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, 0)))
+		for ; g.clock >= p.due[i]; p.due[i] += hourFrames {
+			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * g.moodPay(p.Room)
+			if n := Num(int(p.cents[i])); n > 0 {
+				p.cents[i] -= n
+				p.rent += n
+				g.earn(Money, n, r.Door.Mul(world.TileSize).Add(image.Pt(world.TileSize/2+(2*i-len(p.Guests)+1)*6, 0)))
+			}
+		}
 	}
 }
 
@@ -149,7 +152,8 @@ type Party struct {
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)
 	cooledAt   int           // the clock it stepped out
 	rent       Num           // Money paid in the Room so far (Step 2)
-	owed       Num           // rent run up since the last hour, not yet paid
+	due        []int         // per Guest: the clock its next hour of rent is due, 0 until it first steps into the Room
+	cents      []Num         // per Guest: the cents of its share not yet paid
 	tip        Num           // the checkout tip it banked
 	greet      greeting      // owed once the Concierge hears it (D165)
 	talk       []line        // its lines showing or about to (D165)
@@ -412,12 +416,14 @@ func (g *Game) updateParty(p *Party) bool {
 		return g.updateGhost(p)
 	}
 	exit := []image.Point{g.hotel.Exit, g.hotel.Exit}
+	if !p.Paid && !p.Fled && !p.Walked && p.state != checkingOut {
+		g.charge(p) // each Guest's hours run from its first step into the Room, in it or out
+	}
 	switch p.state {
 	case checkingIn:
 		if g.walkParty(p, arriveSpeed) && (p.settled || !g.settle(p)) {
 			p.state, p.settled = staying, true
 		}
-		g.charge(p) // it pays from its first step into the Room
 	case staying:
 		switch {
 		case g.clock >= p.Checkout:
@@ -429,7 +435,6 @@ func (g *Game) updateParty(p *Party) bool {
 		default:
 			g.bedtime(p)
 			g.intrude(p)
-			g.charge(p)
 		}
 	case goingOut:
 		if g.walkParty(p, departSpeed) {

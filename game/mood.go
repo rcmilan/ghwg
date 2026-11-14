@@ -9,8 +9,8 @@ import "ghosthotel/entities"
 const (
 	moodMin     = -100 // the Room is Closed
 	moodMax     = 100
-	moodStart   = moodMax // a new Run's Rooms
-	moodSpots   = 50      // spots show below this; a clean raises the Mood to it
+	moodSpots   = 50        // spots show below this; a clean raises the Mood to it
+	moodStart   = moodSpots // a new Run's Rooms: spotless, not yet cozy (Z1)
 	moodClean   = moodSpots
 	moodServe   = 25                              // a serve answered at once; falls to 0 as the ask nears expiry
 	moodExpire  = 10                              // an expired ask

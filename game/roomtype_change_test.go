@@ -82,7 +82,7 @@ func TestChangeEmptyRoom(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
 	g.own(BedsTwin)
-	g.wallet[Money] = 100
+	g.wallet[Money] = 1000
 	g.setDirtLevel(0, 3*spotUnit)
 	mood, dirt, walls := g.roomMood(0), g.dirtLevel(0), len(g.walls)
 	if i := row(t, rowChange); shop[i].Tab != tabHotel || !g.onSale(i) {
@@ -94,7 +94,7 @@ func TestChangeEmptyRoom(t *testing.T) {
 	if why := order(t, g, 0, "Twin"); why != "" {
 		t.Fatal(why)
 	}
-	if g.wallet != [2]Num{100 - bedKinds[1].Fee, 0} || !g.changing(0) || len(g.pending()) != 1 || g.hotel.Rooms[0].Type.Beds != "Single" {
+	if g.wallet != [2]Num{1000 - bedKinds[1].Fee, 0} || !g.changing(0) || len(g.pending()) != 1 || g.hotel.Rooms[0].Type.Beds != "Single" {
 		t.Fatalf("after the order: wallet %v, changing %v, Room %s; want the fee paid and the Room still Single while time stands", g.wallet, g.changing(0), g.hotel.Rooms[0].Type.Beds)
 	}
 	if why := order(t, g, 0, "Single"); why != "ROOM 101 IS ALREADY CHANGING" {
@@ -137,7 +137,7 @@ func TestChangeEmptyRoom(t *testing.T) {
 		}
 	}
 	g.parties = nil
-	if why := order(t, g, 0, "Single"); why != "" || g.wallet[Money] != 100-bedKinds[1].Fee-bedKinds[0].Fee {
+	if why := order(t, g, 0, "Single"); why != "" || g.wallet[Money] != 1000-bedKinds[1].Fee-bedKinds[0].Fee {
 		t.Errorf("back to Single: %q, Money %v; want its own fee paid", why, g.wallet[Money])
 	}
 }
@@ -325,7 +325,7 @@ func TestPacing(t *testing.T) {
 	}
 	sort.Float64s(at)
 	t.Logf("the first Room with its own Mirror, game hours, on %d of 8 seeds: %.1f", len(at), at)
-	if len(at) != 8 || at[len(at)/2] > 60 || at[len(at)-1] > 90 {
-		t.Errorf("the in-Room Mirror on %d of 8 seeds, at %.1f h; want all 8, the median within 60 h, none past 90", len(at), at)
+	if len(at) != 8 || at[3] < 45 || at[4] > 60 || at[len(at)-1] > 90 { // Z1: a floor too, both middle Runs in the band
+		t.Errorf("the in-Room Mirror on %d of 8 seeds, at %.1f h; want all 8, the median at 45..60 h, none past 90", len(at), at)
 	}
 }

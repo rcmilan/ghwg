@@ -20,9 +20,9 @@ type Supply struct {
 }
 
 var supplies = []Supply{
-	{SupplyWater, "fridge", 5, 1},
-	{SupplyFood, "drawer_b", 10, 2},
-	{SupplyTowel, "shelf_a", 7, 1},
+	{SupplyWater, "fridge", 25, 1},
+	{SupplyFood, "drawer_b", 50, 2},
+	{SupplyTowel, "shelf_a", 35, 1},
 }
 
 func supplyOf(id Unlock) int {

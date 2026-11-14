@@ -63,15 +63,15 @@ func noPriest(g *Game, room int) string {
 // shop is the catalog, in its order: a tab lists its rows as they stand here, so a new row goes next to its
 // kind (the keys, then the Priests), not at the end. Prices, packs and thresholds are placeholders.
 var shop = []Item{
-	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Icon: "icon_water", Cost: Cost{Money: 10}, Pack: 5},
-	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Icon: "food_4", Cost: Cost{Money: 20}, Pack: 5},
-	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 15}, Pack: 5},
+	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Icon: "icon_water", Cost: Cost{Money: 50}, Pack: 5},
+	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Icon: "food_4", Cost: Cost{Money: 100}, Pack: 5},
+	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 75}, Pack: 5},
 
 	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "icon_mirror", Cost: Cost{Money: mirrorPrice}},
-	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Icon: "icon_bed_twin", Cost: Cost{Money: 20},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 10}},
-	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "icon_bed_double", Cost: Cost{Money: 40},
-		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 40}},
+	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Icon: "icon_bed_twin", Cost: Cost{Money: twinPrice},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}},
+	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "icon_bed_double", Cost: Cost{Money: 2 * twinPrice},
+		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 200}},
 	{ID: rowChange, Tab: tabHotel, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
 		Send: func(g *Game, l cartLine) {
 			t, _ := world.TypeOf(g.types, l.beds)
@@ -79,19 +79,19 @@ var shop = []Item{
 		}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 60, Ecto: 40},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
 		Needs: []Unlock{Mirror}, Earned: Cost{Ecto: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 100, Ecto: 50},
+	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 500, Ecto: 50},
 		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 500, Ecto: 500},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 1000, Ecto: 1000}},
+	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
 
 	{ID: rowKey, Tab: tabServices, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 150}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
 	{ID: RoomMirror, Tab: tabServices, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
 }
