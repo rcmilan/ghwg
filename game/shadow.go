@@ -18,7 +18,6 @@ const (
 	shadowSpeed    = 4 * conciergeSpeed
 	patrolSpeed    = shadowSpeed // a patrol runs as fast as its travel (Live test 5, 2026-11-08: a crawl read as broken)
 	shadowSeen     = 10          // Fear a patrol gives a Guest who sees it
-	shadowUnseen   = 2           // and one who doesn't
 	startleHeight  = 4           // world px: a Guest's hop on seeing it (the flee's is hopHeight)
 	shadowEssence  = 24.0        // (placeholder) what it's born with; a patrol pass spends 1
 	shadowSunDrain = 1.0 / 60    // (placeholder) essence lost per game minute in full daylight
@@ -28,7 +27,14 @@ const (
 )
 
 var (
-	sightLines = []string{"What was that?!", "A shadow!", "Eek!", "Something moved!"}
+	// sightLines: what a Guest says on seeing a Shadow dash, by its ghost's kind (kindOf: the stronger the
+	// ghost, the worse the fright); one at random. Placeholders.
+	sightLines = [len(ghostKinds)][]string{
+		{"Hm?", "Did something move?", "A draft?", "Huh."},
+		{"What was that?!", "A shadow!", "Something moved!", "Who's there?"},
+		{"Eek!", "It ran along the wall!", "I saw it! I SAW it!", "Not again!"},
+		{"AAAH!", "IT'S IN THE WALLS!", "GET ME OUT!", "NO NO NO!"},
+	}
 	shadowTint = []float32{.45, .2, .7} // ghost: a black figure would vanish on the black maze walls
 	shadowCast = append([]string{"Bob"}, guestCast[:]...)
 )
@@ -79,6 +85,23 @@ func (g *Game) shadowGap(room int) int {
 	return int(60 / (1 + 2*s) * minuteFrames)
 }
 
+// dashGap: frames to a Shadow's next dash. A ghost's Shadow (area) dashes as often as its ghost haunts: the
+// Haunt minutes of the most relentless strong ghost in the Room (Z1, 2026-11-13). A free Shadow keeps shadowGap.
+func (g *Game) dashGap(room int, sh *shade) int {
+	gap := 0
+	if _, in := g.insideIn(room, Ghost); sh.area {
+		for _, ghost := range in {
+			if strong(ghost) && ghost.Haunt > 0 && (gap == 0 || ghost.Haunt < gap) {
+				gap = ghost.Haunt
+			}
+		}
+	}
+	if gap == 0 {
+		return g.shadowGap(room)
+	}
+	return gap * minuteFrames
+}
+
 // backWall: the run of a Room's back wall, and its patrol's two ends: touching either side wall.
 func (g *Game) backWall(room int) (run int, xa, xb float64) {
 	o := g.hotel.Rooms[room].Origin
@@ -95,6 +118,9 @@ func daylight(c int) float64 { return 1 - tint(c)[3]/tint(0)[3] }
 func (g *Game) shadowAlpha(sh *shade) float64 {
 	a := shadowOpacity * math.Sqrt(max(0, sh.essence)/shadowEssence) // sqrt: a nearly spent Shadow still shows, faintly
 	if sh.area {
+		if !sh.patrol && !g.ghost { // in real a ghost's Shadow shows only while it dashes (Z1)
+			return 0
+		}
 		a *= sh.lvl
 	}
 	lo, hi := g.walls[sh.run].ends()
@@ -125,10 +151,11 @@ func (g *Game) insideIn(room int, realm Realm) (*Party, []*entities.Guest) {
 	return nil, nil
 }
 
-// updateShadows runs each frame. Daylight drains each Shadow; one away from its Room's back wall runs
+// updateShadows runs each frame. A strong ghost's Shadow (area) dashes as often as its ghost haunts (dashGap)
+// and in real shows only while it dashes; only a Guest who sees it is frightened (Z1). Daylight drains each Shadow; one away from its Room's back wall runs
 // home, to the nearer end. At home, a due Shadow patrols if its Room has a Guest inside: to the other
-// end, spending 1 essence. A Guest who sees it gets shadowSeen Fear, hops and speaks; at the end, each
-// one inside who didn't gets shadowUnseen. At 0 essence it's gone.
+// end, spending 1 essence. A Guest who sees it gets shadowSeen Fear, hops and speaks; one who
+// doesn't gets nothing. At 0 essence it's gone.
 func (g *Game) updateShadows() {
 	for i, list := range g.shades {
 		p, in := g.inside(i)
@@ -153,11 +180,6 @@ func (g *Game) updateShadows() {
 				if arrived {
 					sh.patrol = false
 					sh.essence--
-					for _, guest := range in {
-						if _, ok := sh.seen[guest]; !ok {
-							g.frighten(p, guest, shadowUnseen, guest.FleeAt-1)
-						}
-					}
 				}
 				continue
 			}
@@ -166,7 +188,7 @@ func (g *Game) updateShadows() {
 			case sh.run != run || sh.x != xa && sh.x != xb:
 				g.sendShade(sh, run, slices.MinFunc([]float64{xa, xb}, func(a, b float64) int { return cmp.Compare(math.Abs(a-sh.x), math.Abs(b-sh.x)) }))
 			case g.clock >= sh.next:
-				if sh.next = g.clock + g.shadowGap(i); len(in) > 0 {
+				if sh.next = g.clock + g.dashGap(i, sh); len(in) > 0 {
 					sh.patrol, sh.seen = true, map[*entities.Guest]int{}
 					g.sendShade(sh, run, xa+xb-sh.x)
 				}
@@ -245,6 +267,7 @@ func (g *Game) updateAreaShades() {
 		if on[run] && len(g.shades[i]) == 0 && !g.hushed[i] {
 			g.placeShadow(i)
 			g.shades[i][0].area = true
+			g.shades[i][0].next = g.clock + g.dashGap(i, g.shades[i][0])
 		}
 		for _, sh := range g.shades[i] {
 			if sh.area {
@@ -286,16 +309,27 @@ func (g *Game) updateAreaShades() {
 	g.areaShades = slices.DeleteFunc(g.areaShades, gone)
 }
 
+// areaPhantasm: the Phantasm of the strongest ghost in the area named by the run, 0 with none.
+func (g *Game) areaPhantasm(run int) (most int) {
+	for _, ghost := range g.guestsIn(Ghost) {
+		if g.areaRun(ghost.X, ghost.Y) == run {
+			most = max(most, ghost.Phantasm)
+		}
+	}
+	return most
+}
+
 // sighting: each Guest inside who sees a patrolling Shadow for the first time this pass gets shadowSeen
-// Fear, hops and speaks.
+// Fear, hops and speaks a line picked at random from its ghost's kind's.
 func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 	y := g.walls[sh.run].y
+	lines := sightLines[kindOf(g.areaPhantasm(sh.run))]
 	for _, guest := range in {
 		if _, ok := sh.seen[guest]; !ok && g.sees(guest, sh.x, y) {
 			sh.seen[guest] = g.tick
 			g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
 			who := slices.Index(p.Guests, guest)
-			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, sightLines[g.chat.IntN(len(sightLines))], g.tick})
+			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, lines[g.chat.IntN(len(lines))], g.tick})
 		}
 	}
 }

@@ -50,7 +50,7 @@ func TestStoreOpens(t *testing.T) {
 	g := storeRun(t)
 	lock := row(t, RoomLock)
 	g.earn(Ecto, 1000, noFloat) // earned before the Mirror: doesn't count
-	g.wallet[Money] = 10
+	g.wallet[Money] = mirrorPrice
 	if g.addToCart(row(t, Mirror), -1) != "" || g.placeOrder() != "" {
 		t.Fatal("couldn't buy the Mirror")
 	}
@@ -108,7 +108,7 @@ func TestCheckout(t *testing.T) {
 func TestCartRules(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
-	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
+	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
 	m, k, fm := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM)
 	if g.addToCart(m, -1) == "" {
 		t.Error("an owned unlock went in the cart")
@@ -119,7 +119,7 @@ func TestCartRules(t *testing.T) {
 	if g.addToCart(k, 0) != "" || g.addToCart(fm, 0) == "" || g.addToCart(fm, 1) != "" {
 		t.Error("Priests: want one per Room")
 	}
-	g.cart, g.wallet = nil, [2]Num{15, 0}
+	g.cart, g.wallet = nil, [2]Num{75, 0}
 	w := row(t, SupplyWater)
 	if g.addToCart(w, -1) != "" || g.addToCart(w, -1) == "" {
 		t.Error("the cart took more than the wallet holds")

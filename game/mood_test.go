@@ -17,43 +17,72 @@ func TestMoodPay(t *testing.T) {
 	}
 	g.mood[p.Room] = 0
 	base := p.Payout(g.moodPay(p.Room))
-	hour := func() Num {
-		g.clock, p.owed = (g.clock/hourFrames+1)*hourFrames+1, 0 // off the hour: a frame's rent, owed
+	hour := func() Num { // a fresh entry: the hour it pays up front, cents included
+		p.due, p.cents, p.rent = nil, nil, 0
 		g.charge(p)
-		return p.owed
+		sum := p.rent
+		for _, c := range p.cents {
+			sum += c
+		}
+		return sum
 	}
 	one := hour()
-	if one <= 0 || base != p.Rate*p.Nights*tipPct/100 {
-		t.Fatalf("at Mood 0: an hour pays %v, tip %d; want a plain Room's pay", one, base)
+	if one <= 0 || base != p.Rate {
+		t.Fatalf("at Mood 0: an hour pays %v, tip %d; want a plain Room's pay and one night's Rate %d", one, base, p.Rate)
 	}
 	for mood, f := range map[int]Num{moodMin: 0, moodMax: 2} {
 		g.mood[p.Room] = mood
 		if got := hour(); got != one*f {
 			t.Errorf("Mood %d: an hour pays %v, want %v", mood, got, one*f)
 		}
-		if got, want := p.Payout(g.moodPay(p.Room)), int(Num(p.Rate*p.Nights*tipPct)*f/100); got != want {
+		p.Nights = 3 // the tip is one night's Rate, whatever the stay
+		if got, want := p.Payout(g.moodPay(p.Room)), int(Num(p.Rate)*f); got != want {
 			t.Errorf("Mood %d: tip %d, want %d", mood, got, want)
 		}
 	}
-	// on the hour the whole dollars owed are paid, as one "+$N" at the door: the counter and the floater agree
+}
+
+// T304 (Z1): rent is paid up front on each Guest's own clock: its share the moment it steps into its Room,
+// as a "+$N" at the door, then every game hour from that entry, in the Room or out, at any Clock speed.
+func TestRentUpFront(t *testing.T) {
+	g, _, p := settled(t)
 	g.mood[p.Room] = 0
-	g.clock, p.owed, p.rent = (g.clock/hourFrames+1)*hourFrames, 2.75, 0
+	share := Num(p.Rate) / rentHours / Num(len(p.Guests))
+	guest := p.Guests[0]
+	in := [2]float64{guest.X, guest.Y}
+	p.due, p.cents, p.rent = nil, nil, 0
+	guest.X, guest.Y = float64(g.hotel.Spawn.X), float64(g.hotel.Spawn.Y)
 	money, floats := g.wallet[Money], len(g.floaters)
+	if g.charge(p); p.due[0] != 0 || len(g.floaters) != floats {
+		t.Fatal("a Guest who never stepped into its Room paid rent")
+	}
+	guest.X, guest.Y = in[0], in[1]
 	g.charge(p)
-	if g.wallet[Money] != money+2 || p.rent != 2 || p.owed >= 1 || len(g.floaters) != floats+1 || g.floaters[floats].text != "+$2" {
-		t.Errorf("on the hour: wallet +%v, rent %v, owed %v, %d floaters; want $2 paid and floated, the cents carried", g.wallet[Money]-money, p.rent, p.owed, len(g.floaters)-floats)
+	want := Num(int(share))
+	if want < 1 || g.wallet[Money] != money+want*Num(len(p.Guests)) || len(g.floaters) != floats+len(p.Guests) || g.floaters[floats].text != "+$"+fmtNum(want) {
+		t.Fatalf("stepping in: wallet +%v, %d floaters; want +$%v a Guest, at once", g.wallet[Money]-money, len(g.floaters)-floats, want)
 	}
+	at := g.wallet[Money]
+	g.clock += hourFrames - 1
+	if g.charge(p); g.wallet[Money] != at {
+		t.Error("rent paid again before the Guest's hour was up")
+	}
+	guest.X, guest.Y = float64(g.hotel.Spawn.X), float64(g.hotel.Spawn.Y) // out of the Room: its clock runs on
 	g.clock++
-	if g.charge(p); g.wallet[Money] != money+2 {
-		t.Error("rent reached the wallet between the hours")
+	if g.charge(p); g.wallet[Money] <= at {
+		t.Error("the Guest's second hour didn't pay while it was out of the Room")
 	}
-	// T held: the Clock jumps over the hour's own frame, and the hour still pays
-	g.fast, p.owed = true, 3
-	g.clock = (g.clock/hourFrames+1)*hourFrames + 3
-	if g.charge(p); g.wallet[Money] < money+5 {
-		t.Errorf("fast Clock past the hour: wallet +%v, want the hour paid", g.wallet[Money]-money)
-	}
+	at = g.wallet[Money]
+	g.fast = true // T held: the Clock jumps; every hour passed still pays
+	g.clock += 3*hourFrames + 3
+	g.charge(p)
 	g.fast = false
+	if got, want := g.wallet[Money]-at, Num(int(3*share))*Num(len(p.Guests)); got < want {
+		t.Errorf("3 hours on the fast Clock paid %v, want at least %v", got, want)
+	}
+	if sum := p.rent + p.cents[0]; len(p.Guests) == 1 && (sum < 5*share-.01 || sum > 5*share+.01) {
+		t.Errorf("5 hours paid %v with the cents carried, want %v", sum, 5*share)
+	}
 }
 
 // T266: spots show only below moodSpots, one per ~3.75 points (spotUnit dirt of 3/4 point each), up to the

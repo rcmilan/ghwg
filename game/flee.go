@@ -27,13 +27,18 @@ func (g *Game) lift(guest *entities.Guest) float64 {
 	return g.startle(guest)
 }
 
-// hears (D165): the Concierge hears a Guest within hearRange; in real, only one outside the Rooms with no
-// wall between them.
+// hears (D165): the Concierge hears a Guest within hearRange; in real, with no wall between them, one
+// outside the Rooms, or one in the Room he stands in (Z1: since K1 he walks in with its guests there).
 func (g *Game) hears(guest *entities.Guest) bool {
 	if math.Hypot(guest.X-g.player.X, guest.Y-g.player.Y) > hearRange*world.TileSize || !g.ghost && g.realmOf(guest) == Ghost {
 		return false // a ghost is unheard in real
 	}
-	return g.ghost || !g.indoors(guest) && g.sight(image.Pt(int(guest.X), int(guest.Y)), image.Pt(int(g.player.X), int(g.player.Y)))
+	return g.ghost || (!g.indoors(guest) || g.roomAt(guest.X, guest.Y) == g.roomAt(g.player.X, g.player.Y)) && g.sight(image.Pt(int(guest.X), int(guest.Y)), image.Pt(int(g.player.X), int(g.player.Y)))
+}
+
+// roomAt: the Room whose shell holds the world point, -1 if none.
+func (g *Game) roomAt(x, y float64) int {
+	return slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return image.Pt(int(x), int(y)).In(r.Shell()) })
 }
 
 // indoors: the guest is inside a Room.

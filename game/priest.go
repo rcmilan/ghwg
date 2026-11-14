@@ -14,8 +14,8 @@ import (
 
 // Room Mood (D147) and the Priests who clean it (D151). Placeholders, retuned at T112.
 const (
-	priestWeak    = 40  // $: halves a Room's dread
-	priestStrong  = 100 // $: clears it
+	priestWeak    = 200 // $: halves a Room's dread
+	priestStrong  = 500 // $: clears it
 	priestMinutes = 30  // game minutes a Priest works in the Room
 	priestSpeed   = arriveSpeed
 )

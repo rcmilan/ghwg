@@ -9,7 +9,7 @@ import (
 func TestRoomMood(t *testing.T) {
 	g, _, p := settled(t)
 	g.frighten(p, p.Guests[0], 1, fearLimit)
-	if g.roomMood(p.Room) != moodStart-dirtMood(1) || g.roomMood(1-p.Room) != moodMax {
+	if g.roomMood(p.Room) != moodStart-dirtMood(1) || g.roomMood(1-p.Room) != moodStart {
 		t.Fatalf("a fright: Moods %v, want %d in Room %d only", g.mood, moodStart-dirtMood(1), p.Room)
 	}
 	g.parties = nil

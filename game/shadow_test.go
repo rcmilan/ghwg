@@ -132,14 +132,14 @@ func TestShadowFear(t *testing.T) {
 	}
 	stay := func(i int) image.Point { return r.Stays[i] }
 	noon := 12 * hourFrames
-	if got := run(noon, entities.FaceDown, stay, 0); got != shadowUnseen || len(p.talk) > 0 {
-		t.Fatalf("facing away: +%d Fear, lines %v; want +%d and no line", got, p.talk, shadowUnseen)
+	if got := run(noon, entities.FaceDown, stay, 0); got != 0 || len(p.talk) > 0 {
+		t.Fatalf("facing away: +%d Fear, lines %v; want +%d and no line", got, p.talk, 0)
 	}
 	if got := run(noon, entities.FaceUp, stay, 0); got != shadowSeen || len(p.talk) != len(p.Guests) {
 		t.Fatalf("facing it: +%d Fear, lines %v; want +%d and a line each", got, p.talk, shadowSeen)
 	}
 	for i, l := range p.talk {
-		if l.who != i || !slices.Contains(sightLines, l.text) {
+		if l.who != i || !slices.Contains(sightLines[0], l.text) {
 			t.Fatalf("line %d: %+v, want a sighting line by Guest %d", i, l, i)
 		}
 	}
@@ -151,8 +151,8 @@ func TestShadowFear(t *testing.T) {
 	if h := g.lift(p.Guests[0]); h != 0 {
 		t.Fatalf("a seer's hop is over, still %.1f px up", h)
 	}
-	if got := run(2*hourFrames, entities.FaceUp, func(i int) image.Point { return sleepSpot(r.Lanes[i]) }, 0); got != shadowUnseen {
-		t.Fatalf("asleep in bed facing it: +%d Fear, want +%d", got, shadowUnseen)
+	if got := run(2*hourFrames, entities.FaceUp, func(i int) image.Point { return sleepSpot(r.Lanes[i]) }, 0); got != 0 {
+		t.Fatalf("asleep in bed facing it: +%d Fear, want +%d", got, 0)
 	}
 	if got := run(noon, entities.FaceUp, stay, fearLimit-5); got != 4 {
 		t.Fatalf("at Fear %d: +%d, want 4 (up to fearLimit-1)", fearLimit-5, got)

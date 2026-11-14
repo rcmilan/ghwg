@@ -122,7 +122,7 @@ A name for a band of the Phantasm scale, with one flat arcade color (a placehold
 A ghost whose Phantasm is at or above the strong threshold (every kind but the Wisp) is strong: it switches an area's Shadow People on. A weak one does not.
 
 **Area Shadow**:
-The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. It is the ordinary Shadow Person: it dashes along the area's upper wall (a Room's while humans are in; a Corridor's or the hall's now and then), frightens the humans who see it, is hidden by a Room's Fog like its props, and Father M banishes it until that ghost leaves. Humans' sight rules are V1's.
+The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. It is the ordinary Shadow Person: in a Room it dashes along the back wall while humans are in, as often as its ghost haunts (the ghost's haunt frequency, so a relentless ghost shows more); in a Corridor or the hall it dashes now and then. In the real Dimension it shows only while it dashes, and only a human who sees the dash is frightened; it is hidden by a Room's Fog like its props, and Father M banishes it until that ghost leaves. Humans' sight rules are V1's.
 
 **In Room**:
 A Party is in its Room (`inRoom`) when it is staying and every Guest is inside the Room's walls, in either realm. A ghost haunts only while in Room.
@@ -142,7 +142,7 @@ What the Concierge does for an Occupied Room whose Party is asking, in the real 
 _Avoid_: tend, room service (as the term)
 
 **Mood pay factor**:
-What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent (owed for every moment a Guest is inside its Room, from its first step in, and paid on the hour in whole dollars, as the "+$N" at the door) and the checkout tip, so a plain Room at Mood 0 pays its Rate.
+What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at +100, linear. It multiplies the rent and the checkout tip, so a plain Room at Mood 0 pays its Rate. Rent is paid up front, per Guest, on the Guest's own clock: its share of the hour (Rate / 24, split between the Party, at the Room's Mood as it stands) the moment it steps into its Room, as a "+$N" at the door, then every game hour from that entry, in the Room or out; whole dollars, its cents carried to its next hour. A new Run's Rooms start at Mood +50.
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
@@ -185,7 +185,7 @@ The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, R
 One 24-hour turn of the Clock, counted from Day 1.
 
 **Checkout**:
-A Party leaving its Room for good on its final Day. It pays Rate × nights × the Room's Mood pay factor as a tip, at the Room's door, the money is banked at once, and the Room becomes Vacant.
+A Party leaving its Room for good on its final Day. It pays one night's Rate × the Room's Mood pay factor as a tip, whatever the stay's length, at the Room's door, the money is banked at once, and the Room becomes Vacant.
 
 ## Light
 

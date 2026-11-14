@@ -203,12 +203,12 @@ func TestGhostHaunts(t *testing.T) {
 	g.clock = runStart + 5*hourFrames // a whole minute
 	g.locked = map[Unlock]bool{Mirror: true}
 	g.hauntGhosts()
-	if g.roomMood(0) != moodMax {
+	if g.roomMood(0) != moodStart {
 		t.Errorf("a haunt with the Mirror locked: Mood %d", g.roomMood(0))
 	}
 	g.unlock(Mirror)
 	g.hauntGhosts()
-	if want := moodMax - ghostHauntDamage(p.Guests[0]); g.roomMood(0) != want {
+	if want := moodStart - ghostHauntDamage(p.Guests[0]); g.roomMood(0) != want {
 		t.Errorf("a haunt: Mood %d, want %d", g.roomMood(0), want)
 	}
 	g.setDirtLevel(0, dirtMax-1) // filthy, not closed
@@ -269,7 +269,7 @@ func TestMirrorStartLocked(t *testing.T) {
 			t.Fatal("a ghost booked before the Mirror was bought")
 		}
 	}
-	g.wallet[Money] = 10
+	g.wallet[Money] = mirrorPrice
 	if why := g.addToCart(mirror, -1); why != "" {
 		t.Fatal(why)
 	}
@@ -329,7 +329,7 @@ func TestMirrorCoveredAndDelivered(t *testing.T) {
 		t.Fatalf("SPACE at the covered Mirror: shifting %v, message %q; want a refusal", g.shifting != nil, g.message)
 	}
 	s.hold()
-	g.wallet[Money] = 10
+	g.wallet[Money] = mirrorPrice
 	if why := g.addToCart(row(t, Mirror), -1); why != "" {
 		t.Fatal(why)
 	}
@@ -417,5 +417,74 @@ func TestRoomPropsFogged(t *testing.T) {
 	room := prop{cx: o.X + 2, cy: o.Y + 4, l: world.LayerProps, id: id}
 	if g.propFog(room) == 0 || g.covered(room) {
 		t.Errorf("a mirror prop in a fogged Room: fog %v covered %v; want it fogged and drawn as itself", g.propFog(room), g.covered(room))
+	}
+}
+
+// T307 (Z1): a strong ghost's Shadow dashes as often as its ghost haunts, and in real shows only while it dashes.
+func TestShadowDashOnly(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	g.locked = nil
+	h := g.walkIn()
+	h.Routine, h.Nights = homebody, 3
+	h.schedule(g.clock)
+	g.settleIn(h)
+	p := ghostIn(t, g, h.Room, phantasmStrong)
+	p.Guests[0].Haunt = 30
+	g.updateShadows()
+	sh := g.shades[h.Room][0]
+	if got := g.dashGap(h.Room, sh); got != 30*minuteFrames {
+		t.Errorf("the dash gap is %d frames, want its ghost's 30 game minutes", got)
+	}
+	p.Guests[0].Haunt = 10
+	if got := g.dashGap(h.Room, sh); got != 10*minuteFrames {
+		t.Errorf("a more relentless ghost: gap %d frames, want 10 game minutes", got)
+	}
+	sh.next = g.clock
+	dashes, was := 0, false
+	for range 35 * minuteFrames {
+		g.clock++
+		g.updateShadows()
+		if sh.lvl = 1; !sh.patrol && g.shadowAlpha(sh) != 0 {
+			t.Fatal("the Shadow shows in real while it isn't dashing")
+		}
+		if sh.patrol && !was {
+			dashes++
+		}
+		was = sh.patrol
+	}
+	if dashes < 3 {
+		t.Errorf("%d dashes in 35 game minutes at a 10-minute haunt, want 3", dashes)
+	}
+}
+
+// Z1 live test: a Guest's sighting line comes from its ghost's kind, the stronger the worse; and in real the
+// Concierge hears a Guest in the Room he stands in (he may walk in since K1), not one behind a Room's walls.
+func TestSightLinesByStrength(t *testing.T) {
+	g, _, h := settled(t)
+	g.locked = nil
+	p := ghostIn(t, g, h.Room, phantasmMax)
+	human := h.Guests[0]
+	run, xa, _ := g.backWall(h.Room)
+	if got := g.areaPhantasm(run); got != phantasmMax {
+		t.Fatalf("the Room's strongest ghost: Phantasm %d, want %d", got, phantasmMax)
+	}
+	for _, ph := range []int{phantasmStrong, phantasmMax} {
+		p.Guests[0].Phantasm = ph
+		human.Path, human.Anim.Facing, h.talk = nil, entities.FaceUp, nil
+		sh := &shade{run: run, x: xa, seen: map[*entities.Guest]int{}}
+		g.sighting(h, h.Guests, sh)
+		if len(h.talk) != 1 || !slices.Contains(sightLines[kindOf(ph)], h.talk[0].text) {
+			t.Errorf("Phantasm %d: lines %v, want one of its kind's %v", ph, h.talk, sightLines[kindOf(ph)])
+		}
+	}
+	g.ghost = false
+	g.player.X, g.player.Y = human.X+world.TileSize, human.Y
+	if !g.hears(human) {
+		t.Error("in real, the Concierge in the Room doesn't hear its Guest")
+	}
+	g.player.X, g.player.Y = float64(g.hotel.Spawn.X), float64(g.hotel.Spawn.Y)
+	if g.hears(human) {
+		t.Error("in real, a Guest in its Room is heard from outside it")
 	}
 }

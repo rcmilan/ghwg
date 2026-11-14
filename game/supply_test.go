@@ -66,7 +66,7 @@ func TestDeliver(t *testing.T) {
 	g, s, p := settled(t)
 	door := center(g.hotel.Rooms[p.Room].Spot())
 	p.asked, p.want, g.hands = g.clock, SupplyFood, SupplyWater
-	p.Rate, g.wallet[Money] = 0, 0 // no rent, paid or ticking in: only the delivery pays
+	p.Rate, g.wallet[Money], g.mood[p.Room] = 0, 0, moodMax // no rent, and a cozy Room: the delivery pays in full
 	press(g, s, door)
 	if !p.asking() || g.hands != SupplyWater || g.wallet[Money] != 0 {
 		t.Fatal("the wrong item was taken")

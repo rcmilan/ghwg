@@ -21,7 +21,7 @@
   {
    "name": "rate",
    "type": "int",
-   "value": 40
+   "value": 200
   },
   {
    "name": "beds",

@@ -35,7 +35,7 @@ type bedKind struct {
 	Fee   Num
 }
 
-var bedKinds = [...]bedKind{{"Single", "", 10}, {"Twin", BedsTwin, 15}, {"Double", BedsDouble, 25}}
+var bedKinds = [...]bedKind{{"Single", "", 50}, {"Twin", BedsTwin, 75}, {"Double", BedsDouble, 125}}
 
 // change is a Room's paid-for change of type: waiting for the Room to empty, or its reel rolling.
 type change struct {
