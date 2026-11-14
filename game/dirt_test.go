@@ -115,9 +115,10 @@ func TestClean(t *testing.T) {
 	g.ghost = true
 	press(g, s, cellPt(free[1]))
 	g.ghost = false
-	if len(g.spots(0)) != 3 {
-		t.Fatal("cleaned from a spiritual spot")
+	if len(g.spots(0)) != 3 || g.state != StateView {
+		t.Fatalf("SPACE on a spiritual spot: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)
 	}
+	g.state = StatePlay
 	press(g, s, cellPt(free[0]))
 	if g.roomMood(0) != moodClean || len(g.spots(0)) != 0 || g.wallet[Ecto] != 0 || g.taps[0][TaskHousekeep] != 1 {
 		t.Fatalf("cleaned in real: Mood %d, spots %v, Ecto %v, taps %v; want %d, none, no Ecto, 1",

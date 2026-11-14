@@ -7,6 +7,13 @@ import (
 )
 
 // keys taps each key in turn, a released frame between.
+// view opens the hotel view as a player does (U2): SPACE where it has nothing else to do, here the Lobby's corner.
+func view(g *Game, s *script) {
+	at := freeSpot(g.hotel)
+	g.player.X, g.player.Y = float64(at.X), float64(at.Y)
+	keys(g, s, ebiten.KeySpace)
+}
+
 func keys(g *Game, s *script, ks ...ebiten.Key) {
 	for _, k := range ks {
 		s.hold()
@@ -25,7 +32,7 @@ func TestHotelView(t *testing.T) {
 		g, s := headless(t, grid[0], grid[1], 1)
 		g.startRun()
 		n := len(g.hotel.Rooms)
-		if keys(g, s, ebiten.KeyTab); g.state != StateView || g.termDepth != 1 {
+		if view(g, s); g.state != StateView || g.termDepth != 1 {
 			t.Fatalf("%v: TAB: state %d depth %d, want the hotel view on its Rooms", grid, g.state, g.termDepth)
 		}
 		clock := g.clock
@@ -57,8 +64,9 @@ func TestHotelView(t *testing.T) {
 		if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
 			t.Fatalf("%v: one ESC from a Room's actions left state %d, want play", grid, g.state)
 		}
-		keys(g, s, ebiten.KeyTab, ebiten.KeySpace)
-		if keys(g, s, ebiten.KeyTab); g.state != StatePlay {
+		view(g, s)
+		keys(g, s, ebiten.KeySpace, ebiten.KeySpace) // a boarded Room's key can't be paid: the view stays
+		if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
 			t.Fatalf("%v: TAB from a Room's actions left state %d, want play", grid, g.state)
 		}
 	}
@@ -83,7 +91,7 @@ func TestHotelView(t *testing.T) {
 		t.Fatalf("%s is not a Room's action", id)
 		return nil
 	}
-	keys(g, s, ebiten.KeyTab)
+	view(g, s)
 	g.termCursor = 0
 	keys(g, s, ebiten.KeyD, ebiten.KeySpace) // Room 102, its actions
 	keys(g, s, pos(rowKey)...)
@@ -93,7 +101,8 @@ func TestHotelView(t *testing.T) {
 	}
 	deliver(t, g)
 	g.state = StatePlay
-	keys(g, s, ebiten.KeyTab, ebiten.KeySpace) // the highlight stayed on Room 102
+	view(g, s)
+	keys(g, s, ebiten.KeySpace) // the highlight stayed on Room 102
 	keys(g, s, pos(rowFatherK)...)
 	keys(g, s, ebiten.KeySpace)
 	if !g.priestOn(1) || g.wallet[Money] != bedKinds[1].Fee {

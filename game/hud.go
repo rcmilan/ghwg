@@ -3,6 +3,7 @@ package game
 import (
 	"image/color"
 	"math"
+	"strings"
 
 	"ghosthotel/assets"
 
@@ -23,7 +24,49 @@ const (
 	noteScale   = 2       // a text notice's size
 	slotGap     = 12      // screen px between notices in a column
 	slotEase    = 0.15    // of the way to its new place a notice moves per frame
+	noticeWrap  = 18      // a text notice's line, in letters: it stays in the screen's side margin
 )
+
+// notice is the HUD's text notice (07 U2): the one place for words to the player. The game says none today
+// (2026-11-14: no system text, neither a confirmation nor a refusal; show, don't tell), so nothing calls notify
+// but the tests; the mechanic stays. It slides in on the left column, holds, and slides out. It is the only place for it: the game has no message
+// line, and nothing else may print one (guard_test.go).
+type notice struct {
+	text string
+	on   bool // said and not yet dropped: what the View reads, shown or slid out
+	age  int  // frames since it was said
+	slot
+}
+
+// notify says text on the HUD; "" drops what it was saying.
+func (g *Game) notify(text string) {
+	if text == "" {
+		g.note.on = false
+		return
+	}
+	g.note.text, g.note.on, g.note.age = text, true, 0
+}
+
+// said: what the HUD's notice says, "" once dropped.
+func (g *Game) said() string {
+	if g.note.on {
+		return g.note.text
+	}
+	return ""
+}
+
+// lines: the notice's text, wrapped at its words.
+func (n notice) lines() []string {
+	var ls []string
+	for _, w := range strings.Fields(n.text) {
+		if k := len(ls) - 1; k >= 0 && len(ls[k])+1+len(w) <= noticeWrap {
+			ls[k] += " " + w
+		} else {
+			ls = append(ls, w)
+		}
+	}
+	return ls
+}
 
 // slot: a notice's place in its side column: how far in it is slid, and its top, screen px.
 type slot struct{ in, y float64 }
@@ -93,7 +136,11 @@ func (g *Game) updateHUD() {
 		g.guestText = t
 	}
 	note := g.nextGuest() != ""
-	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * noteScale}, []bool{want(Money), note})
+	g.note.age++
+	say := g.note.on && g.note.age < holdFrames
+	column([]*slot{&g.hud[Money].slot, &g.guestNote, &g.note.slot}, []int{glyphH * hudScale, glyphH * noteScale, len(g.note.lines()) * glyphH * noteScale},
+		[]bool{want(Money), note, say})
+	g.note.slide(say)
 	column([]*slot{&g.hud[Ecto].slot}, []int{glyphH * hudScale}, []bool{want(Ecto)})
 	g.hud[Money].slide(want(Money))
 	g.hud[Ecto].slide(want(Ecto))
@@ -110,6 +157,22 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		ease := n.in * n.in * (3 - 2*n.in)
 		w := len(g.guestText) * glyphW * noteScale
 		printAt(s, g.guestText, int(-float64(w)+float64(w+hudMargin)*ease), int(n.y), noteScale, resInk(Money), 1)
+	}
+	if n := g.note; n.in > 0 { // words alone, never on a background (2026-11-14): white, outlined in black
+		ease := n.in * n.in * (3 - 2*n.in)
+		ls := n.lines()
+		w := 0
+		for _, l := range ls {
+			w = max(w, len(l)*glyphW*noteScale)
+		}
+		x := int(-float64(w) + float64(w+hudMargin)*ease)
+		for k, l := range ls {
+			y := int(n.y) + k*glyphH*noteScale
+			for _, d := range [...][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
+				printAt(s, l, x+d[0]*noteScale, y+d[1]*noteScale, noteScale, color.Black, 1)
+			}
+			printAt(s, l, x, y, noteScale, color.White, 1)
+		}
 	}
 	for r, c := range g.hud {
 		y := int(c.y)
@@ -199,7 +262,6 @@ func inkAt(r Res, t int64) color.RGBA {
 }
 
 // tinted prints v in the debug font at 1×, in c at alpha a (no shadow, 2026-11-08).
-// text() can't: it's white only.
 func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a float32) {
 	g.tintedAt(s, v, x, y, 1, c, a)
 }

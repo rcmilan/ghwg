@@ -70,10 +70,11 @@ func (g *Game) beginGrow() {
 	g.growNext = 0
 	d, err := g.grow(col)
 	if err != nil {
-		g.message = strings.ToUpper(err.Error())
+		g.refuse(strings.ToUpper(err.Error()))
 		return
 	}
-	g.growing, g.state, g.message = &growth{col: col, d: d, cut: d.Y + world.TileSize}, StateGrow, ""
+	g.growing, g.state = &growth{col: col, d: d, cut: d.Y + world.TileSize}, StateGrow
+	g.refuse("")
 	if col {
 		g.growing.cut = (w - 1) * world.TileSize // the old east margin: the new Corridor
 	}

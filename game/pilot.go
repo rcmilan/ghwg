@@ -255,7 +255,7 @@ func (p *Pilot) Change(room int, beds string) {
 
 // Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE, then the
 // cart's checkout, and closes the Terminal. An action for a Room goes through the hotel view instead, from
-// where he stands: TAB, the Room, the action (and its beds), paid at once. ok if got holds then. It gives up when the item isn't for sale or the
+// where he stands if SPACE does nothing else there (else from the Lobby's corner): SPACE, the Room, the action (and its beds), paid at once. ok if got holds then. It gives up when the item isn't for sale or the
 // store refuses it.
 func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) { p.buy(id, room, "", got) }
 
@@ -265,13 +265,23 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	pos := slices.Index(tabItems(tab), i)
 	if shop[i].room() {
 		pressed, leave, paid, opened, spins := false, false, false, false, 0
+		walk := goTo(freeSpot(p.hotel))
 		p.do(func(p *Pilot, v View) (bool, bool) {
 			t := v.Terminal
 			if !t.View {
-				if opened {
+				switch {
+				case opened:
 					return true, paid && got(v)
+				case t.Open: // SPACE opened the store instead: out, and give up
+					opened = p.tap(ebiten.KeyEscape)
+				case v.Shifting:
+				case !p.free(v): // SPACE opens the hotel view only where it does nothing else (U2): walk there first
+					if done, ok := walk(p, v); done && !ok {
+						return true, false
+					}
+				default:
+					opened = p.tap(ebiten.KeySpace)
 				}
-				opened = p.tap(ebiten.KeyTab)
 				return false, false
 			}
 			opened = true
@@ -330,10 +340,30 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	})
 }
 
-// Close shuts the open Terminal with ESC.
+// freeSpot: a place where SPACE has nothing else to do and nobody walks: the Lobby's south-west corner.
+func freeSpot(h *world.Hotel) image.Point {
+	return h.Lobby.Min.Add(image.Pt(world.TileSize*3/2, h.Lobby.Dy()-world.TileSize*3/2))
+}
+
+// free: SPACE does nothing else where the Concierge stands: clear of the Terminal, the Mirror, the stock, and
+// of every Room and its door.
+func (p *Pilot) free(v View) bool {
+	h, at := p.hotel, v.Concierge
+	if at.In(h.Terminal) || at.In(h.MirrorSpot) || at.In(h.Kitchen) {
+		return false
+	}
+	for _, r := range h.Rooms {
+		if at.In(r.Shell()) || at.In(r.Spot()) {
+			return false
+		}
+	}
+	return true
+}
+
+// Close shuts the open Terminal, or the hotel view, with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		if !v.Terminal.Open {
+		if !v.Terminal.Open && !v.Terminal.View {
 			return true, true
 		}
 		p.tap(ebiten.KeyEscape)

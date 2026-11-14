@@ -61,7 +61,6 @@ type Game struct {
 	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
 	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
 	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
-	message       string
 	rng           *rand.Rand
 	chat          *rand.Rand                    // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
 	in            input                         // the keys (input.go)
@@ -128,6 +127,8 @@ type Game struct {
 	growNext      int                           // the expansion paid for, played once the Terminal is closed: growCol or growFloor (grow.go, 07 H1)
 	growing       *growth                       // its cinematic under way, nil if none
 	grid0         [2]int                        // the Room grid a Run starts with, cols and rows: a grown hotel is rebuilt to it
+	note          notice                        // the HUD's text notice (hud.go, 07 U2): the only place for words to the player; the game says none today
+	refused       string                        // why the last SPACE did nothing, "" when it did: the View's, never drawn (view.go refuse)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -245,7 +246,8 @@ func (g *Game) Update() error {
 			return ebiten.Termination
 		case g.state == StateGrow: // it plays out
 		case g.state != StatePlay:
-			g.state, g.message = StatePlay, ""
+			g.state = StatePlay
+			g.refuse("")
 		case g.intro != nil || g.auto != nil: // the opening, or a Strategy playing: back to the title
 			g.toTitle()
 		default:
@@ -273,13 +275,8 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	case g.state == StatePause:
 		g.updatePause()
-	case g.in.JustPressed(ebiten.KeyTab) && g.shifting == nil:
-		g.openView()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
-		if g.message != "" && !g.atMirror() {
-			g.message = ""
-		}
 		g.step(move(g.in))
 		g.updateShift()
 		switch {
@@ -290,7 +287,7 @@ func (g *Game) Update() error {
 		case g.atMirror() && g.unlocked(Mirror):
 			g.startShift()
 		case g.atMirror(): // covered until the courier installs it
-			g.message = "THE MIRROR IS COVERED"
+			g.refuse("THE MIRROR IS COVERED")
 		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
 			g.startShift()
 		case !g.ghost && g.atSupply() >= 0:
@@ -299,6 +296,8 @@ func (g *Game) Update() error {
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)
+			} else if g.atSupply() < 0 && g.atDoor() < 0 { // SPACE where nothing else is its to do: the hotel view (U2); not at a door or a supply that had nothing for it
+				g.openView()
 			}
 		}
 	}

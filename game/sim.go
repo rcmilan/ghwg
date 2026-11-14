@@ -38,6 +38,9 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold()
 		return
 	}
+	if g.state == StateView && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2): out of it
+		a.pilot.Close()
+	}
 	if a.pilot.Idle() && a.idle && g.clock/minuteFrames == a.minute { // nothing to do: skip the View
 		a.pilot.frame++
 		a.keys.hold()

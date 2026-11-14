@@ -53,7 +53,7 @@ type RoomView struct {
 
 type TerminalView struct {
 	Open    bool
-	View    bool // the hotel view is open (TAB)
+	View    bool // the hotel view is open
 	Message string
 	Cursor  int    // the Room a Service is for
 	Tab     Tab    // the store's open tab
@@ -117,7 +117,7 @@ func (g *Game) view() View {
 }
 
 func (g *Game) termView() TerminalView {
-	t := TerminalView{Open: g.state == StateTerminal, View: g.state == StateView, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Depth: g.termDepth, Beds: bedKinds[g.termBeds].Beds}
+	t := TerminalView{Open: g.state == StateTerminal, View: g.state == StateView, Message: g.refused, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Depth: g.termDepth, Beds: bedKinds[g.termBeds].Beds}
 	for _, l := range g.cart {
 		t.Cart += l.n
 	}
@@ -135,3 +135,8 @@ func (g *Game) forSale() []int {
 	}
 	return rows
 }
+
+// refuse notes why the last SPACE did nothing ("" when it did): the View's Message, by which a Strategy knows
+// a buy was turned down. It is never drawn (2026-11-14: no system text; the store's own pane says "CAN'T
+// AFFORD", and a covered Mirror looks covered).
+func (g *Game) refuse(why string) { g.refused = why }

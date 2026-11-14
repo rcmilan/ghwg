@@ -117,7 +117,7 @@ func TestGrowBuy(t *testing.T) {
 		}
 		keys(g, s, ebiten.KeySpace)
 		if len(g.cart) != 1 {
-			why := g.message
+			why := g.refused
 			keys(g, s, ebiten.KeyEscape)
 			return why
 		}
@@ -125,7 +125,7 @@ func TestGrowBuy(t *testing.T) {
 		keys(g, s, ebiten.KeySpace) // checkout: an order placed closes the store
 		return ""
 	}
-	if why := buy(GrowCol); why != "NOT ENOUGH IN THE WALLET" {
+	if why := buy(GrowCol); why != "CAN'T AFFORD" {
 		t.Fatalf("New column with no Ectoplasm: %q", why)
 	}
 	want := [][2]int{{3, 1}, {3, 2}, {3, 3}}
