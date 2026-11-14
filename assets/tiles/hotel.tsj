@@ -5,7 +5,7 @@
  "name": "hotel",
  "tilewidth": 16,
  "tileheight": 16,
- "tilecount": 143,
+ "tilecount": 147,
  "columns": 0,
  "margin": 0,
  "spacing": 0,
@@ -2525,6 +2525,90 @@
       "x": 10,
       "y": 0,
       "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 145,
+   "image": "wall_halfw_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 146,
+   "image": "wall_halfe_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 147,
+   "image": "wall_halfw_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 148,
+   "image": "wall_halfe_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
       "height": 16
      }
     ],

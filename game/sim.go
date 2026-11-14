@@ -34,6 +34,10 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold(ebiten.KeySpace)
 		return
 	}
+	if g.state == StateGrow { // the hotel grows: nothing to press
+		a.keys.hold()
+		return
+	}
 	if a.pilot.Idle() && a.idle && g.clock/minuteFrames == a.minute { // nothing to do: skip the View
 		a.pilot.frame++
 		a.keys.hold()
@@ -78,21 +82,23 @@ type Result struct {
 	Bookings    int
 	Ghosts      int // ghost Parties booked (07 G1): they pay no Money
 	Paid        int
-	Pairs       int     // Bookings of two
-	Outings     int     // Tourist days out
-	Fled        int     // Parties that ran from a haunt
-	Walked      int     // Parties that walked away from a dirty Room (dirt.go)
-	Cleans      int     // dirt spots cleaned
-	Ecto        int     // at the end of the Run
-	Serves      int     // requests answered
-	Expired     int     // requests left to expire
-	Priests     int     // called and paid
-	PriestSpend int     // $ paid for them
-	ClosedHours int     // Room-hours spent Closed
-	MirrorAt    float64 // game hours from the Run start until the Mirror unlocked; -1 if it never did (07 B1)
-	RoomMirror  float64 // the same, until the first Room had its own Mirror: the opening loop's finish line (07 K1)
-	MirrorBuy   float64 // the same, until the in-Room Mirror was bought (its first Room may still be waiting to change)
-	Changes     int     // changes of type ordered
+	Pairs       int       // Bookings of two
+	Outings     int       // Tourist days out
+	Fled        int       // Parties that ran from a haunt
+	Walked      int       // Parties that walked away from a dirty Room (dirt.go)
+	Cleans      int       // dirt spots cleaned
+	Ecto        int       // at the end of the Run
+	Serves      int       // requests answered
+	Expired     int       // requests left to expire
+	Priests     int       // called and paid
+	PriestSpend int       // $ paid for them
+	ClosedHours int       // Room-hours spent Closed
+	MirrorAt    float64   // game hours from the Run start until the Mirror unlocked; -1 if it never did (07 B1)
+	RoomMirror  float64   // the same, until the first Room had its own Mirror: the opening loop's finish line (07 K1)
+	MirrorBuy   float64   // the same, until the in-Room Mirror was bought (its first Room may still be waiting to change)
+	Changes     int       // changes of type ordered
+	Grown       []float64 // game hours from the Run start at each expansion of the hotel (07 H1)
+	Rooms       int       // at the end of the Run
 	Failures    []Failure
 }
 
@@ -176,6 +182,10 @@ func (s *sim) frame() bool {
 	g.Update()
 	if title {
 		return true
+	}
+	if len(g.mood) != len(moods) { // the hotel grew: its Rooms' indices moved, nothing else did this frame
+		moods, cleans = slices.Clone(g.mood), slices.Clone(g.taps)
+		s.res.Grown = append(s.res.Grown, float64(g.clock-runStart)/hourFrames)
 	}
 	if s.res.MirrorAt < 0 && g.unlocked(Mirror) {
 		s.res.MirrorAt = float64(g.clock-runStart) / hourFrames
@@ -297,7 +307,7 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	if d := g.wallet[Money] - money - banked + Num(spent); d > 1e-6 || d < -1e-6 {
 		s.fail("money went up %s, but Guests paid %s and Priests cost %d", fmtNum(g.wallet[Money]-money), fmtNum(banked), spent)
 	}
-	home := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize) == g.hotel.ConciergeStart.Div(world.TileSize)
+	home := g.hotel.Map.Cell(image.Pt(int(g.player.X), int(g.player.Y))) == g.hotel.Map.Cell(g.hotel.ConciergeStart)
 	for _, guest := range g.guests() {
 		if guest.Phasing && !s.phased[guest] && home {
 			s.fail("a guest of room %d phased at %v with the Concierge at the Terminal",
@@ -332,6 +342,7 @@ func (s *sim) scaring() bool {
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
 	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
+	s.res.Rooms = len(s.g.hotel.Rooms)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {

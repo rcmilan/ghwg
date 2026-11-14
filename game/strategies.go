@@ -31,7 +31,7 @@ func (s stand) Act(v View, p *Pilot) {
 	switch {
 	case v.Terminal.Open:
 		p.Close()
-	case v.Concierge.Div(world.TileSize) != s.at(v.Hotel).Div(world.TileSize):
+	case v.Hotel.Map.Cell(v.Concierge) != v.Hotel.Map.Cell(s.at(v.Hotel)):
 		p.GoTo(s.at(v.Hotel))
 	}
 }
@@ -100,7 +100,7 @@ func (s smart) Act(v View, p *Pilot) {
 			return
 		}
 	}
-	if v.Concierge.Div(world.TileSize) != v.Hotel.Mirror.Div(world.TileSize) {
+	if v.Hotel.Map.Cell(v.Concierge) != v.Hotel.Map.Cell(v.Hotel.Mirror) {
 		p.GoTo(v.Hotel.Mirror)
 	}
 }

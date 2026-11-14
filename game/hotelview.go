@@ -163,7 +163,11 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 	op.GeoM.Scale(k/zoom, k/zoom)
 	op.GeoM.Translate(tx, ty)
-	screen.DrawImage(g.wide, op)
+	if g.state == StateGrow {
+		g.drawGrown(screen, k, tx, ty, bg)
+	} else {
+		screen.DrawImage(g.wide, op)
+	}
 	if g.state != StateView {
 		return
 	}

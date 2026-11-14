@@ -37,19 +37,36 @@ func loadTiles(ts *world.Tileset) ([]*ebiten.Image, error) {
 	return imgs, nil
 }
 
-// paint pre-draws a w×h-cell block at 1px per world px: layers [from, to) of at(layer, x, y).
-func (g *Game) paint(w, h, from, to int, at func(l, x, y int) world.TileID) *ebiten.Image {
+// paint pre-draws a w×h-cell block at 1px per world px: layers [from, to) of at(layer, x, y), each cell at
+// origin(x, y).
+func (g *Game) paint(w, h, from, to int, at func(l, x, y int) world.TileID, origin func(x, y int) image.Point) *ebiten.Image {
 	img := ebiten.NewImage(w*world.TileSize, h*world.TileSize)
 	for l := from; l < to; l++ {
 		for y := range h {
 			for x := range w {
 				if id := at(l, x, y); id != 0 {
 					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Translate(float64(x*world.TileSize), float64(y*world.TileSize))
+					op.GeoM.Translate(float64(origin(x, y).X), float64(origin(x, y).Y))
 					img.DrawImage(g.tiles[id], op)
 				}
 			}
 		}
+	}
+	return img
+}
+
+// onGrid: a cell's px in a block of its own, as paint's origin.
+func onGrid(x, y int) image.Point { return image.Pt(x, y).Mul(world.TileSize) }
+
+// paintFloor pre-draws the map's floor. H1: the hall's rows stand Slip px east of the grid, so their first
+// tile is drawn once more to its west: the street runs to the map's edge.
+func (g *Game) paintFloor() *ebiten.Image {
+	m := g.hotel.Map
+	img := g.paint(m.W, m.H, world.LayerFloor, world.LayerFloor+1, m.At, m.Origin)
+	for y := m.SlipRow; m.Slip > 0 && y < m.H; y++ {
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(m.Slip-world.TileSize), float64(y*world.TileSize))
+		img.DrawImage(g.tiles[m.At(world.LayerFloor, 0, y)], op)
 	}
 	return img
 }
@@ -75,7 +92,7 @@ func (g *Game) sortedProps() []prop {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
 					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
 					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
-						p.band, p.bx, p.by = ebiten.NewImageFromImage(bands.SubImage(r.Add(image.Pt(x, y).Mul(world.TileSize)))), r.Min.X, r.Min.Y
+						p.band, p.bx, p.by = ebiten.NewImageFromImage(bands.SubImage(r.Add(m.Origin(x, y)))), r.Min.X, r.Min.Y
 					}
 					ps = append(ps, p)
 				}
@@ -144,7 +161,7 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	if g.viewT > 0 {
+	if g.viewT > 0 || g.state == StateGrow {
 		g.drawView(screen, bg)
 	} else {
 		g.drawWorld(screen, ox, oy)
@@ -170,8 +187,7 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // screen-px precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if g.floorImg == nil { // only the floor is pre-drawn; everything above it is y-sorted with the actors (D11)
-		m := g.hotel.Map
-		g.floorImg, g.props = g.paint(m.W, m.H, world.LayerFloor, world.LayerFloor+1, m.At), g.sortedProps()
+		g.floorImg, g.props = g.paintFloor(), g.sortedProps()
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
@@ -246,7 +262,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		op.GeoM.Reset()
 		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(p.cx*world.TileSize*zoom-ox), float64(p.cy*world.TileSize*zoom-oy))
+		o := g.hotel.Map.Origin(p.cx, p.cy)
+		op.GeoM.Translate(float64(o.X*zoom-ox), float64(o.Y*zoom-oy))
 		s := g.dreadAt(image.Pt(p.cx, p.cy))
 		img := g.tiles[p.id]
 		if g.covered(p) { // the lobby Mirror, until it's installed
@@ -345,19 +362,20 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 			continue
 		}
 		off := int(math.Round(d.Open() * ts))
-		for y := d.Rect.Min.Y / ts; y < d.Rect.Max.Y/ts; y++ {
-			for x := d.Rect.Min.X / ts; x < d.Rect.Max.X/ts; x++ {
+		c0, c1 := m.Cell(d.Rect.Min), m.Cell(d.Rect.Max.Sub(image.Pt(1, 1)))
+		for y := c0.Y; y <= c1.Y; y++ {
+			for x := c0.X; x <= c1.X; x++ {
 				id := m.At(world.LayerDecor, x, y)
 				if !m.TS.Tiles[id].Door || off == ts {
 					continue
 				}
 				src, dx := image.Rect(0, 0, ts-off, ts), off // slides right: its left part shows, shifted
-				if d.Room < 0 && x == d.Rect.Min.X/ts {
+				if d.Room < 0 && x == c0.X {
 					src, dx = image.Rect(off, 0, ts, ts), 0 // Entrance's left leaf slides left
 				}
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(zoom, zoom)
-				op.GeoM.Translate(float64((x*ts+dx)*zoom-ox), float64(y*ts*zoom-oy))
+				op.GeoM.Translate(float64((m.Origin(x, y).X+dx)*zoom-ox), float64(y*ts*zoom-oy))
 				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil, g.roomShift(d.Room))
 			}
 		}

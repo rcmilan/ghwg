@@ -125,7 +125,7 @@ func TestLobbyMirrorEast(t *testing.T) {
 		g.startRun()
 		h, m := g.hotel, g.hotel.Map
 		const ts = world.TileSize
-		c := h.Mirror.Div(ts)
+		c := m.Cell(h.Mirror)
 		east := 0 // Hall Wall cells between the Archway and the Mirror
 		for x := c.X + 1; m.Wall(x, c.Y-1); x++ {
 			east++
@@ -136,7 +136,7 @@ func TestLobbyMirrorEast(t *testing.T) {
 		if !h.Mirror.In(h.MirrorSpot) || h.MirrorSpot.Overlaps(h.Terminal) || h.MirrorSpot.Overlaps(h.Kitchen) || h.MirrorSpot.Overlaps(h.Stock) {
 			t.Errorf("%v: the Mirror's spot %v: want it under the Mirror %v, clear of the Terminal %v and the kitchen", grid, h.MirrorSpot, h.Mirror, h.Terminal)
 		}
-		for x := h.MirrorSpot.Min.X / ts; x < h.MirrorSpot.Max.X/ts; x++ {
+		for x := m.Cell(h.MirrorSpot.Min).X; x <= m.Cell(h.MirrorSpot.Max.Sub(image.Pt(1, 1))).X; x++ {
 			if m.Solid(x, c.Y) {
 				t.Errorf("%v: the Mirror's spot cell (%d,%d) is solid", grid, x, c.Y)
 			}

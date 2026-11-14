@@ -207,9 +207,8 @@ const areaFade = 60
 // -1 if none.
 func (g *Game) areaRun(x, y float64) int {
 	m := g.hotel.Map
-	cx := int(x) / world.TileSize
 	for cy := int(y) / world.TileSize; cy >= 0; cy-- {
-		if k := g.wallCell[cy*m.W+cx]; k >= 0 {
+		if k := g.wallCell[cy*m.W+m.Cell(image.Pt(int(x), cy*world.TileSize)).X]; k >= 0 {
 			return k
 		}
 	}
@@ -399,10 +398,11 @@ func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 		return
 	}
 	r := g.walls[k]
-	x0, x1 := max(p.cx*ts, int(r.x0)), min((p.cx+1)*ts, int(r.x1))
+	px := g.hotel.Map.Origin(p.cx, p.cy).X // the cell's west edge
+	x0, x1 := max(px, int(r.x0)), min(px+ts, int(r.x1))
 	clip := image.Rect(x0*zoom-ox, p.cy*ts*zoom-oy, x1*zoom-ox, (p.cy+1)*ts*zoom-oy)
 	for _, sh := range g.onRun[k] {
-		if math.Abs(float64(p.cx*ts+ts/2)-sh.x) >= (ts+charW)/2 {
+		if math.Abs(float64(px+ts/2)-sh.x) >= (ts+charW)/2 {
 			continue
 		}
 		f := sh.anim.Frame()

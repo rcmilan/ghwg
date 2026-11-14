@@ -35,6 +35,10 @@ _Avoid_: shadow ghost
 **Lobby**:
 The common area between the Hall Wall and the Entrance, where the Reception Counter stands.
 
+**Hall**:
+The Lobby and the Kitchen together, with their walls: the front part of the hotel. It is always as wide as two Room columns and never grows. It stands centered under the Rooms to the pixel, so the middle of the Entrance, the middle of the Lobby Archway and the middle of the Rooms are one line; under an odd count of Room columns the middle Room's door stands on that line, and the Hall then sits half a cell off the Rooms' grid. Where the Rooms are wider than the Hall, their south wall closes the Corridor beside it and the Street comes up to that wall.
+_Avoid_: entrance hall (in code and docs), foyer
+
 **Corridor**:
 Walkable common space between Rooms and between the Rooms and the Lobby. Corridors are 2 cells wide.
 _Avoid_: hallway, passage
@@ -276,3 +280,10 @@ _Avoid_: slot machine (as a mechanic: nothing is random), transition
 **In-Room Mirror**:
 A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, on a first Room's actions in the Hotel view: paid at once, carried by the Courier to that Room's door and hung when he gets there, its Guests in or not (a scheduled Room Change keeps waiting); from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
 _Avoid_: vanity, second Mirror, Room mirror (the store row's name only)
+
+**Growth**:
+The hotel gaining Rooms mid-Run: "New column" adds a Room column on the east, "New floor" a floor at the back. Both are HOTEL rows of the Terminal, paid in Ectoplasm, on sale once the Mirror is owned; each expansion costs twice the last, one is bought at a time, and the grid stops at 3 by 3. No Courier brings it: the hotel grows as the Terminal closes. The world and the Clock wait while the camera pulls back on the hotel as it stood, the new part slides in from off screen, and the camera comes back. Every Room keeps its number's place, its type, its Mood and its Guests; the new Rooms arrive boarded up, each needing its Room key. A new Run starts at the size the hotel opened with.
+_Avoid_: expansion (as the mechanic's name), upgrade, Spin
+
+**Grower**:
+The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.

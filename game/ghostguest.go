@@ -242,7 +242,7 @@ func (g *Game) settleIn(p *Party) {
 // covered: the prop is a tile of the lobby's Mirror (the two cells above its standing spot) while the Mirror
 // is still locked: drawn covered. A Room's own mirror prop is a separate upgrade (K1) and is never covered.
 func (g *Game) covered(p prop) bool {
-	c := g.hotel.Mirror.Div(world.TileSize)
+	c := g.hotel.Map.Cell(g.hotel.Mirror)
 	return !g.unlocked(Mirror) && p.cx == c.X && (p.cy == c.Y-2 || p.cy == c.Y-1) && strings.HasPrefix(g.ts.Tiles[p.id].Name, "prop_mirror_")
 }
 

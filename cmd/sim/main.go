@@ -71,14 +71,23 @@ func main() {
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
-	var failures []string
+	var failures, growth []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		mirrorSum, mirrorN := 0.0, 0
 		var roomMirror []float64
+		var grown [][]float64 // per expansion, first to last: the game hour of each Run that made it (H1)
+		rooms := 0
 		for _, r := range results[s] {
+			for k, h := range r.Grown {
+				if k == len(grown) {
+					grown = append(grown, nil)
+				}
+				grown[k] = append(grown[k], h)
+			}
+			rooms += r.Rooms
 			if r.RoomMirror >= 0 {
 				roomMirror = append(roomMirror, r.RoomMirror)
 			}
@@ -125,8 +134,19 @@ func main() {
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
 			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
 			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
+		if len(grown) > 0 {
+			line := fmt.Sprintf("  %s grew, at game hour (mean, Runs):", name)
+			for _, hs := range grown {
+				line += fmt.Sprintf(" %.1f (%d/%d)", mean(hs), len(hs), *runs)
+			}
+			growth = append(growth, fmt.Sprintf("%s; %.1f Rooms at the end", line, float64(rooms)/n))
+		}
 	}
 	w.Flush()
+	if len(growth) > 0 {
+		fmt.Println("\ngrowth:")
+		fmt.Println(strings.Join(growth, "\n"))
+	}
 	if len(failures) > 0 {
 		fmt.Println("\nfailures:")
 		fmt.Println(strings.Join(failures, "\n"))

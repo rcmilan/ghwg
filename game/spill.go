@@ -45,7 +45,7 @@ func spillMask(h *world.Hotel) *image.Alpha {
 	}
 	isWall := func(cx, cy int) bool { return cx < 0 || cy < 0 || cx >= m.W || cy >= m.H || wall[cy*m.W+cx] }
 
-	ax, ay := h.Archway.X/ts, h.Archway.Y/ts // a floor cell on the Archway's bottom row
+	ax, ay := m.Cell(h.Archway).X, m.Cell(h.Archway).Y // a floor cell on the Archway's bottom row
 	x0, x1 := ax, ax
 	for !isWall(x0-1, ay) {
 		x0--
@@ -55,19 +55,20 @@ func spillMask(h *world.Hotel) *image.Alpha {
 	}
 	top := (ay - 1) * ts // the Hall Wall's top edge; the Lobby's fill covers from here down
 	sy := float64((ay+1)*ts + spillDepth)
-	cx := float64(x0+x1+1) * ts / 2
+	west, east := float64(m.Origin(x0, ay).X), float64(m.Origin(x1+1, ay).X) // the Archway's mouth
+	cx := (west + east) / 2
 	near := sy - float64(top) // full light at the Archway's mouth, to match the lit Lobby
 
 	// visible: a straight line from the hall light at (sx,sy) reaches (px,py). A wall face doesn't hide
 	// itself: only its bottom row is a wall cell, so a target on either of its 2 rows sees past its own
 	// row and the one below, and faces turned to the Archway light up evenly.
 	visible := func(px, py, sx float64) bool {
-		tx, ty := int(px)/ts, int(py)/ts
+		tx, ty := m.Cell(image.Pt(int(px), int(py))).X, int(py)/ts
 		face := isWall(tx, ty) || isWall(tx, ty+1)
 		n := int(math.Hypot(sx-px, sy-py)/spillRes) + 1
 		for k := 1; k <= n; k++ {
 			f := float64(k) / float64(n)
-			c := image.Pt(int(px+(sx-px)*f)/ts, int(py+(sy-py)*f)/ts)
+			c := m.Cell(image.Pt(int(px+(sx-px)*f), int(py+(sy-py)*f)))
 			if isWall(c.X, c.Y) && !(face && (c.Y == ty || c.Y == ty+1)) {
 				return false
 			}
@@ -86,7 +87,7 @@ func spillMask(h *world.Hotel) *image.Alpha {
 			}
 			seen := 0
 			for k := range spillRays {
-				if visible(px, py, float64(x0*ts)+(float64(k)+.5)*float64((x1+1-x0)*ts)/spillRays) {
+				if visible(px, py, west+(float64(k)+.5)*(east-west)/spillRays) {
 					seen++
 				}
 			}

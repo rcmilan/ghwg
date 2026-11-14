@@ -27,7 +27,7 @@ var keepRightCost = keepRightStep // a var so tests can compare against the plai
 // (world px) are solid too: someone standing there.
 func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []image.Point {
 	m := h.Map
-	start, goal := from.Div(TileSize), to.Div(TileSize)
+	start, goal := m.Cell(from), m.Cell(to)
 	if !m.inside(start.X, start.Y) || !m.inside(goal.X, goal.Y) {
 		return nil
 	}
@@ -38,7 +38,7 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 		}
 	}
 	for _, p := range avoid {
-		closed[p.Div(TileSize)] = true
+		closed[m.Cell(p)] = true
 	}
 	open := func(p image.Point) bool { return m.inside(p.X, p.Y) && !closed[p] && !m.Solid(p.X, p.Y) }
 	idx := func(p image.Point) int { return p.Y*m.W + p.X }
@@ -80,7 +80,7 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 	}
 	var path []image.Point
 	for i := idx(goal); i != idx(start); i = prev[i] {
-		path = append(path, image.Pt(i%m.W*TileSize+TileSize/2, i/m.W*TileSize+TileSize/2))
+		path = append(path, m.Center(i%m.W, i/m.W))
 	}
 	if len(path) == 0 { // already in the goal cell
 		return []image.Point{to}

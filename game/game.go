@@ -19,6 +19,7 @@ const (
 	StateTerminal
 	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
 	StatePause // ESC with nothing open: Resume / Quit to title
+	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -124,6 +125,9 @@ type Game struct {
 	viewT         float64                       // the hotel view's pull-back, 0 the play camera .. 1 the whole hotel
 	panel         *ebiten.Image                 // the hotel view's action card (its whole-map frame is the intro's g.wide)
 	pausePick     int                           // the pause's picked row
+	growNext      int                           // the expansion paid for, played once the Terminal is closed: growCol or growFloor (grow.go, 07 H1)
+	growing       *growth                       // its cinematic under way, nil if none
+	grid0         [2]int                        // the Room grid a Run starts with, cols and rows: a grown hotel is rebuilt to it
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -155,7 +159,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}
+	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
@@ -188,6 +192,7 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and a Standard Single (K1: the Run-start
 // draw is gone; Rooms change type one by one, roomtype_change.go), no money.
 func (g *Game) startRun() {
+	g.ungrow()
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
@@ -229,7 +234,7 @@ func (g *Game) Update() error {
 	if g.auto != nil {
 		g.auto.drive(g)
 	}
-	if g.state == StateView { // the hotel view's camera: out while it is open, back in once closed
+	if g.state == StateView || g.growing != nil && g.growing.t < 1 { // the hotel view's camera: out while it is open (or the hotel grows), back in once closed
 		g.viewT = min(1, g.viewT+1.0/viewFrames)
 	} else {
 		g.viewT = max(0, g.viewT-1.0/viewFrames)
@@ -238,6 +243,7 @@ func (g *Game) Update() error {
 		switch {
 		case g.state == StateTitle:
 			return ebiten.Termination
+		case g.state == StateGrow: // it plays out
 		case g.state != StatePlay:
 			g.state, g.message = StatePlay, ""
 		case g.intro != nil || g.auto != nil: // the opening, or a Strategy playing: back to the title
@@ -247,9 +253,14 @@ func (g *Game) Update() error {
 		}
 		return nil
 	}
+	if g.growNext != 0 && g.state == StatePlay && g.shifting == nil && g.intro == nil { // paid for, the Terminal closed
+		g.beginGrow()
+	}
 	switch {
 	case g.intro != nil: // the opening, the title included: the world waits for it
 		g.updateIntro()
+	case g.state == StateGrow:
+		g.updateGrow()
 	case g.state == StateTitle:
 		if g.in.JustPressed(ebiten.KeySpace) {
 			g.startRun()
@@ -469,19 +480,20 @@ const yieldAhead = 3
 // wait on each other. The Concierge is left to the sidestep and the push give (D22b).
 func (g *Game) yields(guest *entities.Guest) bool {
 	ahead := guest.Path[:min(len(guest.Path), yieldAhead)]
-	i := slices.IndexFunc(ahead, func(p image.Point) bool { return g.hotel.Choke(p.Div(world.TileSize)) })
+	m := g.hotel.Map
+	i := slices.IndexFunc(ahead, func(p image.Point) bool { return g.hotel.Choke(m.Cell(p)) })
 	if i < 0 {
 		return false
 	}
-	c := ahead[i].Div(world.TileSize).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
+	c := m.Center(m.Cell(ahead[i]).X, m.Cell(ahead[i]).Y)
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
 	for _, o := range g.walkers(g.realmOf(guest)) {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
-		on := image.Pt(int(o.X), int(o.Y)).Div(world.TileSize)
-		if slices.ContainsFunc(ahead, func(p image.Point) bool { return p.Div(world.TileSize) == on }) &&
+		on := m.Cell(image.Pt(int(o.X), int(o.Y)))
+		if slices.ContainsFunc(ahead, func(p image.Point) bool { return m.Cell(p) == on }) &&
 			(float64(o.Path[0].X)-o.X)*hx+(float64(o.Path[0].Y)-o.Y)*hy < 0 { // on the stretch, coming the other way
 			return true
 		}

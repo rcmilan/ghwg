@@ -16,10 +16,11 @@ const (
 	lobbyRows    = 6    // floor rows between the Hall Wall and the front face (D56)
 	behindRows   = 2    // Lobby rows behind the counter (D40)
 	streetRows   = 3
-	archwayWidth = 4 // on even map widths; 5 on odd ones, so it stays centered (D55)
-	counterW     = 5 // counter cells: counter_left, counter_mid..., computer, counter_right (D87)
-	KitchenW     = 6 // the kitchen's prop row (07 F1): the cells of its back wall next to its west wall
-	doorwayRow   = 4 // the kitchen's open doorway, in its west wall: this row below the Hall Wall's top, and the next
+	archwayWidth = 4
+	hallW        = 20 // the hall's width in cells, its side lines included: the 2-column hotel's. It never grows (H1)
+	counterW     = 5  // counter cells: counter_left, counter_mid..., computer, counter_right (D87)
+	KitchenW     = 6  // the kitchen's prop row (07 F1): the cells of its back wall next to its west wall
+	doorwayRow   = 4  // the kitchen's open doorway, in its west wall: this row below the Hall Wall's top, and the next
 )
 
 // layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
@@ -32,6 +33,9 @@ type layout struct {
 	street     int
 	archway    int // the Archway's west column
 	archwayW   int
+	hx         int // the hall's west column, its side line; its east one is hx+hallW-1 (H1)
+	spare      int // cells the Rooms part is wider than the hall, both sides together
+	slip       int // px the hall's rows stand east of the grid: half a cell when spare is odd
 	entrance   int // the Entrance's west column
 	counterX   int // counter_left: the counter ends just west of the Archway
 }
@@ -43,8 +47,12 @@ func newLayout(cols, rows int) layout {
 	l.front = l.hall + 2 + lobbyRows
 	l.street = l.front + 2
 	l.h = l.street + streetRows
-	l.archwayW = archwayWidth + l.w%2
-	l.archway, l.entrance = (l.w-l.archwayW)/2, l.w/2-1 // centered (D55); the Entrance sits one cell left of center on odd widths
+	// H1: the hall keeps the 2-column hotel's size and stands centered under the Rooms, whatever their width:
+	// to the px, so half a cell off the grid when the Rooms part is an odd count of cells wider
+	l.spare = l.w - 2 - hallW
+	l.hx, l.slip = 1+l.spare/2, l.spare%2*TileSize/2
+	l.archwayW = archwayWidth
+	l.archway, l.entrance = l.hx+(hallW-l.archwayW)/2, l.hx+hallW/2-1 // centered (D55)
 	l.counterX = l.archway - counterW
 	return l
 }
@@ -84,6 +92,7 @@ type Hotel struct {
 	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
 	Stock          image.Rectangle // the kitchen's prop row, flush against its back wall: solid, its props fetched from the row below (E8, K1, F1)
 	Kitchen        image.Rectangle // the kitchen (F1): the Lobby's part east of the Archway, walled off, its back wall's face included
+	HallY          int             // the Hall Wall's top, world px: the hall, the street included, is all that lies below (H1)
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -104,8 +113,13 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 		}
 		return t
 	}
+	if cols < 2 {
+		return nil, errors.New("world: the hall is as wide as 2 Room columns; the hotel needs at least 2")
+	}
 	l := newLayout(cols, rows)
 	m := NewTilemap(ts, l.w, l.h)
+	m.Slip, m.SlipRow = l.slip, l.hall
+	hxE := l.hx + hallW - 1      // the hall's east side line
 	kx := l.archway + l.archwayW // the kitchen's west wall line: the kitchen fills the Lobby east of the Archway (F1)
 	put := func(l, x, y int, name string) { m.Set(l, x, y, id(name)) }
 	// face: a 2-row wall face over cols x0..x1; gaps are openings (lintel on top, floor below).
@@ -135,11 +149,13 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	for y := range l.h {
 		for x := range l.w {
 			n := "floor_clay"
+			beside := y >= l.hall && (x < l.hx || x > hxE) // beside the hall (H1)
 			switch {
-			case y >= l.street:
-				n = "floor_street" // full width, margin included
-			case y == 0 || x == 0 || x == l.w-1:
+			case y >= l.street, beside && l.spare > 0 && y >= l.hall+2:
+				n = "floor_street" // full width, margin included; it comes up to the Rooms' south wall beside the hall
+			case y == 0 || x == 0 || x == l.w-1, beside && l.slip > 0 && x == l.w-2:
 				n = "void"
+			case beside:
 			case x > kx && y >= l.hall && y < l.front: // the kitchen, the sheet's shadow cells under its back wall and beside its west one
 				n = "floor_kitchen"
 				if north, west := y == l.hall+2, x == kx+1; north && west {
@@ -175,11 +191,23 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	for x := archway; x < archway+l.archwayW; x++ {
 		gaps = append(gaps, x)
 	}
-	face(1, kx, l.hall, gaps...) // Hall Wall + Lobby Archway
+	face(l.hx, kx, l.hall, gaps...) // Hall Wall + Lobby Archway
 	skin = "wall_kitchen"
-	face(kx+1, l.w-2, l.hall) // the kitchen's back wall: the Hall Wall's east part
+	face(kx+1, hxE, l.hall) // the kitchen's back wall: the Hall Wall's east part
 	skin = "wall"
-	face(1, l.w-2, l.front, entrance, entrance+1) // exterior face + Entrance
+	face(l.hx, hxE, l.front, entrance, entrance+1) // exterior face + Entrance
+	if l.spare > 0 {                               // H1: the Rooms' south wall beside the hall, seen from the street
+		x0, x1 := 1, l.w-2
+		if l.slip > 0 { // it ends half a cell off the hall's grid: on half a face
+			x0 = 0
+		}
+		face(x0, l.hx-1, l.hall)
+		face(hxE+1, x1, l.hall)
+		for i, half := range []string{"_top", "_bottom"}[:l.slip/4] { // both, or none
+			put(LayerWalls, x0, l.hall+i, "wall_halfw"+half)
+			put(LayerWalls, x1, l.hall+i, "wall_halfe"+half)
+		}
+	}
 	for i, n := range []string{"entrance_left", "entrance_right"} {
 		put(LayerDecor, entrance+i, l.front, n+"_top")
 		put(LayerDecor, entrance+i, l.front+1, n+"_bottom")
@@ -187,8 +215,8 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	// front windows (D67, S2 review): 2 cells wide, 2 per side, mirrored about the Entrance and evenly
 	// spaced along the wall between the side line (x=1) and the Entrance; a spare cell widens the middle gap
 	// F1: the east pair stands evenly on the kitchen's part of the wall (x=kx+1..w-3), so none straddles its west wall
-	edge := (l.w - 3 - kx - 2*2) / 3 // free wall cells between a window and the kitchen's side walls
-	for _, w := range []int{kx + 1 + edge, l.w - 4 - edge} {
+	edge := (hxE - 1 - kx - 2*2) / 3 // free wall cells between a window and the kitchen's side walls
+	for _, w := range []int{kx + 1 + edge, hxE - 2 - edge} {
 		for _, x := range []int{w, 2*entrance - w} {
 			for c := range 4 {
 				put(LayerDecor, x+c%2, l.front+c/2, fmt.Sprintf("prop_window_front_r%dc%d", c/2, c%2))
@@ -221,10 +249,19 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	put(LayerDecor, mirror, l.hall, "prop_mirror_r0c0")
 	put(LayerDecor, mirror, l.hall+1, "prop_mirror_r1c0")
 	// hotel outer side walls: one unbroken line over every wall that meets them; Rooms never stamp over it
+	// H1: the Rooms' lines end on their south wall where it is wider than the hall, whose own lines start there
 	for x, side := range map[int]string{1: "west", l.w - 2: "east"} {
 		put(LayerDecor, x, 1, "border_"+side+"_top")
-		for y := 2; y < l.front; y++ {
+		for y := 2; y < l.hall; y++ {
 			put(LayerDecor, x, y, "border_"+side)
+		}
+	}
+	for x, side := range map[int]string{l.hx: "west", hxE: "east"} {
+		for y := l.hall; y < l.front; y++ {
+			put(LayerDecor, x, y, "border_"+side)
+		}
+		if l.spare > 0 {
+			put(LayerDecor, x, l.hall, "border_"+side+"_top")
 		}
 		put(LayerDecor, x, l.front, "border_"+side+"_corner")
 	}
@@ -251,7 +288,8 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 		top := r.Door.Mul(TileSize)
 		h.Doors = append(h.Doors, Door{Room: i, Rect: image.Rectangle{top, top.Add(image.Pt(TileSize, 2*TileSize))}})
 	}
-	h.Doors = append(h.Doors, Door{Room: -1, Rect: image.Rect(entrance*TileSize, l.front*TileSize, (entrance+2)*TileSize, (l.front+2)*TileSize)})
+	slip := image.Pt(l.slip, 0) // every anchor below the Hall Wall's top stands on the hall's grid
+	h.Doors = append(h.Doors, Door{Room: -1, Rect: image.Rect(entrance*TileSize, l.front*TileSize, (entrance+2)*TileSize, (l.front+2)*TileSize).Add(slip)})
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("world: tileset lacks tiles %v", missing)
 	}
@@ -259,10 +297,11 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 		h.Land(i, start, false)
 	}
 
-	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2) // on the Entrance's center line
+	h.Spawn = image.Pt((entrance+1)*TileSize, (l.street+1)*TileSize+TileSize/2).Add(slip) // on the Entrance's center line
 	h.Exit = h.Spawn.Sub(image.Pt(TileSize, 0))
-	h.Archway = image.Pt(archway*TileSize+l.archwayW*TileSize/2, (l.hall+1)*TileSize)
-	h.ConciergeStart = cellCenter(computer, l.counter-2)
+	h.Archway = image.Pt(archway*TileSize+l.archwayW*TileSize/2, (l.hall+1)*TileSize).Add(slip)
+	h.ConciergeStart = m.Center(computer, l.counter-2)
+	h.HallY = l.hall * TileSize
 	// ceiling lights (D95), on the grid: one in the Corridor below each Room and in the column Corridor beside it
 	for c := range cols {
 		for r := range rows {
@@ -273,12 +312,12 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 			}
 		}
 	}
-	h.Lobby = image.Rect(TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
-	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
-	h.Mirror = cellCenter(mirror, l.hall+2)
-	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
-	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
-	h.Stock = image.Rect((kx+1)*TileSize, (l.hall+2)*TileSize, (kx+1+KitchenW)*TileSize, (l.hall+3)*TileSize)
+	h.Lobby = image.Rect(l.hx*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
+	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize).Add(slip)
+	h.Mirror = m.Center(mirror, l.hall+2)
+	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize).Add(slip)
+	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
+	h.Stock = image.Rect((kx+1)*TileSize, (l.hall+2)*TileSize, (kx+1+KitchenW)*TileSize, (l.hall+3)*TileSize).Add(slip)
 	m.Block = map[image.Point]bool{}
 	for x := kx + 1; x <= kx+KitchenW; x++ { // nobody walks over the props (K1, 2026-11-11)
 		m.Block[image.Pt(x, l.hall+2)] = true
