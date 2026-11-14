@@ -30,6 +30,8 @@ Walking, cleaning and ghosts, small rules added with the housekeepers: everyone 
 
 Two kinds of dirt (2026-11-14): guests make normal dirt, ghosts make spiritual dirt (each haunt, each fright). `Space` in a room cleans the kind of the dimension you are in: normal dirt in the real one, for nothing; spiritual dirt in the ghost one, for Ectoplasm. The other kind stays. Housekeepers clean only normal dirt; a priest clears spiritual dirt for money. Before the Mirror is bought there are no ghosts and so no spiritual dirt.
 
+Deluxe rooms (2026-11-14): the HOTEL tab sells "Deluxe rooms" for 60 Ectoplasm once the Mirror is owned. After that every room's actions in the hotel view have a "Deluxe" row: one press, 25 Ectoplasm, and the room becomes the Deluxe version of the beds it has once it is empty. A Deluxe room charges about 1.6 times the rate ($200 a night for a single against $125) and stays Deluxe when its beds are changed. Prices are placeholders until the economy tune.
+
 The supplied Modern Interiors source pack remains untouched at the workspace root as requested. The `assets` package is the replacement boundary for future LimeZu sprite-sheet slicing; the current clean geometric presentation keeps the project runnable until those scattered files are curated. The W95FA font source is not present locally, so Ebitengine's built-in debug glyphs are used temporarily.
 
 ## Dev tools

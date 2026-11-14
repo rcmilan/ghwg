@@ -333,3 +333,47 @@ func TestPacing(t *testing.T) {
 		t.Logf("the in-Room Mirror on %d of 8 seeds, at %.1f h; want all 8, the median at 45..60 h, none past 90", len(at), at)
 	}
 }
+
+// 2026-11-14 (4b): the Deluxe tier. The unlock is bought with Ectoplasm on the HOTEL tab; until then no Room
+// can be upgraded. Then "Deluxe" on a Room, for deluxeFee Ectoplasm, changes it to the Deluxe of the beds it
+// has, at the Deluxe Rate; once Deluxe it can't be upgraded again, and a change of beds keeps it Deluxe.
+func TestDeluxe(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.own(Mirror)
+	g.own(BedsTwin)
+	g.wallet = [2]Num{1000, deluxeEcto + deluxeFee}
+	if i := row(t, Deluxe); shop[i].Tab != tabHotel || shop[i].Cost != (Cost{Ecto: deluxeEcto}) || !g.onSale(i) {
+		t.Fatal("Deluxe is not an Ectoplasm unlock on sale on the HOTEL tab")
+	}
+	up := row(t, rowDeluxe)
+	if g.onSale(up) || g.addToCart(up, 0) == "" {
+		t.Fatal("a Room can be upgraded before the Deluxe unlock")
+	}
+	g.own(Deluxe)
+	g.wallet[Ecto] -= deluxeEcto
+	if why := g.addToCart(up, 0); why != "" {
+		t.Fatal(why)
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	g.step(0, 0)
+	want, _ := world.TypeIn(g.types, deluxeTier, "Single")
+	if r := g.hotel.Rooms[0]; r.Type.Name != deluxeTier || r.Type.Beds != "Single" || r.Type.Rate != want.Rate || want.Rate <= rateOf(t, g, "Single") || g.wallet[Ecto] != 0 {
+		t.Fatalf("upgraded: %s %s at %d, Ectoplasm %v; want Deluxe Single at %d, dearer than Standard, all the Ectoplasm spent", r.Type.Name, r.Type.Beds, r.Type.Rate, g.wallet[Ecto], want.Rate)
+	}
+	for g.changing(0) {
+		g.step(0, 0)
+	}
+	g.wallet[Ecto] = deluxeFee
+	if why := g.addToCart(up, 0); why != "ROOM 101 IS ALREADY DELUXE" {
+		t.Fatalf("a second upgrade: %q", why)
+	}
+	if why := order(t, g, 0, "Twin"); why != "" {
+		t.Fatal(why)
+	}
+	if g.step(0, 0); g.hotel.Rooms[0].Type.Name != deluxeTier || g.hotel.Rooms[0].Type.Beds != "Twin" {
+		t.Fatalf("a Deluxe Room changed to Twin is %s %s, want Deluxe Twin", g.hotel.Rooms[0].Type.Name, g.hotel.Rooms[0].Type.Beds)
+	}
+}

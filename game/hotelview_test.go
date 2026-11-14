@@ -1,6 +1,7 @@
 package game
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -82,7 +83,7 @@ func TestHotelView(t *testing.T) {
 	g.wallet = [2]Num{keyPrice(0) + priestWeak + bedKinds[1].Fee, 0}
 	g.state = StatePlay
 	pos := func(id Unlock) (ks []ebiten.Key) {
-		for _, i := range tabItems(tabRooms) {
+		for _, i := range g.roomRows(1) {
 			if shop[i].ID == id {
 				return ks
 			}
@@ -187,5 +188,37 @@ func TestRoomMirrorCourier(t *testing.T) {
 	}
 	if _, in := g.inside(0); len(in) == 0 {
 		t.Error("hanging the Mirror moved the Party out")
+	}
+}
+
+// 2026-11-14: "Change type" is not among a Room's actions while there is nothing to change to: it shows once a
+// second bed layout is unlocked, or the in-Room Mirror is owned and the Room has none.
+func TestChangeRowHidden(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	has := func() bool { return slices.Contains(g.roomRows(0), row(t, rowChange)) }
+	if has() {
+		t.Fatal("only Single unlocked: Change type is offered")
+	}
+	g.own(RoomMirror)
+	if !has() {
+		t.Fatal("the in-Room Mirror owned, the Room without one: no Change type to get it")
+	}
+	g.locked[RoomMirror] = true
+	g.own(BedsTwin)
+	if !has() {
+		t.Fatal("Twin beds unlocked: no Change type")
+	}
+}
+
+// 2026-11-14: a Room not bought offers its key and nothing else; a bought one never offers a key.
+func TestKeyRow(t *testing.T) {
+	g := closedRun(t)
+	if rows := g.roomRows(0); len(rows) != 1 || shop[rows[0]].ID != rowKey {
+		t.Fatalf("a boarded Room's actions: %v, want the key alone", rows)
+	}
+	g.openRoom(0)
+	if slices.Contains(g.roomRows(0), row(t, rowKey)) || len(g.roomRows(0)) == 0 {
+		t.Fatalf("a bought Room's actions: %v, want some, and no key", g.roomRows(0))
 	}
 }

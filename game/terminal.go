@@ -134,6 +134,7 @@ var tileIcons = map[string][][]string{
 	"icon_bed_twin": {{"prop_bed_white_single_r0c0", "prop_bed_white_single_r0c0"}, {"prop_bed_white_single_r1c0", "prop_bed_white_single_r1c0"},
 		{"prop_bed_white_single_r2c0", "prop_bed_white_single_r2c0"}},
 	"icon_bed_double": {{"prop_bed_white_r0c0", "prop_bed_white_r0c1"}, {"prop_bed_white_r1c0", "prop_bed_white_r1c1"}, {"prop_bed_white_r2c0", "prop_bed_white_r2c1"}},
+	"icon_deluxe":     {{"prop_bed_brown_r0c0", "prop_bed_brown_r0c1"}, {"prop_bed_brown_r1c0", "prop_bed_brown_r1c1"}, {"prop_bed_brown_r2c0", "prop_bed_brown_r2c1"}},
 	"icon_grow_col":   {{"door_plain_top", "door_plain_top"}, {"door_plain_bottom", "door_plain_bottom"}},
 	"icon_grow_floor": {{"prop_stairs_r0c0", "prop_stairs_r0c1"}, {"prop_stairs_r1c0", "prop_stairs_r1c1"}},
 }

@@ -327,8 +327,11 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 
 // TypeOf: the Standard Room Type of a bed layout (the first of its variants), what a Room opens as or
 // changes to (K1: the Deluxe tier is a later unlock).
-func TypeOf(types []RoomType, beds string) (RoomType, bool) {
-	i := slices.IndexFunc(types, func(t RoomType) bool { return t.Name == "Standard" && t.Beds == beds })
+func TypeOf(types []RoomType, beds string) (RoomType, bool) { return TypeIn(types, "Standard", beds) }
+
+// TypeIn: the Room Type of a tier and a bed layout (the first of its variants).
+func TypeIn(types []RoomType, tier, beds string) (RoomType, bool) {
+	i := slices.IndexFunc(types, func(t RoomType) bool { return t.Name == tier && t.Beds == beds })
 	if i < 0 {
 		return RoomType{}, false
 	}

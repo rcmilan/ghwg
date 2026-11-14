@@ -271,7 +271,7 @@ The Strategy that plays the opening: it buys the first Room key, then the Mirror
 
 **Room Change**:
 An action of a Room's actions in the Hotel view ("Change type"), paid at once, that gives the Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled on the Room's card for a full refund. The Room's Mood is untouched.
-_Avoid_: upgrade, renovation, Spin
+_Avoid_: upgrade, renovation, Spin A Room's actions hold only what applies to it: a Room not bought lists its key alone, a bought one never lists a key. The action is not listed while there is nothing to change to: only one bed layout unlocked, no change waiting, and no in-Room Mirror the Room could still get. A change keeps the Room's tier. Once the **Deluxe** tier is unlocked (HOTEL tab, Ectoplasm, after the Mirror) each Room's actions also hold **Deluxe**, one press, paid in Ectoplasm: an upgrade to the Deluxe of the beds it has, which waits and reels like a Room Change and can be cancelled like one. The Room gets the Deluxe look and its higher Rate from the next Booking on, and stays Deluxe through later changes of beds.
 
 **Reel**:
 How a Room Change shows: the Room's whole footprint rolls like a slot machine's reel, the old Room out the bottom, the new one in from the top, in the world and in either Dimension. The Room takes no Booking while it rolls.
