@@ -1,0 +1,172 @@
+package game
+
+import (
+	"testing"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// keys taps each key in turn, a released frame between.
+func keys(g *Game, s *script, ks ...ebiten.Key) {
+	for _, k := range ks {
+		s.hold()
+		g.Update()
+		s.hold(k)
+		g.Update()
+	}
+}
+
+// T285: a Room's card: its number and type, owned or boarded, its human and ghost Parties, its Mood as a
+// bar, a scheduled change.
+func TestRoomCard(t *testing.T) {
+	g := closedRun(t)
+	g.roomOwned[0] = true
+	g.own(Mirror)
+	g.own(BedsTwin)
+	g.wallet[Money] = 1000
+	h := g.arrive(0)
+	g.settleIn(h)
+	gh := g.arriveGhost(0)
+	g.settleIn(gh)
+	if why := order(t, g, 0, "Twin"); why != "" {
+		t.Fatal(why)
+	}
+	g.mood[0] = 0
+	c := g.card(0)
+	if c.Title != "101 SINGLE" || c.Change != "TWIN" || c.Boarded || len(c.Humans) != len(h.Guests) || len(c.Ghosts) != len(gh.Guests) || c.Mood != 0.5 {
+		t.Fatalf("Room 101's card: %+v", c)
+	}
+	if c = g.card(1); c.Title != "102 SINGLE" || !c.Boarded || c.Change != "" || len(c.Humans)+len(c.Ghosts) != 0 {
+		t.Fatalf("Room 102's card: %+v", c)
+	}
+}
+
+// T286: the tab follows the hotel: the cursor walks every Room of a 2×1 and of a 3×3 with the same keys.
+// Every action on one Room is bought there, paid at once: SPACE on the Room, SPACE on the action; a change
+// of type takes a third for the beds. ESC steps back one level, then closes.
+func TestRoomsTab(t *testing.T) {
+	for _, grid := range [][2]int{{2, 1}, {3, 3}} {
+		g, s := headless(t, grid[0], grid[1], 1)
+		g.startRun()
+		g.openTerminal()
+		g.termTab = tabRooms
+		n := len(g.hotel.Rooms)
+		keys(g, s, ebiten.KeyS) // into the grid
+		seen := map[int]bool{g.termCursor: true}
+		for range n {
+			keys(g, s, ebiten.KeyD)
+			seen[g.termCursor] = true
+		}
+		if len(seen) != n {
+			t.Fatalf("%v: the cursor reached %d Rooms of %d", grid, len(seen), n)
+		}
+		if g.termCursor = 0; grid[1] > 1 {
+			if keys(g, s, ebiten.KeyS); g.termCursor != grid[0] {
+				t.Fatalf("%v: S from Room 0 went to %d, want the Room below, %d", grid, g.termCursor, grid[0])
+			}
+		}
+		g.termCursor = 0
+		keys(g, s, ebiten.KeyW, ebiten.KeyA) // W from the top row is back on the tabs: A switches tab
+		if g.termTab != tabHotel || g.termDepth != 0 {
+			t.Fatalf("%v: W from the top row, then A: tab %d depth %d, want the HOTEL tab", grid, g.termTab, g.termDepth)
+		}
+		keys(g, s, ebiten.KeyD, ebiten.KeyS, ebiten.KeyEscape)
+		if keys(g, s, ebiten.KeyD); g.termTab != tabCart || g.state != StateTerminal {
+			t.Fatalf("%v: ESC then D: tab %d, want the next tab, the store still open", grid, g.termTab)
+		}
+	}
+
+	g := closedRun(t)
+	s := g.in.(*script)
+	g.own(Mirror)
+	g.own(BedsTwin)
+	g.earned = [2]Num{10000, 10000}
+	g.wallet = [2]Num{keyPrice(0) + priestWeak + bedKinds[1].Fee, 0}
+	g.openTerminal()
+	g.termTab = tabRooms
+	pos := func(id Unlock) (ks []ebiten.Key) {
+		for _, i := range tabItems(tabRooms) {
+			if shop[i].ID == id {
+				return ks
+			}
+			ks = append(ks, ebiten.KeyS)
+		}
+		t.Fatalf("%s is not a ROOMS action", id)
+		return nil
+	}
+	keys(g, s, ebiten.KeyS, ebiten.KeyD, ebiten.KeySpace) // Room 102, its actions
+	keys(g, s, pos(rowKey)...)
+	keys(g, s, ebiten.KeySpace)
+	if len(g.couriers) != 1 || len(g.cart) != 0 || g.wallet[Money] != priestWeak+bedKinds[1].Fee || g.state != StateTerminal {
+		t.Fatalf("the key: %d couriers, cart %v, Money %v; want it paid at once and on its way", len(g.couriers), g.cart, g.wallet[Money])
+	}
+	deliver(t, g)
+	g.openTerminal()
+	keys(g, s, ebiten.KeyS, ebiten.KeySpace) // the cursor stayed on Room 102
+	keys(g, s, pos(rowFatherK)...)
+	keys(g, s, ebiten.KeySpace)
+	if !g.priestOn(1) || g.wallet[Money] != bedKinds[1].Fee {
+		t.Fatalf("Father K: on Room 102 %v, Money %v", g.priestOn(1), g.wallet[Money])
+	}
+	g.priests = nil
+	p := g.arrive(1)
+	g.settleIn(p)
+	p.Rate = 0
+	keys(g, s, ebiten.KeySpace)
+	keys(g, s, pos(rowChange)...)
+	keys(g, s, ebiten.KeySpace, ebiten.KeyS, ebiten.KeySpace) // the beds: Twin
+	if c := g.changeFor(1); c == nil || c.to.Beds != "Twin" || g.wallet[Money] != 0 {
+		t.Fatalf("the change: %+v, Money %v; want Room 102 waiting to turn Twin, paid", c, g.wallet[Money])
+	}
+	keys(g, s, ebiten.KeySpace) // the same row now cancels it
+	keys(g, s, pos(rowChange)...)
+	keys(g, s, ebiten.KeySpace)
+	if g.changing(1) || g.wallet[Money] != bedKinds[1].Fee {
+		t.Fatalf("cancelled: changing %v, Money %v; want the fee back", g.changing(1), g.wallet[Money])
+	}
+	keys(g, s, ebiten.KeyEscape) // bought or cancelled, the store is back on the grid: one step out
+	if g.state != StateTerminal {
+		t.Fatal("ESC closed the store from inside the grid")
+	}
+	if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
+		t.Fatal("ESC on the tab did not close the store")
+	}
+	for _, id := range []Unlock{rowKey, rowFatherK, rowFatherM, rowChange, RoomMirror} {
+		if shop[row(t, id)].Tab != tabRooms {
+			t.Errorf("%s is not bought in the ROOMS tab", id)
+		}
+	}
+}
+
+// T310: a bought in-Room Mirror is paid at once and carried by the courier: hung when he reaches the Room's
+// door, its guests in or not; a waiting change of beds keeps waiting. One at a time.
+func TestRoomMirrorCourier(t *testing.T) {
+	g := closedRun(t)
+	g.roomOwned[0], g.roomOwned[1] = true, true
+	g.own(Mirror)
+	g.own(BedsTwin)
+	p := g.arrive(0)
+	g.settleIn(p)
+	p.Rate = 0
+	g.wallet = [2]Num{bedKinds[1].Fee, 2 * roomMirrorEcto}
+	if why := order(t, g, 0, "Twin"); why != "" {
+		t.Fatal(why)
+	}
+	m := row(t, RoomMirror)
+	if why := g.buyNow(m, 0); why != "" {
+		t.Fatal(why)
+	}
+	if g.unlocked(RoomMirror) || !g.hotel.Rooms[0].Mirror.Empty() || len(g.couriers) != 1 || g.wallet[Ecto] != roomMirrorEcto {
+		t.Fatalf("bought: unlocked %v, hung %v, %d couriers, Ectoplasm %v; want it paid and on its way", g.unlocked(RoomMirror), !g.hotel.Rooms[0].Mirror.Empty(), len(g.couriers), g.wallet[Ecto])
+	}
+	if why := g.buyNow(m, 1); why == "" {
+		t.Fatal("a second in-Room Mirror was bought while the first is on its way")
+	}
+	deliver(t, g)
+	if r := g.hotel.Rooms[0]; !g.unlocked(RoomMirror) || r.Mirror.Empty() || r.Type.Beds != "Single" || g.changeFor(0) == nil {
+		t.Fatalf("delivered: unlocked %v, mirror %v, %s, waiting %v; want it hung, the change to Twin still waiting", g.unlocked(RoomMirror), r.Mirror, r.Type.Beds, g.changeFor(0))
+	}
+	if _, in := g.inside(0); len(in) == 0 {
+		t.Error("hanging the Mirror moved the Party out")
+	}
+}

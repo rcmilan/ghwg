@@ -75,7 +75,7 @@ func (g *Game) changing(room int) bool {
 	return slices.ContainsFunc(g.changes, func(c *change) bool { return c.room == room })
 }
 
-// pending: the changes still waiting for their Rooms, the Terminal's CHANGES list.
+// pending: the changes still waiting for their Rooms.
 func (g *Game) pending() []*change {
 	var w []*change
 	for _, c := range g.changes {
@@ -105,11 +105,17 @@ func noRoomMirror(g *Game, room int) string {
 	if !g.isOwned(room) {
 		return "ROOM " + g.hotel.Rooms[room].Number + " IS BOARDED UP"
 	}
+	for r := range g.hotel.Rooms {
+		if g.coming(RoomMirror, r) {
+			return "THE ROOM MIRROR IS ON ITS WAY"
+		}
+	}
 	return ""
 }
 
-// buyRoomMirror: the in-Room Mirror is owned, and its first Room gets it now, as it stands: no reel, no wait
-// (2026-11-11). A change the Room waits for keeps waiting.
+// buyRoomMirror: the courier reached the Room's door with the in-Room Mirror (T1, 2026-11-13): it is owned, and
+// its first Room gets it now, as it stands, guests in or not: no reel, no wait. A change the Room waits for
+// keeps waiting.
 func (g *Game) buyRoomMirror(l cartLine) {
 	g.own(RoomMirror)
 	g.setRoom(l.room, g.hotel.Rooms[l.room].Type, true)
@@ -187,8 +193,8 @@ func (g *Game) atRoomMirror() bool {
 
 // DevChange is main's -change: a Run with everything unlocked and the Rooms open, the first Room's change to
 // the bed layout ordered (it reels at once, mirrored) and the second's waiting on a Party that just moved
-// in; the Concierge stands in the Corridor between them, both in view. With cart, the Terminal is open on its CART tab.
-func (g *Game) DevChange(beds string, cart bool) {
+// in; the Concierge stands in the Corridor between them, both in view.
+func (g *Game) DevChange(beds string) {
 	k := slices.IndexFunc(bedKinds[:], func(b bedKind) bool { return strings.EqualFold(b.Beds, beds) })
 	if k < 0 {
 		return
@@ -207,17 +213,21 @@ func (g *Game) DevChange(beds string, cart bool) {
 	g.player.X, g.player.Y = float64((o.X+world.RoomW+1)*world.TileSize), float64((o.Y+world.RoomH/2+1)*world.TileSize)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
-	if cart {
-		g.openTerminal()
-		g.termTab, g.termPick = tabCart, 1
-	}
 }
 
-// DevTerm is main's -term: the Terminal open on a tab and a row, the row's Room pick up if place.
+// DevTerm is main's -term: the Terminal open on a tab and a row, SPACE pressed on it if place. On the ROOMS
+// tab the row is a Room, in the grid; place opens its actions.
 func (g *Game) DevTerm(tab, row int, place bool) {
 	g.openTerminal()
-	g.termTab, g.termPick = Tab(tab), row
-	if place {
+	if g.termTab = Tab(tab); g.termTab == tabRooms {
+		g.termCursor, g.termDepth = row, 1
+		if place {
+			g.termDepth = 2
+		}
+		g.placing = g.termDepth - 1
+		return
+	}
+	if g.termPick = row; place {
 		g.message = g.press()
 	}
 }

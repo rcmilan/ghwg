@@ -62,8 +62,8 @@ func TestRoomsStartClosed(t *testing.T) {
 func TestRoomKey(t *testing.T) {
 	g := closedRun(t)
 	k := row(t, rowKey)
-	if shop[k].Tab != tabServices || !g.onSale(k) {
-		t.Fatal("the Room key is not on sale in SERVICES from the start")
+	if shop[k].Tab != tabRooms || !g.onSale(k) {
+		t.Fatal("the Room key is not on sale in ROOMS from the start")
 	}
 	if g.addToCart(k, 1) != "" {
 		t.Fatal("the one key's worth does not buy the first key")

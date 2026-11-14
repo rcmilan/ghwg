@@ -85,7 +85,7 @@ func TestChangeEmptyRoom(t *testing.T) {
 	g.wallet[Money] = 1000
 	g.setDirtLevel(0, 3*spotUnit)
 	mood, dirt, walls := g.roomMood(0), g.dirtLevel(0), len(g.walls)
-	if i := row(t, rowChange); shop[i].Tab != tabHotel || !g.onSale(i) {
+	if i := row(t, rowChange); shop[i].Tab != tabRooms || !g.onSale(i) {
 		t.Fatal("Change type is not a Service on sale")
 	}
 	if why := order(t, g, 0, "Single"); why != "ROOM 101 IS ALREADY SINGLE" {
@@ -167,13 +167,9 @@ func TestChangeBookedRoom(t *testing.T) {
 		t.Error("a ghost booked a Room waiting to change")
 	}
 	// cancel: the fee comes back and the Room books again
-	g.termTab, g.termPick = tabCart, len(g.cart)+1
-	if g.rowCount() != len(g.cart)+2 {
-		t.Fatalf("%d cart rows, want the checkout and one waiting change", g.rowCount())
-	}
 	before := g.wallet[Money] // the Party's rent came in meanwhile
-	if msg := g.press(); g.wallet[Money] != before+bedKinds[1].Fee || g.changing(1) || msg != "CHANGE CANCELLED: $"+fmtNum(bedKinds[1].Fee)+" BACK" {
-		t.Fatalf("cancelled: %q, Money %v, changing %v; want the fee back", msg, g.wallet[Money], g.changing(1))
+	if g.cancelChange(g.changeFor(1)); g.wallet[Money] != before+bedKinds[1].Fee || g.changing(1) {
+		t.Fatalf("cancelled: Money %v, changing %v; want the fee back", g.wallet[Money], g.changing(1))
 	}
 	if why := order(t, g, 1, "Twin"); why != "" {
 		t.Fatal(why)
@@ -226,7 +222,7 @@ func TestRoomMirror(t *testing.T) {
 	g.own(BedsTwin)
 	g.wallet = [2]Num{200, 100}
 	m := row(t, RoomMirror)
-	if it := shop[m]; it.Tab != tabServices || it.Cost != (Cost{Ecto: roomMirrorEcto}) || !g.onSale(m) {
+	if it := shop[m]; it.Tab != tabRooms || it.Cost != (Cost{Ecto: roomMirrorEcto}) || !g.onSale(m) {
 		t.Fatalf("the Room mirror: tab %d, cost %v, on sale %v; want a Service for Ectoplasm only", it.Tab, it.Cost, g.onSale(m))
 	}
 	g.termBeds = 1
@@ -242,7 +238,9 @@ func TestRoomMirror(t *testing.T) {
 	if why := g.addToCart(m, 0); why != "" {
 		t.Fatal(why)
 	}
-	if why := g.placeOrder(); why != "" || g.wallet != [2]Num{200, 100 - roomMirrorEcto} || !g.unlocked(RoomMirror) {
+	why := g.placeOrder()
+	paid := g.wallet == [2]Num{200, 100 - roomMirrorEcto}
+	if deliver(t, g); why != "" || !paid || !g.unlocked(RoomMirror) {
 		t.Fatalf("the order: %q, wallet %v, unlocked %v", why, g.wallet, g.unlocked(RoomMirror))
 	}
 	if why := g.addToCart(m, 0); why != "ALREADY OWNED" || slices.Contains(g.forSale(), m) {
@@ -291,6 +289,9 @@ func TestRoomMirror(t *testing.T) {
 	}
 	if why := g.addToCart(m, 0); why != "" || g.placeOrder() != "" {
 		t.Fatal(why)
+	}
+	if deliver(t, g); g.hotel.Rooms[0].Mirror.Empty() {
+		t.Fatal("the courier did not hang the Mirror")
 	}
 	if r = g.hotel.Rooms[0]; r.Mirror.Empty() || r.Type.Beds != "Single" || len(g.pending()) != 1 || g.wallet != [2]Num{} {
 		t.Fatalf("a Party in: mirror %v, %s, %d changes waiting, wallet %v; want the Mirror on, the change to Twin waiting", r.Mirror, r.Type.Beds, len(g.pending()), g.wallet)

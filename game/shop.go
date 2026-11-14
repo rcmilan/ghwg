@@ -14,12 +14,12 @@ type Tab int
 const (
 	tabSupplies Tab = iota // restock: into the hotel's stock
 	tabHotel               // hotel-wide unlocks
-	tabServices            // for one Room, picked when added to the cart
+	tabRooms               // the hotel's Rooms, and all that is bought for one of them, paid at once (roomstab.go)
 	tabCart
 	tabs
 )
 
-var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "SERVICES", "CART"}
+var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "ROOMS", "CART"}
 
 // Item is one product of the store.
 type Item struct {
@@ -41,7 +41,7 @@ type Item struct {
 	Once   bool
 }
 
-// room: the item is for one Room, picked when it goes in the cart, whatever its tab.
+// room: the item is for one Room: an action of the ROOMS tab.
 func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
@@ -72,11 +72,6 @@ var shop = []Item{
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}},
 	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "icon_bed_double", Cost: Cost{Money: 2 * twinPrice},
 		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 200}},
-	{ID: rowChange, Tab: tabHotel, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
-		Send: func(g *Game, l cartLine) {
-			t, _ := world.TypeOf(g.types, l.beds)
-			g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
-		}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
 	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
@@ -86,13 +81,18 @@ var shop = []Item{
 	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
 
-	{ID: rowKey, Tab: tabServices, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
+	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
-	{ID: rowFatherK, Tab: tabServices, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
+	{ID: rowChange, Tab: tabRooms, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
+		Send: func(g *Game, l cartLine) {
+			t, _ := world.TypeOf(g.types, l.beds)
+			g.changes = append(g.changes, &change{room: l.room, to: t, paid: l.cost()})
+		}},
+	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
-	{ID: rowFatherM, Tab: tabServices, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
+	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
-	{ID: RoomMirror, Tab: tabServices, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
+	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
 }
 
@@ -224,7 +224,7 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
-		case it.ID == rowKey: // walked to the Room's own door
+		case it.ID == rowKey || it.ID == RoomMirror: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
 		case !it.room():
 			stock.lines = append(stock.lines, l)

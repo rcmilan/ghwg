@@ -126,8 +126,8 @@ func TestCartRules(t *testing.T) {
 	}
 }
 
-// T185: A/D picks the tab, W/S the row, SPACE adds (a Service asks its Room), the cart's last row checks
-// out, which closes the store; in either dimension.
+// T185: A/D picks the tab, W/S the row, SPACE adds, the cart's last row checks out, which closes the store;
+// in either dimension. (What is for one Room is bought in the ROOMS tab: roomstab_test.go.)
 func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
@@ -135,7 +135,7 @@ func TestStoreKeys(t *testing.T) {
 		g.unlock(Mirror) // Priests are sold once the Mirror is owned
 		g.ghost = ghost
 		g.earned = [2]Num{1000, 1000}
-		g.wallet = [2]Num{priestWeak, 0}
+		g.wallet = shop[row(t, SupplyFood)].Cost
 		tap := func(keys ...ebiten.Key) {
 			for _, k := range keys {
 				s.hold()
@@ -145,18 +145,16 @@ func TestStoreKeys(t *testing.T) {
 			}
 		}
 		g.openTerminal()
-		pos := slices.Index(tabItems(tabServices), row(t, rowFatherK))
-		tap(ebiten.KeyD, ebiten.KeyD) // Services
-		for range pos {
+		for range slices.Index(tabItems(tabSupplies), row(t, SupplyFood)) {
 			tap(ebiten.KeyS)
 		}
-		tap(ebiten.KeySpace, ebiten.KeyD, ebiten.KeySpace) // Father K, Room 1, in the cart
-		if len(g.cart) != 1 || g.placing >= 0 {
-			t.Fatalf("ghost %v: cart %v, placing %d; want Father K in the cart", ghost, g.cart, g.placing)
+		tap(ebiten.KeySpace) // Food, in the cart
+		if len(g.cart) != 1 {
+			t.Fatalf("ghost %v: cart %v; want Food in the cart", ghost, g.cart)
 		}
-		tap(ebiten.KeyD, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
-		if g.state != StatePlay || !g.priestOn(1) || g.priestOn(0) || g.wallet[Money] != 0 {
-			t.Fatalf("ghost %v: open %v, Priest on %v %v, money %v; want Father K on Room 1 only and the store closed", ghost, g.state == StateTerminal, g.priestOn(0), g.priestOn(1), g.wallet[Money])
+		tap(ebiten.KeyA, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
+		if g.state != StatePlay || len(g.couriers) != 1 || g.wallet[Money] != 0 {
+			t.Fatalf("ghost %v: open %v, %d couriers, money %v; want the Food paid, on its way, and the store closed", ghost, g.state == StateTerminal, len(g.couriers), g.wallet[Money])
 		}
 	}
 }

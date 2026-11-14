@@ -35,9 +35,8 @@ func main() {
 	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
 	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
 	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
-	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -cart shows the CHANGES list)")
-	cart := flag.Bool("cart", false, "dev, with -change: open the Terminal on its CART tab")
-	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it (e.g. 1,3,1: the Room pick of Change type)")
+	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -term 2,1,1 shows Room 102's actions)")
+	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it; on the ROOMS tab the row is a Room (e.g. 2,0,1: Room 101's actions)")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
 	flag.Parse()
 
@@ -79,7 +78,7 @@ func main() {
 			g.Start(*ghost)
 		}
 		g.DevKey(*key)
-		g.DevChange(*change, *cart)
+		g.DevChange(*change)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
