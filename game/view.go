@@ -57,7 +57,7 @@ type TerminalView struct {
 	Cursor  int    // the Room a Service is for
 	Tab     Tab    // the store's open tab
 	Pick    int    // the picked row in the tab; in the cart, len(cart) is the checkout
-	Placing bool   // a Service waits for its Room
+	Depth   int    // how far into the ROOMS tab: 0 the tab, 1 the grid, 2 a Room's actions, 3 its beds
 	Beds    string // the bed layout picked for a change of type
 	Cart    int    // units in the cart
 	Lines   int    // lines in the cart: the checkout row's Pick
@@ -116,7 +116,7 @@ func (g *Game) view() View {
 }
 
 func (g *Game) termView() TerminalView {
-	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Placing: g.placing >= 0, Beds: bedKinds[g.termBeds].Beds}
+	t := TerminalView{Open: g.state == StateTerminal, Message: g.message, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Depth: g.termDepth, Beds: bedKinds[g.termBeds].Beds}
 	for _, l := range g.cart {
 		t.Cart += l.n
 	}

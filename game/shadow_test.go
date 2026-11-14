@@ -37,9 +37,9 @@ func TestPlaceShadow(t *testing.T) {
 	if !g.shaded(0) || g.shaded(1) {
 		t.Fatalf("after Father K in Room 0 and Father M in Room 1: shaded %v %v, want true false", g.shaded(0), g.shaded(1))
 	}
-	for _, i := range tabItems(tabServices) {
+	for _, i := range tabItems(tabRooms) {
 		if shop[i].Name == "Shadow Person" {
-			t.Fatal("the SERVICES tab has a Shadow row")
+			t.Fatal("the ROOMS tab has a Shadow row")
 		}
 	}
 }

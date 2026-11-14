@@ -37,8 +37,8 @@ func upgrade(v View, p *Pilot) bool {
 		return false
 	}
 	twin := slices.IndexFunc(v.Rooms, func(r RoomView) bool { return !r.Boarded && (r.Changing || r.Beds == "Twin") }) // changed, or about to
-	if i := row(RoomMirror); twin >= 0 && slices.Contains(v.Shop, i) && has(shop[i].Cost) {
-		p.Buy(RoomMirror, twin, func(v View) bool { return v.RoomMirror })
+	if i := row(RoomMirror); twin >= 0 && !v.Courier && slices.Contains(v.Shop, i) && has(shop[i].Cost) {              // the courier brings it (T1)
+		p.Buy(RoomMirror, twin, func(v View) bool { return v.Courier })
 		return true
 	}
 	if i := row(BedsTwin); !v.Courier && slices.Contains(v.Shop, i) && has(shop[i].Cost) {

@@ -246,15 +246,16 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
-// Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the store asks
-// for the Room. ok once the Room is changing or has changed.
+// Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the Room's
+// Change type is open. ok once the Room is changing or has changed.
 func (p *Pilot) Change(room int, beds string) {
 	p.buy(rowChange, room, beds, func(v View) bool { return v.Rooms[room].Changing || v.Rooms[room].Beds == beds })
 }
 
-// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
-// Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
-// when the item isn't for sale or the store refuses it.
+// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE, then the
+// cart's checkout; an action for a Room through the ROOMS tab instead: the Room, the action (and its beds),
+// paid at once. It closes the Terminal. ok if got holds then. It gives up when the item isn't for sale or the
+// store refuses it.
 func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) { p.buy(id, room, "", got) }
 
 func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
@@ -262,7 +263,38 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	tab := shop[i].Tab
 	pos := slices.Index(tabItems(tab), i)
 	p.OpenTerminal()
-	cart0, paid, spins := -1, false, 0
+	if shop[i].room() {
+		pressed, leave, paid, spins := false, false, false, 0
+		p.do(func(p *Pilot, v View) (bool, bool) {
+			t := v.Terminal
+			if !t.Open {
+				return true, paid && got(v)
+			}
+			paid = paid || pressed && t.Depth == 1 // bought: the store is back on the grid
+			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds)
+			k, last := ebiten.KeySpace, false
+			switch {
+			case leave:
+				k = ebiten.KeyEscape
+			case t.Tab != tabRooms, t.Depth == 1 && t.Cursor != room:
+				k = ebiten.KeyD
+			case t.Depth == 0, t.Depth == 2 && t.Pick != pos:
+				k = ebiten.KeyS
+			case t.Depth == 3 && t.Beds != beds:
+				k = ebiten.KeyS
+				spins++
+			default:
+				last = t.Depth == 3 || t.Depth == 2 && beds == ""
+			}
+			if !p.tap(k) && k == ebiten.KeyS && t.Depth == 3 {
+				spins--
+			}
+			pressed = pressed || last && p.lastTap == p.frame
+			return false, false
+		})
+		return
+	}
+	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal
 		if !t.Open {
@@ -274,19 +306,8 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
+		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
-		case t.Placing && beds != "" && t.Beds != beds && spins > len(bedKinds): // not unlocked: give up
-			return true, false
-		case t.Placing && beds != "" && t.Beds != beds:
-			if k = ebiten.KeyS; p.tap(k) {
-				spins++
-			}
-			return false, false
-		case t.Placing && t.Cursor != room:
-			k = ebiten.KeyD
-		case t.Placing:
-			k = ebiten.KeySpace
 		case !added && t.Tab != tab, added && t.Tab != tabCart:
 			k = ebiten.KeyD
 		case !added && t.Pick != pos:

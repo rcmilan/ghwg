@@ -118,6 +118,7 @@ type Game struct {
 	changes       []*change                     // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
 	termBeds      int                           // the bed layout picked for a change at the Terminal, an index into bedKinds
 	bedsAtStart   string                        // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
+	termDepth     int                           // how far into the ROOMS tab: 0 the tab, 1 the grid, 2 a Room's actions, 3 its beds (roomstab.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
