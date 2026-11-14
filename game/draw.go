@@ -133,20 +133,28 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 		g.drawIntro(screen)
 		return
 	}
-	screen.Fill(assets.Night)
+	var bg color.Color = assets.Night
 	if g.ghost && g.state != StateTitle {
-		screen.Fill(color.Black)
+		bg = color.Black
 	}
+	screen.Fill(bg)
 	if g.state == StateTitle {
 		g.drawTitle(screen)
 		return
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	g.drawWorld(screen, ox, oy)
+	if g.viewT > 0 {
+		g.drawView(screen, bg)
+	} else {
+		g.drawWorld(screen, ox, oy)
+	}
 	// HUD and terminal: screen space. No "[SPACE] ..." prompts: props must read on their own (2026-11-08).
 	if g.state == StateTerminal {
 		g.drawTerminal(screen)
+	}
+	if g.state == StatePause {
+		g.drawPause(screen)
 	}
 	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own
 	text(screen, g.message, 28, 518, assets.Accent)
@@ -155,7 +163,7 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 func (g *Game) drawTitle(s *ebiten.Image) {
 	text(s, "G H O S T   H O T E L", 345, 195, assets.Ghost)
 	text(s, "[ SPACE ] open the hotel", 362, 335, assets.Money)
-	text(s, "WASD move / SPACE use / ESC title or quit", 290, 485, assets.Floor)
+	text(s, "WASD move / SPACE use / TAB hotel / ESC pause", 290, 485, assets.Floor)
 }
 
 // drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at

@@ -14,12 +14,12 @@ type Tab int
 const (
 	tabSupplies Tab = iota // restock: into the hotel's stock
 	tabHotel               // hotel-wide unlocks
-	tabRooms               // the hotel's Rooms, and all that is bought for one of them, paid at once (roomstab.go)
 	tabCart
 	tabs
+	tabRooms // not a tab of the store: all that is bought for one Room, in the hotel view, paid at once (hotelview.go)
 )
 
-var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "ROOMS", "CART"}
+var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "CART"}
 
 // Item is one product of the store.
 type Item struct {
@@ -41,7 +41,7 @@ type Item struct {
 	Once   bool
 }
 
-// room: the item is for one Room: an action of the ROOMS tab.
+// room: the item is for one Room: an action of the hotel view.
 func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.

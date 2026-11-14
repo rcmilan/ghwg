@@ -39,7 +39,7 @@ func TestPlaceShadow(t *testing.T) {
 	}
 	for _, i := range tabItems(tabRooms) {
 		if shop[i].Name == "Shadow Person" {
-			t.Fatal("the ROOMS tab has a Shadow row")
+			t.Fatal("a Room's actions have a Shadow row")
 		}
 	}
 }

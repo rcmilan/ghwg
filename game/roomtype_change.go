@@ -215,18 +215,10 @@ func (g *Game) DevChange(beds string) {
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 }
 
-// DevTerm is main's -term: the Terminal open on a tab and a row, SPACE pressed on it if place. On the ROOMS
-// tab the row is a Room, in the grid; place opens its actions.
+// DevTerm is main's -term: the Terminal open on a tab and a row, SPACE pressed on it if place.
 func (g *Game) DevTerm(tab, row int, place bool) {
 	g.openTerminal()
-	if g.termTab = Tab(tab); g.termTab == tabRooms {
-		g.termCursor, g.termDepth = row, 1
-		if place {
-			g.termDepth = 2
-		}
-		g.placing = g.termDepth - 1
-		return
-	}
+	g.termTab = Tab(tab)
 	if g.termPick = row; place {
 		g.message = g.press()
 	}

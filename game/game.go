@@ -17,6 +17,8 @@ const (
 	StateTitle = iota
 	StatePlay
 	StateTerminal
+	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
+	StatePause // ESC with nothing open: Resume / Quit to title
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -118,7 +120,10 @@ type Game struct {
 	changes       []*change                     // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
 	termBeds      int                           // the bed layout picked for a change at the Terminal, an index into bedKinds
 	bedsAtStart   string                        // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
-	termDepth     int                           // how far into the ROOMS tab: 0 the tab, 1 the grid, 2 a Room's actions, 3 its beds (roomstab.go)
+	termDepth     int                           // how far into the hotel view: 1 the Rooms, 2 a Room's actions, 3 its beds (hotelview.go)
+	viewT         float64                       // the hotel view's pull-back, 0 the play camera .. 1 the whole hotel
+	panel         *ebiten.Image                 // the hotel view's action card (its whole-map frame is the intro's g.wide)
+	pausePick     int                           // the pause's picked row
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -224,18 +229,21 @@ func (g *Game) Update() error {
 	if g.auto != nil {
 		g.auto.drive(g)
 	}
-	if g.in.JustPressed(ebiten.KeyEscape) {
-		switch g.state {
-		case StateTitle:
+	if g.state == StateView { // the hotel view's camera: out while it is open, back in once closed
+		g.viewT = min(1, g.viewT+1.0/viewFrames)
+	} else {
+		g.viewT = max(0, g.viewT-1.0/viewFrames)
+	}
+	if g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
+		switch {
+		case g.state == StateTitle:
 			return ebiten.Termination
-		case StateTerminal:
-			if g.placing >= 0 { // ESC backs out of the Room pick first
-				g.placing = -1
-				break
-			}
+		case g.state != StatePlay:
 			g.state, g.message = StatePlay, ""
-		default:
+		case g.intro != nil || g.auto != nil: // the opening, or a Strategy playing: back to the title
 			g.toTitle()
+		default:
+			g.state, g.pausePick = StatePause, 0
 		}
 		return nil
 	}
@@ -249,6 +257,13 @@ func (g *Game) Update() error {
 	case g.state == StateTerminal: // the world and the Clock wait (D73)
 		g.updateTerminal()
 		g.updateHUD()
+	case g.state == StateView:
+		g.updateView()
+		g.updateHUD()
+	case g.state == StatePause:
+		g.updatePause()
+	case g.in.JustPressed(ebiten.KeyTab) && g.shifting == nil:
+		g.openView()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		if g.message != "" && !g.atMirror() {

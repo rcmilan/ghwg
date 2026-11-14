@@ -127,7 +127,7 @@ func TestCartRules(t *testing.T) {
 }
 
 // T185: A/D picks the tab, W/S the row, SPACE adds, the cart's last row checks out, which closes the store;
-// in either dimension. (What is for one Room is bought in the ROOMS tab: roomstab_test.go.)
+// in either dimension. (What is for one Room is bought in the hotel view: hotelview_test.go.)
 func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
