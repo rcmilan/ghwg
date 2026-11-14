@@ -114,7 +114,8 @@ func goTo(to image.Point) action {
 // route: a path from at to `to` around the guests in sight; through them if they wall it off. A Room's
 // door is open to the path only when `to` is in that doorway.
 func (p *Pilot) route(v View, at, to image.Point) []image.Point {
-	own, c := -1, to.Div(world.TileSize)
+	m := p.hotel.Map
+	own, c := -1, m.Cell(to)
 	for i, r := range p.hotel.Rooms {
 		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) || at.In(r.Shell()) { // into or out of a Room: its door is open
 			own = i
@@ -122,8 +123,8 @@ func (p *Pilot) route(v View, at, to image.Point) []image.Point {
 	}
 	var avoid []image.Point
 	for _, cell := range v.Guests {
-		if cell != c && cell != at.Div(world.TileSize) {
-			avoid = append(avoid, cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
+		if cell != c && cell != m.Cell(at) {
+			avoid = append(avoid, m.Center(cell.X, cell.Y))
 		}
 	}
 	if path := p.hotel.Path(at, to, own, avoid...); path != nil {

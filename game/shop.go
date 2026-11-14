@@ -39,13 +39,14 @@ type Item struct {
 	Refuse func(g *Game, room int) string
 	Send   func(g *Game, l cartLine)
 	Once   bool
+	Grow   int // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
 }
 
 // room: the item is for one Room: an action of the hotel view.
 func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
-func (it Item) unlock() bool { return it.Tab == tabHotel && !it.room() || it.Once }
+func (it Item) unlock() bool { return it.Tab == tabHotel && !it.room() && it.Grow == 0 || it.Once }
 
 // The Services aren't unlocks; their IDs only name them.
 const (
@@ -80,6 +81,10 @@ var shop = []Item{
 		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
 	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
+	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Icon: "icon_grow_col",
+		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
+	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Icon: "icon_grow_floor",
+		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
@@ -143,6 +148,8 @@ func (g *Game) addToCart(i, room int) string {
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
 		return "NOT ENOUGH IN THE WALLET"
+	case it.Grow != 0 && g.growRefuse(it.Grow) != "":
+		return g.growRefuse(it.Grow)
 	case it.room():
 		if why := it.Refuse(g, room); why != "" {
 			return why
@@ -225,6 +232,8 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case supplyOf(it.ID) >= 0:
 			stops = append(stops, drop{at: g.supplyDrop(supplyOf(it.ID)), lines: []cartLine{l}})
+		case it.Grow != 0: // no courier: the hotel grows as the Terminal closes (grow.go)
+			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
 		case it.ID == rowKey || it.ID == RoomMirror: // walked to the Room's own door

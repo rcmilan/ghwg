@@ -110,7 +110,7 @@ func (g *Game) view() View {
 	}
 	for _, guest := range g.visible() {
 		if at := image.Pt(int(guest.X), int(guest.Y)); g.fogAt(at) < 1 {
-			v.Guests = append(v.Guests, at.Div(world.TileSize))
+			v.Guests = append(v.Guests, g.hotel.Map.Cell(at))
 		}
 	}
 	return v

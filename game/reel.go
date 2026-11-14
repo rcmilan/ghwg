@@ -42,9 +42,9 @@ func (g *Game) roomPics(room int) (p [3]*ebiten.Image) {
 			return id
 		}
 	}
-	p[0] = g.paint(world.RoomW, world.RoomH, world.LayerFloor, world.LayerFloor+1, at(false))
-	p[1] = g.paint(world.RoomW, world.RoomH, world.LayerFloor+1, world.NumLayers, at(true))
-	p[2] = g.paint(world.RoomW, world.RoomH, world.LayerFloor+1, world.NumLayers, at(false))
+	p[0] = g.paint(world.RoomW, world.RoomH, world.LayerFloor, world.LayerFloor+1, at(false), onGrid)
+	p[1] = g.paint(world.RoomW, world.RoomH, world.LayerFloor+1, world.NumLayers, at(true), onGrid)
+	p[2] = g.paint(world.RoomW, world.RoomH, world.LayerFloor+1, world.NumLayers, at(false), onGrid)
 	return p
 }
 

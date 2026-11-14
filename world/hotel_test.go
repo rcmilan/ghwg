@@ -164,8 +164,8 @@ func TestHotelCounterSides(t *testing.T) {
 		if h.ConciergeStart.Y >= l.counter*TileSize || !h.ConciergeStart.In(h.Terminal) {
 			t.Errorf("concierge start %v should be behind the counter, in the terminal zone %v", h.ConciergeStart, h.Terminal)
 		}
-		// D55: the Archway is centered in the Hall Wall, between the side lines at 1 and w-2
-		if left, right := l.archway-2, l.w-3-(l.archway+l.archwayW-1); left != right {
+		// D55: the Archway is centered in the Hall Wall, between the hall's side lines
+		if left, right := l.archway-l.hx-1, l.hx+hallW-2-(l.archway+l.archwayW-1); left != right {
 			t.Errorf("archway %d..%d: %d wall cells to its left, %d to its right", l.archway, l.archway+l.archwayW-1, left, right)
 		}
 		for i, want := range []string{"counter_left", "counter_computer_bottom", "counter_mid", "counter_mid", "counter_right"} {
@@ -306,4 +306,42 @@ func TestLights(t *testing.T) {
 			}
 		}
 	})
+}
+
+// H1: the hall keeps the 2-column hotel's size whatever the grid, and stands centered under the Rooms to the
+// px: the Entrance's middle, the Archway's and the Rooms part's are one line, and under an odd count of
+// columns the middle Room's door stands on it. Beside the hall the Rooms' south wall closes the Corridor.
+func TestHallCentered(t *testing.T) {
+	for cols := 2; cols <= 5; cols++ {
+		h, l := buildGrid(t, cols, 2), newLayout(cols, 2)
+		mid := l.w * TileSize / 2
+		e := h.Doors[len(h.Doors)-1].Rect
+		if h.Lobby.Dx() != hallW*TileSize || h.Lobby.Min.X+h.Lobby.Max.X != 2*mid || e.Min.X+e.Max.X != 2*mid || h.Archway.X != mid || h.Spawn.X != mid {
+			t.Errorf("%d columns: the Lobby %v, the Entrance %v, the Archway %v, Spawn %v; want a %d px hall centered on x=%d",
+				cols, h.Lobby, e, h.Archway, h.Spawn, hallW*TileSize, mid)
+		}
+		if d := h.Doors[len(h.Rooms)-cols+cols/2].Rect; cols%2 == 1 && d.Min.X+d.Max.X != 2*mid {
+			t.Errorf("%d columns: the middle Room's door %v is off the hall's center line x=%d", cols, d, mid)
+		}
+		for i, r := range h.Rooms {
+			if h.Path(h.Spawn, r.Stays[0], i) == nil {
+				t.Errorf("%d columns: no way from the street to Room %s", cols, r.Number)
+			}
+		}
+		if cols == 2 {
+			continue
+		}
+		y := h.HallY + TileSize + 4 // the south wall's solid row
+		for _, x := range []int{TileSize + 2, h.Lobby.Min.X - 2, h.Lobby.Max.X + 2, (l.w-1)*TileSize - 2} {
+			if !h.Map.BlockedBox(image.Rect(x-1, y, x+1, y+2)) {
+				t.Errorf("%d columns: the Rooms' south wall is open at x=%d, beside the hall", cols, x)
+			}
+		}
+		if h.Map.BlockedBox(image.Rect(TileSize+2, y+TileSize, TileSize+4, y+TileSize+2)) {
+			t.Errorf("%d columns: the street does not come up to the Rooms' south wall", cols)
+		}
+		if c := h.Map.Cell(h.ConciergeStart); h.Map.Center(c.X, c.Y) != h.ConciergeStart {
+			t.Errorf("%d columns: the Concierge starts at %v, off his cell's center %v", cols, h.ConciergeStart, h.Map.Center(c.X, c.Y))
+		}
+	}
 }

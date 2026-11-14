@@ -29,6 +29,10 @@ func BandRect(name string) image.Rectangle {
 		return bandFace
 	case name == "wall_stub_top": // the kitchen wall's end: the east line's last 6 px
 		return bandEastLine.Intersect(bandFace)
+	case name == "wall_halfw_top": // half a face (H1): the half the wall stands in
+		return bandFace.Intersect(image.Rect(TileSize/2, 0, TileSize, TileSize))
+	case name == "wall_halfe_top":
+		return bandFace.Intersect(image.Rect(0, 0, TileSize/2, TileSize))
 	case strings.HasPrefix(name, "wall_") && strings.HasSuffix(name, "_top"):
 		return bandFace
 	case east || strings.HasPrefix(name, "border_west"):
@@ -47,7 +51,7 @@ func (m *Tilemap) Bands() *image.RGBA {
 	for l := LayerFloor + 1; l < NumLayers; l++ {
 		for y := range m.H {
 			for x := range m.W {
-				r := BandRect(m.TS.Tiles[m.At(l, x, y)].Name).Add(image.Pt(x, y).Mul(TileSize))
+				r := BandRect(m.TS.Tiles[m.At(l, x, y)].Name).Add(m.Origin(x, y))
 				for py := r.Min.Y; py < r.Max.Y; py++ {
 					for px := r.Min.X; px < r.Max.X; px++ {
 						img.SetRGBA(px, py, BandColor)

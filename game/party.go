@@ -323,7 +323,7 @@ func (g *Game) sendParty(p *Party, goals ...image.Point) {
 	g.send(lead, goals[0])
 	for _, f := range p.Guests[1:] {
 		at := image.Pt(int(f.X), int(f.Y))
-		if i := slices.IndexFunc(lead.Path, func(w image.Point) bool { return w.Div(world.TileSize) == at.Div(world.TileSize) }); i >= 0 {
+		if i := slices.IndexFunc(lead.Path, func(w image.Point) bool { return g.hotel.Map.Cell(w) == g.hotel.Map.Cell(at) }); i >= 0 {
 			f.SetPath(slices.Clone(lead.Path[i:]))
 		} else {
 			to := image.Pt(int(lead.X), int(lead.Y))

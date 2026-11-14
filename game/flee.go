@@ -51,8 +51,9 @@ func (g *Game) indoors(guest *entities.Guest) bool {
 func (g *Game) sight(a, b image.Point) bool {
 	n := max(1, int(math.Hypot(float64(b.X-a.X), float64(b.Y-a.Y)))/4)
 	for i := 1; i < n; i++ {
-		c := a.Add(b.Sub(a).Mul(i).Div(n)).Div(world.TileSize)
-		if c != a.Div(world.TileSize) && c != b.Div(world.TileSize) && g.hotel.Map.Wall(c.X, c.Y) {
+		m := g.hotel.Map
+		c := m.Cell(a.Add(b.Sub(a).Mul(i).Div(n)))
+		if c != m.Cell(a) && c != m.Cell(b) && m.Wall(c.X, c.Y) {
 			return false
 		}
 	}
