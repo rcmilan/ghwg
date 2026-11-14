@@ -42,6 +42,9 @@ _Avoid_: hallway, passage
 **Hall Wall**:
 The wall separating the Corridors from the Lobby.
 
+**Top Band**:
+The dark wood strip where a wall meets the ceiling, the same on every wall, the Kitchen's included. Where walls meet it is one shape, outlined along its outer edge only. It is drawn from where the walls stand, not from tile art.
+
 **Lobby Archway**:
 The open gap in the Hall Wall that joins the Lobby to the Corridors.
 _Avoid_: passage, hall door
@@ -65,7 +68,7 @@ The Terminal's tab that shows the hotel as a grid of cards, one per Room, laid o
 _Avoid_: SERVICES tab, room picker
 
 **Mirror**:
-The mirror on the Hall Wall, west of the Lobby Archway. SPACE in front of it Shifts the hotel, through one of nine random transitions (0.8 s) while the world keeps running.
+The mirror on the Hall Wall, 2 cells west of the Lobby Archway, behind the Reception Counter. SPACE in front of it Shifts the hotel, through one of nine random transitions (0.8 s) while the world keeps running.
 
 **Booking**:
 A Party's stay in a Room, made by its app before it arrives: the hotel gives it the first Vacant Room it fits. It lasts until the Party checks out or flees.
@@ -230,11 +233,15 @@ One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Per
 _Avoid_: click
 
 **Courier**:
-The delivery person an order sends from the Entrance. He drops Supplies and unlocks at the Stock, walks a Room key or the In-Room Mirror to its Room's door, then leaves. Priests are not carried; they walk in on their own.
+The delivery person an order sends from the Entrance. He stops at the prop of each Supply ordered and fills it, drops the unlocks in the Kitchen, walks a Room key or the In-Room Mirror to its Room's door, then leaves. Priests are not carried; they walk in on their own.
 _Avoid_: delivery guy, mailman
 
 **Stock**:
-The Supplies the hotel holds, each in its own prop (fridge, counter, shelf) in the stock strip, against the Hall Wall in the Lobby's west corner. The props are solid; the Concierge fetches from the cell below each, and the Courier fills them from there.
+The Supplies the hotel holds, each in its own prop on the Kitchen's back wall: Water in the fridge, Food in the oven, Towels on the shelf. The props are solid; the Concierge fetches from the cell below each, and the Courier fills each from there. A Supply's icon and count show over its prop when the Concierge is within 2 cells.
+_Avoid_: inventory, stock strip
+
+**Kitchen**:
+The Lobby's part east of the Lobby Archway, walled off as a room, there from the start, the same in both Dimensions. An open doorway in its west wall leads into the rest of the Lobby. It holds the Stock; its counter is decoration. Complaining Parties wait in the Lobby's bottom-left corner, clear of it.
 _Avoid_: inventory
 
 **Room key**:

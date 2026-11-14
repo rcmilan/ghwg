@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"image"
 
 	"ghosthotel/entities"
@@ -11,18 +10,19 @@ import (
 )
 
 // Supplies (D182, E5): what a Guest asks for, the prop it's fetched from, and what a delivery pays.
-// Each prop stands in the stock strip, against the Hall Wall, in the store's order. Pays are placeholders.
+// Each prop stands in the kitchen, against its back wall (F1): Water at the fridge, Food at the oven, Towels
+// at the shelf. Pays are placeholders.
 type Supply struct {
 	ID   Unlock
 	Prop string // A1's sprite
 	Pay  Num    // Money a delivery pays, times calm
-	W    int    // strip cells the prop takes
+	X, W int    // its first cell in the kitchen's prop row, and the cells it takes
 }
 
 var supplies = []Supply{
-	{SupplyWater, "fridge", 25, 1},
-	{SupplyFood, "drawer_b", 50, 2},
-	{SupplyTowel, "shelf_a", 35, 1},
+	{SupplyWater, "fridge", 25, 5, 1},
+	{SupplyFood, "cabinet_mirror", 50, 2, 1}, // the mirror cabinet, recolored as an oven (tools/sprites)
+	{SupplyTowel, "shelf_a", 35, 1, 1},
 }
 
 func supplyOf(id Unlock) int {
@@ -34,13 +34,10 @@ func supplyOf(id Unlock) int {
 	return -1
 }
 
-// supplySpot: supply k's cells in the stock strip, solid, and the cell row in front of them, where the
-// Concierge stands to fetch.
+// supplySpot: supply k's cells in the kitchen's prop row, solid, and the cell row in front of them, where
+// the Concierge stands to fetch.
 func supplySpot(h *world.Hotel, k int) image.Rectangle {
-	x := h.Stock.Min.X
-	for _, s := range supplies[:k] {
-		x += s.W * world.TileSize
-	}
+	x := h.Stock.Min.X + supplies[k].X*world.TileSize
 	return image.Rect(x, h.Stock.Min.Y, x+supplies[k].W*world.TileSize, h.Stock.Max.Y+world.TileSize)
 }
 
@@ -103,36 +100,6 @@ func (g *Game) supplyIcon(id Unlock) *ebiten.Image {
 		}
 	}
 	return nil
-}
-
-// drawSupplies draws each supply prop on its spot, against the wall, and, with the Concierge at one, its icon
-// and count over it. drawWorld calls it in the y-sorted pass, after the Hall Wall's face.
-func (g *Game) drawSupplies(screen *ebiten.Image, ox, oy int) {
-	at := g.atSupply()
-	for k, s := range supplies {
-		img, _ := g.icon(Item{Icon: s.Prop})
-		if img == nil {
-			continue
-		}
-		spot := supplySpot(g.hotel, k)
-		w, h := img.Bounds().Dx(), img.Bounds().Dy()
-		x, y := spot.Min.X+(spot.Dx()-w)/2, g.hotel.Stock.Max.Y-h
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(x*zoom-ox), float64(y*zoom-oy))
-		g.blit(screen, img, op, modeProp, 0, nil, 0)
-		if k != at {
-			continue
-		}
-		icon := g.supplyIcon(s.ID)
-		label := fmt.Sprintf("x%d", g.stock[s.ID])
-		ix, iy := (spot.Min.X+spot.Max.X)/2*zoom-ox-(icon.Bounds().Dx()*zoom+6*len(label))/2, (y-2)*zoom-oy-icon.Bounds().Dy()*zoom
-		op.GeoM.Reset()
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(ix), float64(iy))
-		screen.DrawImage(icon, op)
-		g.inked(screen, label, ix+icon.Bounds().Dx()*zoom+2, iy+icon.Bounds().Dy()*zoom-14, 1, 1, 1)
-	}
 }
 
 // drawHands draws the held item over the Concierge's head; (x,y) are the feet, screen px, as drawCharacter's.

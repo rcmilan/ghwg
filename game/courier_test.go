@@ -20,8 +20,8 @@ func deliver(t *testing.T, g *Game) {
 	}
 }
 
-// T238: checkout sends one courier from the Entrance. Supplies and unlocks arrive when he reaches the
-// stock, nothing before; a Priest starts at checkout. He waits while the
+// T238: checkout sends one courier from the Entrance. A Supply arrives when he reaches its prop, an unlock
+// when he reaches the kitchen's drop, nothing before; a Priest starts at checkout. He waits while the
 // Terminal is open (D73), then leaves through the Entrance.
 func TestCourier(t *testing.T) {
 	g := storeRun(t)
@@ -57,20 +57,25 @@ func TestCourier(t *testing.T) {
 	}
 	near := func(p image.Point) bool { return math.Hypot(c.X-float64(p.X), c.Y-float64(p.Y)) <= world.TileSize }
 	g.state = StatePlay
-	stocked := false
+	stocked, locked := false, false
 	for f := 0; len(g.couriers) > 0; f++ {
 		if f > 3*60*tps {
 			t.Fatal("the courier never left")
 		}
 		g.step(0, 0)
-		if !stocked && (g.stock[SupplyWater] > 0 || g.unlocked(RoomLock)) {
+		if !stocked && g.stock[SupplyWater] > 0 {
 			stocked = true
-			if g.stock[SupplyWater] != shop[water].Pack || !g.unlocked(RoomLock) || !near(g.stockDrop()) {
-				t.Fatalf("stock %v, Room lock %v arrived with the courier at %v; want both, at the stock", g.stock, g.unlocked(RoomLock), image.Pt(int(c.X), int(c.Y)))
+			if g.stock[SupplyWater] != shop[water].Pack || g.unlocked(RoomLock) || !near(g.supplyDrop(supplyOf(SupplyWater))) {
+				t.Fatalf("stock %v, Room lock %v with the courier at %v; want the Water alone, at the fridge", g.stock, g.unlocked(RoomLock), image.Pt(int(c.X), int(c.Y)))
+			}
+		}
+		if !locked && g.unlocked(RoomLock) {
+			if locked = true; !stocked || !near(g.stockDrop()) {
+				t.Fatalf("the Room lock arrived with the courier at %v, Water stocked %v; want it after the Water, at the kitchen's drop", image.Pt(int(c.X), int(c.Y)), stocked)
 			}
 		}
 	}
-	if !stocked {
+	if !stocked || !locked {
 		t.Fatal("the courier never brought the stock")
 	}
 	if !near(g.hotel.Exit) {
