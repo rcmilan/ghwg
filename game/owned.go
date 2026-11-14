@@ -53,7 +53,8 @@ func (g *Game) priceOf(i int) Cost {
 	return shop[i].Cost
 }
 
-func keyCost(g *Game) Cost { return Cost{Money: keyPrice(g.ownedCount())} }
+// keyCost: the next key's price: it rises with each Room owned and each key already paid for or in the cart.
+func keyCost(g *Game) Cost { return Cost{Money: keyPrice(g.ownedCount() + g.keysOut())} }
 
 // closeRooms is the opening state: no Room owned, Money for one key.
 func (g *Game) closeRooms() {
@@ -73,32 +74,40 @@ func (g *Game) openRoom(room int) {
 	g.bookGhost(room, firstGap)
 }
 
-// keyPending: a key is in the cart or on its way. One at a time, so the price a line was added at is the
-// price its drop leaves behind.
-func (g *Game) keyPending() bool {
-	return slices.ContainsFunc(g.cart, func(l cartLine) bool { return shop[l.item].ID == rowKey }) ||
-		slices.ContainsFunc(g.couriers, func(c *courier) bool {
-			return slices.ContainsFunc(c.drops, func(d drop) bool {
-				return slices.ContainsFunc(d.lines, func(l cartLine) bool { return shop[l.item].ID == rowKey })
-			})
-		})
+// keysOut: the keys in the cart or on their way (2026-11-14: several may be, one a Room; each is priced as if
+// the ones before it had arrived).
+func (g *Game) keysOut() int {
+	n := 0
+	key := func(l cartLine) bool { return shop[l.item].ID == rowKey }
+	for _, l := range g.cart {
+		if key(l) {
+			n++
+		}
+	}
+	for _, c := range g.couriers {
+		for _, d := range c.drops {
+			for _, l := range d.lines {
+				if key(l) {
+					n++
+				}
+			}
+		}
+	}
+	return n
 }
 
-// init sets the key's Refuse here: noKey reads the shop, which would be an initialization cycle in its literal.
+// init sets the key's Refuse and Price here: they read the shop, which would be an initialization cycle in its literal.
 func init() {
 	for i := range shop {
 		if shop[i].ID == rowKey {
-			shop[i].Refuse = noKey
+			shop[i].Refuse, shop[i].Price = noKey, keyCost
 		}
 	}
 }
 
 func noKey(g *Game, room int) string {
-	switch {
-	case g.isOwned(room):
+	if g.isOwned(room) {
 		return "ROOM " + g.hotel.Rooms[room].Number + " IS ALREADY OPEN"
-	case g.keyPending():
-		return "A KEY IS ALREADY ON ITS WAY"
 	}
 	return ""
 }

@@ -90,27 +90,18 @@ func (g *Game) route(guest *entities.Guest, to image.Point, avoid ...image.Point
 // toBed: a path into the Guest's own bed (lane i of its Room): round to the bed's side and in sideways, or
 // along it when already lying in it.
 func (g *Game) toBed(guest *entities.Guest, r world.Room, i int) []image.Point {
-	i = bedOf(g.realmOf(guest), r, i)
 	if b, ok := g.bedAt(guest.X, guest.Y); ok && b == r.Lanes[i] {
 		return []image.Point{sleepSpot(b)}
 	}
 	return append(g.route(guest, g.bedSide(r.Lanes[i])), sleepSpot(r.Lanes[i]))
 }
 
-// bedOf: the bed of the Room's i-th Guest of a realm: a ghost takes the last bed first, so in a twin Room a
-// lone ghost sleeps beside a lone human, not on it (the layers never collide, but the picture reads).
-func bedOf(realm Realm, r world.Room, i int) int {
-	if realm == Ghost {
-		return len(r.Lanes) - 1 - i
-	}
-	return i
-}
-
 // bedtime: at sleepHour each Guest of the staying Party walks into its bed, facing down; at wakeHour it
-// gets up to its Stay Spot, and its day of activities (D168) runs until bed again.
+// gets up to its Stay Spot, and its day of activities (D168) runs until bed again. A ghost never sleeps
+// (2026-11-14): its activities run all night, and none of them is a bed.
 func (g *Game) bedtime(p *Party) {
 	r := g.hotel.Rooms[p.Room]
-	if night := asleep(g.clock); night != p.abed {
+	if night := asleep(g.clock) && p.Realm != Ghost; night != p.abed {
 		p.abed = night
 		for i, guest := range p.Guests {
 			if night {

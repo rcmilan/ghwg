@@ -29,11 +29,18 @@ const (
 var (
 	// sightLines: what a Guest says on seeing a Shadow dash, by its ghost's kind (kindOf: the stronger the
 	// ghost, the worse the fright); one at random. Placeholders.
-	sightLines = [len(ghostKinds)][]string{
-		{"Hm?", "Did something move?", "A draft?", "Huh."},
-		{"What was that?!", "A shadow!", "Something moved!", "Who's there?"},
-		{"Eek!", "It ran along the wall!", "I saw it! I SAW it!", "Not again!"},
-		{"AAAH!", "IT'S IN THE WALLS!", "GET ME OUT!", "NO NO NO!"},
+	sightLines = [len(ghostKinds)][]string{ // in its Room
+		{"Hm?", "Did something move?", "A draft?", "Huh.", "Just the curtain."},
+		{"What was that?!", "A shadow!", "Something moved!", "Who's there?", "Behind the lamp!"},
+		{"Eek!", "It ran along the wall!", "I saw it! I SAW it!", "Not again!", "Under the covers!"},
+		{"EEEEK!", "IT'S IN THE WALLS!", "GET ME OUT!", "NO NO NO!", "OPEN THE DOOR!"},
+	}
+	// hallSights: the same in a Corridor or the hall, where there is no Room to want out of (2026-11-14).
+	hallSights = [len(ghostKinds)][]string{
+		{"Odd.", "A flicker?", "Hm. Nothing.", "Was that a moth?"},
+		{"Did you see that?", "Something's on the wall!", "Who's over there?", "That wasn't me."},
+		{"Yikes!", "The wall moved!", "It's following me!", "Walk faster!"},
+		{"IT'S OUT HERE TOO!", "DON'T LOOK BACK!", "THE WALLS!", "KEEP WALKING!"},
 	}
 	shadowTint = []float32{.45, .2, .7} // ghost: a black figure would vanish on the black maze walls
 	shadowCast = append([]string{"Bob"}, guestCast[:]...)
@@ -322,8 +329,12 @@ func (g *Game) areaPhantasm(run int) (most int) {
 // Fear, hops and speaks a line picked at random from its ghost's kind's.
 func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 	y := g.walls[sh.run].y
-	lines := sightLines[kindOf(g.areaPhantasm(sh.run))]
+	kind := kindOf(g.areaPhantasm(sh.run))
 	for _, guest := range in {
+		lines := hallSights[kind]
+		if g.indoors(guest) {
+			lines = sightLines[kind]
+		}
 		if _, ok := sh.seen[guest]; !ok && g.sees(guest, sh.x, y) {
 			sh.seen[guest] = g.tick
 			g.frighten(p, guest, shadowSeen, guest.FleeAt-1)

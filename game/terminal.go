@@ -286,7 +286,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 			a, word = 0.35, "SOON"
 		case it.unlock() && g.unlocked(it.ID):
 			a, word = 0.6, "OWNED"
-		case it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL"):
+		case it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL"), it.Hire && g.staffed() >= keeperMax:
 			a, word = 0.6, "MAX"
 		case !g.afford(g.priceOf(i)):
 			a = 0.6
@@ -320,6 +320,8 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		status = append(status, fmt.Sprintf("%d PER CASE   IN STOCK: %d", it.Pack, g.stock[it.ID]))
 	case it.unlock() && g.unlocked(it.ID):
 		status = append(status, "OWNED")
+	case it.Hire:
+		status = append(status, fmt.Sprintf("$%d A DAY   HIRED: %d", keeperWage, g.staffed()))
 	}
 	for k, v := range status {
 		g.tintedAt(s, v, paneX+12, y+92+k*18, 1, storeAccent, 1)

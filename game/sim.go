@@ -102,6 +102,9 @@ type Result struct {
 	Changes     int       // changes of type ordered
 	Grown       []float64 // game hours from the Run start at each expansion of the hotel (07 H1)
 	Rooms       int       // at the end of the Run
+	Hired       int       // housekeepers hired (07 H1 step 3),
+	Quit        int       // of whom walked out unpaid,
+	StaffSpend  int       // and the $ they cost, fees and wages
 	Failures    []Failure
 }
 
@@ -176,7 +179,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered, serves := g.delivered, g.serves
+	delivered, serves, staffPaid := g.delivered, g.serves, g.staffPaid
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -225,7 +228,8 @@ func (s *sim) frame() bool {
 		}
 	}
 	s.res.PriestSpend += spent
-	for _, c := range g.couriers { // the rest of a checkout: what the courier carries (D200)
+	spent += int(g.staffPaid - staffPaid) // a housekeeper's fee or wage
+	for _, c := range g.couriers {        // the rest of a checkout: what the courier carries (D200)
 		if !s.shipped[c] {
 			s.shipped[c], spent = true, spent+int(c.paid()[Money])
 		}
@@ -346,6 +350,7 @@ func (s *sim) scaring() bool {
 func (s *sim) finish() Result {
 	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
 	s.res.Rooms = len(s.g.hotel.Rooms)
+	s.res.Hired, s.res.Quit, s.res.StaffSpend = s.g.hired, s.g.quits, int(s.g.staffPaid)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {

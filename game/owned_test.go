@@ -68,15 +68,17 @@ func TestRoomKey(t *testing.T) {
 	if g.addToCart(k, 1) != "" {
 		t.Fatal("the one key's worth does not buy the first key")
 	}
-	g.wallet[Money] += 100 // a fat wallet still gets one key at a time
-	if why := g.addToCart(k, 0); why != "A KEY IS ALREADY ON ITS WAY" {
-		t.Fatalf("a second key in the cart: %q", why)
+	if why := g.addToCart(k, 1); why == "" { // one key a Room
+		t.Fatal("a second key for the same Room went in the cart")
+	}
+	if why := g.addToCart(k, 0); why != "CAN'T AFFORD" { // a second Room's key is priced after the first
+		t.Fatalf("a second key with Money for one: %q", why)
 	}
 	if why := g.placeOrder(); why != "" {
 		t.Fatal(why)
 	}
-	if g.wallet[Money] != 100 || !g.keyPending() {
-		t.Fatalf("Money %v after the order, key on its way %v", g.wallet[Money], g.keyPending())
+	if g.wallet[Money] != 0 || g.keysOut() != 1 || g.priceOf(k)[Money] != keyPrice(1) {
+		t.Fatalf("Money %v after the order, %d keys on their way, the next at %v; want 0, 1, %v", g.wallet[Money], g.keysOut(), g.priceOf(k), keyPrice(1))
 	}
 	if g.isOwned(1) {
 		t.Fatal("the Room is owned before the courier drops the key")

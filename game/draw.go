@@ -242,11 +242,17 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y)))})
 	}
 	for _, c := range g.couriers {
+		if !c.out { // ordered, the store or the hotel view still open: he walks in once it closes
+			continue
+		}
 		name := courierName
 		if len(c.drops) > 0 {
 			name = courierBox
 		}
 		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y)))})
+	}
+	for _, k := range g.keepers {
+		actors = append(actors, actor{x: k.X, y: k.Y, name: keeperName, anim: k.Anim, fog: g.fogAt(image.Pt(int(k.X), int(k.Y)))})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -340,6 +346,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	g.drawRequests(screen, ox, oy)
 	g.drawTalk(screen, ox, oy)
+	g.drawKeepers(screen, ox, oy)
+	g.drawVoices(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-float64(g.tick-f.at)*floaterRisePerFr)
 		switch {

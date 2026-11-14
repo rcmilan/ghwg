@@ -68,7 +68,7 @@ _Avoid_: desk, reception
 The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
 
 **Hotel view**:
-The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press.
+The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Pause**:
@@ -240,7 +240,7 @@ One SPACE on a prop that earns +1 of something, by the Concierge or a Shadow Per
 _Avoid_: click
 
 **Courier**:
-The delivery person an order sends from the Entrance. He stops at the prop of each Supply ordered and fills it, drops the unlocks in the Kitchen, walks a Room key or the In-Room Mirror to its Room's door, then leaves. Priests are not carried; they walk in on their own.
+The delivery person an order sends from the Entrance. He stops at the prop of each Supply ordered and fills it, drops the unlocks in the Kitchen, walks a Room key or the In-Room Mirror to its Room's door, then leaves. Priests are not carried; they walk in on their own. He shows at the Entrance once the store or the Hotel view that ordered him is closed. He and the Housekeeper never stop for anyone: like every walker they look a few cells ahead and take another way round whoever is there, and one they still run into, with no way around, they pass through. Of two walking at each other only one goes round; the other keeps its way.
 _Avoid_: delivery guy, mailman
 
 **Stock**:
@@ -252,7 +252,7 @@ The Lobby's part east of the Lobby Archway, walled off as a room, there from the
 _Avoid_: inventory
 
 **Room key**:
-An action of a boarded Room's actions in the Hotel view, paid at once, that opens it: the Courier walks the key to that Room's door, and on the drop the Room is owned. One key at a time; its price rises with each Room owned.
+An action of a boarded Room's actions in the Hotel view, paid at once, that opens it: the Courier walks the key to that Room's door, and on the drop the Room is owned. Several keys may be on their way at once, one a Room; the price rises with each Room owned and each key already paid for.
 _Avoid_: unlock, license, deed
 
 **Owned Room** / **Closed Room**:
@@ -288,6 +288,22 @@ _Avoid_: expansion (as the mechanic's name), upgrade, Spin
 **Grower**:
 The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.
 
+**Housekeeper**:
+A member of staff hired at the Terminal's STAFF tab, up to three at once; she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
+_Avoid_: maid, cleaner, keeper (the Keeper is a Strategy)
+
+**Staffer**:
+The Strategy that opens Rooms, keeps the Stock up, hires one Housekeeper as soon as it can pay her fee and a first wage, and then stands at the Terminal. Its Runs say whether a hotel's ordinary takings keep a Housekeeper paid: the sim's `staff` lines give how many walked out unpaid.
+
+**Busy hotel**:
+A stress Run (`-busy`, `TestBusyHotel`): the hotel at 3 by 3, every Room open with Twin beds, Parties and ghosts arriving minutes apart and replaced minutes after they leave, three Housekeepers, a Courier restocking for free. It shows everyone walking at once and counts how often a walker is stopped by someone ahead.
+
 **Notice**:
 The HUD's place for words to the player: one text on its left column, white outlined in black, on no background, under the Money counter and the next-guest note, sliding in, holding three seconds and sliding out. The game says nothing through it today: it has no system text, neither a confirmation nor a refusal. What a buy did shows in the world and on the counters; what can't be bought looks it (a dimmed row, a covered Mirror); only the store's own page uses words, kept short ("CAN'T AFFORD"). The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a system text.
 _Avoid_: message, message line, status bar, toast
+
+**Room-only line**:
+A line that makes sense only inside a Room (what a Guest says of its Room, of a Shadow seen there, a ghost's in-Room lines, "Zzz..."). A Guest outside the Rooms never shows one: said inside, it ends at the door. A Shadow seen in a Corridor or the hall draws a hall line instead.
+
+**Voice**:
+What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.

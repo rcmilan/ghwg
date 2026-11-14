@@ -31,6 +31,7 @@ type priest struct {
 	strong         bool
 	until          int  // the clock his work ends; 0 until he's in the Room
 	done           bool // worked: walking out
+	voice
 }
 
 func (pr *priest) price() int {
@@ -82,6 +83,12 @@ func (g *Game) updatePriests() {
 	kept := g.priests[:0]
 	for _, pr := range g.priests {
 		arrived := g.walk(&pr.Guest, priestSpeed)
+		g.comeNear(&pr.Guest, &pr.voice, func() []string {
+			if pr.done {
+				return g.sometimes(priestOut)
+			}
+			return g.sometimes(priestIn)
+		})
 		switch {
 		case !arrived:
 		case pr.done: // at the Exit

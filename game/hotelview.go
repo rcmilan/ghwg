@@ -1,6 +1,7 @@
 package game
 
 import (
+	"ghosthotel/assets"
 	"image"
 	"image/color"
 	"strings"
@@ -181,6 +182,10 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	}
 	for i, room := range g.hotel.Rooms {
 		r := on(room.Shell())
+		if g.boarded(i) { // a Room not bought yet lies under the fog (2026-11-14): the ones to buy stand out
+			n := assets.Night
+			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * g.viewT)})
+		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
 			label += " > " + strings.ToUpper(c.to.Beds)

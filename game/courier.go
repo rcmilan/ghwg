@@ -26,6 +26,8 @@ func init() {
 type courier struct {
 	entities.Guest
 	drops []drop // still to make, in order; then out the Exit
+	voice
+	out bool // the world has run since the order: he is at the Entrance. Until then (the store or the hotel view still open) he isn't drawn
 }
 
 // drop: where the courier hands over some of the order's lines.
@@ -48,10 +50,17 @@ func (g *Game) doorDrop(room int) image.Point {
 func (g *Game) updateCouriers() {
 	kept := g.couriers[:0]
 	for _, c := range g.couriers {
+		c.out = true
 		arrived := g.walk(&c.Guest, courierSpeed)
 		if !g.headless {
 			c.Anim.Update(c.X, c.Y)
 		}
+		g.comeNear(&c.Guest, &c.voice, func() []string {
+			if len(c.drops) > 0 {
+				return g.sometimes(courierIn)
+			}
+			return g.sometimes(courierOut)
+		})
 		if !arrived {
 			kept = append(kept, c)
 			continue
@@ -102,6 +111,9 @@ func (g *Game) walkers(realm Realm) []*entities.Guest {
 	if realm == Human {
 		for _, c := range g.couriers {
 			gs = append(gs, &c.Guest)
+		}
+		for _, k := range g.keepers {
+			gs = append(gs, &k.Guest)
 		}
 	}
 	return gs

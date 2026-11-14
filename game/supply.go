@@ -67,6 +67,16 @@ func (g *Game) fetch(k int) {
 // deliver hands item to the Room's asking Party: it pays Pay × calm at once (calm falls with the Room's dread)
 // and serves (serve's Mood). False, and nothing taken, on the wrong item or with no ask.
 func (g *Game) deliver(room int, item Unlock) bool {
+	if !g.handOver(room, item) {
+		return false
+	}
+	g.tapped(room, TaskServe)
+	g.hands = ""
+	return true
+}
+
+// handOver: deliver, by whoever carries the item: the Concierge or a housekeeper (keeper.go).
+func (g *Game) handOver(room int, item Unlock) bool {
 	k := supplyOf(item)
 	if k < 0 || !g.wants(room, item) || !g.serve(room) {
 		return false
@@ -76,8 +86,6 @@ func (g *Game) deliver(room int, item Unlock) bool {
 	pay := supplies[k].Pay * calm
 	g.earn(Money, pay, image.Pt(door.X+world.TileSize/2, door.Y))
 	g.delivered += pay
-	g.tapped(room, TaskServe)
-	g.hands = ""
 	return true
 }
 
@@ -104,7 +112,11 @@ func (g *Game) supplyIcon(id Unlock) *ebiten.Image {
 
 // drawHands draws the held item over the Concierge's head; (x,y) are the feet, screen px, as drawCharacter's.
 func (g *Game) drawHands(screen *ebiten.Image, x, y int) {
-	icon := g.supplyIcon(g.hands)
+	g.drawHeld(screen, g.supplyIcon(g.hands), x, y)
+}
+
+// drawHeld draws icon over the head of whoever's feet are at (x,y), screen px.
+func (g *Game) drawHeld(screen, icon *ebiten.Image, x, y int) {
 	top := y + (entities.FootH/2-charH+8)*zoom // just over the hair: the sheet's head starts on row 9
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
