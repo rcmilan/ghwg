@@ -2,6 +2,7 @@
 // and prints how each Strategy did (simulation mode). A dev tool: never part of the game binary.
 //
 //	go run ./cmd/sim -strategy never,server,keeper,smart,shopper -runs 64 -days 7
+//	go run ./cmd/sim -strategy goals -days 4 -runs 16   (the pacing: when a Run reaches each milestone, and its longest waits)
 package main
 
 import (
@@ -71,18 +72,34 @@ func main() {
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
-	var failures, growth, staff []string
+	var failures, growth, staff, pacing []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
 		cheat := false
 		mirrorSum, mirrorN := 0.0, 0
 		var roomMirror []float64
+		var marks [5][]float64 // real minutes: the Mirror, the first Growth, the first housekeeper, the in-Room Mirror, the first Deluxe Room
+		var waits [3]float64
+		earned := 0
 		var grown [][]float64 // per expansion, first to last: the game hour of each Run that made it (H1)
 		rooms := 0
 		hired, quit, staffSpend := 0, 0, 0
 		for _, r := range results[s] {
 			hired, quit, staffSpend = hired+r.Hired, quit+r.Quit, staffSpend+r.StaffSpend
+			first := -1.0
+			if len(r.Grown) > 0 {
+				first = r.Grown[0]
+			}
+			for k, h := range []float64{r.MirrorAt, first, r.HiredAt, r.RoomMirror, r.DeluxeAt} {
+				if h >= 0 {
+					marks[k] = append(marks[k], h/6) // a game hour is 10 real seconds
+				}
+			}
+			for k, w := range r.Waits {
+				waits[k] = max(waits[k], w)
+			}
+			earned += r.EctoEarned
 			for k, h := range r.Grown {
 				if k == len(grown) {
 					grown = append(grown, nil)
@@ -125,12 +142,10 @@ func main() {
 				mirrorAt += fmt.Sprintf(" (%d/%d)", mirrorN, *runs)
 			}
 		}
-		roomMirrorAt := "-" // the first in-Room Mirror: median, min..max over the Runs that got one (K1's pacing goal)
-		if slices.Sort(roomMirror); len(roomMirror) > 0 {
-			roomMirrorAt = fmt.Sprintf("%.1f, %.1f..%.1f", roomMirror[len(roomMirror)/2], roomMirror[0], roomMirror[len(roomMirror)-1])
-			if len(roomMirror) < *runs {
-				roomMirrorAt += fmt.Sprintf(" (%d/%d)", len(roomMirror), *runs)
-			}
+		roomMirrorAt := spread(roomMirror, *runs) // the first in-Room Mirror (K1's pacing goal)
+		if len(marks[1])+len(marks[2])+len(marks[3])+len(marks[4]) > 0 {
+			pacing = append(pacing, fmt.Sprintf("  %s: Mirror %s; Growth %s; housekeeper %s; Room mirror %s; Deluxe %s\n    longest wait: %.0f s before the Growth, %.0f s before the housekeeper, %.0f s before the Room mirror; %.0f Ectoplasm earned a Run",
+				name, spread(marks[0], *runs), spread(marks[1], *runs), spread(marks[2], *runs), spread(marks[3], *runs), spread(marks[4], *runs), waits[0], waits[1], waits[2], float64(earned)/n))
 		}
 		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%s\t%s\t%d\t\n", name,
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
@@ -152,6 +167,10 @@ func main() {
 		fmt.Println("\ngrowth:")
 		fmt.Println(strings.Join(growth, "\n"))
 	}
+	if len(pacing) > 0 {
+		fmt.Println("\npacing, real minutes from the Run start (median, min..max; the goal: Growth 4, Room mirror 6, housekeeper 7, Deluxe 9.5; waits 30, 60, 90 s):")
+		fmt.Println(strings.Join(pacing, "\n"))
+	}
 	if len(staff) > 0 {
 		fmt.Println("\nstaff:")
 		fmt.Println(strings.Join(staff, "\n"))
@@ -165,6 +184,18 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+}
+
+// spread: "median, min..max" of xs, with how many of the Runs it covers when not all; "-" for none.
+func spread(xs []float64, runs int) string {
+	if slices.Sort(xs); len(xs) == 0 {
+		return "-"
+	}
+	s := fmt.Sprintf("%.1f, %.1f..%.1f", xs[len(xs)/2], xs[0], xs[len(xs)-1])
+	if len(xs) < runs {
+		s += fmt.Sprintf(" (%d/%d)", len(xs), runs)
+	}
+	return s
 }
 
 func mean(xs []float64) float64 {

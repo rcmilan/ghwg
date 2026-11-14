@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 	"strings"
 
 	"ghosthotel/assets"
@@ -28,8 +29,8 @@ const (
 // phantasmBands: the Phantasm each kind from the second starts at; the lowest kind is below the first edge.
 var phantasmBands = [...]int{4, 7, 10}
 
-// phantasmStrong: a ghost at or above this is strong: it switches an area's Shadow People on. A weak one
-// (the lowest kind) doesn't.
+// phantasmStrong: a ghost at or above this is strong: its Shadow People follow it into the Corridors and the
+// hall. Every ghost, weak too, has its own Room's on from the moment it comes in (2026-11-14).
 const phantasmStrong = 4
 
 type ghostKind struct {
@@ -155,8 +156,28 @@ func (g *Game) updateGhost(p *Party) bool {
 	case checkingIn:
 		if g.walkParty(p, arriveSpeed) {
 			p.state, p.settled = staying, true
+			if g.unlocked(Mirror) { // it haunts as it settles in (2026-11-14, 4c): what a ghost does shows at once, not up to 4 h later
+				for _, guest := range p.Guests {
+					g.haunt(p.Room, guest)
+					guest.HauntAt = g.clock / minuteFrames
+				}
+			}
 		}
 	case staying:
+		if lead := p.Guests[0]; lead.PassAt > 0 { // passing on: it rises and is gone, and the Room books the next
+			if g.clock-lead.PassAt >= passFrames {
+				p.Paid = true
+				g.bookGhost(p.Room, bookGap)
+				return false
+			}
+			break
+		}
+		if g.unlocked(Mirror) && !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return !spent(guest) }) {
+			for _, guest := range p.Guests { // a pair passes on together, once its stronger one is spent
+				guest.PassAt, guest.Path = g.clock, nil
+			}
+			break
+		}
 		if g.clock >= p.Checkout {
 			p.state = checkingOut
 			g.sendParty(p, exit...)
@@ -173,6 +194,37 @@ func (g *Game) updateGhost(p *Party) bool {
 		return !g.walkParty(p, departSpeed)
 	}
 	return true
+}
+
+// Passing on (2026-11-14): a spent ghost crosses to the other side. Over passFrames it rises passRise world px
+// off the floor, slowly then fast, paling to white as it thins to nothing. Placeholders.
+const (
+	passFrames = 150
+	passRise   = 48.0
+	ghostFaint = 0.45 // of ghostAlpha: a ghost one haunt from spent. It dims with each haunt, so how long it has left shows
+)
+
+// passing: how far through its passing the ghost is, 0 (not yet) .. 1 (gone).
+func (g *Game) passing(ghost *entities.Guest) float64 {
+	if ghost.PassAt == 0 {
+		return 0
+	}
+	return clamp(float64(g.clock-ghost.PassAt)/passFrames, 0, 1)
+}
+
+// ghostLook: a ghost's color, opacity and lift off the floor: its kind's hue at ghostAlpha, dimmer with each
+// haunt it has done, and the passing over that.
+func (g *Game) ghostLook(ghost *entities.Guest) (tint []float32, alpha float32, lift float64) {
+	h := kindHue(kindOf(ghost.Phantasm))
+	left := 1 - float64(ghost.Haunted)/float64(max(1, ghost.Phantasm))
+	t := g.passing(ghost)
+	if t > 0 {
+		left = 1 // it flares before it goes
+	}
+	for i := range h {
+		h[i] += (1 - h[i]) * float32(t)
+	}
+	return h[:], float32(ghostAlpha * (ghostFaint + (1-ghostFaint)*clamp(left, 0, 1)) * (1 - t*t)), t * t * passRise
 }
 
 // visible: the guests drawn in the current dimension: in real the humans only (a ghost shows through its

@@ -220,7 +220,7 @@ func TestRoomMirror(t *testing.T) {
 	g.roomOwned[0] = true
 	g.own(Mirror)
 	g.own(BedsTwin)
-	g.wallet = [2]Num{200, 100}
+	g.wallet = [2]Num{200, roomMirrorEcto + 10}
 	m := row(t, RoomMirror)
 	if it := shop[m]; it.Tab != tabRooms || it.Cost != (Cost{Ecto: roomMirrorEcto}) || !g.onSale(m) {
 		t.Fatalf("the Room mirror: tab %d, cost %v, on sale %v; want a Service for Ectoplasm only", it.Tab, it.Cost, g.onSale(m))
@@ -239,7 +239,7 @@ func TestRoomMirror(t *testing.T) {
 		t.Fatal(why)
 	}
 	why := g.placeOrder()
-	paid := g.wallet == [2]Num{200, 100 - roomMirrorEcto}
+	paid := g.wallet == [2]Num{200, 10}
 	if deliver(t, g); why != "" || !paid || !g.unlocked(RoomMirror) {
 		t.Fatalf("the order: %q, wallet %v, unlocked %v", why, g.wallet, g.unlocked(RoomMirror))
 	}
@@ -305,32 +305,47 @@ func TestRoomMirror(t *testing.T) {
 	}
 }
 
-// T297, T303: the opener plays K1's part of the opening through the Terminal: Twin beds, a Room changed to
-// Twin, the in-Room Mirror for it. The pacing goal (2026-11-11): the in-Room Mirror is bought within 10 minutes
-// of regular play (60 game hours) on most Runs, and on none past 90 h. It holds since the Mirror is hung at
-// once and a Room is cleaned with its guests in: 8 seeds finish at 29..77 h. The Mirror's price is not the
-// lever (90, 120 and 150 Ectoplasm give the same ends); the wait is for Twin beds and the first change.
+// The pacing goal (2026-11-14, 4c): a player meets most of the game within 10 minutes of real play. The goals
+// Strategy plays the agreed order (Room 1, the Mirror, Room 2, then all that earns) and the middle Run of 8
+// seeds must reach the first Growth about minute 4, the in-Room Mirror about 6, the first housekeeper about 7 and
+// the first Deluxe upgrade (on sale after the Growth) about 9.5. Bands, not points. The
+// longest stretch with nothing to buy and nothing to do is 30 s before the Growth (a 40 s haunt cycle leaves
+// about that; a Room served past cozy takes one haunt without a stain, so the check allows 45), 60 s before the
+// housekeeper, 90 s before the in-Room Mirror.
 func TestPacing(t *testing.T) {
-	var at []float64
+	var marks [4][]float64 // real minutes
+	var waits [3]float64
 	for seed := uint64(1); seed <= 8; seed++ {
-		r := RunSim(Config{Cols: 2, Rows: 1, Days: 5, Seed: seed, Name: "opener", Strategy: Strategies["opener"], React: 30, KeyGap: 6})
+		r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: seed, Name: "goals", Strategy: Strategies["goals"], React: 30, KeyGap: 6})
 		for _, f := range r.Failures {
 			t.Errorf("seed %d %s: %s", seed, f.Clock, f.Reason)
 		}
-		if r.Changes == 0 {
-			t.Errorf("seed %d: the opener never ordered a change of type", seed)
+		if len(r.Grown) == 0 || r.HiredAt < 0 || r.RoomMirror < 0 || r.DeluxeAt < 0 {
+			t.Errorf("seed %d: Growth %v, housekeeper %.1f h, in-Room Mirror %.1f h, Deluxe %.1f h; want all four within 4 days", seed, r.Grown, r.HiredAt, r.RoomMirror, r.DeluxeAt)
+			continue
 		}
-		if r.RoomMirror >= 0 {
-			at = append(at, r.RoomMirror)
+		for k, h := range []float64{r.Grown[0], r.HiredAt, r.RoomMirror, r.DeluxeAt} {
+			marks[k] = append(marks[k], h/6) // a game hour is 10 real seconds
+		}
+		for k, w := range r.Waits {
+			waits[k] = max(waits[k], w)
 		}
 	}
-	sort.Float64s(at)
-	t.Logf("the first Room with its own Mirror, game hours, on %d of 8 seeds: %.1f", len(at), at)
-	// 2026-11-14 (4a): Ectoplasm now comes only from what ghosts do (frights, spiritual dirt cleaned in ghost),
-	// no longer from every clean in ghost, so the Mirror comes later (57..115 h, 7 of 8 seeds). The band below is
-	// measured, not enforced, until 4c tunes the haunt rate and the prices to the wait schedule.
-	if len(at) != 8 || at[3] < 45 || at[4] > 60 || at[len(at)-1] > 90 { // Z1: a floor too, both middle Runs in the band
-		t.Logf("the in-Room Mirror on %d of 8 seeds, at %.1f h; want all 8, the median at 45..60 h, none past 90", len(at), at)
+	for k, band := range [][2]float64{{3, 5}, {5.5, 8.5}, {4.5, 8}, {8, 11}} {
+		what := []string{"the first Growth", "the first housekeeper", "the in-Room Mirror", "the first Deluxe upgrade"}[k]
+		if sort.Float64s(marks[k]); len(marks[k]) > 0 {
+			mid := marks[k][len(marks[k])/2]
+			t.Logf("%s, real minutes: %.1f", what, marks[k])
+			if mid < band[0] || mid > band[1] {
+				t.Errorf("%s: the middle Run at %.1f min, want %g..%g", what, mid, band[0], band[1])
+			}
+		}
+	}
+	t.Logf("longest waits, s: %.0f", waits)
+	for k, most := range [3]float64{45, 60, 90} {
+		if waits[k] > most {
+			t.Errorf("stretch %d: %.0f s with nothing to buy and nothing to do, want %.0f at most", k, waits[k], most)
+		}
 	}
 }
 
@@ -343,6 +358,10 @@ func TestDeluxe(t *testing.T) {
 	g.own(Mirror)
 	g.own(BedsTwin)
 	g.wallet = [2]Num{1000, deluxeEcto + deluxeFee}
+	if g.onSale(row(t, Deluxe)) {
+		t.Fatal("Deluxe is on sale before the hotel has grown")
+	}
+	g.grid0 = [2]int{1, 1} // as if the hotel had grown: it expands first (2026-11-14)
 	if i := row(t, Deluxe); shop[i].Tab != tabHotel || shop[i].Cost != (Cost{Ecto: deluxeEcto}) || !g.onSale(i) {
 		t.Fatal("Deluxe is not an Ectoplasm unlock on sale on the HOTEL tab")
 	}

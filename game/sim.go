@@ -105,7 +105,13 @@ type Result struct {
 	Hired       int       // housekeepers hired (07 H1 step 3),
 	Quit        int       // of whom walked out unpaid,
 	StaffSpend  int       // and the $ they cost, fees and wages
-	Failures    []Failure
+	// Pacing (2026-11-14, 4c). The player must always have something to buy or to do: the longest stretch with
+	// neither is 30 s before the first Growth, 60 s before the first housekeeper, 90 s before the in-Room Mirror.
+	HiredAt    float64    // game hours from the Run start until the first housekeeper; -1 if none was hired
+	DeluxeAt   float64    // the same, until the first Room's upgrade to Deluxe was ordered
+	Waits      [3]float64 // real seconds: the longest the Strategy stood with nothing to do, in each of those three stretches
+	EctoEarned int        // over the Run, spent or not
+	Failures   []Failure
 }
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
@@ -127,6 +133,7 @@ type sim struct {
 	seenGhost map[*Party]bool // the ghost Parties counted
 	changed   map[*change]bool
 	closed    int // Room-frames Closed
+	wait      int // frames the Strategy has had nothing to do
 }
 
 type leg struct {
@@ -153,7 +160,7 @@ func newSim(cfg Config) (*sim, error) {
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
-		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1}}
+		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1}}
 	g.mirrorAtStart, g.openAtStart, g.bedsAtStart = cfg.Mirror, cfg.Open, cfg.Beds
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
@@ -201,6 +208,18 @@ func (s *sim) frame() bool {
 	}
 	if s.res.MirrorBuy < 0 && g.unlocked(RoomMirror) {
 		s.res.MirrorBuy = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.HiredAt < 0 && g.hired > 0 {
+		s.res.HiredAt = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.DeluxeAt < 0 && slices.ContainsFunc(g.changes, func(c *change) bool { return c.to.Name == deluxeTier }) { // ordered: the Room may wait to empty
+		s.res.DeluxeAt = float64(g.clock-runStart) / hourFrames
+	}
+	if s.wait++; !s.a.idle || g.state != StatePlay {
+		s.wait = 0
+	}
+	if k := s.stretch(); k < len(s.res.Waits) {
+		s.res.Waits[k] = max(s.res.Waits[k], float64(s.wait)/tps)
 	}
 	if clock/dayFrames != g.clock/dayFrames { // Midnight
 		for i := range g.hotel.Rooms {
@@ -335,6 +354,20 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	}
 }
 
+// stretch: which of the Run's three paced stretches it is in: 0 before the first Growth, 1 before the first
+// housekeeper, 2 before the in-Room Mirror, 3 after.
+func (s *sim) stretch() int {
+	switch {
+	case len(s.res.Grown) == 0:
+		return 0
+	case s.res.HiredAt < 0:
+		return 1
+	case s.res.RoomMirror < 0:
+		return 2
+	}
+	return 3
+}
+
 // scaring: some Room has a Shadow (D169) with its Party in the hotel, or a Corridor or the hall has one.
 func (s *sim) scaring() bool {
 	g := s.g
@@ -349,7 +382,7 @@ func (s *sim) scaring() bool {
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
 	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
-	s.res.Rooms = len(s.g.hotel.Rooms)
+	s.res.Rooms, s.res.EctoEarned = len(s.g.hotel.Rooms), int(s.g.earned[Ecto])
 	s.res.Hired, s.res.Quit, s.res.StaffSpend = s.g.hired, s.g.quits, int(s.g.staffPaid)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {

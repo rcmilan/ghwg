@@ -488,3 +488,47 @@ func TestSightLinesByStrength(t *testing.T) {
 		t.Error("in real, a Guest in its Room is heard from outside it")
 	}
 }
+
+// 2026-11-14: a ghost has one haunt in it per point of Phantasm. The weakest haunts once as it settles in,
+// with its Room's Shadow on (weak or not), then passes on: it rises, is gone, and the Room books the next.
+func TestGhostPassesOn(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	g.locked = nil
+	p := g.arriveGhost(0)
+	p.Guests = p.Guests[:1]
+	ghost := p.Guests[0]
+	ghost.Phantasm = 1
+	for range 60 * tps {
+		if g.step(0, 0); p.settled {
+			break
+		}
+	}
+	if !p.settled || ghost.Haunted != 1 || g.roomMood(0) != moodStart-ghostHauntDamage(ghost) {
+		t.Fatalf("the weakest ghost settling in: settled %v, haunts %d, Mood %d", p.settled, ghost.Haunted, g.roomMood(0))
+	}
+	if !g.shaded(0) {
+		t.Error("a weak ghost in its Room: no Shadow on its wall")
+	}
+	g.step(0, 0)
+	if ghost.PassAt == 0 {
+		t.Fatal("spent, it didn't begin to pass on")
+	}
+	for range passFrames / 2 {
+		g.step(0, 0)
+	}
+	if _, a, lift := g.ghostLook(ghost); lift <= 0 || a >= ghostAlpha || !slices.Contains(g.parties, p) {
+		t.Errorf("half way: lift %.1f, alpha %.2f, still a Party %v; want it risen, thinner, not yet gone", lift, a, slices.Contains(g.parties, p))
+	}
+	for range passFrames {
+		g.step(0, 0)
+	}
+	if slices.Contains(g.parties, p) || g.ghostArrivals[0].at == 0 {
+		t.Errorf("passed on: still a Party %v, next booked at %d", slices.Contains(g.parties, p), g.ghostArrivals[0].at)
+	}
+	strong := ghostIn(t, g, 1, phantasmMax)
+	strong.Guests[0].Haunted = phantasmMax - 1
+	if _, a, _ := g.ghostLook(strong.Guests[0]); spent(strong.Guests[0]) || a >= ghostAlpha*0.6 {
+		t.Errorf("one haunt from spent: spent %v, alpha %.2f; want it faint", spent(strong.Guests[0]), a)
+	}
+}

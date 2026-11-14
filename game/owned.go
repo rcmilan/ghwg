@@ -17,10 +17,11 @@ import (
 // pacing goal): the Mirror ($10, shop.go) is about 4 game hours of one Room's rent.
 const (
 	keyBase     = 100     // $: the first Room key
-	keyStep     = 100     // $: each Room already owned adds this to the next key
-	mirrorPrice = 50      // $: the Mirror
+	keyStep     = 25      // $: each Room already owned adds this to the next key
+	mirrorPrice = 15      // $: the Mirror
 	twinPrice   = 350     // $: Twin beds, the pacing lever (Z1); Double is twice it
 	startMoney  = keyBase // $: a Run starts with exactly one key's worth
+	startStock  = 2       // and this many of each Supply: the first Party's asks, before the Room has paid for a case (2026-11-14)
 )
 
 // rowKey is the Room key's Service row.
@@ -60,6 +61,10 @@ func keyCost(g *Game) Cost { return Cost{Money: keyPrice(g.ownedCount() + g.keys
 func (g *Game) closeRooms() {
 	g.roomOwned = make([]bool, len(g.hotel.Rooms))
 	g.wallet[Money] = startMoney
+	g.stock = map[Unlock]int{}
+	for _, s := range supplies {
+		g.stock[s.ID] = startStock
+	}
 }
 
 // openRoom: the key reached the Room's door. It is owned from now: its door unboards and its first Party and

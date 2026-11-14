@@ -111,9 +111,9 @@ func (g *Game) updateTalk() {
 			case p.greet != greetHello:
 				set = ghostBacks
 			}
-			p.talk = append(p.talk, line{0, set[g.chat.IntN(len(set))], g.tick})
+			p.talk = append(p.talk, line{0, set[g.words.IntN(len(set))], g.tick})
 		case p.greet == greetHello:
-			p.talk = append(p.talk, line{0, helloLines[g.chat.IntN(len(helloLines))], g.tick})
+			p.talk = append(p.talk, line{0, helloLines[g.words.IntN(len(helloLines))], g.tick})
 		case p.greet == greetClean:
 			p.talk = append(p.talk, line{0, "Clean at last!", g.tick})
 			if len(p.Guests) > 1 {
@@ -124,13 +124,13 @@ func (g *Game) updateTalk() {
 			if p.greet == greetBack {
 				set = soloBack
 			}
-			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, set[g.chat.IntN(len(set))], g.tick + answerFrames})
+			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, set[g.words.IntN(len(set))], g.tick + answerFrames})
 		default:
 			pairs := outLines
 			if p.greet == greetBack {
 				pairs = backLines
 			}
-			x := pairs[g.chat.IntN(len(pairs))]
+			x := pairs[g.words.IntN(len(pairs))]
 			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, x[0], g.tick + answerFrames}, line{1, x[1], g.tick + 2*answerFrames})
 		}
 		p.greet = noGreeting
@@ -143,12 +143,12 @@ func (g *Game) updateTalk() {
 func (g *Game) updateRoomTalk() {
 	asleep := asleep(g.clock)
 	for _, p := range g.parties {
-		if p.state != staying || p.asking() || len(p.talk) > 0 || g.chat.Float64() >= calmOdds {
+		if p.state != staying || p.asking() || len(p.talk) > 0 || g.words.Float64() >= calmOdds {
 			continue
 		}
-		who := g.chat.IntN(len(p.Guests))
+		who := g.words.IntN(len(p.Guests))
 		if p.Realm == Ghost {
-			p.talk = append(p.talk, line{who, ghostCalm[g.chat.IntN(len(ghostCalm))], g.tick})
+			p.talk = append(p.talk, line{who, ghostCalm[g.words.IntN(len(ghostCalm))], g.tick})
 			continue
 		}
 		tier := min(2, int(3*g.dread(p.Room)))
@@ -160,7 +160,7 @@ func (g *Game) updateRoomTalk() {
 		case len(p.Guests) > 1:
 			lines = slices.Concat(set[0], set[1])
 		}
-		p.talk = append(p.talk, line{who, lines[g.chat.IntN(len(lines))], g.tick})
+		p.talk = append(p.talk, line{who, lines[g.words.IntN(len(lines))], g.tick})
 	}
 }
 

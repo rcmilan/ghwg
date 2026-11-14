@@ -93,17 +93,19 @@ func (s smart) Act(v View, p *Pilot) {
 		serveRoom(v, p, i)
 		return
 	}
-	for i, r := range v.Rooms { // dirty, its Party in or not: clean it, each kind in its Dimension (dirt.go)
-		switch {
-		case r.Boarded:
-		case len(r.Dirt) > 0:
-			p.Flip(false)
-			p.Clean(i, r.Dirt[0])
-			return
-		case len(r.Spirit) > 0 && !v.MirrorLocked:
-			p.Flip(true)
-			p.Clean(i, r.Spirit[0])
-			return
+	// dirty, its Party in or not: clean it, each kind in its Dimension (dirt.go), and this Dimension's in every
+	// Room before the other's (2026-11-14, 4c): a flip is a walk to the Mirror
+	for _, spirit := range [2]bool{v.Ghost, !v.Ghost} {
+		for i, r := range v.Rooms {
+			at := r.Dirt
+			if spirit {
+				at = r.Spirit
+			}
+			if !r.Boarded && len(at) > 0 && !(spirit && v.MirrorLocked) {
+				p.Flip(spirit)
+				p.Clean(i, at[0])
+				return
+			}
 		}
 	}
 	if v.Hotel.Map.Cell(v.Concierge) != v.Hotel.Map.Cell(v.Hotel.Mirror) {

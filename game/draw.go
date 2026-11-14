@@ -230,8 +230,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest)}
 			switch {
 			case realm == Ghost: // hued by its kind
-				h := kindHue(kindOf(guest.Phantasm))
-				a.tint, a.a, a.mode = h[:], ghostAlpha, modeFlat
+				var up float64
+				a.tint, a.a, up = g.ghostLook(guest)
+				a.lift, a.mode = a.lift+up, modeFlat
 			case g.ghost: // a human in the ghost dimension: a silhouette
 				a.tint, a.a, a.mode, a.sil = silhouetteTint, silhouetteAlpha, modeFlat, true
 			}

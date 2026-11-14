@@ -22,6 +22,7 @@ const (
 	keeperName          = "Housekeeper" // Amelia as a maid: pale, black hair and dress, white apron
 	keeperFee           = 100           // $ to hire one
 	keeperWage          = 60            // $ each, a game day
+	keeperEarned        = 500           // $ the hotel has taken before one answers the ad: about minute 6 of a Run, after its third Room (2026-11-14, 4c)
 	keeperMax           = 3
 	keeperSpeed         = conciergeSpeed
 	keeperNear          = 3           // tiles: the Concierge this close hears what it has to say
@@ -273,7 +274,7 @@ func (g *Game) keeperTalk(k *housekeeper) {
 		if lead := p.Guests[0]; p.Realm == Human && p.state == checkingIn && !p.welcomed && g.shown(lead) &&
 			math.Hypot(lead.X-k.X, lead.Y-k.Y) <= keeperNear*world.TileSize {
 			p.welcomed = true
-			k.said = line{0, keeperWelcome[g.chat.IntN(len(keeperWelcome))], g.tick}
+			k.said = line{0, keeperWelcome[g.words.IntN(len(keeperWelcome))], g.tick}
 			return
 		}
 	}

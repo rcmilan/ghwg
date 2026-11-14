@@ -20,7 +20,7 @@ const (
 	maxCols, maxRows = 3, 3 // the grid's limit (placeholder: the layout takes any)
 	growCol          = 1    // Item.Grow: a Room column,
 	growFloor        = 2    // a floor
-	growEcto         = 40   // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
+	growEcto         = 60   // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
 	growFrames       = 60   // the new part's slide in, between the pull-back out and back in
 )
 
@@ -37,6 +37,12 @@ type growth struct {
 	t   float64     // the slide, 0..1
 	d   image.Point // how far the hall moved, world px
 	cut int         // world px: the new part lies east of this x (a column) or north of this y (a floor)
+}
+
+// grown: the hotel is larger than the Run began with.
+func (g *Game) grown() bool {
+	c, r := g.hotel.Grid()
+	return g.grid0 != [2]int{} && [2]int{c, r} != g.grid0
 }
 
 func growCost(g *Game) Cost { return Cost{Ecto: growPrice(g.hotel.Grid())} }

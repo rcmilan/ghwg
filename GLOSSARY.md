@@ -114,7 +114,7 @@ _Avoid_: escape, check out (a fled Party never checks out)
 The currency Fear and ghost cleaning earn: one point for each point of Fear a Shadow adds, and half the spiritual dirt cleaned in the ghost Dimension. Shown in the ghost Dimension, on the Terminal and as "+N" over the door. It pays part of some Hotel unlocks. (Called Spook before 07.)
 
 **Room Mood**:
-One number per Room, from -100 (dread) to 100 (cozy), the Room axis. It moves only on events, never drifts: a perfect serve raises it by 25 (less as the request nears expiry), an expired request lowers it by 10, Guests' mess, the Concierge lingering inside, a fright (by the Fear it gives) and a haunt lower it, and a clean or a Priest raises it (a clean to +50, never lowering it). Dirt spots show below +50. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple as it falls, and pulses once Closed; in the real Dimension it tints faintly green. Dirt, pay (the Mood pay factor) and the Guests' lines read it. Not the Ectoplasm currency, which the hotel keeps when a Room is cleaned. (Called Room Spook, 0 to 150 the other way, before 07; per-Guest Comfort is gone, Mood replaced it.)
+One number per Room, from -100 (dread) to 100 (cozy), the Room axis. It moves only on events, never drifts: a perfect serve raises it by 25 (less as the request nears expiry), an expired request lowers it by 10, Guests' mess, the Concierge lingering inside (1 Mood every 10 game minutes past the first 30 of a visit: a clean is not lingering), a fright (by the Fear it gives) and a haunt lower it, and a clean or a Priest raises it (a clean to +50, never lowering it). Dirt spots show below +50. In the ghost Dimension the whole Room (not its Guests) shifts toward green and purple as it falls, and pulses once Closed; in the real Dimension it tints faintly green. Dirt, pay (the Mood pay factor) and the Guests' lines read it. Not the Ectoplasm currency, which the hotel keeps when a Room is cleaned. (Called Room Spook, 0 to 150 the other way, before 07; per-Guest Comfort is gone, Mood replaced it.)
 
 **Dirt**:
 Room Mood made visible: no spots from Mood +50 up, then one spot per about 3.75 points down to Mood -100 (Closed). The spots, the mess a Guest leaves and the calm lines stay tuned in 06's dirt scale (0 at +50 to 113 at -100); the code converts at one place (mood.go). A spot is normal or spiritual. Normal dirt is the Guests' mess and the Mood lost to an expired request or the Concierge lingering: Guests see it and complain of it, and SPACE cleans it in the real Dimension only, for nothing; a Housekeeper cleans it too. Spiritual dirt is a ghost's doing, a haunt or a fright: it shows only in the ghost Dimension, where SPACE cleans it and banks Ectoplasm; a Priest clears it too, and no Housekeeper does. Cleaning one kind leaves the other, and raises the Mood by what was cleaned.
@@ -133,10 +133,10 @@ _Avoid_: ghost Walk-in
 A name for a band of the Phantasm scale, with one flat arcade color (a placeholder): Wisp (cyan, the lowest, weak), Specter (pink), Wraith (orange) and Poltergeist (red, the highest); the last three are strong. The band edges and the strong threshold are placeholders (`phantasmBands`, `phantasmStrong`), tuned in the sim.
 
 **Strong ghost**, **weak ghost**:
-A ghost whose Phantasm is at or above the strong threshold (every kind but the Wisp) is strong: it switches an area's Shadow People on. A weak one does not.
+A ghost whose Phantasm is at or above the strong threshold (every kind but the Wisp) is strong: its Shadow People follow it into a Corridor or the entrance hall. Every ghost, weak too, switches on its own Room's (2026-11-14).
 
 **Area Shadow**:
-The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a strong ghost standing anywhere in it. It is a flag on the area, not a figure bound to the ghost: it appears when a strong ghost enters and fades when it leaves. It is the ordinary Shadow Person: in a Room it dashes along the back wall while humans are in, as often as its ghost haunts (the ghost's haunt frequency, so a relentless ghost shows more); in a Corridor or the hall it dashes now and then. In the real Dimension it shows only while it dashes, and only a human who sees the dash is frightened; it is hidden by a Room's Fog like its props, and Father M banishes it until that ghost leaves. Humans' sight rules are V1's.
+The Shadow People of an area (a Room, a Corridor, the entrance hall; the kitchen later), switched on by a ghost standing anywhere in it: any ghost in a Room, a strong one elsewhere. It is a flag on the area, not a figure bound to the ghost: it appears when the ghost enters, dashes at once in a Room, and fades when it leaves. It is the ordinary Shadow Person: in a Room it dashes along the back wall while humans are in, as often as its ghost haunts (the ghost's haunt frequency, so a relentless ghost shows more); in a Corridor or the hall it dashes now and then. In the real Dimension it shows only while it dashes, and only a human who sees the dash is frightened; it is hidden by a Room's Fog like its props, and Father M banishes it until that ghost leaves. Humans' sight rules are V1's.
 
 **In Room**:
 A Party is in its Room (`inRoom`) when it is staying and every Guest is inside the Room's walls, in either realm. A ghost haunts only while in Room.
@@ -160,7 +160,7 @@ What a Room's Mood does to what its Guests pay: 0 at Mood -100, 1 at 0 and 2 at 
 _Avoid_: comfort bonus
 
 **Haunt (x)**:
-A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. A ghost haunts only while in its Room.
+A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. A ghost haunts only while in its Room: once as it settles in, then every x, until it is spent.
 _Avoid_: Restlessness (a candidate name)
 
 **Request**:
@@ -307,3 +307,10 @@ A line that makes sense only inside a Room (what a Guest says of its Room, of a 
 
 **Voice**:
 What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.
+
+**Goals Strategy** (`goals`, 2026-11-14)
+The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper). It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
+
+**Spent**, **passing on** (2026-11-14)
+A ghost has one haunt in it per point of Phantasm. Having done them all it is spent and passes on: it rises, pales and is gone, and its Room books the next ghost. It dims with each haunt on the way. The weakest ghost haunts once. A pair passes on together.
+_Avoid_: dissolve, die, despawn

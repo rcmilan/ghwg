@@ -403,13 +403,19 @@ func (g *Game) updateParties() {
 	g.parties = kept
 }
 
-// intrude: each game minute the Concierge spends in the Room with its Guests costs its Room intrudeMood
-// (Live test 5, 2026-11-08): he may come in, lingering is rude.
+// intrude: every intrudeEvery game minutes the Concierge spends in the Room with its Guests cost its Room intrudeMood
+// (Live test 5, 2026-11-08): he may come in, lingering is rude. The first intrudeGrace minutes of a visit are free.
 func (g *Game) intrude(p *Party) {
-	if _, gs := g.inside(p.Room); g.clock%minuteFrames != 0 || len(gs) == 0 || !g.feet().In(g.hotel.Rooms[p.Room].Shell()) {
+	if _, gs := g.inside(p.Room); len(gs) == 0 || !g.feet().In(g.hotel.Rooms[p.Room].Shell()) {
 		return
 	}
-	g.addMood(p.Room, -intrudeMood)
+	if l := &g.linger; l.room != p.Room || g.clock-l.last > 1 { // he just came in
+		l.room, l.from = p.Room, g.clock
+	}
+	g.linger.last = g.clock
+	if d := g.clock - g.linger.from - intrudeGrace*minuteFrames; d >= 0 && d%(intrudeEvery*minuteFrames) == 0 {
+		g.addMood(p.Room, -intrudeMood)
+	}
 }
 
 // updateParty runs one frame of a Party's stay: Street → Room (and out to the Street by day, a

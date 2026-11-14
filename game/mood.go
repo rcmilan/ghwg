@@ -12,11 +12,15 @@ const (
 	moodSpots   = 50        // spots show below this; a clean raises the Mood to it
 	moodStart   = moodSpots // a new Run's Rooms: spotless, not yet cozy (Z1)
 	moodClean   = moodSpots
-	moodServe   = 25                              // a serve answered at once; falls to 0 as the ask nears expiry
-	moodExpire  = 10                              // an expired ask
-	intrudeMood = 1                               // Mood the Concierge costs a minute he spends in a Room with its Guests
-	rotMood     = -33                             // from here a Room rots
-	dirtMax     = (3*(moodSpots-moodMin) + 2) / 4 // the dirt level of moodMin
+	moodServe   = 25 // a serve answered at once; falls to 0 as the ask nears expiry
+	moodExpire  = 10 // an expired ask
+	intrudeMood = 1  // Mood the Concierge costs each intrudeEvery game minutes he spends in a Room with its Guests
+	// 10, not every minute (2026-11-14, 4c): at a 4 minute day a game minute is a sixth of a second, and a four
+	// second walk in to clean cost the Room 25 Mood, more than the clean gave back.
+	intrudeEvery = 10
+	intrudeGrace = 30                              // game minutes he may spend in there first (5 s): a clean is not lingering, and no longer leaves a stain of its own
+	rotMood      = -33                             // from here a Room rots
+	dirtMax      = (3*(moodSpots-moodMin) + 2) / 4 // the dirt level of moodMin
 
 	hauntBase        = 5 // Mood a haunt costs before Phantasm
 	hauntPerPhantasm = 1 // and per point of it
@@ -96,9 +100,20 @@ func (g *Game) ghostDirt(room, d int) {
 // ghostHauntDamage: the Mood a ghost's haunt costs its Room, from its Phantasm.
 func ghostHauntDamage(ghost *entities.Guest) int { return hauntBase + hauntPerPhantasm*ghost.Phantasm }
 
-// hauntTick runs each frame for a ghost in its Room: every ghost.Haunt game minutes it haunts. G1 calls it.
+// spent: the ghost has done all the haunts it had in it, one per point of Phantasm: the weakest haunts once.
+// A spent ghost passes on (updateGhost), and its Room books the next (2026-11-14).
+func spent(ghost *entities.Guest) bool { return ghost.Haunted >= max(1, ghost.Phantasm) }
+
+// haunt: the ghost haunts its Room, one haunt nearer to spent.
+func (g *Game) haunt(room int, ghost *entities.Guest) {
+	g.haunts(room, ghostHauntDamage(ghost))
+	ghost.Haunted++
+}
+
+// hauntTick runs each frame for a ghost in its Room: every ghost.Haunt game minutes it haunts, until it is
+// spent. G1 calls it.
 func (g *Game) hauntTick(room int, ghost *entities.Guest) {
-	if ghost.Haunt > 0 && g.clock%minuteFrames == 0 && g.clock/minuteFrames%ghost.Haunt == 0 {
-		g.haunts(room, ghostHauntDamage(ghost))
+	if ghost.Haunt > 0 && !spent(ghost) && g.clock%minuteFrames == 0 && (g.clock/minuteFrames-ghost.HauntAt)%ghost.Haunt == 0 {
+		g.haunt(room, ghost)
 	}
 }

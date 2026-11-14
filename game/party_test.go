@@ -149,7 +149,7 @@ func TestTouristDays(t *testing.T) {
 }
 
 // T298 (K1, 2026-11-11): a door opens to whoever is near. The Concierge walks into a Room with its Guests in
-// it (D21 and D91 kept him out); each game minute in there with them costs the Room intrudeMood.
+// it (D21 and D91 kept him out); every intrudeEvery game minutes in there with them cost the Room intrudeMood.
 func TestConciergeWalksIn(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
@@ -173,11 +173,12 @@ func TestConciergeWalksIn(t *testing.T) {
 		g.step(0, 0)
 	}
 	c := g.roomMood(p.Room)
-	for range 2 * minuteFrames {
+	g.linger.from = g.clock // the visit, counted from here
+	for range (intrudeGrace+intrudeEvery)*minuteFrames + 1 {
 		g.step(0, 0)
 	}
-	if g.roomMood(p.Room) != c-2*intrudeMood {
-		t.Errorf("2 minutes in with the Guests: Mood %d → %d, want −%d", c, g.roomMood(p.Room), 2*intrudeMood)
+	if g.roomMood(p.Room) != c-2*intrudeMood { // one as the grace ends, one intrudeEvery later
+		t.Errorf("the grace and 10 minutes more in with the Guests: Mood %d → %d, want −%d", c, g.roomMood(p.Room), 2*intrudeMood)
 	}
 	// the courier and a Priest open any door too; another Room's Guest doesn't
 	g.player.X, g.player.Y = float64(g.hotel.ConciergeStart.X), float64(g.hotel.ConciergeStart.Y)
