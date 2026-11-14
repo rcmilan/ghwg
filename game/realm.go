@@ -44,5 +44,8 @@ func (g *Game) actors() []*entities.Guest {
 	for _, pr := range g.priests {
 		gs = append(gs, &pr.Guest)
 	}
+	for _, k := range g.keepers {
+		gs = append(gs, &k.Guest)
+	}
 	return gs
 }

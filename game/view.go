@@ -26,6 +26,7 @@ type View struct {
 	Stock        map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
 	MirrorLocked bool           // the Mirror is covered: SPACE at it shifts nothing
 	Courier      bool           // a courier is on his way with an order
+	Staff        int            // the housekeepers in the hotel
 	Hands        Unlock         // the supply over the Concierge's head, "" for none (E5)
 	Beds         []string       // the bed layouts a Room can change to: the unlocked ones (K1)
 	RoomMirror   bool           // the in-Room Mirror is bought
@@ -73,6 +74,7 @@ func (g *Game) view() View {
 		Shop:         g.forSale(),
 		Stock:        maps.Clone(g.stock),
 		Courier:      len(g.couriers) > 0,
+		Staff:        g.staffed(),
 		Hands:        g.hands,
 		MirrorLocked: !g.unlocked(Mirror),
 		RoomMirror:   g.unlocked(RoomMirror),

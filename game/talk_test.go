@@ -1,6 +1,7 @@
 package game
 
 import (
+	"ghosthotel/entities"
 	"image"
 	"slices"
 	"testing"
@@ -20,7 +21,7 @@ func TestHello(t *testing.T) {
 	}
 	g.player.X, g.player.Y = p.Guests[0].X+16, p.Guests[0].Y
 	g.step(0, 0)
-	if len(p.talk) != 1 || p.talk[0].text != "Hello!" || p.talk[0].who != 0 {
+	if len(p.talk) != 1 || !slices.Contains(helloLines, p.talk[0].text) || p.talk[0].who != 0 {
 		t.Fatalf("near the Concierge: said %v, want the leader's \"Hello!\"", p.talk)
 	}
 }
@@ -46,7 +47,7 @@ func TestGreetPair(t *testing.T) {
 	lead.X, lead.Y, g.ghost = float64(spot.X), float64(spot.Y), false
 	g.player.X, g.player.Y = float64(spot.X+16), float64(spot.Y)
 	g.updateTalk()
-	if len(p.talk) != 1 || p.talk[0].text != "Good morning!" {
+	if len(p.talk) != 2 || p.talk[0].text != "Good morning!" || !slices.Contains(soloOut, p.talk[1].text) {
 		t.Fatalf("a single going out at 09:00 said %v", p.talk)
 	}
 	mate := *lead
@@ -111,5 +112,43 @@ func TestRoomTalk(t *testing.T) {
 	p.asked = g.clock
 	if lines := said(askMinutes - 1); len(lines) > 0 {
 		t.Fatalf("asking, said %v", lines)
+	}
+}
+
+// 2026-11-14: a line that makes sense only in a Room is never one a Guest may say or show outside; a Shadow
+// seen in the hall draws a hall line; a housekeeper welcomes a human Party walking in, once.
+func TestLinesByPlace(t *testing.T) {
+	for _, l := range slices.Concat(slices.Concat(hallSights[:]...), helloLines, soloOut, soloBack, ghostHellos, ghostByes, ghostBacks, []string{"AAAH!", "RUN!", "Clean at last!", "Thank you!"}) {
+		if roomOnly[l] {
+			t.Errorf("%q is said outside the Rooms, and is a Room-only line", l)
+		}
+	}
+	if !roomOnly["GET ME OUT!"] || !roomOnly["NO NO NO!"] || !roomOnly["Nice room!"] {
+		t.Fatal("the Room's lines aren't Room-only")
+	}
+	g, _, p := settled(t)
+	lead := p.Guests[0]
+	at := g.hotel.Archway
+	lead.X, lead.Y, lead.Path, lead.Anim.Facing, p.talk = float64(at.X), float64(at.Y+32), nil, entities.FaceUp, nil
+	run := g.areaRun(lead.X, lead.Y)
+	lo, _ := g.walls[run].ends()
+	g.sighting(p, p.Guests[:1], &shade{run: run, x: lo, seen: map[*entities.Guest]int{}})
+	if len(p.talk) != 1 || !slices.Contains(hallSights[0], p.talk[0].text) {
+		t.Fatalf("a Shadow seen in the hall: said %v, want one of %v", p.talk, hallSights[0])
+	}
+
+	g.wallet[Money] = keeperWage
+	g.hire()
+	k := g.keepers[0]
+	k.X, k.Y, k.Path = lead.X+16, lead.Y, nil
+	p.state = checkingIn
+	g.keeperTalk(k)
+	if !slices.Contains(keeperWelcome, k.said.text) || !p.welcomed {
+		t.Fatalf("a Party walking in past the housekeeper: it says %q", k.said.text)
+	}
+	k.said = line{}
+	g.keeperTalk(k)
+	if k.said.text != "" {
+		t.Fatalf("it welcomed the same Party twice: %q", k.said.text)
 	}
 }

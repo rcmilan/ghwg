@@ -14,12 +14,13 @@ type Tab int
 const (
 	tabSupplies Tab = iota // restock: into the hotel's stock
 	tabHotel               // hotel-wide unlocks
+	tabStaff               // the people to hire (keeper.go)
 	tabCart
 	tabs
 	tabRooms // not a tab of the store: all that is bought for one Room, in the hotel view, paid at once (hotelview.go)
 )
 
-var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "CART"}
+var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "STAFF", "CART"}
 
 // Item is one product of the store.
 type Item struct {
@@ -39,7 +40,8 @@ type Item struct {
 	Refuse func(g *Game, room int) string
 	Send   func(g *Game, l cartLine)
 	Once   bool
-	Grow   int // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
+	Hire   bool // staff: one more walks in each time it is bought (keeper.go)
+	Grow   int  // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
 }
 
 // room: the item is for one Room: an action of the hotel view.
@@ -86,7 +88,10 @@ var shop = []Item{
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 
-	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, Price: keyCost,
+	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Icon: keeperName, Head: true,
+		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: 2 * keeperFee}},
+
+	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowChange, Tab: tabRooms, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
 		Send: func(g *Game, l cartLine) {
@@ -148,6 +153,8 @@ func (g *Game) addToCart(i, room int) string {
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
 		return "CAN'T AFFORD"
+	case it.Hire && g.staffed()+g.inCart(i) >= keeperMax:
+		return "FULLY STAFFED"
 	case it.Grow != 0 && g.growRefuse(it.Grow) != "":
 		return g.growRefuse(it.Grow)
 	case it.room():
@@ -173,6 +180,17 @@ func (g *Game) addToCart(i, room int) string {
 	}
 	g.cart = append(g.cart, cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)})
 	return ""
+}
+
+// inCart: units of item i in the cart.
+func (g *Game) inCart(i int) int {
+	n := 0
+	for _, l := range g.cart {
+		if l.item == i {
+			n += l.n
+		}
+	}
+	return n
 }
 
 // affords: the cart plus one more of item i fits the wallet (2026-11-08: no adding what you can't pay).
@@ -232,6 +250,11 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case supplyOf(it.ID) >= 0:
 			stops = append(stops, drop{at: g.supplyDrop(supplyOf(it.ID)), lines: []cartLine{l}})
+		case it.Hire: // no courier: they walk in themselves
+			g.staffPaid += l.cost()[Money]
+			for range l.n {
+				g.hire()
+			}
 		case it.Grow != 0: // no courier: the hotel grows as the Terminal closes (grow.go)
 			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock

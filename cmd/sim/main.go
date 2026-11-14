@@ -71,7 +71,7 @@ func main() {
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
-	var failures, growth []string
+	var failures, growth, staff []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
@@ -80,7 +80,9 @@ func main() {
 		var roomMirror []float64
 		var grown [][]float64 // per expansion, first to last: the game hour of each Run that made it (H1)
 		rooms := 0
+		hired, quit, staffSpend := 0, 0, 0
 		for _, r := range results[s] {
+			hired, quit, staffSpend = hired+r.Hired, quit+r.Quit, staffSpend+r.StaffSpend
 			for k, h := range r.Grown {
 				if k == len(grown) {
 					grown = append(grown, nil)
@@ -134,6 +136,9 @@ func main() {
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
 			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
 			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
+		if hired > 0 {
+			staff = append(staff, fmt.Sprintf("  %s hired %.1f a Run, %d walked out unpaid in %d Runs, $%.0f a day on fees and wages", name, float64(hired)/n, quit, *runs, float64(staffSpend)/n/float64(*days)))
+		}
 		if len(grown) > 0 {
 			line := fmt.Sprintf("  %s grew, at game hour (mean, Runs):", name)
 			for _, hs := range grown {
@@ -146,6 +151,10 @@ func main() {
 	if len(growth) > 0 {
 		fmt.Println("\ngrowth:")
 		fmt.Println(strings.Join(growth, "\n"))
+	}
+	if len(staff) > 0 {
+		fmt.Println("\nstaff:")
+		fmt.Println(strings.Join(staff, "\n"))
 	}
 	if len(failures) > 0 {
 		fmt.Println("\nfailures:")

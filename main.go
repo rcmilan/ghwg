@@ -40,6 +40,8 @@ func main() {
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
 	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first), a second number 1 opening its actions (e.g. 1,1), with -shot -at")
 	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
+	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
+	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
@@ -73,7 +75,7 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen || *grow != ""
+	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen || *grow != "" || *staff != "" || *busy
 	if dev {
 		if *intro >= 0 {
 			g.StartIntro(*intro)
@@ -83,6 +85,14 @@ func main() {
 		g.DevKey(*key)
 		if *kitchen {
 			g.DevKitchen()
+		}
+		if *busy {
+			g.DevBusy()
+		}
+		if *staff != "" {
+			n, money := 1, 0.0
+			fmt.Sscanf(*staff, "%d,%g", &n, &money)
+			g.DevStaff(n, money)
 		}
 		g.DevChange(*change)
 		if *shadow > 0 {

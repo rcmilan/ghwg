@@ -73,8 +73,10 @@ func (g *Game) pick(p *Party, i int) {
 			d := s.Prop.Sub(s.At)
 			p.acts[i] = act{at: s.At, face: entities.Toward(float64(d.X), float64(d.Y)), dur: dur}
 			guest.SetPath(g.route(guest, s.At))
+		} else if p.Realm == Ghost { // a ghost has no use for a bed
+			g.idle(p, i)
 		} else { // rest on its bed
-			p.acts[i] = act{at: sleepSpot(r.Lanes[bedOf(p.Realm, r, i)]), face: entities.FaceDown, dur: dur}
+			p.acts[i] = act{at: sleepSpot(r.Lanes[i]), face: entities.FaceDown, dur: dur}
 			guest.SetPath(g.toBed(guest, r, i))
 		}
 	}

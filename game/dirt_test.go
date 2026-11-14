@@ -108,18 +108,24 @@ func TestClean(t *testing.T) {
 			free = append(free, c)
 		}
 	}
-	g.dirt, g.dirtN = [][]spot{{{free[0], false, spotUnit}, {free[1], true, spotUnit}, {free[2], false, spotUnit}}, nil}, []int{3, 0} // by hand: 2 normal, 1 spiritual
+	g.dirt, g.dirtN = [][]spot{{{free[1], true, spotUnit}}, nil}, []int{1, 0} // by hand: a spiritual spot alone
+	g.setDirtLevel(0, spotUnit)
 	if _, in := g.inside(0); len(in) == 0 || p.state != staying {
 		t.Fatal("the pair is not inside its Room")
 	}
 	g.ghost = true
 	press(g, s, cellPt(free[1]))
 	g.ghost = false
-	if len(g.spots(0)) != 3 || g.state != StateView {
-		t.Fatalf("SPACE on a spiritual spot: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)
+	if len(g.spots(0)) != 1 || g.state != StateView {
+		t.Fatalf("SPACE on a spiritual spot, nothing else to clean: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)
 	}
 	g.state = StatePlay
-	press(g, s, cellPt(free[0]))
+	g.setDirtLevel(0, 3*spotUnit)
+	g.dirt, g.dirtN = [][]spot{{{free[0], false, spotUnit}, {free[1], true, spotUnit}, {free[2], false, spotUnit}}, nil}, []int{3, 0} // by hand: 2 normal, 1 spiritual
+	press(g, s, cellPt(free[3]))                                                                                                      // off every stain: anywhere in the Room cleans it (2026-11-14)
+	if g.state != StatePlay {
+		t.Fatalf("SPACE in a dirty Room, off its stains: state %d; want it cleaned, not the hotel view", g.state)
+	}
 	if g.roomMood(0) != moodClean || len(g.spots(0)) != 0 || g.wallet[Ecto] != 0 || g.taps[0][TaskHousekeep] != 1 {
 		t.Fatalf("cleaned in real: Mood %d, spots %v, Ecto %v, taps %v; want %d, none, no Ecto, 1",
 			g.roomMood(0), g.spots(0), g.wallet[Ecto], g.taps[0][TaskHousekeep], moodClean)
@@ -133,8 +139,9 @@ func TestClean(t *testing.T) {
 	}
 	press(g, s, cellPt(free[3]))
 	if g.taps[0][TaskHousekeep] != 2 {
-		t.Fatal("SPACE off the spots cleaned the Room")
+		t.Fatal("SPACE in a clean Room cleaned it")
 	}
+	g.state = StatePlay
 	g.mood[0] = moodMax
 	g.raiseMood(0, moodClean)
 	if g.roomMood(0) != moodMax {

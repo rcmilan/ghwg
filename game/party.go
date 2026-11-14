@@ -156,6 +156,7 @@ type Party struct {
 	cents      []Num         // per Guest: the cents of its share not yet paid
 	tip        Num           // the checkout tip it banked
 	greet      greeting      // owed once the Concierge hears it (D165)
+	welcomed   bool          // a housekeeper has welcomed it
 	talk       []line        // its lines showing or about to (D165)
 	arrived    int           // the clock it walked in
 	mess       int           // dirt its Guests leave a night (dirt.go)
@@ -215,6 +216,9 @@ func (g *Game) vacant(room int, realm Realm) bool {
 // the hotel.
 func (g *Game) demand() int {
 	n := len(g.hotel.Rooms)
+	if g.busy {
+		return n
+	}
 	return min(n, max(2, n*day(g.clock)/rampDays))
 }
 

@@ -50,6 +50,9 @@ type wipe struct {
 
 // book: the Room's next Party arrives gap game minutes from now.
 func (g *Game) book(room, gap int) {
+	if g.busy {
+		gap = busyGap
+	}
 	g.arrivals[room] = arrival{g.clock, g.clock + gap*minuteFrames}
 }
 
@@ -165,9 +168,9 @@ func (g *Game) normalDirt(room int) int {
 	return n
 }
 
-// cleanable: the Room and the cell of the normal spot whose stain the Concierge's feet stand on, the
-// nearest if several, or -1. A stain reaches stainWidth/4 plus a half cell from its cell's center (its
-// discs' spread): a big one is cleaned from its edge too (Live test 11, 2026-11-08).
+// cleanable: the Room the Concierge stands in and the cell of its nearest normal spot, or -1 with none to
+// clean. Anywhere in the Room will do (2026-11-14: SPACE beside a stain opened the hotel view instead; a
+// stain has no hitbox to miss).
 func (g *Game) cleanable() (int, image.Point) {
 	feet := g.feet()
 	for i, r := range g.hotel.Rooms {
@@ -177,8 +180,7 @@ func (g *Game) cleanable() (int, image.Point) {
 		best, cell := math.MaxFloat64, image.Point{}
 		for _, s := range g.spots(i) {
 			c := s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
-			d := math.Hypot(float64(feet.X-c.X), float64(feet.Y-c.Y))
-			if !s.spirit && d <= float64(stainWidth(s.size)/4+world.TileSize/2) && d < best {
+			if d := math.Hypot(float64(feet.X-c.X), float64(feet.Y-c.Y)); !s.spirit && d < best {
 				best, cell = d, s.cell
 			}
 		}
@@ -201,18 +203,24 @@ func (g *Game) clean(room int, cell image.Point) bool {
 	if g.normalAt(room, cell) < 0 {
 		return false
 	}
+	cleaned := g.scrub(room)
+	if g.ghost {
+		g.earn(Ecto, Num(cleaned)*harvestRate, cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
+	}
+	return true
+}
+
+// scrub: the Room is cleaned, by the Concierge or a housekeeper (keeper.go): its Mood rises to moodClean and
+// its spots fade. It returns the dirt cleaned.
+func (g *Game) scrub(room int) int {
 	cleaned, gone := g.dirtLevel(room), slices.Clone(g.spots(room))
 	g.raiseMood(room, moodClean)
 	g.spots(room)
-	at := cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
-	if g.ghost {
-		g.earn(Ecto, Num(cleaned)*harvestRate, at)
-	}
 	g.tapped(room, TaskHousekeep)
 	for _, s := range gone {
 		g.wiped = append(g.wiped, wipe{s, g.tick})
 	}
-	return true
+	return cleaned
 }
 
 // settle: a Party reaching its Stay Spots for the first time looks at the dirt it sees: over dirtLimit

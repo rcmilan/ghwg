@@ -128,6 +128,11 @@ type Game struct {
 	growing       *growth                       // its cinematic under way, nil if none
 	grid0         [2]int                        // the Room grid a Run starts with, cols and rows: a grown hotel is rebuilt to it
 	note          notice                        // the HUD's text notice (hud.go, 07 U2): the only place for words to the player; the game says none today
+	keepers       []*housekeeper                // the housekeepers on the map (keeper.go, 07 H1 step 3)
+	staffPaid     Num                           // Money paid to hire and keep them this Run (the sim's money check)
+	hired, quits  int                           // housekeepers hired, and walked out unpaid, this Run
+	busy          bool                          // the busy hotel, a stress Run (busy.go)
+	bumps, paces  int                           // frames a walker was stopped by someone ahead, and frames walked, this Run (busy.go)
 	refused       string                        // why the last SPACE did nothing, "" when it did: the View's, never drawn (view.go refuse)
 }
 
@@ -183,6 +188,7 @@ func (g *Game) loadImages() (err error) {
 	g.characters[fatherK.name] = dress(g.bases["Bob"], palettes["Bob"], fatherK.look)
 	g.characters[fatherM.name] = dress(g.bases["Bob"], palettes["Bob"], fatherM.look)
 	g.loadCourier()
+	g.loadKeeper()
 	return nil
 }
 
@@ -217,6 +223,8 @@ func (g *Game) startRun() {
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	g.hud, g.guestNote, g.guestText = [2]counter{}, slot{}, ""
 	g.couriers, g.hands, g.delivered = nil, "", 0
+	g.keepers, g.staffPaid, g.hired, g.quits = nil, 0, 0, 0
+	g.busy, g.bumps, g.paces = false, 0, 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
 	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
@@ -319,6 +327,10 @@ func (g *Game) step(dx, dy float64) {
 	g.separate()
 	g.updateFog()
 	g.updateCouriers()
+	g.updateKeepers()
+	if g.busy {
+		g.busyStep()
+	}
 	if !g.headless {
 		g.player.Anim.Update(g.player.X, g.player.Y)
 		for _, guest := range g.guests() {
@@ -422,6 +434,7 @@ func (g *Game) doorActors() []world.Actor {
 		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
 	}
 	as = append(as, g.courierActors()...)
+	as = append(as, g.keeperActors()...)
 	return as
 }
 
@@ -434,10 +447,14 @@ func (g *Game) boarded(room int) bool { return !g.isOwned(room) }
 // ahead, so two guests meeting head-on pass each other.
 func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	g.steer(guest)
 	if !guest.Phasing && g.yields(guest) {
 		return false
 	}
 	x, y, path := guest.X, guest.Y, guest.Path
+	if len(path) > 0 {
+		g.paces++
+	}
 	done := guest.FollowPath(speed)
 	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
 		guest.X, guest.Y, guest.Path = x, y, path
@@ -446,9 +463,16 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	hx, hy := guest.X-x, guest.Y-y
 	if bx, by, bump := g.bumpsAhead(guest, hx, hy); !guest.Phasing && bump {
 		guest.X, guest.Y, guest.Path = x, y, path
+		g.bumps++
 		// A Party waiting in the hall stays for hours: go around it (dirt.go). A courier goes around anyone:
 		// he is faster than a Party walking in and tailgated it up the Corridor (Live test 7, 2026-11-08).
-		if (g.waiting(bx, by) || guest.Character == courierName) && len(path) > 0 {
+		if staff(guest) && len(path) > 0 {
+			// The staff never stop for anyone (2026-11-14): they steer around whoever is ahead before they
+			// meet (steer); one they still run into, with no way around, they pass through.
+			guest.Phase()
+			return false
+		}
+		if g.waiting(bx, by) && len(path) > 0 {
 			g.send(guest, path[len(path)-1], image.Pt(int(bx), int(by)))
 			return false
 		}
@@ -468,6 +492,56 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 		guest.Phasing = false
 	}
 	return done
+}
+
+// staff: a courier or a housekeeper: they have somewhere to be.
+func staff(guest *entities.Guest) bool {
+	return guest.Character == courierName || guest.Character == keeperName
+}
+
+// steerAhead: the waypoints ahead a member of staff watches; steerEvery: frames between its looks.
+const steerAhead, steerEvery = 3, 6
+
+// steerMax: the detours one errand allows; past it the walker keeps its way, as before it could steer.
+const steerMax = 40
+
+// steer: a member of staff looks ahead as it walks: someone on the next cells of its way, it takes another way
+// round them now, well before they meet. With no other way it walks on (walk lets it through).
+func (g *Game) steer(guest *entities.Guest) {
+	if len(guest.Path) == 0 || guest.Phasing || g.tick%steerEvery != 0 || guest.Detours() >= steerMax {
+		return
+	}
+	m := g.hotel.Map
+	here := m.Cell(image.Pt(int(guest.X), int(guest.Y)))
+	ahead := guest.Path[:min(len(guest.Path), steerAhead)]
+	var avoid []image.Point
+	see := func(x, y float64) {
+		at := image.Pt(int(x), int(y))
+		if c := m.Cell(at); c != here && slices.ContainsFunc(ahead, func(p image.Point) bool { return m.Cell(p) == c }) {
+			avoid = append(avoid, at)
+		}
+	}
+	realm := g.realmOf(guest)
+	if g.realm() == realm {
+		see(g.player.X, g.player.Y)
+	}
+	for _, o := range g.walkers(realm) {
+		if o == guest || o.Phasing || o.Mate(guest) {
+			continue
+		}
+		// Two walking at each other: only one goes round, the other keeps its way (2026-11-14: two housekeepers
+		// at the kitchen each took the other's side, again and again, and never passed).
+		if (guest.X < o.X || guest.X == o.X && guest.Y < o.Y) && slices.ContainsFunc(o.Path[:min(len(o.Path), steerAhead)], func(p image.Point) bool { return m.Cell(p) == here }) {
+			continue
+		}
+		see(o.X, o.Y)
+	}
+	if len(avoid) == 0 {
+		return
+	}
+	if way := g.route(guest, guest.Path[len(guest.Path)-1], avoid...); way != nil {
+		guest.Detour(way)
+	}
 }
 
 // yieldAhead: how many waypoints ahead a guest looks for a choke point. It waits a cell or two short of

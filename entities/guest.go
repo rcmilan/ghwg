@@ -24,6 +24,7 @@ type Guest struct {
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
 	phaseEnd float64 // remaining path at which Phasing ends
+	detours  int     // Detour calls since the last SetPath
 }
 
 // DefaultFleeAt is the Fear a fresh Guest flees at.
@@ -81,7 +82,23 @@ func (g *Guest) WalkTo(x, y, speed float64) bool {
 
 // SetPath gives the guest a new route and restarts its progress tracking.
 func (g *Guest) SetPath(p []image.Point) {
-	g.Path, g.best, g.stuck, g.Phasing = p, math.Inf(1), 0, false
+	g.Path, g.best, g.stuck, g.Phasing, g.detours = p, math.Inf(1), 0, false, 0
+}
+
+// Detour: SetPath for another way to the same goal, counted (Detours) until the next SetPath: a guest may
+// take only so many on one errand, so no two can go round each other for ever.
+func (g *Guest) Detour(p []image.Point) {
+	n := g.detours
+	g.SetPath(p)
+	g.detours = n + 1
+}
+
+// Detours: the detours taken since the last SetPath.
+func (g *Guest) Detours() int { return g.detours }
+
+// Phase: the guest passes through whoever is in its way for one tile, from now.
+func (g *Guest) Phase() {
+	g.Phasing, g.phaseEnd, g.stuck, g.best = true, g.Left()-world.TileSize, 0, math.Inf(1)
 }
 
 // Stuck: frames the guest has walked without getting nearer its goal.

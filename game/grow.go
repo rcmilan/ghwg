@@ -287,6 +287,11 @@ func (g *Game) grow(col bool) (image.Point, error) {
 			lines(c.drops[i].lines)
 		}
 	}
+	for _, k := range g.keepers { // a housekeeper's job is dropped: it finds it again from the kitchen
+		if k.job != quitting {
+			g.dropJob(k)
+		}
+	}
 	everyone := g.actors() // and the Guests off the map: a Party out for the day comes back to its Room
 	for _, p := range g.parties {
 		for _, guest := range p.Guests {
