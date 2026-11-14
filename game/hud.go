@@ -141,7 +141,9 @@ func (g *Game) updateHUD() {
 	column([]*slot{&g.hud[Money].slot, &g.guestNote, &g.note.slot}, []int{glyphH * hudScale, glyphH * noteScale, len(g.note.lines()) * glyphH * noteScale},
 		[]bool{want(Money), note, say})
 	g.note.slide(say)
-	column([]*slot{&g.hud[Ecto].slot}, []int{glyphH * hudScale}, []bool{want(Ecto)})
+	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would start the talk
+	column([]*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue})
+	g.talkCue.slide(cue)
 	g.hud[Money].slide(want(Money))
 	g.hud[Ecto].slide(want(Ecto))
 	g.guestNote.slide(note)
@@ -167,12 +169,13 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		}
 		x := int(-float64(w) + float64(w+hudMargin)*ease)
 		for k, l := range ls {
-			y := int(n.y) + k*glyphH*noteScale
-			for _, d := range [...][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
-				printAt(s, l, x+d[0]*noteScale, y+d[1]*noteScale, noteScale, color.Black, 1)
-			}
-			printAt(s, l, x, y, noteScale, color.White, 1)
+			outline(s, l, x, int(n.y)+k*glyphH*noteScale, noteScale, color.White, 1)
 		}
+	}
+	if c := g.talkCue; c.in > 0 { // TALK, in the Ectoplasm ink, from off the right edge
+		ease := c.in * c.in * (3 - 2*c.in)
+		w := 4 * glyphW * hudScale
+		outline(s, "TALK", int(float64(sw)-float64(w+hudMargin)*ease), int(c.y), hudScale, resInk(Ecto), 1)
 	}
 	for r, c := range g.hud {
 		y := int(c.y)
@@ -197,6 +200,15 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
 	}
+}
+
+// outline prints v at scale in c, at alpha a, outlined in black: words that stand alone, on no background.
+func outline(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	k := int(scale)
+	for _, d := range [...][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
+		printAt(s, v, x+d[0]*k, y+d[1]*k, scale, color.Black, a)
+	}
+	printAt(s, v, x, y, scale, c, a)
 }
 
 // The debug font's glyph cell, px; its digits sit on rows 3..12 of the 16.

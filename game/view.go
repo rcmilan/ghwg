@@ -31,6 +31,8 @@ type View struct {
 	Beds         []string       // the bed layouts a Room can change to: the unlocked ones (K1)
 	RoomMirror   bool           // the in-Room Mirror is bought
 	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
+	Talk         TalkView       // the talk, open or not (07 X2)
+	Matchmaking  bool           // owned: the housekeepers fix bad pairs (07 X2)
 }
 
 type RoomView struct {
@@ -50,7 +52,9 @@ type RoomView struct {
 	Dirt               []image.Point // its normal dirt spots, the ones to clean in real, world px (dirt.go)
 	Spirit             []image.Point // its spiritual ones, to clean in ghost
 	// Seen only in the ghost dimension: its Guests glow with Fear.
-	Fear int // its most frightened Guest in sight
+	Fear int  // its most frightened Guest in sight
+	Bad  bool // a bad pair, red in the hotel view (07 X2)
+	Fix  Num  // a bad pair: the cheapest sure offer to move its Party, as its talk shows it (0: none to make)
 }
 
 type TerminalView struct {
@@ -80,6 +84,8 @@ func (g *Game) view() View {
 		Hands:        g.hands,
 		MirrorLocked: !g.unlocked(Mirror),
 		RoomMirror:   g.unlocked(RoomMirror),
+		Talk:         g.talkView(),
+		Matchmaking:  g.unlocked(Matchmaking),
 	}
 	for k, b := range bedKinds {
 		if g.bedOpen(k) {
@@ -88,7 +94,7 @@ func (g *Game) view() View {
 	}
 	for i, r := range g.hotel.Rooms {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
-			Boarded: !g.isOwned(i), Changing: g.changing(i), Mirror: !r.Mirror.Empty(), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
+			Boarded: !g.isOwned(i), Changing: g.changing(i), Mirror: !r.Mirror.Empty(), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i), Bad: g.pairing(i) == badPair}
 		for _, s := range g.spots(i) {
 			at := s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 			if s.spirit {
@@ -111,6 +117,9 @@ func (g *Game) view() View {
 					rv.Fear = max(rv.Fear, guest.Fear)
 				}
 			}
+		}
+		if p := g.humanIn(i); rv.Bad && p != nil {
+			_, _, rv.Fix, _ = g.sureOffer(p)
 		}
 		v.Rooms = append(v.Rooms, rv)
 	}

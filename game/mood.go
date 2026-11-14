@@ -107,6 +107,7 @@ func spent(ghost *entities.Guest) bool { return ghost.Haunted >= max(1, ghost.Ph
 // haunt: the ghost haunts its Room, one haunt nearer to spent.
 func (g *Game) haunt(room int, ghost *entities.Guest) {
 	g.haunts(room, ghostHauntDamage(ghost))
+	g.terrify(room, ghost)
 	ghost.Haunted++
 }
 

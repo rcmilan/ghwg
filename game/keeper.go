@@ -41,6 +41,7 @@ var (
 	keeperWorry   = []string{"Payday is close. Can we afford it?", "The till looks thin for payday."}
 	keeperOwed    = []string{"No pay, no work.", "I wasn't paid today."}
 	keeperQuit    = []string{"I quit. No pay, no stay."}
+	keeperMoved   = []string{"Your new room is ready!", "This way, please!", "A better room, on us!"}
 )
 
 func init() { ghostTints[keeperName] = []float32{.4, 1, 1} }
@@ -53,6 +54,7 @@ const (
 	serving             // to the Room's door, the item in its hands
 	cleaning            // to a stain in the Room
 	quitting            // out the Exit
+	matching            // to a bad pair's door, to talk its human Party into another Room (07 X2, Matchmaking)
 )
 
 type housekeeper struct {
@@ -181,6 +183,15 @@ func (g *Game) nextJob(k *housekeeper) bool {
 			return true
 		}
 	}
+	for i := range g.hotel.Rooms { // Matchmaking (X2): a bad pair whose Party she can afford to move
+		if p := g.humanIn(i); g.unlocked(Matchmaking) && p != nil && g.pairing(i) == badPair && movable(p) && !taken(i, matching) {
+			if _, _, c, ok := g.sureOffer(p); ok && g.afford(Cost{Money: c}) {
+				k.job, k.room = matching, i
+				g.sendKeeper(k, g.doorDrop(i), -1)
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -254,6 +265,14 @@ func (g *Game) updateKeepers() {
 		case k.job == cleaning:
 			if g.normalDirt(k.room) > 0 {
 				g.scrub(k.room, false)
+			}
+			g.goRest(k)
+		case k.job == matching: // at the door: the cheapest sure offer, no talk staged
+			if p := g.humanIn(k.room); p != nil && g.pairing(k.room) == badPair && movable(p) {
+				if to, _, c, ok := g.sureOffer(p); ok && g.payOffer(c) {
+					g.relocate(p, to)
+					k.said = line{0, g.pickLine(keeperMoved), g.tick}
+				}
 			}
 			g.goRest(k)
 		}

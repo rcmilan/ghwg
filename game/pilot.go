@@ -268,7 +268,7 @@ func (p *Pilot) Clean(room int, at image.Point) {
 		switch {
 		case len(v.Rooms[room].Dirt)+len(v.Rooms[room].Spirit) < n:
 			return true, true
-		case v.Terminal.View: // the stain was gone (its Room was refurnished) and SPACE opened the hotel view: no more SPACE, the next is a Room's action
+		case v.Terminal.View || v.Talk.Open: // the stain was gone (its Room was refurnished) and SPACE opened the hotel view or a talk: no more SPACE, the next is a Room's action
 			return true, false
 		case taps >= 3:
 			return true, false
@@ -402,13 +402,58 @@ func (p *Pilot) free(v View) bool {
 	return true
 }
 
-// Close shuts the open Terminal, or the hotel view, with ESC.
+// Close shuts the open Terminal, the hotel view or a talk, with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		if !v.Terminal.Open && !v.Terminal.View {
+		if !v.Terminal.Open && !v.Terminal.View && !v.Talk.Open {
 			return true, true
 		}
 		p.tap(ebiten.KeyEscape)
+		return false, false
+	})
+}
+
+// Talk walks into the Room in the real Dimension, opens the talk with its Party (SPACE), picks the target Room
+// where the offer costs least (A/D) and the offer (W/S), and makes it (SPACE). It gives up, with ESC, on a refusal,
+// a talk that won't open, or an offer the wallet can't pay (07 X2).
+func (p *Pilot) Talk(room, offer int) {
+	p.Flip(false)
+	d := p.hotel.Rooms[room].Door
+	p.GoTo(p.hotel.Map.Center(d.X, d.Y-1))
+	taps, made := 0, false
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		t := v.Talk
+		switch {
+		case v.Terminal.View || v.Terminal.Open: // SPACE found no talk: out
+			p.tap(ebiten.KeyEscape)
+			return true, false
+		case !t.Open:
+			if made || taps >= 3 {
+				return true, made
+			}
+			if p.tap(ebiten.KeySpace) {
+				taps++
+			}
+			return false, false
+		}
+		best := 0
+		for i, pr := range t.Prices {
+			if pr[offer] < t.Prices[best][offer] {
+				best = i
+			}
+		}
+		switch {
+		case made || t.Prices[best][offer] > v.Money: // refused, or out of reach
+			if p.tap(ebiten.KeyEscape) {
+				made, taps = false, 3
+			}
+		case t.To != best:
+			p.tap(ebiten.KeyD)
+		case t.Pick != offer:
+			p.tap(ebiten.KeyS)
+		case p.tap(ebiten.KeySpace):
+			made = true
+		}
 		return false, false
 	})
 }

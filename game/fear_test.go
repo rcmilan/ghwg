@@ -98,11 +98,11 @@ func TestFlee(t *testing.T) {
 	shell := g.hotel.Rooms[room].Shell()
 	out := 0
 	for i := 0; !p.Fled; i++ {
-		if i > 6*fearLimit*minuteFrames {
+		if i > 6*p.Guests[0].FleeAt*minuteFrames {
 			t.Fatalf("no flight: Fear %d, state %d", p.Guests[0].Fear, p.state)
 		}
 		if i%(2*minuteFrames) == 0 && p.state == staying {
-			g.frighten(p, p.Guests[0], 1, fearLimit)
+			g.frighten(p, p.Guests[0], 1, p.Guests[0].FleeAt) // its own Nerve's limit (X2)
 		}
 		g.step(0, 0)
 		if p.state == cooling && !image.Pt(int(p.Guests[0].X), int(p.Guests[0].Y)).In(shell) {

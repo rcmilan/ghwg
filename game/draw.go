@@ -160,7 +160,9 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	if g.viewT > 0 || g.state == StateGrow {
+	if g.state == StateTalk {
+		g.drawParley(screen, bg)
+	} else if g.viewT > 0 || g.state == StateGrow {
 		g.drawView(screen, bg)
 	} else {
 		g.drawWorld(screen, ox, oy)

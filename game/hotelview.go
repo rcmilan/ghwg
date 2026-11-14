@@ -210,6 +210,9 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 			n := assets.Night
 			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * g.viewT)})
 		}
+		if c, ok := g.pairInk(i); ok { // the fit (07 X2): red a bad pair, the Ectoplasm ink a good one
+			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{c.R, c.G, c.B, uint8(80 * g.viewT)})
+		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
 			label += " > " + typeLabel(c.to)
