@@ -45,8 +45,8 @@ func (g *Game) updateShift() {
 
 // ghostness: 0 shows the real picture, 1 the ghost one. Real → ghost runs it forward; ghost → real
 // backward.
-func (s *shift) ghostness(tick int) float32 {
-	p := min(1, float32(tick-s.start)/flipFrames)
+func (s *shift) ghostness(now float64) float32 {
+	p := min(1, float32(now-float64(s.start))/flipFrames)
 	if !s.toGhost {
 		p = 1 - p
 	}
@@ -91,7 +91,7 @@ func (g *Game) drawShift(screen *ebiten.Image) {
 		Images: [4]*ebiten.Image{g.fx[0], g.fx[1]},
 		Uniforms: map[string]any{
 			"Effect": float32(s.effect),
-			"P":      s.ghostness(g.tick),
+			"P":      s.ghostness(g.now()),
 			"Seed":   s.seed,
 			"Center": []float32{float32(screenPx(g.player.X) - ox), float32(screenPx(g.player.Y-charH/3) - oy)},
 			"Grid":   []float32{float32(ox % (world.TileSize * zoom)), float32(oy % (world.TileSize * zoom))},

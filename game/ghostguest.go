@@ -209,7 +209,7 @@ func (g *Game) passing(ghost *entities.Guest) float64 {
 	if ghost.PassAt == 0 {
 		return 0
 	}
-	return clamp(float64(g.clock-ghost.PassAt)/passFrames, 0, 1)
+	return clamp((float64(g.clock-ghost.PassAt)+g.acc)/passFrames, 0, 1)
 }
 
 // ghostLook: a ghost's color, opacity and lift off the floor: its kind's hue at ghostAlpha, dimmer with each

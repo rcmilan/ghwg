@@ -232,7 +232,7 @@ func TestStaffPass(t *testing.T) {
 				if f > 40*tps {
 					t.Fatalf("between %v and %v: after 40 s the housekeeper is at %v, the courier at %v", a, b, image.Pt(int(k.X), int(k.Y)), image.Pt(int(c.X), int(c.Y)))
 				}
-				g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+				g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
 				g.walk(&k.Guest, keeperSpeed)
 				if g.walk(&c.Guest, courierSpeed) {
 					c.drops = nil

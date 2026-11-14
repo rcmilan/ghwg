@@ -86,7 +86,7 @@ func (g *Game) drawReels(screen *ebiten.Image, ox, oy int) {
 		if clip.Fill(assets.Night); g.ghost {
 			clip.Fill(color.Black)
 		}
-		t := min(float64(g.tick-c.reel)/reelFrames, 1)
+		t := min((g.now()-float64(c.reel))/reelFrames, 1)
 		dy := math.Round((1 - math.Pow(1-t, 3)) * rh)
 		for k, side := range c.pics {
 			for l, img := range side {

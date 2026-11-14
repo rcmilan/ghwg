@@ -42,6 +42,7 @@ func main() {
 	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
 	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
+	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
@@ -74,6 +75,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	g.DevScale(*scale)
 	var run ebiten.Game = g
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen || *grow != "" || *staff != "" || *busy
 	if dev {
@@ -129,6 +131,11 @@ func main() {
 	}
 	if *play == "" && !*skipIntro && !dev { // a person starting from the title: the opening
 		g.PlayIntro()
+	}
+	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
+		w := &guard{Game: run}
+		go w.watch()
+		run = w
 	}
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)

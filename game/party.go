@@ -406,7 +406,7 @@ func (g *Game) updateParties() {
 // intrude: every intrudeEvery game minutes the Concierge spends in the Room with its Guests cost its Room intrudeMood
 // (Live test 5, 2026-11-08): he may come in, lingering is rude. The first intrudeGrace minutes of a visit are free.
 func (g *Game) intrude(p *Party) {
-	if _, gs := g.inside(p.Room); len(gs) == 0 || !g.feet().In(g.hotel.Rooms[p.Room].Shell()) {
+	if _, gs := g.inside(p.Room); !g.ticked || len(gs) == 0 || !g.feet().In(g.hotel.Rooms[p.Room].Shell()) {
 		return
 	}
 	if l := &g.linger; l.room != p.Room || g.clock-l.last > 1 { // he just came in

@@ -125,7 +125,7 @@ func (g *Game) updateIntro() {
 		if gh.X += in.dirs[i] * introStroll; gh.X < world.TileSize || gh.X > float64(mw-world.TileSize) {
 			in.dirs[i] = -in.dirs[i]
 		}
-		gh.Anim.Update(gh.X, gh.Y)
+		gh.Anim.Update(gh.X, gh.Y, 1)
 	}
 	space := g.in.JustPressed(ebiten.KeySpace)
 	all := (len(introLines) - 1) * introLineGap // the frame the last line appears
@@ -149,8 +149,8 @@ func (g *Game) updateIntro() {
 			w.X, w.Y, w.Path, done = x, y, path, false
 		}
 		g.player.X, g.player.Y = w.X, w.Y
-		g.player.Anim.Update(w.X, w.Y)
-		g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+		g.player.Anim.Update(w.X, w.Y, 1)
+		g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
 		if e := g.hotel.Doors[len(g.hotel.Doors)-1]; g.shifting == nil && g.ghost && entities.FootBox(w.X, w.Y).Overlaps(e.Rect) { // the shift starts as he steps into the Entrance
 			g.startShift()
 		}

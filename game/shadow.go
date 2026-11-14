@@ -56,7 +56,7 @@ type shade struct {
 	x       float64
 	path    []int   // the runs it still teleports onto; the last holds its goal
 	goal    float64 // x on its last run
-	fade    int     // frames into a teleport, 0 if none (wall.go)
+	fade    float64 // frames into a teleport, 0 if none (wall.go)
 	dir     float64 // the way it last ran: its facing
 	patrol  bool    // on a pass along its Room's back wall
 	anim    entities.Anim
@@ -134,7 +134,7 @@ func (g *Game) shadowAlpha(sh *shade) float64 {
 	t := clamp(min(sh.x-lo, hi-sh.x)/shadowEdgeFade, 0, 1)
 	a *= t * t * (3 - 2*t)
 	if sh.fade > 0 {
-		a *= math.Abs(1 - 2*float64(sh.fade)/teleportFrames)
+		a *= math.Abs(1 - 2*sh.fade/teleportFrames)
 	}
 	return a
 }
@@ -259,9 +259,9 @@ func (g *Game) updateAreaShades() {
 	fade := func(sh *shade, up bool) {
 		sh.on = up
 		if up {
-			sh.lvl = min(1, sh.lvl+1.0/areaFade)
+			sh.lvl = min(1, sh.lvl+g.dt/areaFade)
 		} else {
-			sh.lvl = max(0, sh.lvl-1.0/areaFade)
+			sh.lvl = max(0, sh.lvl-g.dt/areaFade)
 		}
 	}
 	gone := func(sh *shade) bool { return sh.area && !sh.on && sh.lvl <= 0 }
@@ -373,8 +373,8 @@ func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 func (g *Game) startle(guest *entities.Guest) float64 {
 	for _, list := range g.shades {
 		for _, sh := range list {
-			if t, ok := sh.seen[guest]; ok && g.tick-t < hopFrames {
-				return startleHeight * math.Sin(math.Pi*float64(g.tick-t)/hopFrames)
+			if t, ok := sh.seen[guest]; ok && g.now()-float64(t) < hopFrames {
+				return startleHeight * math.Sin(math.Pi*(g.now()-float64(t))/hopFrames)
 			}
 		}
 	}

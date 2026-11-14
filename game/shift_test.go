@@ -65,7 +65,7 @@ func TestShift(t *testing.T) {
 			if half := e >= flipFrames/2; g.ghost != (want == half) {
 				t.Fatalf("frame %d of %d: ghost %v", e, flipFrames, g.ghost)
 			}
-			if p := sh.ghostness(g.tick); want && p < 0 || !want && p > 1 {
+			if p := sh.ghostness(g.now()); want && p < 0 || !want && p > 1 {
 				t.Fatalf("ghostness %v", p)
 			}
 		}

@@ -369,8 +369,8 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 	}
 	kept := g.wiped[:0]
 	for _, w := range g.wiped {
-		if d := g.tick - w.tick; d < wipeFrames {
-			f := float64(d) / wipeFrames
+		if d := g.now() - float64(w.tick); d < wipeFrames {
+			f := d / wipeFrames
 			draw(w.spot, 1-f, 1+f)
 			kept = append(kept, w)
 		}
