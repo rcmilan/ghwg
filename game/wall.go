@@ -171,16 +171,17 @@ func (g *Game) sendShade(sh *shade, to int, x float64) {
 	sh.goal = clamp(x, lo, hi)
 }
 
-// move takes a Shadow one frame along its way: it runs at shadowSpeed to the nearer blink spot toward the
+// move takes a Shadow a step (g.dt frames) along its way: it runs at shadowSpeed to the nearer blink spot toward the
 // next run, fades out, blinks onto it at the same x, and fades in. True once it stands at its goal.
 func (g *Game) move(sh *shade) bool {
 	r := g.walls[sh.run]
 	defer func() {
-		sh.anim.Update(sh.x, g.walls[sh.run].y)
+		sh.anim.Update(sh.x, g.walls[sh.run].y, g.dt)
 		sh.anim.Facing = entities.Toward(sh.dir, 0)
 	}()
 	if sh.fade > 0 {
-		if sh.fade++; sh.fade == teleportFrames/2 {
+		was := sh.fade
+		if sh.fade += g.dt; was < teleportFrames/2 && sh.fade >= teleportFrames/2 { // halfway: it blinks
 			sh.run, sh.path = sh.path[0], sh.path[1:]
 			lo, hi := g.walls[sh.run].ends()
 			sh.x = clamp(sh.x, lo, hi)
@@ -197,9 +198,9 @@ func (g *Game) move(sh *shade) bool {
 			to = hi
 		}
 	}
-	speed := shadowSpeed
+	speed := shadowSpeed * g.dt
 	if sh.patrol {
-		speed = patrolSpeed
+		speed = patrolSpeed * g.dt
 	}
 	if d := to - sh.x; math.Abs(d) > speed {
 		sh.x, sh.dir = sh.x+math.Copysign(speed, d), math.Copysign(1, d)

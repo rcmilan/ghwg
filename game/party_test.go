@@ -20,7 +20,7 @@ func TestArrival(t *testing.T) {
 	if p == nil || p.Room < 0 || g.vacant(p.Room, Human) || p.state != checkingIn {
 		t.Fatalf("a Walk-in on a Vacant hotel: %+v; want it booked, its Room Occupied, walking in", p)
 	}
-	p.Routine = homebody // no day out: on the ×10 clock below, a Tourist's walk back can outlast the budget
+	p.Routine = homebody // no day out: with T held below (before D1 only the clock ran ×10), a Tourist's walk back can outlast the budget
 	room := p.Room
 	rate := g.hotel.Rooms[room].Type.Rate
 	if p.Rate != rate || len(g.hotel.Rooms[room].Stays) < len(p.Guests) {
@@ -40,7 +40,7 @@ func TestArrival(t *testing.T) {
 	g.hotel.Rooms[room].Type.Rate = 999 // the Rate is locked on arrival
 	g.fast = true
 	for !p.Paid {
-		if g.clock > p.Checkout+6*hourFrames { // ×10 clock: the walk from the bed to the door takes 1–4.4 game hours (300 seeds)
+		if g.clock > p.Checkout+6*hourFrames { // T held: before D1 only the clock ran ×10 and this walk took 1–4.4 game hours (300 seeds); now the walk runs ×10 too
 			t.Fatalf("still unpaid at %s, checkout was %s: %s", clockText(g.clock), clockText(p.Checkout), where(p.Guests))
 		}
 		g.step(0, 0)
@@ -187,11 +187,11 @@ func TestConciergeWalksIn(t *testing.T) {
 	open := func(add func()) float64 {
 		g.couriers, g.priests = nil, nil
 		for range 2 * world.DoorSlideFrames {
-			g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
 		}
 		add()
 		for range world.DoorSlideFrames {
-			g.hotel.UpdateDoors(g.doorActors(), g.boarded)
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
 		}
 		return g.hotel.Doors[other].Open()
 	}

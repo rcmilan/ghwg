@@ -133,7 +133,7 @@ func (g *Game) roomShift(room int) float32 {
 		s = 1 // T191: a rotting Room shows full
 	}
 	if g.ghost && g.closed(room) {
-		s = 0.8 + 0.2*math.Cos(2*math.Pi*float64(g.tick)/(1.5*tps)) // a slow pulse, 1.5 s
+		s = 0.8 + 0.2*math.Cos(2*math.Pi*g.now()/(1.5*tps)) // a slow pulse, 1.5 s
 	}
 	return float32(s)
 }

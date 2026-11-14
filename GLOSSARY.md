@@ -195,6 +195,10 @@ _Avoid_: game, session
 **Clock**:
 The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, Routines and the lighting, and it pauses only for the Terminal. The player can read it only on the Terminal.
 
+**Time scale**:
+How fast the world runs against real time, 1 normal. Every walk, animation, fade and timer, and the Clock, run by it together. Under 1 is slow motion (dev `-scale 0.25`); holding T runs it ×4. The Terminal, the hotel view, the HUD and the intro keep real time. The sim always runs at 1.
+_Avoid_: fast clock, game speed
+
 **Day**:
 One 24-hour turn of the Clock, counted from Day 1.
 

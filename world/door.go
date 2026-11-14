@@ -11,7 +11,7 @@ const (
 type Door struct {
 	Room  int             // index into Hotel.Rooms; -1 for the Entrance
 	Rect  image.Rectangle // world px covered by the leaves
-	slide int             // 0 shut .. DoorSlideFrames fully open
+	slide float64         // 0 shut .. DoorSlideFrames fully open
 }
 
 // Actor is someone the doors react to: the Guest of Rooms[Room], or the staff (Room -1): the Concierge, a
@@ -22,7 +22,7 @@ type Actor struct {
 }
 
 // Open is how far the leaves have slid: 0 shut, 1 fully open.
-func (d Door) Open() float64 { return float64(d.slide) / DoorSlideFrames }
+func (d Door) Open() float64 { return d.slide / DoorSlideFrames }
 
 // Solid: a door blocks unless it is fully open.
 func (d Door) Solid() bool { return d.slide < DoorSlideFrames }
@@ -31,10 +31,10 @@ func (d Door) Solid() bool { return d.slide < DoorSlideFrames }
 // (K1, 2026-11-11: D21 and D91 shut an Occupied Room to the Concierge; that rule is gone).
 func (d Door) Allows(actor int) bool { return d.Room < 0 || actor < 0 || actor == d.Room }
 
-// UpdateDoors slides every door one frame: toward open while an allowed actor is within reach, or while
+// UpdateDoors slides every door dt frames: toward open while an allowed actor is within reach, or while
 // anyone stands in the doorway (a door never closes on someone); toward shut otherwise. A boarded Room's
 // door stays shut to everyone.
-func (h *Hotel) UpdateDoors(actors []Actor, boarded func(room int) bool) {
+func (h *Hotel) UpdateDoors(actors []Actor, boarded func(room int) bool, dt float64) {
 	for i := range h.Doors {
 		d := &h.Doors[i]
 		want := false
@@ -48,9 +48,9 @@ func (h *Hotel) UpdateDoors(actors []Actor, boarded func(room int) bool) {
 			}
 		}
 		if want {
-			d.slide = min(d.slide+1, DoorSlideFrames)
+			d.slide = min(d.slide+dt, DoorSlideFrames)
 		} else {
-			d.slide = max(d.slide-1, 0)
+			d.slide = max(d.slide-dt, 0)
 		}
 	}
 }
