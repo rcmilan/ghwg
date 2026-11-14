@@ -253,8 +253,8 @@ func (p *Pilot) Change(room int, beds string) {
 }
 
 // Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE, then the
-// cart's checkout; an action for a Room through the ROOMS tab instead: the Room, the action (and its beds),
-// paid at once. It closes the Terminal. ok if got holds then. It gives up when the item isn't for sale or the
+// cart's checkout, and closes the Terminal. An action for a Room goes through the hotel view instead, from
+// where he stands: TAB, the Room, the action (and its beds), paid at once. ok if got holds then. It gives up when the item isn't for sale or the
 // store refuses it.
 func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) { p.buy(id, room, "", got) }
 
@@ -262,23 +262,27 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
 	tab := shop[i].Tab
 	pos := slices.Index(tabItems(tab), i)
-	p.OpenTerminal()
 	if shop[i].room() {
-		pressed, leave, paid, spins := false, false, false, 0
+		pressed, leave, paid, opened, spins := false, false, false, false, 0
 		p.do(func(p *Pilot, v View) (bool, bool) {
 			t := v.Terminal
-			if !t.Open {
-				return true, paid && got(v)
+			if !t.View {
+				if opened {
+					return true, paid && got(v)
+				}
+				opened = p.tap(ebiten.KeyTab)
+				return false, false
 			}
+			opened = true
 			paid = paid || pressed && t.Depth == 1 // bought: the store is back on the grid
 			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds)
 			k, last := ebiten.KeySpace, false
 			switch {
 			case leave:
 				k = ebiten.KeyEscape
-			case t.Tab != tabRooms, t.Depth == 1 && t.Cursor != room:
+			case t.Depth == 1 && t.Cursor != room:
 				k = ebiten.KeyD
-			case t.Depth == 0, t.Depth == 2 && t.Pick != pos:
+			case t.Depth == 2 && t.Pick != pos:
 				k = ebiten.KeyS
 			case t.Depth == 3 && t.Beds != beds:
 				k = ebiten.KeyS
@@ -294,6 +298,7 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 		})
 		return
 	}
+	p.OpenTerminal()
 	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Terminal

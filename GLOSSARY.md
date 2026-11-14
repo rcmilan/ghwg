@@ -61,11 +61,14 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter. Here the Concierge reads every Room's status, the money and the Clock, and buys: Supplies and hotel-wide unlocks through a cart, and what is for one Room on that Room's card in the ROOMS tab. The world pauses while it is open.
+The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
 
-**ROOMS tab**:
-The Terminal's tab that shows the hotel as a grid of cards, one per Room, laid out like the hotel and growing with it. A card shows the Room's number and Bed Layout, a Room Change on its way, its own Mirror, its Parties of both realms as heads, its Shadow Person, the Priest on it, and its Room Mood as a bar. Everything bought for one Room is bought on its card and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror.
-_Avoid_: SERVICES tab, room picker
+**Hotel view**:
+The whole hotel seen from afar: TAB, from anywhere, pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; TAB or ESC closes it in one press.
+_Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
+
+**Pause**:
+ESC with nothing open: the world waits on Resume / Quit to title. ESC again, or SPACE on Resume, goes on; only SPACE on Quit ends the Run.
 
 **Mirror**:
 The mirror on the Hall Wall, 2 cells west of the Lobby Archway, behind the Reception Counter. SPACE in front of it Shifts the hotel, through one of nine random transitions (0.8 s) while the world keeps running.
@@ -245,7 +248,7 @@ The Lobby's part east of the Lobby Archway, walled off as a room, there from the
 _Avoid_: inventory
 
 **Room key**:
-An action of a boarded Room's card in the Terminal's ROOMS tab, paid at once, that opens it: the Courier walks the key to that Room's door, and on the drop the Room is owned. One key at a time; its price rises with each Room owned.
+An action of a boarded Room's actions in the Hotel view, paid at once, that opens it: the Courier walks the key to that Room's door, and on the drop the Room is owned. One key at a time; its price rises with each Room owned.
 _Avoid_: unlock, license, deed
 
 **Owned Room** / **Closed Room**:
@@ -263,7 +266,7 @@ _Avoid_: cutscene, tutorial
 The Strategy that plays the opening: it buys the first Room key, then the Mirror as soon as it can pay, then plays smart while it saves for the Twin Bed Layout, changes a Room to it and buys the In-Room Mirror for that Room. The sim's `mirror at (h)` column is the game hours from the Run start until the Mirror unlocks; `room mirror at (h)`, until the first Room has its own.
 
 **Room Change**:
-An action of a Room's card in the Terminal's ROOMS tab ("Change type"), paid at once, that gives the Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled on the Room's card for a full refund. The Room's Mood is untouched.
+An action of a Room's actions in the Hotel view ("Change type"), paid at once, that gives the Room another Bed Layout among the unlocked ones, Single included, for that layout's fee. A Vacant Room with nobody in it changes when the Terminal closes; any other is scheduled: it takes no Booking in either realm until it is empty, then changes. A scheduled change can be cancelled on the Room's card for a full refund. The Room's Mood is untouched.
 _Avoid_: upgrade, renovation, Spin
 
 **Reel**:
@@ -271,5 +274,5 @@ How a Room Change shows: the Room's whole footprint rolls like a slot machine's 
 _Avoid_: slot machine (as a mechanic: nothing is random), transition
 
 **In-Room Mirror**:
-A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, on a first Room's card in the ROOMS tab: paid at once, carried by the Courier to that Room's door and hung when he gets there, its Guests in or not (a scheduled Room Change keeps waiting); from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
+A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, on a first Room's actions in the Hotel view: paid at once, carried by the Courier to that Room's door and hung when he gets there, its Guests in or not (a scheduled Room Change keeps waiting); from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
 _Avoid_: vanity, second Mirror, Room mirror (the store row's name only)

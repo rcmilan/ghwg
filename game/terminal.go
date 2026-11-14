@@ -16,7 +16,7 @@ import (
 
 // openTerminal pauses the world on the Terminal (D73), on its store. ESC closes it; the cart stays.
 func (g *Game) openTerminal() {
-	g.state, g.message, g.placing, g.termDepth = StateTerminal, "", -1, 0
+	g.state, g.message, g.termTab = StateTerminal, "", min(g.termTab, tabs-1)
 	g.termPick = min(g.termPick, g.rowCount()-1)
 }
 
@@ -40,12 +40,9 @@ func (g *Game) rowCount() int {
 }
 
 // updateTerminal (D180): A/D picks the tab, W/S the row, SPACE adds to the cart, removes a cart line or
-// checks out. The ROOMS tab has its own keys (roomstab.go).
+// checks out.
 func (g *Game) updateTerminal() {
 	key := g.in.JustPressed
-	if g.termTab == tabRooms && g.updateRooms() {
-		return
-	}
 	switch {
 	case key(ebiten.KeyA):
 		g.termTab, g.termPick, g.message = (g.termTab+tabs-1)%tabs, 0, ""
@@ -94,6 +91,20 @@ func (g *Game) ShopPrint(money, ecto float64) {
 	g.openTerminal()
 }
 
+// The store's colors (07 U1, the "haunted shop" of the 2026-11-14 grill): a lavender page, white cards, a
+// purple browser bar, an ecto-green accent. The hotel view's cards and the pause use them too.
+var (
+	storePage   = color.RGBA{0xe9, 0xe4, 0xf2, 255}
+	storeCard   = color.RGBA{0xf8, 0xf6, 0xfc, 255}
+	storeInk    = color.RGBA{0x2a, 0x21, 0x40, 255}
+	storeDim    = color.RGBA{0xa3, 0x9c, 0xb8, 255}
+	storeBar    = color.RGBA{0x4a, 0x3a, 0x78, 255}
+	storeBarInk = color.RGBA{0xf2, 0xed, 0xff, 255}
+	storeAccent = color.RGBA{0x2a, 0xa0, 0x7a, 255}
+	storeMoney  = color.RGBA{0x7a, 0x3f, 0xb0, 255}
+	storeEcto   = color.RGBA{0x1f, 0x8f, 0x6a, 255}
+)
+
 // Terminal layout, screen px: a browser window.
 const (
 	termX, termY, termW, termH = 120, 30, 720, 470
@@ -108,21 +119,6 @@ const (
 
 // head is a character's head on the idle sheet, facing down: the Terminal's size icon (D97, T010).
 var head = image.Rect(18*charW, 9, 19*charW, 22)
-
-// drawHeads draws one shrunk head per character, left to right from (x,y).
-func (g *Game) drawHeads(s *ebiten.Image, x, y int, names ...string) {
-	for i, name := range names {
-		g.drawHead(s, x+i*(head.Dx()+2), y, name, 1)
-	}
-}
-
-// drawHead draws a character's head at (x,y), its colors scaled by c: 0 is a Shadow's black (D169).
-func (g *Game) drawHead(s *ebiten.Image, x, y int, name string, c float32) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(x), float64(y))
-	op.ColorScale.Scale(c, c, c, 1)
-	s.DrawImage(g.sheet(name)[0].SubImage(head).(*ebiten.Image), op)
-}
 
 // tileIcons: the icons made of the world's own tiles, rows of cells, so the store shows a thing as the
 // hotel does (the wall Mirror, a Room's door, the Standard beds).
@@ -177,7 +173,7 @@ func (g *Game) drawIcon(s *ebiten.Image, it Item, cx, cy, box int, a float32) {
 	s.DrawImage(img, op)
 }
 
-// drawPrice draws "$N" in Money's ink and a skull with N in Ecto's, from (x,y); it returns the width.
+// drawPrice draws "$N" in the store's Money ink and a skull with N in its Ecto ink, from (x,y); it returns the width.
 func (g *Game) drawPrice(s *ebiten.Image, c Cost, x, y int, scale float64) int {
 	if g.skull == nil {
 		g.skull = bitmap(skullRows)
@@ -185,14 +181,14 @@ func (g *Game) drawPrice(s *ebiten.Image, c Cost, x, y int, scale float64) int {
 	x0 := x
 	if c[Money] > 0 {
 		v := "$" + fmtNum(c[Money])
-		g.tintedAt(s, v, x, y, scale, resInk(Money), 1)
+		g.tintedAt(s, v, x, y, scale, storeMoney, 1)
 		x += int(float64(len(v)*glyphW+glyphW) * scale)
 	}
 	if c[Ecto] > 0 {
-		g.stamp(s, g.skull, x, y+int(skullDY*scale), scale, resInk(Ecto))
+		g.stamp(s, g.skull, x, y+int(skullDY*scale), scale, storeEcto)
 		x += int(float64(len(skullRows[0])+2) * scale)
 		v := fmtNum(c[Ecto])
-		g.tintedAt(s, v, x, y, scale, resInk(Ecto), 1)
+		g.tintedAt(s, v, x, y, scale, storeEcto, 1)
 		x += int(float64(len(v)*glyphW) * scale)
 	}
 	return x - x0
@@ -211,55 +207,46 @@ func priceW(c Cost, scale float64) int {
 }
 
 func (g *Game) drawTerminal(s *ebiten.Image) {
-	rect(s, termX, termY, termW, termH, assets.Ink)
-	rect(s, winX, winY, winW, termH-16, assets.Wall)
+	rect(s, termX, termY, termW, termH, storeInk)
+	rect(s, winX, winY, winW, termH-16, storePage)
 
 	// The address bar: three window dots, the URL, the cart badge.
-	rect(s, winX, winY, winW, barH, assets.Floor)
-	for k, c := range []color.Color{assets.Locked, assets.Money, assets.Accent} {
+	rect(s, winX, winY, winW, barH, storeBar)
+	for k, c := range []color.Color{assets.Locked, assets.Money, storeAccent} {
 		rect(s, winX+12+k*14, winY+barH/2-4, 8, 8, c)
 	}
-	rect(s, winX+60, winY+6, 420, barH-12, assets.Ink)
-	g.tintedAt(s, "hauntedhotel.shop/"+strings.ToLower(tabNames[g.termTab]), winX+70, winY+10, 1, assets.Ghost, 1)
+	rect(s, winX+60, winY+6, 420, barH-12, storeInk)
+	g.tintedAt(s, "hauntedhotel.shop/"+strings.ToLower(tabNames[g.termTab]), winX+70, winY+10, 1, storeBarInk, 1)
 	units := 0
 	for _, l := range g.cart {
 		units += l.n
 	}
-	g.tintedAt(s, fmt.Sprintf("CART (%d)", units), winX+winW-150, winY+2, 2, assets.Ghost, 1)
+	g.tintedAt(s, fmt.Sprintf("CART (%d)", units), winX+winW-150, winY+2, 2, storeBarInk, 1)
 
 	// The tabs.
 	tw := winW / int(tabs)
 	for t := range tabs {
 		x := winX + int(t)*tw
 		if t == g.termTab {
-			rect(s, x+4, tabY, tw-8, tabH, assets.Floor)
-			rect(s, x+4, tabY+tabH-4, tw-8, 4, assets.Accent)
+			rect(s, x+4, tabY, tw-8, tabH, storeCard)
+			rect(s, x+4, tabY+tabH-4, tw-8, 4, storeAccent)
 		}
 		name := tabNames[t]
 		if t == tabCart {
 			name = fmt.Sprintf("CART %d", units)
 		}
-		g.tintedAt(s, name, x+tw/2-len(name)*glyphW, tabY+2, 2, assets.Ghost, 1)
-	}
-
-	switch g.termTab {
-	case tabRooms:
-		g.drawRooms(s)
-	case tabCart:
-		g.drawCart(s)
-	default:
-		g.drawCatalog(s)
+		g.tintedAt(s, name, x+tw/2-len(name)*glyphW, tabY+2, 2, storeInk, 1)
 	}
 
 	help := "A/D TAB   W/S ITEM   SPACE ADD TO CART   ESC CLOSE"
-	switch g.termTab {
-	case tabRooms:
-		help = [...]string{"A/D TAB   W/S ROOMS   ESC CLOSE", "WASD ROOM   SPACE OPEN   ESC/UP BACK", "W/S ACTION   SPACE BUY NOW   ESC BACK", "W/S BEDS   SPACE BUY NOW   ESC BACK"}[g.termDepth]
-	case tabCart:
+	if g.termTab == tabCart {
+		g.drawCart(s)
 		help = "A/D TAB   W/S LINE   SPACE REMOVE ONE / PLACE ORDER   ESC CLOSE"
+	} else {
+		g.drawCatalog(s)
 	}
-	g.tintedAt(s, help, winX+12, termY+termH-30, 1, assets.Accent, 1)
-	g.tintedAt(s, clockText(g.clock), winX+winW-12-glyphW*len(clockText(g.clock)), termY+termH-30, 1, assets.Ghost, 1)
+	g.tintedAt(s, help, winX+12, termY+termH-30, 1, storeAccent, 1)
+	g.tintedAt(s, clockText(g.clock), winX+winW-12-glyphW*len(clockText(g.clock)), termY+termH-30, 1, storeInk, 1)
 }
 
 // drawRow is one list row: highlight, icon, name and, at the right, a price or a word.
@@ -271,13 +258,13 @@ func (g *Game) drawRow(s *ebiten.Image, k int, it Item, name string, c Cost, wor
 func (g *Game) drawRowAt(s *ebiten.Image, k int, picked bool, it Item, name string, c Cost, word string, a float32) {
 	y := bodyY + k*rowH
 	if picked {
-		rect(s, listX, y, listW, rowH-4, assets.Floor)
-		rect(s, listX, y, 4, rowH-4, assets.Accent)
+		rect(s, listX, y, listW, rowH-4, storeCard)
+		rect(s, listX, y, 4, rowH-4, storeAccent)
 	}
 	g.drawIcon(s, it, listX+24, y+(rowH-4)/2, 32, a)
-	g.tintedAt(s, name, listX+46, y+2, 2, assets.Ghost, a)
+	g.tintedAt(s, name, listX+46, y+2, 2, storeInk, a)
 	if word != "" {
-		g.tintedAt(s, word, listX+listW-8-len(word)*glyphW*2, y+2, 2, assets.Floor, 1)
+		g.tintedAt(s, word, listX+listW-8-len(word)*glyphW*2, y+2, 2, storeDim, 1)
 		return
 	}
 	g.drawPrice(s, c, listX+listW-8-priceW(c, 2), y+2, 2)
@@ -301,15 +288,15 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	// The detail pane: the picked item, big.
 	i := rows[g.termPick]
 	it := shop[i]
-	rect(s, paneX, bodyY, paneW, paneH, assets.Floor)
+	rect(s, paneX, bodyY, paneW, paneH, storeCard)
 	a := float32(1)
 	if !g.onSale(i) {
 		a = 0.35
 	}
 	g.drawIcon(s, it, paneX+paneW/2, bodyY+56, 96, a)
 	y := bodyY + 112
-	g.tintedAt(s, strings.ToUpper(it.Name), paneX+12, y, 2, assets.Ghost, 1)
-	g.tintedAt(s, it.Blurb, paneX+12, y+32, 1, assets.Ghost, 1)
+	g.tintedAt(s, strings.ToUpper(it.Name), paneX+12, y, 2, storeInk, 1)
+	g.tintedAt(s, it.Blurb, paneX+12, y+32, 1, storeInk, 1)
 	g.drawPrice(s, g.priceOf(i), paneX+12, y+54, 2)
 	var status []string
 	switch {
@@ -326,7 +313,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		status = append(status, "OWNED")
 	}
 	for k, v := range status {
-		g.tintedAt(s, v, paneX+12, y+92+k*18, 1, assets.Accent, 1)
+		g.tintedAt(s, v, paneX+12, y+92+k*18, 1, storeAccent, 1)
 	}
 	switch {
 	case !g.onSale(i) || it.unlock() && g.owned(i):
@@ -339,8 +326,8 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 
 // drawButton: a web button, label centered.
 func (g *Game) drawButton(s *ebiten.Image, label string, x, y, w int) {
-	rect(s, x, y, w, 34, assets.Accent)
-	g.tintedAt(s, label, x+w/2-len(label)*glyphW, y+1, 2, assets.Ink, 1)
+	rect(s, x, y, w, 34, storeAccent)
+	g.tintedAt(s, label, x+w/2-len(label)*glyphW, y+1, 2, storeCard, 1)
 }
 
 func (g *Game) drawCart(s *ebiten.Image) {
@@ -353,18 +340,18 @@ func (g *Game) drawCart(s *ebiten.Image) {
 		g.drawRow(s, k, it, name, l.cost(), "", 1)
 	}
 	if len(g.cart) == 0 {
-		g.tintedAt(s, "YOUR CART IS EMPTY", listX+12, bodyY+8, 2, assets.Floor, 1)
+		g.tintedAt(s, "YOUR CART IS EMPTY", listX+12, bodyY+8, 2, storeDim, 1)
 	}
-	rect(s, paneX, bodyY, paneW, paneH, assets.Floor)
-	g.tintedAt(s, "ORDER TOTAL", paneX+12, bodyY+12, 2, assets.Ghost, 1)
+	rect(s, paneX, bodyY, paneW, paneH, storeCard)
+	g.tintedAt(s, "ORDER TOTAL", paneX+12, bodyY+12, 2, storeInk, 1)
 	g.drawPrice(s, g.cartTotal(), paneX+12, bodyY+52, 3)
 	if len(g.cart) > 0 && !g.afford(g.cartTotal()) {
 		g.tintedAt(s, "NOT ENOUGH IN THE WALLET", paneX+12, bodyY+110, 1, assets.Locked, 1)
 	}
-	g.tintedAt(s, "DELIVERED TO THE HOTEL", paneX+12, bodyY+130, 1, assets.Accent, 1)
+	g.tintedAt(s, "DELIVERED TO THE HOTEL", paneX+12, bodyY+130, 1, storeAccent, 1)
 	y := bodyY + paneH - 44
 	if g.termPick == len(g.cart) {
-		rect(s, paneX+8, y-4, paneW-16, 42, assets.Ghost)
+		rect(s, paneX+8, y-4, paneW-16, 42, storeInk)
 	}
 	g.drawButton(s, "PLACE ORDER", paneX+12, y, paneW-24)
 }

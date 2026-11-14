@@ -82,11 +82,13 @@ func (g *Game) updateHUD() {
 		} else {
 			c.shown += Num(math.Copysign(d, gap))
 		}
-		if g.state == StateTerminal { // the Terminal shows both, live, and they hold from its close
+		if g.state == StateTerminal || g.state == StateView { // the Terminal and the hotel view show both, live, and they hold from its close
 			c.age = 0
 		}
 	}
-	want := func(r Res) bool { return g.state == StateTerminal || g.hud[r].seen && g.hud[r].age < holdFrames }
+	want := func(r Res) bool {
+		return g.state == StateTerminal || g.state == StateView || g.hud[r].seen && g.hud[r].age < holdFrames
+	}
 	if t := g.nextGuest(); t != "" {
 		g.guestText = t
 	}

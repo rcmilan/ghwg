@@ -16,49 +16,26 @@ func keys(g *Game, s *script, ks ...ebiten.Key) {
 	}
 }
 
-// T285: a Room's card: its number and type, owned or boarded, its human and ghost Parties, its Mood as a
-// bar, a scheduled change.
-func TestRoomCard(t *testing.T) {
-	g := closedRun(t)
-	g.roomOwned[0] = true
-	g.own(Mirror)
-	g.own(BedsTwin)
-	g.wallet[Money] = 1000
-	h := g.arrive(0)
-	g.settleIn(h)
-	gh := g.arriveGhost(0)
-	g.settleIn(gh)
-	if why := order(t, g, 0, "Twin"); why != "" {
-		t.Fatal(why)
-	}
-	g.mood[0] = 0
-	c := g.card(0)
-	if c.Title != "101 SINGLE" || c.Change != "TWIN" || c.Boarded || len(c.Humans) != len(h.Guests) || len(c.Ghosts) != len(gh.Guests) || c.Mood != 0.5 {
-		t.Fatalf("Room 101's card: %+v", c)
-	}
-	if c = g.card(1); c.Title != "102 SINGLE" || !c.Boarded || c.Change != "" || len(c.Humans)+len(c.Ghosts) != 0 {
-		t.Fatalf("Room 102's card: %+v", c)
-	}
-}
-
-// T286: the tab follows the hotel: the cursor walks every Room of a 2×1 and of a 3×3 with the same keys.
-// Every action on one Room is bought there, paid at once: SPACE on the Room, SPACE on the action; a change
-// of type takes a third for the beds. ESC steps back one level, then closes.
-func TestRoomsTab(t *testing.T) {
+// U1 (was T286): the hotel view follows the hotel: TAB opens it from play, the highlight walks every Room of
+// a 2×1 and of a 3×3 with the same keys, and TAB or ESC closes it in one press from any depth. Every action on
+// one Room is bought there, paid at once: SPACE on the Room, SPACE on the action; a change of type takes a
+// third for the beds. The world waits meanwhile.
+func TestHotelView(t *testing.T) {
 	for _, grid := range [][2]int{{2, 1}, {3, 3}} {
 		g, s := headless(t, grid[0], grid[1], 1)
 		g.startRun()
-		g.openTerminal()
-		g.termTab = tabRooms
 		n := len(g.hotel.Rooms)
-		keys(g, s, ebiten.KeyS) // into the grid
+		if keys(g, s, ebiten.KeyTab); g.state != StateView || g.termDepth != 1 {
+			t.Fatalf("%v: TAB: state %d depth %d, want the hotel view on its Rooms", grid, g.state, g.termDepth)
+		}
+		clock := g.clock
 		seen := map[int]bool{g.termCursor: true}
 		for range n {
 			keys(g, s, ebiten.KeyD)
 			seen[g.termCursor] = true
 		}
 		if len(seen) != n {
-			t.Fatalf("%v: the cursor reached %d Rooms of %d", grid, len(seen), n)
+			t.Fatalf("%v: the highlight reached %d Rooms of %d", grid, len(seen), n)
 		}
 		if g.termCursor = 0; grid[1] > 1 {
 			if keys(g, s, ebiten.KeyS); g.termCursor != grid[0] {
@@ -66,14 +43,27 @@ func TestRoomsTab(t *testing.T) {
 			}
 		}
 		g.termCursor = 0
-		keys(g, s, ebiten.KeyW, ebiten.KeyA) // W from the top row is back on the tabs: A switches tab
-		if g.termTab != tabHotel || g.termDepth != 0 {
-			t.Fatalf("%v: W from the top row, then A: tab %d depth %d, want the HOTEL tab", grid, g.termTab, g.termDepth)
+		if keys(g, s, ebiten.KeyW); g.termCursor != 0 || g.state != StateView {
+			t.Fatalf("%v: W from the top row moved to %d or closed the view", grid, g.termCursor)
 		}
-		keys(g, s, ebiten.KeyD, ebiten.KeyS, ebiten.KeyEscape)
-		if keys(g, s, ebiten.KeyD); g.termTab != tabCart || g.state != StateTerminal {
-			t.Fatalf("%v: ESC then D: tab %d, want the next tab, the store still open", grid, g.termTab)
+		if g.clock != clock {
+			t.Fatalf("%v: the Clock ran with the hotel view open", grid)
 		}
+		keys(g, s, ebiten.KeySpace) // a Room's actions
+		if keys(g, s, ebiten.KeyA); g.termDepth != 1 {
+			t.Fatalf("%v: A on a Room's actions: depth %d, want back on the Rooms", grid, g.termDepth)
+		}
+		keys(g, s, ebiten.KeySpace)
+		if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
+			t.Fatalf("%v: one ESC from a Room's actions left state %d, want play", grid, g.state)
+		}
+		keys(g, s, ebiten.KeyTab, ebiten.KeySpace)
+		if keys(g, s, ebiten.KeyTab); g.state != StatePlay {
+			t.Fatalf("%v: TAB from a Room's actions left state %d, want play", grid, g.state)
+		}
+	}
+	if tabs != 3 || tabNames != [tabs]string{"SUPPLIES", "HOTEL", "CART"} {
+		t.Fatalf("the store's tabs are %v, want no ROOMS tab", tabNames)
 	}
 
 	g := closedRun(t)
@@ -82,8 +72,7 @@ func TestRoomsTab(t *testing.T) {
 	g.own(BedsTwin)
 	g.earned = [2]Num{10000, 10000}
 	g.wallet = [2]Num{keyPrice(0) + priestWeak + bedKinds[1].Fee, 0}
-	g.openTerminal()
-	g.termTab = tabRooms
+	g.state = StatePlay
 	pos := func(id Unlock) (ks []ebiten.Key) {
 		for _, i := range tabItems(tabRooms) {
 			if shop[i].ID == id {
@@ -91,18 +80,20 @@ func TestRoomsTab(t *testing.T) {
 			}
 			ks = append(ks, ebiten.KeyS)
 		}
-		t.Fatalf("%s is not a ROOMS action", id)
+		t.Fatalf("%s is not a Room's action", id)
 		return nil
 	}
-	keys(g, s, ebiten.KeyS, ebiten.KeyD, ebiten.KeySpace) // Room 102, its actions
+	keys(g, s, ebiten.KeyTab)
+	g.termCursor = 0
+	keys(g, s, ebiten.KeyD, ebiten.KeySpace) // Room 102, its actions
 	keys(g, s, pos(rowKey)...)
 	keys(g, s, ebiten.KeySpace)
-	if len(g.couriers) != 1 || len(g.cart) != 0 || g.wallet[Money] != priestWeak+bedKinds[1].Fee || g.state != StateTerminal {
+	if len(g.couriers) != 1 || len(g.cart) != 0 || g.wallet[Money] != priestWeak+bedKinds[1].Fee || g.state != StateView {
 		t.Fatalf("the key: %d couriers, cart %v, Money %v; want it paid at once and on its way", len(g.couriers), g.cart, g.wallet[Money])
 	}
 	deliver(t, g)
-	g.openTerminal()
-	keys(g, s, ebiten.KeyS, ebiten.KeySpace) // the cursor stayed on Room 102
+	g.state = StatePlay
+	keys(g, s, ebiten.KeyTab, ebiten.KeySpace) // the highlight stayed on Room 102
 	keys(g, s, pos(rowFatherK)...)
 	keys(g, s, ebiten.KeySpace)
 	if !g.priestOn(1) || g.wallet[Money] != bedKinds[1].Fee {
@@ -124,17 +115,36 @@ func TestRoomsTab(t *testing.T) {
 	if g.changing(1) || g.wallet[Money] != bedKinds[1].Fee {
 		t.Fatalf("cancelled: changing %v, Money %v; want the fee back", g.changing(1), g.wallet[Money])
 	}
-	keys(g, s, ebiten.KeyEscape) // bought or cancelled, the store is back on the grid: one step out
-	if g.state != StateTerminal {
-		t.Fatal("ESC closed the store from inside the grid")
-	}
-	if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
-		t.Fatal("ESC on the tab did not close the store")
-	}
 	for _, id := range []Unlock{rowKey, rowFatherK, rowFatherM, rowChange, RoomMirror} {
 		if shop[row(t, id)].Tab != tabRooms {
-			t.Errorf("%s is not bought in the ROOMS tab", id)
+			t.Errorf("%s is not a Room's action", id)
 		}
+	}
+}
+
+// U1: ESC never ends a Run by itself. It closes the Terminal in one press; with nothing open it pauses, the
+// world waiting; ESC again or SPACE on Resume goes on, and only SPACE on Quit goes to the title.
+func TestPause(t *testing.T) {
+	g, s := headless(t, 2, 1, 1)
+	g.startRun()
+	g.openTerminal()
+	if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
+		t.Fatalf("ESC on the Terminal: state %d, want play", g.state)
+	}
+	clock := g.clock
+	keys(g, s, ebiten.KeyEscape)
+	keys(g, s, ebiten.KeyD, ebiten.KeyD)
+	if g.state != StatePause || g.clock != clock+1 { // the frame before the ESC was one of play
+		t.Fatalf("ESC in play: state %d, the Clock %d frames on; want the pause, the world waiting", g.state, g.clock-clock)
+	}
+	if keys(g, s, ebiten.KeyEscape); g.state != StatePlay {
+		t.Fatalf("ESC on the pause: state %d, want play", g.state)
+	}
+	if keys(g, s, ebiten.KeyEscape, ebiten.KeySpace); g.state != StatePlay {
+		t.Fatalf("SPACE on Resume: state %d, want play", g.state)
+	}
+	if keys(g, s, ebiten.KeyEscape, ebiten.KeyS, ebiten.KeySpace); g.state != StateTitle {
+		t.Fatalf("SPACE on Quit: state %d, want the title", g.state)
 	}
 }
 

@@ -36,8 +36,9 @@ func main() {
 	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
 	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
 	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -term 2,1,1 shows Room 102's actions)")
-	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it; on the ROOMS tab the row is a Room (e.g. 2,0,1: Room 101's actions)")
+	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it (e.g. 1,0: the HOTEL tab's first row); see -view for a Room's actions")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
+	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first), a second number 1 opening its actions (e.g. 1,1), with -shot -at")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
@@ -99,6 +100,11 @@ func main() {
 			log.Fatalf("-shop %q: want money,ecto, like 30,40", *shop)
 		}
 		g.ShopPrint(money, ecto)
+	}
+	if *hotelView != "" {
+		var room, open int
+		fmt.Sscanf(*hotelView, "%d,%d", &room, &open)
+		g.DevView(room, open == 1)
 	}
 	if *term != "" {
 		var tab, row, place int
