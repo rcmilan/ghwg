@@ -47,7 +47,8 @@ type RoomView struct {
 	Away               bool          // Occupied, but its Party isn't inside: the player saw it walk out
 	Asking             bool          // its Guests want service: the balloon, seen from anywhere (D163)
 	Wants              Unlock        // the supply in that balloon (E5)
-	Dirt               []image.Point // its normal dirt spots, the ones to clean, world px (dirt.go)
+	Dirt               []image.Point // its normal dirt spots, the ones to clean in real, world px (dirt.go)
+	Spirit             []image.Point // its spiritual ones, to clean in ghost
 	// Seen only in the ghost dimension: its Guests glow with Fear.
 	Fear int // its most frightened Guest in sight
 }
@@ -88,10 +89,12 @@ func (g *Game) view() View {
 		rv := RoomView{Number: r.Number, Type: r.Type.Name, Beds: r.Type.Beds, Vacant: g.vacant(i, Human), Capacity: len(r.Stays), Rate: r.Type.Rate,
 			Boarded: !g.isOwned(i), Changing: g.changing(i), Mirror: !r.Mirror.Empty(), Closed: g.closed(i), Priest: g.priestOn(i), Shadow: g.shaded(i), Mood: g.roomMood(i)}
 		for _, s := range g.spots(i) {
+			at := s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
 			if s.spirit {
-				continue // only a Priest clears it
+				rv.Spirit = append(rv.Spirit, at)
+			} else {
+				rv.Dirt = append(rv.Dirt, at)
 			}
-			rv.Dirt = append(rv.Dirt, s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
 		}
 		for _, p := range g.parties {
 			if p.Occupies(i, Human) && p.asking() {

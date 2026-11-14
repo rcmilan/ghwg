@@ -78,7 +78,20 @@ func (g *Game) dread(room int) float64 {
 }
 
 // haunts: a haunt in the Room lowers its Mood by damage.
-func (g *Game) haunts(room, damage int) { g.addMood(room, -damage) }
+func (g *Game) haunts(room, damage int) { g.ghostDirt(room, damage) }
+
+// ghostDirt lowers the Room's Mood by d as a ghost's doing (a haunt, a fright): the dirt that shows for it is
+// spiritual (dirt.go).
+func (g *Game) ghostDirt(room, d int) {
+	if room < 0 || room >= len(g.mood) {
+		return
+	}
+	g.spots(room) // what was owed before is not the ghost's
+	g.addMood(room, -d)
+	g.byGhost = true
+	g.spots(room)
+	g.byGhost = false
+}
 
 // ghostHauntDamage: the Mood a ghost's haunt costs its Room, from its Phantasm.
 func ghostHauntDamage(ghost *entities.Guest) int { return hauntBase + hauntPerPhantasm*ghost.Phantasm }

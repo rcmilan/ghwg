@@ -223,10 +223,10 @@ func (p *Pilot) Clean(room int, at image.Point) {
 	n, taps := -1, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		if n < 0 {
-			n = len(v.Rooms[room].Dirt)
+			n = len(v.Rooms[room].Dirt) + len(v.Rooms[room].Spirit)
 		}
 		switch {
-		case len(v.Rooms[room].Dirt) < n:
+		case len(v.Rooms[room].Dirt)+len(v.Rooms[room].Spirit) < n:
 			return true, true
 		case taps >= 3:
 			return true, false

@@ -68,11 +68,11 @@ func TestMoodMatchesTrunk(t *testing.T) {
 		if g.halveDirt(0); g.dirtLevel(0) != s/2 {
 			t.Fatalf("dirt %d: a Priest leaves %d, trunk left %d", s, g.dirtLevel(0), s/2)
 		}
-		// the harvest: one clean in ghost banks half the dirt it held
+		// the harvest: one clean in ghost banks half the spiritual dirt it held
 		g.mood[0], g.ghost, g.wallet = m, true, [2]Num{}
 		g.dirt = nil
 		for _, sp := range g.spots(0) {
-			g.dirt[0][slices.Index(g.dirt[0], sp)].spirit = false
+			g.dirt[0][slices.Index(g.dirt[0], sp)].spirit = true
 		}
 		if s > 0 {
 			g.clean(0, g.dirt[0][0].cell)
