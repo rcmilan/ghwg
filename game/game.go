@@ -98,6 +98,7 @@ type Game struct {
 	onRun         [][]*shade                    // this frame's Shadows by run, for drawShadow
 	dirt          [][]spot                      // per Room: its dirt spots (dirt.go)
 	dirtN         []int                         // per Room: spots ever placed, the next one's seed
+	byGhost       bool                          // the spots being placed are a ghost's doing: spiritual (mood.go's ghostDirt)
 	wiped         []wipe                        // cleaned spots, fading
 	arrivals      []arrival                     // per Room: its next Party's arrival (dirt.go)
 	stains        map[image.Point]*ebiten.Image // dirt spots' stains, by cell (dirt.go)

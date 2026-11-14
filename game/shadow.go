@@ -365,7 +365,7 @@ func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
 	guest.Fear += n
 	g.earn(Ecto, Num(n), noFloat) // the haunt floats its own batched "+N"
-	g.addDirtLevel(p.Room, n)
+	g.ghostDirt(p.Room, dirtMood(n))
 	p.ectoShown += n
 }
 

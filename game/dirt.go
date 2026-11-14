@@ -21,7 +21,6 @@ const (
 	harvestRate = 0.5  // of a spot's dirt, banked as Ecto when cleaned in ghost
 	messyOdds   = 0.15 // a Guest is messy
 	messyMess   = 5    // dirt a messy Guest leaves a night; the rest leave 1
-	spiritOdds  = 0.35 // a new spot is spiritual: only ghost shows it, only a Priest clears it (Live test 5)
 	dirtLimit   = 10   // dirt of normal stains a Party puts up with; more and it complains
 	patience    = 120  // game minutes a complaining Party waits in the hall
 	bookGap     = 120  // game minutes from a Party leaving to the next one's arrival
@@ -31,8 +30,9 @@ const (
 	stainGrowth = 0.75 // a new spot grows an old stain, else starts a new one
 )
 
-// spot: one dirt stain, on a cell, standing for size dirt; spiritual ones show only in ghost and only
-// a Priest clears them.
+// spot: one dirt stain, on a cell, standing for size dirt. A spiritual one is a ghost's doing (a haunt, a
+// fright: mood.go's ghostDirt): it shows only in ghost and is cleaned only there, for Ecto, or by a Priest
+// (2026-11-14). A normal one is cleaned only in real.
 type spot struct {
 	cell   image.Point
 	spirit bool
@@ -82,8 +82,8 @@ func (g *Game) leaveMess(p *Party) {
 // spots: the Room's dirt spots, enough to cover its dirt, past bigFrom each a spotUnit bigger (a
 // Room at 200 has 12, not 40: E6 close-out, 2026-11-08). A new spot takes a free floor
 // cell picked from its own seed, so spots stay put, most often one touching an older spot, so the dirt
-// grows in stains (2026-11-08), and is spiritual spiritOdds of the time; a cleaned one leaves at once, and
-// dirt falling otherwise (a Priest) takes spiritual spots first, newest first.
+// grows in stains (2026-11-08), and is spiritual when a ghost made it (g.byGhost); a cleaned one leaves at
+// once, and dirt falling otherwise (a Priest) takes spiritual spots first, newest first.
 func (g *Game) spots(room int) []spot {
 	if len(g.dirt) != len(g.hotel.Rooms) {
 		g.dirt, g.dirtN = make([][]spot, len(g.hotel.Rooms)), make([]int, len(g.hotel.Rooms))
@@ -125,7 +125,7 @@ func (g *Game) spots(room int) []spot {
 		if len(near) > 0 && r.Float64() < stainGrowth {
 			free = near
 		}
-		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], r.Float64() < spiritOdds, spotUnit * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
+		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], g.byGhost, spotUnit * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
 	}
 	return g.dirt[room]
 }
@@ -168,9 +168,9 @@ func (g *Game) normalDirt(room int) int {
 	return n
 }
 
-// cleanable: the Room the Concierge stands in and the cell of its nearest normal spot, or -1 with none to
-// clean. Anywhere in the Room will do (2026-11-14: SPACE beside a stain opened the hotel view instead; a
-// stain has no hitbox to miss).
+// cleanable: the Room the Concierge stands in and the cell of its nearest spot this Dimension cleans (normal
+// in real, spiritual in ghost), or -1 with none. Anywhere in the Room will do (2026-11-14: SPACE beside a
+// stain opened the hotel view instead; a stain has no hitbox to miss).
 func (g *Game) cleanable() (int, image.Point) {
 	feet := g.feet()
 	for i, r := range g.hotel.Rooms {
@@ -180,7 +180,7 @@ func (g *Game) cleanable() (int, image.Point) {
 		best, cell := math.MaxFloat64, image.Point{}
 		for _, s := range g.spots(i) {
 			c := s.cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
-			if d := math.Hypot(float64(feet.X-c.X), float64(feet.Y-c.Y)); !s.spirit && d < best {
+			if d := math.Hypot(float64(feet.X-c.X), float64(feet.Y-c.Y)); s.spirit == g.ghost && d < best {
 				best, cell = d, s.cell
 			}
 		}
@@ -191,36 +191,39 @@ func (g *Game) cleanable() (int, image.Point) {
 	return -1, image.Point{}
 }
 
-// normalAt: the index of the Room's normal spot at cell, or -1.
-func (g *Game) normalAt(room int, cell image.Point) int {
-	return slices.IndexFunc(g.spots(room), func(s spot) bool { return s.cell == cell && !s.spirit })
-}
-
-// clean wipes the Room's dirt (the spot at cell is the one tapped): its Mood rises to moodClean, never
-// lowers, and in ghost harvestRate of the dirt cleaned is banked as Ecto. Its Guests may be inside (2026-11-11). False
-// if refused.
+// clean wipes the Room's dirt of this Dimension's kind (the spot at cell is the one tapped): the normal in
+// real, the spiritual in ghost, where harvestRate of it is banked as Ecto. Its Guests may be inside
+// (2026-11-11). False if refused.
 func (g *Game) clean(room int, cell image.Point) bool {
-	if g.normalAt(room, cell) < 0 {
+	if !slices.ContainsFunc(g.spots(room), func(s spot) bool { return s.cell == cell && s.spirit == g.ghost }) {
 		return false
 	}
-	cleaned := g.scrub(room)
+	cleaned := g.scrub(room, g.ghost)
 	if g.ghost {
 		g.earn(Ecto, Num(cleaned)*harvestRate, cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
 	}
 	return true
 }
 
-// scrub: the Room is cleaned, by the Concierge or a housekeeper (keeper.go): its Mood rises to moodClean and
-// its spots fade. It returns the dirt cleaned.
-func (g *Game) scrub(room int) int {
-	cleaned, gone := g.dirtLevel(room), slices.Clone(g.spots(room))
-	g.raiseMood(room, moodClean)
-	g.spots(room)
-	g.tapped(room, TaskHousekeep)
-	for _, s := range gone {
-		g.wiped = append(g.wiped, wipe{s, g.tick})
+// scrub: the Room's spots of one kind are cleaned, by the Concierge or a housekeeper (keeper.go): they fade
+// and its Mood rises by what they weighed, never past moodClean. It returns the dirt cleaned.
+func (g *Game) scrub(room int, spirit bool) int {
+	level, left := g.dirtLevel(room), 0
+	for _, s := range g.spots(room) {
+		if s.spirit == spirit {
+			g.wiped = append(g.wiped, wipe{s, g.tick})
+		} else {
+			left += s.size
+		}
 	}
-	return cleaned
+	left = min(level, left)
+	if left == level {
+		return 0
+	}
+	g.dirt[room] = slices.DeleteFunc(g.dirt[room], func(s spot) bool { return s.spirit == spirit })
+	g.setDirtLevel(room, left)
+	g.tapped(room, TaskHousekeep)
+	return level - left
 }
 
 // settle: a Party reaching its Stay Spots for the first time looks at the dirt it sees: over dirtLimit

@@ -252,7 +252,7 @@ func (g *Game) updateKeepers() {
 			g.goRest(k)
 		case k.job == cleaning:
 			if g.normalDirt(k.room) > 0 {
-				g.scrub(k.room)
+				g.scrub(k.room, false)
 			}
 			g.goRest(k)
 		}

@@ -46,8 +46,8 @@ func TestMess(t *testing.T) {
 }
 
 // T201: a Room shows enough dirt spots to cover its dirt, past bigFrom each a spotUnit bigger (fewer,
-// bigger stains: 9 at the Closed Room's dirtMax), each on its own free floor cell, spiritual about spiritOdds of the
-// time; spots stay put, and when dirt falls the spiritual go first, newest first, then the newest normal.
+// bigger stains: 9 at the Closed Room's dirtMax), each on its own free floor cell, normal unless a ghost made it (a haunt:
+// spiritual); spots stay put, and when dirt falls the spiritual go first, newest first, then the newest normal.
 func TestSpots(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
@@ -78,24 +78,21 @@ func TestSpots(t *testing.T) {
 	if want := []spot{{got[0].cell, false, spotUnit}}; !slices.Equal(g.spots(0), want) {
 		t.Fatalf("down to 1 spot: %v, want the oldest %v", g.spots(0), want)
 	}
-	spirit := 0
-	for room := range 2 {
-		g.setDirtLevel(room, dirtMax)
-		g.dirt[room], g.dirtN[room] = nil, 0 // 9 spots: 4 × 1, then 2+…+6
-		for _, s := range g.spots(room) {
-			if s.spirit {
-				spirit++
-			}
-		}
+	g.setDirtLevel(0, 2*spotUnit) // mess: normal
+	g.dirt[0], g.dirtN[0] = nil, 0
+	g.haunts(0, dirtMood(2*spotUnit)) // a haunt: what it adds is spiritual
+	kinds := []bool{}
+	for _, s := range g.spots(0) {
+		kinds = append(kinds, s.spirit)
 	}
-	if spirit < 2 || spirit > 13 { // of 18 at odds 0.35
-		t.Fatalf("%d spiritual spots of 18, want about %v", spirit, 18*spiritOdds)
+	if !slices.Equal(kinds, []bool{false, false, true, true}) {
+		t.Fatalf("2 spots of mess, then a haunt worth 2: spiritual %v, want the last 2", kinds)
 	}
 }
 
-// T202, T266, T302: SPACE on a normal spot inside a Room cleans the Room, its Guests inside or not: its Mood
-// rises to moodClean and all its spots go; in ghost, harvestRate of the dirt cleaned is banked as Ecto. One
-// TaskHousekeep tap each. Refused on a spiritual spot. A clean never lowers a Mood already above.
+// T202, T266, T302, 2026-11-14: SPACE inside a Room cleans its dirt of the Dimension's kind, its Guests inside
+// or not: the normal in real, for nothing; the spiritual in ghost, harvestRate of it banked as Ecto. The other
+// kind stays, and the Mood rises by what was cleaned. One TaskHousekeep tap each. A clean never lowers a Mood.
 func TestClean(t *testing.T) {
 	g, s, p := pairIn(t, 2, 1, 0)
 	g.setDirtLevel(0, 3*spotUnit)
@@ -113,11 +110,9 @@ func TestClean(t *testing.T) {
 	if _, in := g.inside(0); len(in) == 0 || p.state != staying {
 		t.Fatal("the pair is not inside its Room")
 	}
-	g.ghost = true
 	press(g, s, cellPt(free[1]))
-	g.ghost = false
 	if len(g.spots(0)) != 1 || g.state != StateView {
-		t.Fatalf("SPACE on a spiritual spot, nothing else to clean: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)
+		t.Fatalf("SPACE in real on a spiritual spot, nothing else to clean: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)
 	}
 	g.state = StatePlay
 	g.setDirtLevel(0, 3*spotUnit)
@@ -126,19 +121,30 @@ func TestClean(t *testing.T) {
 	if g.state != StatePlay {
 		t.Fatalf("SPACE in a dirty Room, off its stains: state %d; want it cleaned, not the hotel view", g.state)
 	}
-	if g.roomMood(0) != moodClean || len(g.spots(0)) != 0 || g.wallet[Ecto] != 0 || g.taps[0][TaskHousekeep] != 1 {
-		t.Fatalf("cleaned in real: Mood %d, spots %v, Ecto %v, taps %v; want %d, none, no Ecto, 1",
-			g.roomMood(0), g.spots(0), g.wallet[Ecto], g.taps[0][TaskHousekeep], moodClean)
+	if want := []spot{{free[1], true, spotUnit}}; g.dirtLevel(0) != spotUnit || !slices.Equal(g.spots(0), want) || g.wallet[Ecto] != 0 || g.taps[0][TaskHousekeep] != 1 {
+		t.Fatalf("cleaned in real: dirt %d, spots %v, Ecto %v, taps %v; want %d, the spiritual one left, no Ecto, 1",
+			g.dirtLevel(0), g.spots(0), g.wallet[Ecto], g.taps[0][TaskHousekeep], spotUnit)
 	}
 	g.setDirtLevel(0, 3*spotUnit)
-	g.dirt, g.dirtN = nil, nil
+	g.dirt, g.dirtN = [][]spot{{{free[0], false, spotUnit}, {free[1], true, spotUnit}, {free[2], true, spotUnit}}, nil}, []int{3, 0} // 1 normal, 2 spiritual
 	g.ghost = true
-	press(g, s, cellPt(g.spots(0)[0].cell))
-	if want := Num(3*spotUnit) * harvestRate; g.roomMood(0) != moodClean || g.wallet[Ecto] != want || g.taps[0][TaskHousekeep] != 2 {
-		t.Fatalf("cleaned in ghost: Mood %d, Ecto %v; want %d and %v banked", g.roomMood(0), g.wallet[Ecto], moodClean, want)
-	}
 	press(g, s, cellPt(free[3]))
+	if want := Num(2*spotUnit) * harvestRate; g.dirtLevel(0) != spotUnit || len(g.spots(0)) != 1 || g.spots(0)[0].spirit || g.wallet[Ecto] != want || g.taps[0][TaskHousekeep] != 2 {
+		t.Fatalf("cleaned in ghost: dirt %d, spots %v, Ecto %v; want %d, the normal one left, and %v banked", g.dirtLevel(0), g.spots(0), g.wallet[Ecto], spotUnit, want)
+	}
+	g.state = StatePlay
+	press(g, s, cellPt(free[3])) // only normal dirt left, in ghost: nothing to clean
 	if g.taps[0][TaskHousekeep] != 2 {
+		t.Fatal("SPACE in ghost cleaned normal dirt")
+	}
+	g.ghost, g.state = false, StatePlay
+	press(g, s, cellPt(free[3]))
+	if g.roomMood(0) != moodClean || g.taps[0][TaskHousekeep] != 3 {
+		t.Fatalf("the last normal spot cleaned in real: Mood %d, want %d", g.roomMood(0), moodClean)
+	}
+	g.ghost = true
+	press(g, s, cellPt(free[3]))
+	if g.taps[0][TaskHousekeep] != 3 {
 		t.Fatal("SPACE in a clean Room cleaned it")
 	}
 	g.state = StatePlay
@@ -226,8 +232,8 @@ func TestDirtyArrival(t *testing.T) {
 		}
 		g.step(0, 0)
 	}
-	if n := len(g.spots(0)); n != 0 {
-		t.Fatalf("%d spots left after a clean, want none", n)
+	if g.normalDirt(0) != 0 || len(g.spots(0)) != 1 {
+		t.Fatalf("after a clean in real: spots %v, want only the spiritual one", g.spots(0))
 	}
 	g, p = arrive()
 	from := p.complainAt
