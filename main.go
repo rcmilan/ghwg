@@ -38,6 +38,7 @@ func main() {
 	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -term 2,1,1 shows Room 102's actions)")
 	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it; on the ROOMS tab the row is a Room (e.g. 2,0,1: Room 101's actions)")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
+	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -70,7 +71,7 @@ func main() {
 		log.Fatal(err)
 	}
 	var run ebiten.Game = g
-	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != ""
+	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen
 	if dev {
 		if *intro >= 0 {
 			g.StartIntro(*intro)
@@ -78,6 +79,9 @@ func main() {
 			g.Start(*ghost)
 		}
 		g.DevKey(*key)
+		if *kitchen {
+			g.DevKitchen()
+		}
 		g.DevChange(*change)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)

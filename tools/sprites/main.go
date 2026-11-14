@@ -274,30 +274,6 @@ var drawings = []drawing{
 			oooooooooooooooo
 			oDaeeeeeeeeeeaDo
 			oooooooooooooooo`},
-	{name: "stock_box", rows: `
-			.oooooooooooooooooo.
-			oaaaaaaaaaaaaaaaaaao
-			oaaaaaaaaaaaaaaaaaao
-			oeeeeeeeeeeeeeeeeeeo
-			oDDDDDDDDDDDDDDDDDDo
-			oaeeeeeeeeeeeeeeeeDo
-			oannnnnnnnnnnnnnnnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanwwwwwwwwwwwwwvnDo
-			oanvvvvvvvvvvvvvvnDo
-			oannnnnnnnnnnnnnnnDo
-			oDDDDDDDDDDDDDDDDDDo
-			oooooooooooooooooooo`},
 	{name: "sparkle", rows: `
 		..........o..
 		....o....oWo.

@@ -98,9 +98,6 @@ func TestStockSolid(t *testing.T) {
 		g.startRun()
 		h, m := g.hotel, g.hotel.Map
 		const ts = world.TileSize
-		if h.Stock.Dx() != (supplySpot(h, len(supplies)-1).Max.X - h.Stock.Min.X) {
-			t.Fatalf("%v: the strip %v is not the props' cells", grid, h.Stock)
-		}
 		for x := h.Stock.Min.X / ts; x < h.Stock.Max.X/ts; x++ {
 			y := h.Stock.Min.Y / ts
 			if !m.Solid(x, y) || !g.blocked(image.Rect(x*ts+4, y*ts+4, x*ts+12, y*ts+12)) {

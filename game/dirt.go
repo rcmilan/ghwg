@@ -241,7 +241,8 @@ func (g *Game) complain(p *Party) {
 	}
 }
 
-// hall: where the Room's complaining Party waits, side by side in the Lobby's bottom-left corner, off the
+// hall: where the Room's complaining Party waits, side by side in the Lobby's bottom-left corner (the
+// kitchen fills its east side, F1), off the
 // walk from the Entrance to the Archway: each Room its own pair of cells, a free column between Rooms, 2 Rooms a row, upward.
 func (g *Game) hall(room int) []image.Point {
 	const ts = world.TileSize

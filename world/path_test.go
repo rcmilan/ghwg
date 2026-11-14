@@ -36,6 +36,26 @@ func TestKeepRight(t *testing.T) {
 }
 
 // D89, T023: Room doorways are 1-cell choke points; the open Corridors and the Lobby aren't.
+// F1: through the Lobby Archway, a walk up to a west Room and a walk down from it use different columns.
+func TestArchwayOneWay(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		col := func(path []image.Point) int {
+			for _, p := range path {
+				if c := p.Div(TileSize); c.Y == l.hall+1 {
+					return c.X
+				}
+			}
+			return -1
+		}
+		for i, r := range h.Rooms {
+			up, down := col(h.Path(h.Spawn, r.Stays[0], i)), col(h.Path(r.Stays[0], h.Exit, i))
+			if up < 0 || down < 0 || up == l.archway || down == l.archway+l.archwayW-1 || up == down {
+				t.Errorf("Room %s: up the Archway in column %d, down in %d (Archway %d..%d)", r.Number, up, down, l.archway, l.archway+l.archwayW-1)
+			}
+		}
+	})
+}
+
 func TestChoke(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
 		for _, r := range h.Rooms {

@@ -154,12 +154,12 @@ func asciiCell(m *Tilemap, x, y int) byte {
 	return '?'
 }
 
-// D29: the Terminal is reachable from behind the counter, which sits just east of the Archway. D40:
+// D29: the Terminal is reachable from behind the counter, which sits just west of the Archway. D40:
 // walkable ends and 2 free rows behind it.
 func TestHotelCounterSides(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
-		if l.counterX != l.archway+l.archwayW || l.counterX+counterW > l.w-3 {
-			t.Errorf("counter %d..%d, want it just east of the Archway (ends %d) and inside the hotel", l.counterX, l.counterX+counterW-1, l.archway+l.archwayW-1)
+		if l.counterX+counterW != l.archway || l.counterX < 3 {
+			t.Errorf("counter %d..%d, want it just west of the Archway (starts %d) and inside the hotel", l.counterX, l.counterX+counterW-1, l.archway)
 		}
 		if h.ConciergeStart.Y >= l.counter*TileSize || !h.ConciergeStart.In(h.Terminal) {
 			t.Errorf("concierge start %v should be behind the counter, in the terminal zone %v", h.ConciergeStart, h.Terminal)
@@ -167,6 +167,11 @@ func TestHotelCounterSides(t *testing.T) {
 		// D55: the Archway is centered in the Hall Wall, between the side lines at 1 and w-2
 		if left, right := l.archway-2, l.w-3-(l.archway+l.archwayW-1); left != right {
 			t.Errorf("archway %d..%d: %d wall cells to its left, %d to its right", l.archway, l.archway+l.archwayW-1, left, right)
+		}
+		for i, want := range []string{"counter_left", "counter_computer_bottom", "counter_mid", "counter_mid", "counter_right"} {
+			if n := h.Map.TS.Tiles[h.Map.At(LayerDecor, l.counterX+i, l.counter)].Name; n != want {
+				t.Errorf("counter cell %d is %q, want %q", i, n, want)
+			}
 		}
 		for _, x := range []int{l.counterX - 1, l.counterX + counterW} {
 			if h.Map.Solid(x, l.counter) {
@@ -207,7 +212,7 @@ func TestBehindWall(t *testing.T) {
 }
 
 // D67: 2 windows on each side of the front face, mirrored about the Entrance, clear of it and of the side
-// lines (S2 review).
+// lines (S2 review), and of the kitchen's west wall (F1).
 func TestFrontWindows(t *testing.T) {
 	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
 		win := func(x int) bool {
@@ -219,8 +224,8 @@ func TestFrontWindows(t *testing.T) {
 				continue
 			}
 			n++
-			if x < 2 || x > l.w-3 || x == l.entrance-1 || x == l.entrance+2 || !win(2*l.entrance+1-x) {
-				t.Errorf("window cell at x=%d: touches a side line or the Entrance, or has no mirror", x)
+			if x < 2 || x > l.w-3 || x == l.entrance-1 || x == l.entrance+2 || !win(2*l.entrance+1-x) || x == h.Kitchen.Min.X/TileSize-1 {
+				t.Errorf("window cell at x=%d: touches a side line, the Entrance or the kitchen's west wall, or has no mirror", x)
 			}
 		}
 		if n != 4*2 {

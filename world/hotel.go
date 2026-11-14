@@ -18,7 +18,8 @@ const (
 	streetRows   = 3
 	archwayWidth = 4 // on even map widths; 5 on odd ones, so it stays centered (D55)
 	counterW     = 5 // counter cells: counter_left, counter_mid..., computer, counter_right (D87)
-	stockW       = 4 // stock strip cells: the fridge, the counter (2) and the shelf, clear of the Mirror's spot
+	KitchenW     = 6 // the kitchen's prop row (07 F1): the cells of its back wall next to its west wall
+	doorwayRow   = 4 // the kitchen's open doorway, in its west wall: this row below the Hall Wall's top, and the next
 )
 
 // layout is the hotel's geometry in map cells, derived from the grid (context/02-rooms/index.md D54-D57).
@@ -32,7 +33,7 @@ type layout struct {
 	archway    int // the Archway's west column
 	archwayW   int
 	entrance   int // the Entrance's west column
-	counterX   int // counter_left: just east of the Archway
+	counterX   int // counter_left: the counter ends just west of the Archway
 }
 
 func newLayout(cols, rows int) layout {
@@ -44,7 +45,7 @@ func newLayout(cols, rows int) layout {
 	l.h = l.street + streetRows
 	l.archwayW = archwayWidth + l.w%2
 	l.archway, l.entrance = (l.w-l.archwayW)/2, l.w/2-1 // centered (D55); the Entrance sits one cell left of center on odd widths
-	l.counterX = l.archway + l.archwayW
+	l.counterX = l.archway - counterW
 	return l
 }
 
@@ -78,10 +79,11 @@ type Hotel struct {
 	ConciergeStart image.Point     // behind the counter's computer
 	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
 	Mirror         image.Point     // where the Concierge stands to shift dimensions: below the Lobby mirror (D142)
-	MirrorSpot     image.Rectangle // where SPACE shifts: the cells in front of the mirror and either side
+	MirrorSpot     image.Rectangle // where SPACE shifts: the cell in front of the mirror and the one east of it, clear of the Terminal
 	Lights         []image.Point   // ceiling lights over the Corridors (D95)
 	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
-	Stock          image.Rectangle // the stock strip, flush against the Hall Wall in the Lobby's west corner: solid, its props fetched from the row below (E8, K1)
+	Stock          image.Rectangle // the kitchen's prop row, flush against its back wall: solid, its props fetched from the row below (E8, K1, F1)
+	Kitchen        image.Rectangle // the kitchen (F1): the Lobby's part east of the Archway, walled off, its back wall's face included
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -104,8 +106,10 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	}
 	l := newLayout(cols, rows)
 	m := NewTilemap(ts, l.w, l.h)
+	kx := l.archway + l.archwayW // the kitchen's west wall line: the kitchen fills the Lobby east of the Archway (F1)
 	put := func(l, x, y int, name string) { m.Set(l, x, y, id(name)) }
 	// face: a 2-row wall face over cols x0..x1; gaps are openings (lintel on top, floor below).
+	skin := "wall"
 	face := func(x0, x1, y int, gaps ...int) {
 		in := func(x int) bool { return slices.Contains(gaps, x) }
 		for x := x0; x <= x1; x++ {
@@ -114,14 +118,14 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 				continue
 			}
 			left, right := x == x0 || in(x-1), x == x1 || in(x+1)
-			kind := "wall_mid"
+			kind := skin + "_mid"
 			switch {
 			case left && right:
-				kind = "wall_single"
+				kind = skin + "_single"
 			case left:
-				kind = "wall_left"
+				kind = skin + "_left"
 			case right:
-				kind = "wall_right"
+				kind = skin + "_right"
 			}
 			put(LayerWalls, x, y, kind+"_top")
 			put(LayerWalls, x, y+1, kind+"_bottom")
@@ -136,6 +140,15 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 				n = "floor_street" // full width, margin included
 			case y == 0 || x == 0 || x == l.w-1:
 				n = "void"
+			case x > kx && y >= l.hall && y < l.front: // the kitchen, the sheet's shadow cells under its back wall and beside its west one
+				n = "floor_kitchen"
+				if north, west := y == l.hall+2, x == kx+1; north && west {
+					n += "_nw"
+				} else if north {
+					n += "_n"
+				} else if west {
+					n += "_w"
+				}
 			}
 			put(LayerFloor, x, y, n)
 		}
@@ -162,7 +175,10 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	for x := archway; x < archway+l.archwayW; x++ {
 		gaps = append(gaps, x)
 	}
-	face(1, l.w-2, l.hall, gaps...)               // Hall Wall + Lobby Archway
+	face(1, kx, l.hall, gaps...) // Hall Wall + Lobby Archway
+	skin = "wall_kitchen"
+	face(kx+1, l.w-2, l.hall) // the kitchen's back wall: the Hall Wall's east part
+	skin = "wall"
 	face(1, l.w-2, l.front, entrance, entrance+1) // exterior face + Entrance
 	for i, n := range []string{"entrance_left", "entrance_right"} {
 		put(LayerDecor, entrance+i, l.front, n+"_top")
@@ -170,11 +186,10 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	}
 	// front windows (D67, S2 review): 2 cells wide, 2 per side, mirrored about the Entrance and evenly
 	// spaced along the wall between the side line (x=1) and the Entrance; a spare cell widens the middle gap
-	spare := entrance - 2 - 2*2 // free wall cells in x=2..entrance-1, around the 2 windows
-	a := 2 + spare/3
-	b := a + 2 + spare - 2*(spare/3)
-	for _, d := range []int{entrance - a, entrance - b} {
-		for _, x := range []int{entrance - d, entrance + d} {
+	// F1: the east pair stands evenly on the kitchen's part of the wall (x=kx+1..w-3), so none straddles its west wall
+	edge := (l.w - 3 - kx - 2*2) / 3 // free wall cells between a window and the kitchen's side walls
+	for _, w := range []int{kx + 1 + edge, l.w - 4 - edge} {
+		for _, x := range []int{w, 2*entrance - w} {
 			for c := range 4 {
 				put(LayerDecor, x+c%2, l.front+c/2, fmt.Sprintf("prop_window_front_r%dc%d", c/2, c%2))
 			}
@@ -188,7 +203,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 			}
 		}
 	}
-	computer := l.counterX + counterW - 2
+	computer := l.counterX + 1 // away from the Archway
 	for x := l.counterX; x < l.counterX+counterW; x++ {
 		n := "counter_mid"
 		switch x {
@@ -196,13 +211,13 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 			n = "counter_left"
 		case computer:
 			n = "counter_computer_bottom"
-		case computer + 1:
+		case l.counterX + counterW - 1:
 			n = "counter_right"
 		}
 		put(LayerDecor, x, l.counter, n)
 	}
 	put(LayerDecor, computer, l.counter-1, "counter_computer_top")
-	mirror := archway - 2 // on the Hall Wall face, west of the Archway (D142)
+	mirror := archway - 2 // on the Hall Wall face, 2 cells west of the Archway, behind the counter (D142, F1)
 	put(LayerDecor, mirror, l.hall, "prop_mirror_r0c0")
 	put(LayerDecor, mirror, l.hall+1, "prop_mirror_r1c0")
 	// hotel outer side walls: one unbroken line over every wall that meets them; Rooms never stamp over it
@@ -213,6 +228,22 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 		}
 		put(LayerDecor, x, l.front, "border_"+side+"_corner")
 	}
+	// the kitchen's west wall, its doorway open: the part above the doorway ends on a face of its own, in the
+	// hotel's wallpaper and as wide as the line, as every side line ends on a face
+	put(LayerDecor, kx, l.hall, "border_east_top")
+	for y := l.hall + 1; y < l.front; y++ {
+		switch d := y - l.hall - doorwayRow; {
+		case d == -2:
+			put(LayerDecor, kx, y, "border_east_corner")
+			put(LayerWalls, kx, y, "wall_stub_top")
+			put(LayerWalls, kx, y+1, "wall_stub_bottom")
+		case d < -2 || d > 1:
+			put(LayerDecor, kx, y, "border_east")
+		}
+	}
+	// it ends on the front face as the outer lines do: the face's top row is walkable (D66), and without this
+	// one walked round the wall's end, behind the face (live test, 2026-11-14)
+	put(LayerDecor, kx, l.front, "border_east_corner")
 	for i, r := range h.Rooms {
 		for c := range 6 { // a doormat on the Corridor, flush below the door (D70)
 			put(LayerDecor, r.Door.X-1+c%3, r.Door.Y+2+c/3, fmt.Sprintf("prop_doormat_r%dc%d", c/3, c%3))
@@ -245,10 +276,11 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	h.Lobby = image.Rect(TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
 	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize)
 	h.Mirror = cellCenter(mirror, l.hall+2)
-	h.MirrorSpot = image.Rect((mirror-1)*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
-	h.Stock = image.Rect(2*TileSize, (l.hall+2)*TileSize, (2+stockW)*TileSize, (l.hall+3)*TileSize)
+	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize)
+	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (l.w-1)*TileSize, l.front*TileSize)
+	h.Stock = image.Rect((kx+1)*TileSize, (l.hall+2)*TileSize, (kx+1+KitchenW)*TileSize, (l.hall+3)*TileSize)
 	m.Block = map[image.Point]bool{}
-	for x := 2; x < 2+stockW; x++ { // nobody walks over the props (K1, 2026-11-11)
+	for x := kx + 1; x <= kx+KitchenW; x++ { // nobody walks over the props (K1, 2026-11-11)
 		m.Block[image.Pt(x, l.hall+2)] = true
 	}
 	return h, nil

@@ -5,7 +5,7 @@
  "name": "hotel",
  "tilewidth": 16,
  "tileheight": 16,
- "tilecount": 131,
+ "tilecount": 143,
  "columns": 0,
  "margin": 0,
  "spacing": 0,
@@ -2341,6 +2341,198 @@
       "height": 16
      }
     ]
+   }
+  },
+  {
+   "id": 133,
+   "image": "wall_kitchen_left_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 134,
+   "image": "wall_kitchen_left_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 135,
+   "image": "wall_kitchen_mid_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 136,
+   "image": "wall_kitchen_mid_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 137,
+   "image": "wall_kitchen_right_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 138,
+   "image": "wall_kitchen_right_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "width": 16,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
+   }
+  },
+  {
+   "id": 139,
+   "image": "floor_kitchen.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 140,
+   "image": "floor_kitchen_n.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 141,
+   "image": "floor_kitchen_w.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 142,
+   "image": "floor_kitchen_nw.png",
+   "imagewidth": 16,
+   "imageheight": 16
+  },
+  {
+   "id": 143,
+   "image": "wall_stub_top.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "properties": [
+    {
+     "name": "base",
+     "type": "int",
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": 144,
+   "image": "wall_stub_bottom.png",
+   "imagewidth": 16,
+   "imageheight": 16,
+   "objectgroup": {
+    "draworder": "index",
+    "id": 2,
+    "name": "",
+    "objects": [
+     {
+      "id": 1,
+      "name": "",
+      "type": "",
+      "rotation": 0,
+      "visible": true,
+      "x": 10,
+      "y": 0,
+      "width": 6,
+      "height": 16
+     }
+    ],
+    "opacity": 1,
+    "type": "objectgroup",
+    "visible": true,
+    "x": 0,
+    "y": 0
    }
   }
  ]

@@ -20,10 +20,11 @@ func TestWallGraph(t *testing.T) {
 	want := []span{
 		{2, 22, 154}, {2, 160, 192}, {2, 198, 330}, // the north wall: Room 101's back wall, the Corridor's, Room 102's
 		{9, 22, 154}, {9, 198, 330}, // the Rooms' south faces, across their doors
-		{13, 22, 144}, {13, 208, 330}, // the Hall Wall: the Archway makes it two walls
-		{21, 22, 330}, // the front face, across the Entrance
+		{13, 22, 144}, {13, 224, 330}, // the Hall Wall: the Archway makes it two walls, the east one the kitchen's back wall, from its west wall's line (F1)
+		{21, 22, 218}, {21, 224, 330}, // the front face, across the Entrance: the kitchen's west wall ends on it, and makes it two (F1)
 	}
-	links := [][]int{{1, 3}, {0, 2, 3}, {1, 4}, {0, 1, 5}, {2, 6}, {3, 7}, {4, 7}, {5, 6}} // down the outer walls, across behind the Corridor's side lines
+	// down the outer walls and the kitchen's west one, across behind the Corridor's side lines
+	links := [][]int{{1, 3}, {0, 2, 3}, {1, 4}, {0, 1, 5}, {2, 6}, {3, 7}, {4, 7, 8}, {5, 6, 8}, {6, 7}}
 	if len(g.walls) != len(want) {
 		t.Fatalf("%d runs, want %d: %+v", len(g.walls), len(want), g.walls)
 	}

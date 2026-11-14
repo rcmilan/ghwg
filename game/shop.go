@@ -219,9 +219,12 @@ func (g *Game) placeOrder() string {
 // their own.
 func (g *Game) ship(order []cartLine) {
 	c := &courier{Guest: entities.NewGuest(g.hotel.Spawn, courierName)}
+	var stops []drop // one per Supply ordered, at its prop (F1)
 	stock := drop{at: g.stockDrop()}
 	for _, l := range order {
 		switch it := shop[l.item]; {
+		case supplyOf(it.ID) >= 0:
+			stops = append(stops, drop{at: g.supplyDrop(supplyOf(it.ID)), lines: []cartLine{l}})
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
 		case it.ID == rowKey || it.ID == RoomMirror: // walked to the Room's own door
@@ -233,8 +236,9 @@ func (g *Game) ship(order []cartLine) {
 		}
 	}
 	if len(stock.lines) > 0 {
-		c.drops = append([]drop{stock}, c.drops...)
+		stops = append(stops, stock)
 	}
+	c.drops = append(stops, c.drops...)
 	if len(c.drops) > 0 {
 		c.SetPath(g.hotel.Path(g.hotel.Spawn, c.drops[0].at, -1))
 		g.couriers = append(g.couriers, c)

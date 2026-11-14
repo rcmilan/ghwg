@@ -60,17 +60,24 @@ type prop struct {
 	y, cx, cy int // sort y (world px), cell
 	l         int // layer
 	id        world.TileID
+	band      *ebiten.Image // its part of the walls' top band, drawn over it (world/band.go); nil without one
+	bx, by    int           // where the band's part starts, in cell px
 }
 
 // sortedProps lists the props by sort y; within a cell, layers keep their order.
 func (g *Game) sortedProps() []prop {
 	m := g.hotel.Map
+	bands := m.Bands()
 	var ps []prop
 	for l := world.LayerFloor + 1; l < world.NumLayers; l++ {
 		for y := range m.H {
 			for x := range m.W {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
-					ps = append(ps, prop{m.TileSortY(l, x, y), x, y, l, id})
+					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
+					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
+						p.band, p.bx, p.by = ebiten.NewImageFromImage(bands.SubImage(r.Add(image.Pt(x, y).Mul(world.TileSize)))), r.Min.X, r.Min.Y
+					}
+					ps = append(ps, p)
 				}
 			}
 		}
@@ -237,12 +244,19 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.covered(p) { // the lobby Mirror, until it's installed
 			img = g.coverHalf(g.ts.Tiles[p.id].Name)
 		}
-		if f := g.propFog(p); f > 0 {
-			drawFogged(screen, img, op, f)
-		} else if maze(g.ts.Tiles[p.id].Name) {
-			g.blit(screen, img, op, modeMaze, 1, nil, s)
-		} else {
-			g.blit(screen, img, op, modeProp, 0, nil, s)
+		put := func(img *ebiten.Image) {
+			if f := g.propFog(p); f > 0 {
+				drawFogged(screen, img, op, f)
+			} else if maze(g.ts.Tiles[p.id].Name) {
+				g.blit(screen, img, op, modeMaze, 1, nil, s)
+			} else {
+				g.blit(screen, img, op, modeProp, 0, nil, s)
+			}
+		}
+		put(img)
+		if p.band != nil {
+			op.GeoM.Translate(float64(p.bx*zoom), float64(p.by*zoom))
+			put(p.band)
 		}
 		if p.l == world.LayerWalls {
 			g.drawShadow(screen, p, ox, oy)
@@ -261,7 +275,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	stock := func() { // the stock props: over the wall they stand against, under whoever stands in front
 		if !stocked {
 			propsUpTo(stockY)
-			g.drawSupplies(screen, ox, oy)
+			g.drawKitchen(screen, ox, oy)
 			stocked = true
 		}
 	}

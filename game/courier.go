@@ -9,8 +9,8 @@ import (
 	"ghosthotel/world"
 )
 
-// Courier and stock (D200): checkout sends a courier with the order. He drops Supplies and unlocks at the
-// stock, left of the entrance hall, then leaves. Placeholders.
+// Courier and stock (D200): checkout sends a courier with the order. He fills each Supply at its prop in the
+// kitchen (F1), drops the unlocks there too, then leaves. Placeholders.
 const (
 	courierSpeed = conciergeSpeed
 	courierName  = "Courier"     // Alex in a brown uniform (T240)
@@ -34,7 +34,7 @@ type drop struct {
 	lines []cartLine
 }
 
-// stockDrop: where the courier stands to fill the stock, the cell below the middle of the area.
+// stockDrop: where the courier drops the unlocks, the cell below the middle of the kitchen's prop row.
 func (g *Game) stockDrop() image.Point {
 	s := g.hotel.Stock
 	return image.Pt((s.Min.X+s.Max.X)/2, s.Max.Y+world.TileSize/2)

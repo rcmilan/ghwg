@@ -9,9 +9,13 @@ import (
 // Path costs (D89): a step costs stepCost, plus keepRightCost when the cell to its right (for the
 // direction of travel) is open floor too. So paths hug the right-hand side and two-way traffic splits into
 // lanes in every Corridor of 2 or more cells, at most ~30% longer than the shortest route.
+// The Lobby Archway's side columns are one-way, down on the west and up on the east (F1, 2026-11-14): a step
+// the wrong way costs wrongWayCost more, so nobody walks up the column the others walk down, against the
+// Hall Wall, unless the rest of the Archway is taken.
 const (
 	stepCost      = 10
 	keepRightStep = 3
+	wrongWayCost  = 4 * stepCost
 )
 
 var keepRightCost = keepRightStep // a var so tests can compare against the plain shortest path
@@ -61,6 +65,9 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 			k := c.cost + stepCost
 			if r := n.Add(image.Pt(-d.Y, d.X)); open(r) && m.At(LayerWalls, r.X, r.Y) == 0 { // the right hand (y points down): floor, not a wall's rect-free top row
 				k += keepRightCost
+			}
+			if l := h.l; n.Y >= l.hall && n.Y <= l.hall+1 && (d.Y < 0 && n.X == l.archway || d.Y > 0 && n.X == l.archway+l.archwayW-1) {
+				k += wrongWayCost
 			}
 			if cost[idx(n)] < 0 || k < cost[idx(n)] {
 				prev[idx(n)], cost[idx(n)] = c.at, k
