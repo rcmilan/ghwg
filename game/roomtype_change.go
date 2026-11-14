@@ -220,6 +220,6 @@ func (g *Game) DevTerm(tab, row int, place bool) {
 	g.openTerminal()
 	g.termTab = Tab(tab)
 	if g.termPick = row; place {
-		g.message = g.press()
+		g.refuse(g.press())
 	}
 }

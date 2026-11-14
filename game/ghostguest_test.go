@@ -325,8 +325,8 @@ func TestMirrorCoveredAndDelivered(t *testing.T) {
 	g.player.X, g.player.Y = float64(g.hotel.Mirror.X), float64(g.hotel.Mirror.Y)
 	s.hold(ebiten.KeySpace)
 	g.Update()
-	if g.shifting != nil || g.message == "" {
-		t.Fatalf("SPACE at the covered Mirror: shifting %v, message %q; want a refusal", g.shifting != nil, g.message)
+	if g.shifting != nil || g.refused == "" {
+		t.Fatalf("SPACE at the covered Mirror: shifting %v, message %q; want a refusal", g.shifting != nil, g.refused)
 	}
 	s.hold()
 	g.wallet[Money] = mirrorPrice

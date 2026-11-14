@@ -16,7 +16,8 @@ import (
 
 // openTerminal pauses the world on the Terminal (D73), on its store. ESC closes it; the cart stays.
 func (g *Game) openTerminal() {
-	g.state, g.message, g.termTab = StateTerminal, "", min(g.termTab, tabs-1)
+	g.state, g.termTab = StateTerminal, min(g.termTab, tabs-1)
+	g.refuse("")
 	g.termPick = min(g.termPick, g.rowCount()-1)
 }
 
@@ -43,18 +44,22 @@ func (g *Game) rowCount() int {
 // checks out.
 func (g *Game) updateTerminal() {
 	key := g.in.JustPressed
+	said := "" // a move drops the notice; SPACE says how it went
 	switch {
 	case key(ebiten.KeyA):
-		g.termTab, g.termPick, g.message = (g.termTab+tabs-1)%tabs, 0, ""
+		g.termTab, g.termPick = (g.termTab+tabs-1)%tabs, 0
 	case key(ebiten.KeyD):
-		g.termTab, g.termPick, g.message = (g.termTab+1)%tabs, 0, ""
+		g.termTab, g.termPick = (g.termTab+1)%tabs, 0
 	case key(ebiten.KeyW):
-		g.termPick, g.message = (g.termPick+g.rowCount()-1)%g.rowCount(), ""
+		g.termPick = (g.termPick + g.rowCount() - 1) % g.rowCount()
 	case key(ebiten.KeyS):
-		g.termPick, g.message = (g.termPick+1)%g.rowCount(), ""
+		g.termPick = (g.termPick + 1) % g.rowCount()
 	case key(ebiten.KeySpace):
-		g.message = g.press()
+		said = g.press()
+	default:
+		return
 	}
+	g.refuse(said)
 }
 
 // press is SPACE on the picked row: what the store says back.
@@ -63,7 +68,7 @@ func (g *Game) press() string {
 		if g.termPick < len(g.cart) {
 			g.removeLine(g.termPick)
 			g.termPick = min(g.termPick, len(g.cart))
-			return "REMOVED"
+			return ""
 		}
 		if why := g.placeOrder(); why != "" {
 			return why
@@ -324,7 +329,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	case g.affords(i):
 		g.drawButton(s, "ADD TO CART", paneX+12, bodyY+paneH-44, paneW-24)
 	default:
-		g.tintedAt(s, "NOT ENOUGH IN THE WALLET", paneX+12, bodyY+paneH-34, 2, assets.Locked, 1)
+		g.tintedAt(s, "CAN'T AFFORD", paneX+12, bodyY+paneH-34, 2, assets.Locked, 1)
 	}
 }
 
@@ -350,7 +355,7 @@ func (g *Game) drawCart(s *ebiten.Image) {
 	g.tintedAt(s, "ORDER TOTAL", paneX+12, bodyY+12, 2, storeInk, 1)
 	g.drawPrice(s, g.cartTotal(), paneX+12, bodyY+52, 3)
 	if len(g.cart) > 0 && !g.afford(g.cartTotal()) {
-		g.tintedAt(s, "NOT ENOUGH IN THE WALLET", paneX+12, bodyY+110, 1, assets.Locked, 1)
+		g.tintedAt(s, "CAN'T AFFORD", paneX+12, bodyY+110, 1, assets.Locked, 1)
 	}
 	g.tintedAt(s, "DELIVERED TO THE HOTEL", paneX+12, bodyY+130, 1, storeAccent, 1)
 	y := bodyY + paneH - 44

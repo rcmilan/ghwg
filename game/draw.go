@@ -106,7 +106,6 @@ func (g *Game) sortedProps() []prop {
 func rect(s *ebiten.Image, x, y, w, h int, c color.Color) {
 	ebitenutil.DrawRect(s, float64(x), float64(y), float64(w), float64(h), c)
 }
-func text(s *ebiten.Image, v string, x, y int, _ color.Color) { printAt(s, v, x, y, 1, color.White, 1) }
 
 // inkBuf: the debug font's glyphs carry a baked half-alpha black shadow; printed here, then drawn with
 // alpha := red, only the white glyph pixels stay (no text shadows, 2026-11-08).
@@ -173,14 +172,16 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	if g.state == StatePause {
 		g.drawPause(screen)
 	}
-	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own
-	text(screen, g.message, 28, 518, assets.Accent)
+	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own; the notice too: there is no message line
 }
 
 func (g *Game) drawTitle(s *ebiten.Image) {
-	text(s, "G H O S T   H O T E L", 345, 195, assets.Ghost)
-	text(s, "[ SPACE ] open the hotel", 362, 335, assets.Money)
-	text(s, "WASD move / SPACE use / TAB hotel / ESC pause", 290, 485, assets.Floor)
+	for _, l := range [...]struct {
+		v    string
+		x, y int
+	}{{"G H O S T   H O T E L", 345, 195}, {"[ SPACE ] open the hotel", 362, 335}, {"WASD move / SPACE use, or the hotel / ESC pause", 284, 485}} {
+		printAt(s, l.v, l.x, l.y, 1, color.White, 1)
+	}
 }
 
 // drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at

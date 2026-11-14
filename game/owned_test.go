@@ -107,7 +107,7 @@ func TestRoomKey(t *testing.T) {
 		t.Errorf("price after one key %v; want it above the first, %v", g.priceOf(k), keyPrice(0))
 	}
 	g.wallet[Money] = keyPrice(1) - 1
-	if why := g.addToCart(k, 0); why != "NOT ENOUGH IN THE WALLET" {
+	if why := g.addToCart(k, 0); why != "CAN'T AFFORD" {
 		t.Errorf("a key one dollar short: %q", why)
 	}
 	g.wallet[Money] = keyPrice(1)

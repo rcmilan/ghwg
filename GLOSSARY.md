@@ -68,7 +68,7 @@ _Avoid_: desk, reception
 The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
 
 **Hotel view**:
-The whole hotel seen from afar: TAB, from anywhere, pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; TAB or ESC closes it in one press.
+The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Pause**:
@@ -287,3 +287,7 @@ _Avoid_: expansion (as the mechanic's name), upgrade, Spin
 
 **Grower**:
 The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.
+
+**Notice**:
+The HUD's place for words to the player: one text on its left column, white outlined in black, on no background, under the Money counter and the next-guest note, sliding in, holding three seconds and sliding out. The game says nothing through it today: it has no system text, neither a confirmation nor a refusal. What a buy did shows in the world and on the counters; what can't be bought looks it (a dimmed row, a covered Mirror); only the store's own page uses words, kept short ("CAN'T AFFORD"). The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a system text.
+_Avoid_: message, message line, status bar, toast

@@ -8,11 +8,11 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// The hotel view (07 U1, replacing T1's ROOMS tab): TAB, from anywhere, stops the world and pulls the camera
+// The hotel view (07 U1, replacing T1's ROOMS tab): SPACE, wherever it has nothing else to do (U2), stops the world and pulls the camera
 // back to the whole hotel. The Rooms themselves are the overview; WASD moves a highlight Room to Room and
 // SPACE opens that Room's actions, each paid at once, no cart (a change of type takes a third SPACE for its
 // beds). g.termDepth is how far in: 1 the Rooms, 2 a Room's actions, 3 the beds of its change. A/D steps
-// back one level; TAB or ESC closes it, in one press from any depth.
+// back one level; ESC closes it, in one press from any depth.
 
 const (
 	viewFrames = 20 // the pull-back, each way
@@ -22,7 +22,8 @@ const (
 )
 
 func (g *Game) openView() {
-	g.state, g.message, g.termDepth = StateView, "", 1
+	g.state, g.termDepth = StateView, 1
+	g.refuse("")
 	g.termCursor = min(g.termCursor, len(g.hotel.Rooms)-1)
 	for i, r := range g.hotel.Rooms { // the highlight starts on the Room you stand in
 		if g.feet().In(r.Shell()) {
@@ -64,10 +65,6 @@ func (g *Game) buyNow(i, room int) string {
 // updateView is the hotel view's keys.
 func (g *Game) updateView() {
 	key := g.in.JustPressed
-	if key(ebiten.KeyTab) {
-		g.state, g.message = StatePlay, ""
-		return
-	}
 	n, room := len(g.hotel.Rooms), g.termCursor
 	cols, _ := g.hotel.Grid()
 	rows := tabItems(tabRooms)
@@ -88,24 +85,29 @@ func (g *Game) updateView() {
 		default:
 			return
 		}
-		g.message = ""
+		g.refuse("")
 	case 2:
 		switch {
 		case back:
-			g.termDepth, g.message = 1, ""
+			g.termDepth = 1
+			g.refuse("")
 		case key(ebiten.KeyW):
-			g.termPick, g.message = (g.termPick+len(rows)-1)%len(rows), ""
+			g.termPick = (g.termPick + len(rows) - 1) % len(rows)
+			g.refuse("")
 		case key(ebiten.KeyS):
-			g.termPick, g.message = (g.termPick+1)%len(rows), ""
+			g.termPick = (g.termPick + 1) % len(rows)
+			g.refuse("")
 		case key(ebiten.KeySpace):
 			i := rows[g.termPick]
 			c := g.changeFor(room)
 			switch {
 			case shop[i].ID == rowChange && c != nil: // the same row calls a waiting change off
 				g.cancelChange(c)
-				g.message, g.termDepth = "CHANGE CANCELLED: "+price(c.paid)+" BACK", 1
+				g.termDepth = 1
+				g.refuse("") // the fee coming back shows on the Money counter
 			case shop[i].ID == rowChange && g.isOwned(room) && !g.changing(room): // its beds next, each with its fee
-				if g.termDepth, g.message = 3, ""; !g.bedOpen(g.termBeds) {
+				g.refuse("")
+				if g.termDepth = 3; !g.bedOpen(g.termBeds) {
 					g.termBeds = 0
 				}
 			default:
@@ -115,7 +117,8 @@ func (g *Game) updateView() {
 	case 3:
 		switch {
 		case back:
-			g.termDepth, g.message = 2, ""
+			g.termDepth = 2
+			g.refuse("")
 		case key(ebiten.KeyW):
 			g.pickBeds(-1)
 		case key(ebiten.KeyS):
@@ -126,11 +129,13 @@ func (g *Game) updateView() {
 	}
 }
 
-// pay1 buys the action for the Room and says so; bought, the highlight is back on the Rooms.
+// pay1 buys the action for the Room, or says why not; bought, the highlight is back on the Rooms.
 func (g *Game) pay1(i, room int) {
-	if g.message = g.buyNow(i, room); g.message == "" {
-		g.message, g.termDepth = strings.ToUpper(shop[i].Name)+" FOR ROOM "+g.hotel.Rooms[room].Number+": PAID", 1
+	why := g.buyNow(i, room)
+	if why == "" { // no confirmation: the counter rolls and the courier walks in (show, don't tell)
+		g.termDepth = 1
 	}
+	g.refuse(why)
 }
 
 // viewAt: the pulled-back camera at g.viewT. A world px p shows at p*k + (tx,ty) screen px; at viewT 0 that is
@@ -191,7 +196,7 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	if g.termDepth >= 2 {
 		g.drawActions(screen, r)
 	}
-	help := [...]string{"", "WASD ROOM   SPACE OPEN   TAB CLOSE", "W/S ACTION   SPACE BUY NOW   A/D BACK   TAB CLOSE", "W/S BEDS   SPACE BUY NOW   A/D BACK   TAB CLOSE"}[g.termDepth]
+	help := [...]string{"", "WASD ROOM   SPACE OPEN   ESC CLOSE", "W/S ACTION   SPACE BUY NOW   A/D BACK   ESC CLOSE", "W/S BEDS   SPACE BUY NOW   A/D BACK   ESC CLOSE"}[g.termDepth]
 	x := screenW - 16 - len(help)*glyphW
 	rect(screen, x-6, screenH-22, len(help)*glyphW+12, glyphH+2, storeInk)
 	g.tinted(screen, help, x, screenH-21, storeBarInk, 1)

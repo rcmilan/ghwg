@@ -147,7 +147,7 @@ func (g *Game) addToCart(i, room int) string {
 	case g.owned(i):
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
-		return "NOT ENOUGH IN THE WALLET"
+		return "CAN'T AFFORD"
 	case it.Grow != 0 && g.growRefuse(it.Grow) != "":
 		return g.growRefuse(it.Grow)
 	case it.room():
