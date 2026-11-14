@@ -25,11 +25,11 @@ const (
 	RoomMirror Unlock = "room-mirror" // the in-Room Mirror, a Service bought once
 	rowChange  Unlock = "change-type"
 
-	reelFrames     = 60 // one Room's reel roll, ~1 s (D48)
-	roomMirrorEcto = 90 // Ectoplasm: the in-Room Mirror
-	changeEcto     = 5  // Ectoplasm: each change, once the in-Room Mirror is bought
-	deluxeEcto     = 60 // Ectoplasm: the Deluxe tier (placeholder, tuned in 4c)
-	deluxeFee      = 25 // Ectoplasm: a Room's upgrade to Deluxe (placeholder)
+	reelFrames     = 60  // one Room's reel roll, ~1 s (D48)
+	roomMirrorEcto = 120 // Ectoplasm: the in-Room Mirror
+	changeEcto     = 5   // Ectoplasm: each change, once the in-Room Mirror is bought
+	deluxeEcto     = 120 // Ectoplasm: the Deluxe tier
+	deluxeFee      = 40  // Ectoplasm: a Room's upgrade to Deluxe
 	deluxeTier     = "Deluxe"
 )
 

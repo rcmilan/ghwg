@@ -25,7 +25,7 @@ func until(t *testing.T, g *Game, what string, ok func() bool) {
 // Room that asks, and the delivery pays as the Concierge's does.
 func TestKeeperServes(t *testing.T) {
 	g, _, p := settled(t)
-	g.earned[Money], g.wallet[Money] = 2*keeperFee, keeperFee
+	g.earned[Money], g.wallet[Money] = keeperEarned, keeperFee
 	g.state = StateTerminal
 	if why := g.addToCart(row(t, rowKeeper), -1); why != "" {
 		t.Fatal(why)

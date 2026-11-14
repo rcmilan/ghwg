@@ -112,14 +112,31 @@ func goTo(to image.Point) action {
 }
 
 // route: a path from at to `to` around the guests in sight; through them if they wall it off. A Room's
-// door is open to the path only when `to` is in that doorway.
+// door is open to the path only when `to` is in that doorway. From one Room into another it is two paths, out
+// to the first one's door spot and on (2026-11-14, 4c: only one door opens to a path, so he stood in a Room for
+// good while the next one's dirt waited).
 func (p *Pilot) route(v View, at, to image.Point) []image.Point {
 	m := p.hotel.Map
-	own, c := -1, m.Cell(to)
+	own, in, c := -1, -1, m.Cell(to)
 	for i, r := range p.hotel.Rooms {
-		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) || at.In(r.Shell()) { // into or out of a Room: its door is open
+		if at.In(r.Shell()) {
+			in = i
+		}
+		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) { // into a Room: its door is open
 			own = i
 		}
+	}
+	if in >= 0 && own >= 0 && in != own {
+		s := p.hotel.Rooms[in].Spot()
+		out := s.Min.Add(s.Max).Div(2)
+		a, b := p.route(v, at, out), p.route(v, out, to)
+		if a == nil || b == nil {
+			return nil
+		}
+		return append(a, b...)
+	}
+	if own < 0 {
+		own = in // out of a Room: its door is open
 	}
 	var avoid []image.Point
 	for _, cell := range v.Guests {
@@ -151,10 +168,20 @@ func (p *Pilot) OpenTerminal() {
 }
 
 // Flip walks to the Mirror and presses SPACE, unless the hotel is already in that dimension: then it
-// does nothing at all.
+// does nothing at all. In a Room with its own Mirror it uses that one (2026-11-14, 4c).
 func (p *Pilot) Flip(ghost bool) {
-	walk, walked, taps := goTo(p.hotel.Mirror), false, 0
+	var walk action
+	spot, walked, taps := p.hotel.MirrorSpot, false, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
+		if walk == nil {
+			to := p.hotel.Mirror
+			for _, r := range p.hotel.Rooms {
+				if v.Concierge.In(r.Shell()) && !r.Mirror.Empty() {
+					spot, to = r.Mirror, r.Mirror.Min.Add(r.Mirror.Max).Div(2)
+				}
+			}
+			walk = goTo(to)
+		}
 		switch {
 		case v.MirrorLocked && v.Ghost != ghost: // covered: nothing to flip with
 			return true, false
@@ -167,7 +194,7 @@ func (p *Pilot) Flip(ghost bool) {
 				return true, false
 			}
 			walked = done
-		case taps >= 3 || !v.Concierge.In(p.hotel.MirrorSpot):
+		case taps >= 3 || !v.Concierge.In(spot):
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++
@@ -217,8 +244,21 @@ func (p *Pilot) Serve(room int) {
 }
 
 // Clean walks to the dirt spot at (world px) in the Room and presses SPACE until the Room's spots drop.
-// It fails when they don't after 3 taps.
+// It fails when they don't after 3 taps. A spot under the Room's own Mirror is cleaned from the nearest floor
+// below it: SPACE there shifts, and anywhere in the Room cleans (2026-11-14, 4c).
 func (p *Pilot) Clean(room int, at image.Point) {
+	if r, m := p.hotel.Rooms[room], p.hotel.Map; at.In(r.Mirror) {
+		c := m.Cell(at)
+	find:
+		for dy := 1; dy <= world.RoomH; dy++ {
+			for _, dx := range [...]int{0, -1, 1} {
+				if n := m.Center(c.X+dx, c.Y+dy); !m.Solid(c.X+dx, c.Y+dy) && n.In(r.Shell()) {
+					at = n
+					break find
+				}
+			}
+		}
+	}
 	p.GoTo(at)
 	n, taps := -1, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
@@ -228,6 +268,8 @@ func (p *Pilot) Clean(room int, at image.Point) {
 		switch {
 		case len(v.Rooms[room].Dirt)+len(v.Rooms[room].Spirit) < n:
 			return true, true
+		case v.Terminal.View: // the stain was gone (its Room was refurnished) and SPACE opened the hotel view: no more SPACE, the next is a Room's action
+			return true, false
 		case taps >= 3:
 			return true, false
 		case p.tap(ebiten.KeySpace):

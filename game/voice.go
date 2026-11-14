@@ -49,7 +49,7 @@ func (g *Game) speakers() []speaker {
 
 // sometimes: the lines, keeperChat of the times; else nothing.
 func (g *Game) sometimes(lines []string) []string {
-	if g.chat.Float64() < keeperChat {
+	if g.words.Float64() < keeperChat {
 		return lines
 	}
 	return nil
@@ -66,7 +66,7 @@ func (g *Game) comeNear(guest *entities.Guest, v *voice, lines func() []string) 
 			}
 		}
 		if ls := lines(); len(ls) > 0 {
-			v.said = line{0, ls[g.chat.IntN(len(ls))], g.tick}
+			v.said = line{0, ls[g.words.IntN(len(ls))], g.tick}
 		}
 	}
 	v.near = near

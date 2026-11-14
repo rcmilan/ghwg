@@ -91,7 +91,7 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 
 	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Icon: keeperName, Head: true,
-		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: 2 * keeperFee}},
+		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
@@ -126,6 +126,9 @@ func (l cartLine) cost() Cost {
 func (g *Game) onSale(i int) bool {
 	it := shop[i]
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
+		return false
+	}
+	if it.ID == Deluxe && !g.grown() { // the hotel expands first (2026-11-14)
 		return false
 	}
 	var since [2]Num

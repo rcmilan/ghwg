@@ -93,12 +93,12 @@ func (g *Game) shadowGap(room int) int {
 }
 
 // dashGap: frames to a Shadow's next dash. A ghost's Shadow (area) dashes as often as its ghost haunts: the
-// Haunt minutes of the most relentless strong ghost in the Room (Z1, 2026-11-13). A free Shadow keeps shadowGap.
+// Haunt minutes of the most relentless ghost in the Room (Z1, 2026-11-13). A free Shadow keeps shadowGap.
 func (g *Game) dashGap(room int, sh *shade) int {
 	gap := 0
 	if _, in := g.insideIn(room, Ghost); sh.area {
 		for _, ghost := range in {
-			if strong(ghost) && ghost.Haunt > 0 && (gap == 0 || ghost.Haunt < gap) {
+			if ghost.Haunt > 0 && (gap == 0 || ghost.Haunt < gap) {
 				gap = ghost.Haunt
 			}
 		}
@@ -243,16 +243,16 @@ func (g *Game) areaOn(run int) bool {
 // areaGap: game minutes between the dashes of a Corridor's or the hall's Shadow (placeholder).
 const areaGap = 20
 
-// updateAreaShades runs each frame: every area holding a strong ghost of the map has its Shadow People on,
+// updateAreaShades runs each frame: a Room holding a ghost, and any other area holding a strong one, has its Shadow People on,
 // faded in; the ones whose ghost left fade out and go. In a Room it is the old Shadow (updateShadows): it
 // dashes along the back wall while a human is in, frightens one who sees it, a Strong Priest banishes it
 // (until the ghost leaves); kept at full essence while the ghost stays. In a Corridor or the hall it is the
 // same figure dashing along that wall now and then, frightening a human who sees it there. A weak ghost
-// switches nothing on. A flag on the area, not a figure bound to the ghost.
+// switches on its Room's only. A flag on the area, not a figure bound to the ghost.
 func (g *Game) updateAreaShades() {
 	on := map[int]bool{}
 	for _, guest := range g.guestsIn(Ghost) {
-		if k := g.areaRun(guest.X, guest.Y); k >= 0 && strong(guest) {
+		if k := g.areaRun(guest.X, guest.Y); k >= 0 && (strong(guest) || g.roomOfRun(k) >= 0) { // any ghost in a Room, a strong one anywhere
 			on[k] = true
 		}
 	}
@@ -273,7 +273,7 @@ func (g *Game) updateAreaShades() {
 		if on[run] && len(g.shades[i]) == 0 && !g.hushed[i] {
 			g.placeShadow(i)
 			g.shades[i][0].area = true
-			g.shades[i][0].next = g.clock + g.dashGap(i, g.shades[i][0])
+			g.shades[i][0].next = g.clock // it dashes as its ghost comes in, as a human pays from the door (2026-11-14), then every dashGap
 		}
 		for _, sh := range g.shades[i] {
 			if sh.area {
@@ -339,7 +339,7 @@ func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 			sh.seen[guest] = g.tick
 			g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
 			who := slices.Index(p.Guests, guest)
-			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, lines[g.chat.IntN(len(lines))], g.tick})
+			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, lines[g.words.IntN(len(lines))], g.tick})
 		}
 	}
 }

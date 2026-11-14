@@ -19,6 +19,9 @@ type Guest struct {
 	FleeAt      int           // the Fear at which its Party steps out, then flees (D146)
 	Phantasm    int           // how ghostly it is: sight and strength (07 stats; V1 reads it)
 	Haunt       int           // x, haunt frequency: game minutes between its haunts (a ghost; G1 reads it)
+	HauntAt     int           // the game minute its haunts count from: the one it settled in, so the Rooms' haunts do not all fall together (2026-11-14)
+	Haunted     int           // a ghost: the haunts it has done. At its Phantasm it is spent and passes on (2026-11-14)
+	PassAt      int           // the clock it began to pass on, 0 until then
 	Anim        Anim
 
 	best     float64 // shortest remaining path seen on this path
