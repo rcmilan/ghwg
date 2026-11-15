@@ -40,11 +40,12 @@ const (
 	clockRadius = 110   // screen px
 )
 
-// fatherP: Adam, the one sheet no Father wears, in a plum cassock with a gold collar.
+// fatherP: Adam, the one sheet no Father wears, in Pucci's colors (08 W3 live test): white hair, dark skin, a black
+// cassock.
 var fatherP = struct {
 	name string
 	look look
-}{"Father P", look{hair: 0xb04a2a, top: 0x3a1f4a, bottom: 0x24202a}}
+}{"Father P", look{hair: 0xeceaf2, skin: 0x7a4e36, top: 0x1c1a22, bottom: 0x141218}}
 
 var pLines = [...]string{"Welcome, all. Living, dead, and late.", "Nothing ends. It only begins again.", "Mind your feet. The floor is leaving."}
 
@@ -77,9 +78,6 @@ func (g *Game) playPrestige() {
 		return
 	}
 	g.state, g.ghost, g.shifting, g.viewT, g.hands = StatePlay, false, nil, 0, ""
-	if g.characters[fatherP.name][0] == nil && g.bases["Adam"][0] != nil { // a headless game has no sheets
-		g.characters[fatherP.name] = dress(g.bases["Adam"], palettes["Adam"], fatherP.look)
-	}
 	r := &prestigeReel{}
 	g.reel = r
 	hall := g.hotel.Lobby

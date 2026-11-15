@@ -213,6 +213,7 @@ func (g *Game) loadImages() (err error) {
 	}
 	g.characters[fatherK.name] = dress(g.bases["Bob"], palettes["Bob"], fatherK.look)
 	g.characters[fatherM.name] = dress(g.bases["Bob"], palettes["Bob"], fatherM.look)
+	g.characters[fatherP.name] = dress(g.bases["Adam"], palettes["Adam"], fatherP.look)
 	g.loadCourier()
 	g.loadKeeper()
 	return nil

@@ -103,7 +103,7 @@ var shop = []Item{
 		Cost: Cost{Ecto: unlockMEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}},
 	{ID: rowRetain, Tab: tabStaff, Name: "Retain Father K", Blurb: "Father K stays and cleans the ghostliest Room. Ectoplasm a day, or gone.", Hint: "Buy Call Father K to unlock.", Icon: fatherK.name, Head: true,
 		Cost: Cost{Ecto: retainerEcto}, Needs: []Unlock{unlockK}},
-	{ID: rowFatherP, Tab: tabStaff, Name: "Father P", Blurb: "Takes the hotel, gives a bonus on all income. Begin again.", Hint: "Fill the biggest hotel and buy every Room key to unlock.", Icon: fatherK.name, Head: true,
+	{ID: rowFatherP, Tab: tabStaff, Name: "Father P", Blurb: "Takes the hotel, gives a bonus on all income. Begin again.", Hint: "Fill the biggest hotel and buy every Room key to unlock.", Icon: fatherP.name, Head: true,
 		Cost: Cost{Ecto: prestigeEcto}}, // SPACE opens his card (prestige.go), no cart
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
