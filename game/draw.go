@@ -320,11 +320,26 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			stocked = true
 		}
 	}
+	_, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
+	glowed := lit.Empty() || g.state != StatePlay || g.intro != nil
+	glow := func() {
+		if !glowed {
+			if lit.Max.Y <= int(stockY)+world.TileSize { // a kitchen shelf: its props first
+				stock()
+			}
+			propsUpTo(float64(lit.Max.Y))
+			g.drawActGlow(screen, ox, oy)
+			glowed = true
+		}
+	}
 	for _, a := range actors {
 		if z(a) >= stockY {
 			stock()
 		}
 		propsUpTo(z(a))
+		if z(a) > float64(lit.Max.Y) {
+			glow()
+		}
 		fx, fy := at(a.x, a.y)
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
@@ -356,6 +371,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	stock()
+	glow()
 	propsUpTo(math.Inf(1))
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
 		if g.ghost { // floating with him

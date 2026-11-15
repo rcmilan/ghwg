@@ -83,6 +83,8 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
+	{ID: WallWalk, Tab: tabHotel, Name: "Wall-walking", Blurb: "In the ghost world, Room walls are a suggestion.", Hint: "Grow the hotel to 3x3 to unlock.", Icon: "icon_door", Cost: Cost{Ecto: wallWalkEcto},
+		Needs: []Unlock{Mirror}},
 	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
@@ -128,7 +130,7 @@ func (g *Game) onSale(i int) bool {
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
 	}
-	if it.ID == Deluxe && !g.grown() || (it.ID == Matchmaking || it.Shoes != 0) && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
+	if it.ID == Deluxe && !g.grown() || (it.ID == Matchmaking || it.Shoes != 0) && g.staffed() == 0 || it.ID == WallWalk && !g.fullyGrown() { // the hotel expands first (2026-11-14); someone to do the matching (X2)
 		return false
 	}
 	var since [2]Num

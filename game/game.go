@@ -248,6 +248,7 @@ func (g *Game) startRun() {
 	// T272); and with K1's bed layouts and in-Room Mirror to buy
 	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
 	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
+	g.locked[WallWalk] = true                                 // 08 B1-W
 	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
@@ -379,7 +380,9 @@ func (g *Game) blocked(r image.Rectangle) bool {
 
 // conciergeBlocked: blocked, but for a bed's side, which lets him lie in it (D167). He walks into any open
 // Room, its guests in or not (K1, 2026-11-11: D91's shut doorway is gone); only a boarded door stays shut.
-func (g *Game) conciergeBlocked(r image.Rectangle) bool { return g.blocked(r) && !g.inLane(r) }
+func (g *Game) conciergeBlocked(r image.Rectangle) bool {
+	return g.blocked(r) && !g.inLane(r) && !(g.wallWalking() && !g.hotel.WallBlocked(r)) // B1-W: a wall-walker's only blocks are the outer walls and props
+}
 
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).

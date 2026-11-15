@@ -46,9 +46,9 @@ func TestHears(t *testing.T) {
 	guest, r := p.Guests[0], g.hotel.Rooms[p.Room]
 	for _, c := range []struct {
 		name          string
-		x, y          int // the Guest
-		dx            int // the Concierge, this far right of it
-		real, inGhost bool
+		x, y          int  // the Guest
+		dx            int  // the Concierge, this far right of it
+		real, inGhost bool // heard in real; heard in ghost if it were a ghost's line (a human's never is)
 	}{
 		{"near, outside", center(r.Spot()).X, center(r.Spot()).Y, 2 * world.TileSize, true, true},
 		{"near, inside, he too", center(r.Shell()).X, center(r.Shell()).Y, 2 * world.TileSize, true, true},
@@ -62,8 +62,13 @@ func TestHears(t *testing.T) {
 		}
 		for _, ghost := range []bool{false, true} {
 			g.ghost = ghost
-			if want := c.real && !ghost || c.inGhost && ghost; g.hears(guest) != want {
+			p.Realm = Human
+			if want := c.real && !ghost; g.hears(guest) != want {
 				t.Errorf("%s, ghost %v: heard %v, want %v", c.name, ghost, !want, want)
+			}
+			p.Realm = Ghost // B1-W: in ghost the Concierge hears only ghosts
+			if want := c.inGhost && ghost; g.hears(guest) != want {
+				t.Errorf("%s, ghost %v, a ghost's line: heard %v, want %v", c.name, ghost, !want, want)
 			}
 		}
 	}
