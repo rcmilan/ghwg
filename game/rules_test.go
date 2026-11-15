@@ -11,6 +11,8 @@ func TestOneOfEachFather(t *testing.T) {
 	g, _ := headless(t, 3, 1, 1)
 	g.startRun()
 	g.unlock(Mirror)
+	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
 	k, m := row(t, rowFatherK), row(t, rowFatherM)
 	if why := g.buyNow(k, 0); why != "" {
@@ -115,7 +117,7 @@ func TestLonelyGhostLingers(t *testing.T) {
 func TestNonsenseLines(t *testing.T) {
 	groups := [][]string{helloLines, soloOut, soloBack, ghostHellos, ghostByes, ghostBacks, ghostCalm,
 		talkCalm, talkUneasy, talkScared, talkNo, talkYes, keeperChats, keeperWelcome, keeperMoved,
-		courierIn, courierOut, priestIn, priestOut}
+		courierIn, courierOut, kOpen, kClose, mOpen, mClose, fatherKUnpaid}
 	for _, tier := range calmLines {
 		groups = append(groups, tier[0], tier[1])
 	}

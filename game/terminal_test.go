@@ -56,6 +56,9 @@ func TestTerminalHides(t *testing.T) {
 	for range keeperMax {
 		g.hire()
 	}
+	g.own(unlockK) // the Fathers: both calls bought, K on his retainer
+	g.own(unlockM)
+	g.retainK()
 	if h := slices.Index(tabItems(tabStaff), row(t, rowKeeper)); slices.Contains(g.listed(tabStaff), h) || slices.Contains(g.forSale(), row(t, rowKeeper)) {
 		t.Fatalf("staff full: listed %v, for sale %v", g.listed(tabStaff), g.forSale())
 	}

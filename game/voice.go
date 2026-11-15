@@ -21,8 +21,12 @@ func (v *voice) talking(tick int) bool { return v.said.text != "" && tick-v.said
 var (
 	courierIn  = []string{"Delivery!", "Package for the hotel!", "Where does this go?", "Heavy one today.", "Fragile. Probably.", odd("I'm told this box is a duck.")}
 	courierOut = []string{"All delivered!", "See you next order!", "Have a good one!", "Back to the van.", odd("If the box quacks, that's normal.")}
-	priestIn   = []string{"Peace upon this house.", "Which room is troubled?", "I felt it from the street.", odd("I brought holy water. And crackers.")}
-	priestOut  = []string{"It is done.", "Rest easy now.", "Keep the candles lit.", odd("The spirit asked for a sandwich.")}
+	// A Priest's ritual lines (B1): the opening and the closing, each Father his own.
+	kOpen         = []string{"Peace upon this house.", "Which room is troubled?", "I felt it from the street.", odd("I brought holy water. And crackers.")}
+	kClose        = []string{"It is done.", "Rest easy now.", "Keep the candles lit.", odd("The spirit asked for a sandwich.")}
+	mOpen         = []string{"Be gone, all that clings.", "This room will be heard.", "Step aside, shadows.", odd("I came to cleanse. Also for the soup.")}
+	mClose        = []string{"It is finished. All of it.", "Go in peace. All of you.", "Nothing stays that I send away.", odd("The ghost left a tip. It was a button.")}
+	fatherKUnpaid = []string{"I cannot work on credit.", "Payday passed me by. So do I.", "No pay, no prayer.", odd("My halo needs a retainer too.")}
 )
 
 // nonsense: the lines of nonsense humour (08 F0), one or so in every line group, marked with odd where it is

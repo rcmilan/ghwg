@@ -134,7 +134,7 @@ func noChange(g *Game, room int) string {
 		return "ROOM " + r.Number + " IS ALREADY CHANGING"
 	case !g.bedOpen(g.termBeds):
 		return strings.ToUpper(bedKinds[g.termBeds].Beds) + " IS NOT UNLOCKED"
-	case r.Type.Beds == bedKinds[g.termBeds].Beds && (!r.Mirror.Empty() || !g.unlocked(RoomMirror)): // the same type again only to get its Mirror
+	case r.Type.Beds == bedKinds[g.termBeds].Beds: // never the current type, ring or store (2026-11-15; the Mirror has its own row)
 		return "ROOM " + r.Number + " IS ALREADY " + strings.ToUpper(r.Type.Beds)
 	}
 	return ""

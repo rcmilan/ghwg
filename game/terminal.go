@@ -50,7 +50,7 @@ func tabItems(t Tab) []int {
 func (g *Game) gone(i int) bool {
 	it := shop[i]
 	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
-		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax
+		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax || it.ID == rowRetain && g.fatherIn(false)
 }
 
 // listed: the rows tab t shows, as indexes into tabItems(t), which g.termPick also is.
@@ -145,7 +145,7 @@ func (g *Game) press() string {
 func (g *Game) ShopPrint(money, ecto float64) {
 	g.locked = map[Unlock]bool{}
 	for _, it := range shop {
-		if it.Tab == tabHotel {
+		if it.Tab == tabHotel || it.Once && it.Tab == tabStaff {
 			g.locked[it.ID] = true
 		}
 	}

@@ -245,7 +245,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, pr := range g.priests {
-		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y)))})
+		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y))), lift: pr.lift()})
 	}
 	for _, c := range g.couriers {
 		if !c.out { // ordered, the store or the hotel view still open: he walks in once it closes
@@ -386,6 +386,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawTalk(screen, ox, oy)
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
+	g.drawRituals(screen, ox, oy)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-(g.now()-float64(f.at))*floaterRisePerFr)
 		switch {

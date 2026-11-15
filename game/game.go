@@ -249,6 +249,7 @@ func (g *Game) startRun() {
 	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
 	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
 	g.locked[WallWalk] = true                                 // 08 B1-W
+	g.locked[unlockK], g.locked[unlockM] = true, true         // 08 B1-P: the Fathers' calls
 	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
