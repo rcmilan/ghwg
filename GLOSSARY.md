@@ -320,14 +320,14 @@ A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby
 _Avoid_: vanity, second Mirror, Room mirror (the store row's name only)
 
 **Growth**:
-The hotel gaining Rooms mid-Run: "New column" adds a Room column on the east, "New floor" a floor at the back. Both are HOTEL rows of the Terminal, paid in Ectoplasm, on sale once the Mirror is owned; each expansion costs twice the last, one is bought at a time, and the grid stops at 3 by 3. No Courier brings it: the hotel grows as the Terminal closes. The world and the Clock wait while the camera pulls back on the hotel as it stood, the new part slides in from off screen, and the camera comes back. Every Room keeps its number's place, its type, its Mood and its Guests; the new Rooms arrive boarded up, each needing its Room key. A new Run starts at the size the hotel opened with.
+The hotel gaining Rooms mid-Run: "New column" adds a Room column on the east, "New floor" a floor at the back. Both are HOTEL rows of the Terminal, paid in Ectoplasm, on sale once the Mirror is owned; each expansion costs one step more than the last (60 Ectoplasm a step), times the per-Room price factor, one is bought at a time, and the grid stops at the Level's limit, (3 + Level) a side. No Courier brings it: the hotel grows as the Terminal closes. The world and the Clock wait while the camera pulls back on the hotel as it stood, the new part slides in from off screen, and the camera comes back. Every Room keeps its number's place, its type, its Mood and its Guests; the new Rooms arrive boarded up, each needing its Room key. A new Run starts at the size the hotel opened with.
 _Avoid_: expansion (as the mechanic's name), upgrade, Spin
 
 **Grower**:
 The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.
 
 **Housekeeper**:
-A member of staff hired at the Terminal's STAFF tab, up to three at once; she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. Idle, she sweeps the Room with the most normal dirt, empty or sleeping Rooms first; spiritual dirt is never hers. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
+A member of staff hired at the Terminal's STAFF tab, one for every 3 Rooms owned (rounded up, at least one); she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. Idle, she sweeps the Room with the most normal dirt, empty or sleeping Rooms first; spiritual dirt is never hers. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
 _Avoid_: maid, cleaner, keeper (the Keeper is a Strategy)
 
 **Staffer**:
@@ -403,3 +403,26 @@ The Concierge in the ghost Dimension: he hears only ghost lines (never the livin
 
 **Corridor mirror**:
 A Mirror on a Corridor made by a New floor, one per such Corridor, at a random Room's front-wall corner each Run, covered at first, like the Lobby Mirror: SPACE at a covered one does nothing. The HOTEL row buys it for Money and Ectoplasm, dearer than the Lobby's and doubling per Mirror; the Courier walks to the cell below it and uncovers it, and then it Shifts like the Lobby's.
+
+## Prestige
+
+**Prestige**:
+Ending a Run on purpose to start the next one stronger: the hotel, Money, Ectoplasm, unlocks and staff all go; only the Level and the Bonus carry over. Asked of Father P.
+_Avoid_: reset, rebirth, new game
+
+**Father P**:
+The Priest of the Prestige, one STAFF row priced in Ectoplasm. On sale only once the hotel has grown to its Level's limit and every Room key is bought. SPACE on his row opens a confirm card (what is gained, what is lost); SPACE on the card pays and plays his cutscene: everyone gathers in the hall, the world turns upside down, time races, a white flash, and the next Run starts on Day 1 at 08:00 in the Entrance hall, with no title or intro. The first time the cutscene plays in full; later SPACE skips to the flash.
+
+**Level**:
+How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Level) a side, and opens one new thing per Level (Level 1: the Pantry); a Terminal row waiting on one says "Prestige level N to unlock". Shown with the Bonus in the Terminal's header ("LV 1 - x1.53"), never on the play HUD.
+
+**Bonus**:
+The income multiplier a Prestige leaves: every Money and Ectoplasm earning is multiplied by it, in one place. Each Prestige adds to it (it never drops) the square root of the Run's Ectoplasm earned plus its unspent Money (donated, $10 counting as 1 Ectoplasm) over 6000.
+
+**Pantry**:
+A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It holds a few of each Supply (2); the Concierge takes from it with SPACE as at the Kitchen, a Housekeeper fetches from whichever of it and the Kitchen is nearer, and an idle Housekeeper refills it from the Kitchen. Supplies are still bought in the Kitchen.
+_Avoid_: shelf (alone), storeroom
+
+**Save**:
+What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
+_Avoid_: autosave, slot
