@@ -162,6 +162,11 @@ type Game struct {
 	coverHalves   [2]*ebiten.Image               // coverHalf's two tiles, kept for blit's bake
 	bakes         int                            // looks baked in the frame being drawn (ghost.go bakeBudget)
 	sheets        bakeSheets                     // the pages the looks are baked on (ghost.go)
+	propSheet     propSheet                      // every prop's picture on one image, and the run of props being gathered (props.go)
+	propShader    *ebiten.Shader                 // draws a run of props: fog, dread, the ghost palette (props.go)
+	wideBuf       *ebiten.Image                  // g.wide's texture, kept across growths (props.go reuse)
+	darkBuf       *ebiten.Image                  // g.dark's
+	floorBuf      *ebiten.Image                  // g.floorImg's
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -197,7 +202,10 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
-	g.palette, err = ebiten.NewShader([]byte(paletteSrc))
+	if g.palette, err = ebiten.NewShader([]byte(paletteSrc)); err != nil {
+		return nil, err
+	}
+	g.propShader, err = ebiten.NewShader([]byte(propSrc))
 	return g, err
 }
 

@@ -58,33 +58,18 @@ func (g *Game) paint(w, h, from, to int, at func(l, x, y int) world.TileID, orig
 // onGrid: a cell's px in a block of its own, as paint's origin.
 func onGrid(x, y int) image.Point { return image.Pt(x, y).Mul(world.TileSize) }
 
-// paintFloor pre-draws the map's floor. H1: the hall's rows stand Slip px east of the grid, so their first
-// tile is drawn once more to its west: the street runs to the map's edge.
-func (g *Game) paintFloor() *ebiten.Image {
-	m := g.hotel.Map
-	img := g.paint(m.W, m.H, world.LayerFloor, world.LayerFloor+1, m.At, m.Origin)
-	for y := m.SlipRow; m.Slip > 0 && y < m.H; y++ {
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(m.Slip-world.TileSize), float64(y*world.TileSize))
-		img.DrawImage(g.tiles[m.At(world.LayerFloor, 0, y)], op)
-	}
-	return img
-}
-
 // prop is one static tile above the floor (wall face, lintel, side line, window, counter), drawn in the
 // y-sorted pass at its cell's SortY. Door leaves are left out: drawDoors slides them under the actors.
 type prop struct {
 	y, cx, cy int // sort y (world px), cell
 	l         int // layer
 	id        world.TileID
-	band      *ebiten.Image // its part of the walls' top band, drawn over it (world/band.go); nil without one
-	bx, by    int           // where the band's part starts, in cell px
+	bx, by    int // where its part of the walls' top band starts, in cell px (world/band.go; propSheet.band has it)
 }
 
 // sortedProps lists the props by sort y; within a cell, layers keep their order.
 func (g *Game) sortedProps() []prop {
 	m := g.hotel.Map
-	bands := m.Bands()
 	var ps []prop
 	for l := world.LayerFloor + 1; l < world.NumLayers; l++ {
 		for y := range m.H {
@@ -92,7 +77,7 @@ func (g *Game) sortedProps() []prop {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
 					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
 					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
-						p.band, p.bx, p.by = ebiten.NewImageFromImage(bands.SubImage(r.Add(m.Origin(x, y)))), r.Min.X, r.Min.Y
+						p.bx, p.by = r.Min.X, r.Min.Y
 					}
 					ps = append(ps, p)
 				}
@@ -196,8 +181,9 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // screen-px precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if g.floorImg == nil { // only the floor is pre-drawn; everything above it is y-sorted with the actors (D11)
-		g.floorImg, g.props = g.paintFloor(), g.sortedProps()
-		g.resetBakes() // the props' band images are new: their looks too
+		g.props = g.sortedProps()
+		g.packProps() // the bakes stay: props don't use them, everything else baked is the same images (08 W3)
+		g.floorImg = g.paintFloor()
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
@@ -280,7 +266,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
 	view := screen.Bounds().Inset(-2 * world.TileSize * zoom) // a prop this far off it can't reach it (a tall one, a band, a wall's Shadow)
-	drawProp := func(p prop) {
+	drawProp := func(i int) {                                 // queued on the run propsUpTo draws in one call (props.go)
+		p := g.props[i]
 		o := g.hotel.Map.Origin(p.cx, p.cy)
 		if b := g.tiles[p.id].Bounds(); !image.Pt(o.X*zoom-ox, o.Y*zoom-oy).In(view) && !image.Pt((o.X+b.Dx())*zoom-ox, (o.Y+b.Dy())*zoom-oy).In(view) {
 			return // off the picture: every prop of the hotel drawn each frame was most of a frame (08 W3 browser profile)
@@ -288,29 +275,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.reelingAt(p.l, p.cx, p.cy) { // rolling with its Room's reel
 			return
 		}
-		op.GeoM.Reset()
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(o.X*zoom-ox), float64(o.Y*zoom-oy))
-		s := g.dreadAt(image.Pt(p.cx, p.cy))
-		img := g.tiles[p.id]
-		if g.covered(p) { // the lobby Mirror, until it's installed
-			img = g.coverHalf(g.ts.Tiles[p.id].Name)
-		}
-		put := func(img *ebiten.Image) {
-			if f := g.propFog(p); f > 0 {
-				drawFogged(screen, img, op, f)
-			} else if maze(g.ts.Tiles[p.id].Name) {
-				g.blit(screen, img, op, modeMaze, 1, nil, s)
-			} else {
-				g.blit(screen, img, op, modeProp, 0, nil, s)
-			}
-		}
-		put(img)
-		if p.band != nil {
-			op.GeoM.Translate(float64(p.bx*zoom), float64(p.by*zoom))
-			put(p.band)
-		}
-		if p.l == world.LayerWalls {
+		g.queueProp(i, o.X*zoom-ox, o.Y*zoom-oy)
+		if p.l == world.LayerWalls && g.shadowOnWall(p) { // a Shadow on it goes over it and under what comes after
+			g.flushProps(screen)
 			g.drawShadow(screen, p, ox, oy)
 		}
 	}
@@ -318,8 +285,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	i := 0
 	propsUpTo := func(y float64) {
 		for ; i < len(g.props) && float64(g.props[i].y) <= y; i++ {
-			drawProp(g.props[i])
+			drawProp(i)
 		}
+		g.flushProps(screen)
 	}
 	propsUpTo(0) // the rugs, under the stains; furniture goes over them (Live test 7, 2026-11-08)
 	g.drawDirt(screen, ox, oy)
@@ -375,11 +343,12 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
 		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
 			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
-			for _, p := range g.props {
+			for j, p := range g.props {
 				if p.cx == c.X && p.cy == c.Y {
-					drawProp(p)
+					drawProp(j)
 				}
 			}
+			g.flushProps(screen)
 		}
 	}
 	stock()

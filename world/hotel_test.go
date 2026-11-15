@@ -14,7 +14,7 @@ import (
 // whatever grid ships (Cols, Rows).
 func buildHotel(t *testing.T) *Hotel { return buildGrid(t, 2, 2) }
 
-func buildGrid(t *testing.T, cols, rows int) *Hotel {
+func buildGrid(t testing.TB, cols, rows int) *Hotel {
 	t.Helper()
 	ts := loadTileset(t)
 	types, err := LoadRoomTypes(assets.FS, ts)

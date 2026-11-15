@@ -43,9 +43,6 @@ func TestGhostBakesOnce(t *testing.T) {
 	for _, s := range g.characters {
 		kept[s[0]], kept[s[1]] = true, true
 	}
-	for _, p := range g.props {
-		kept[p.band] = true
-	}
 	for k := range g.baked {
 		if !kept[k.src] {
 			t.Fatalf("baked an image the game does not keep (%v): made per frame?", k.src.Bounds())

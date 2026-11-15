@@ -24,19 +24,26 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	if c.a == 0 {
 		return vec4(0)
 	}
+	return vec4(arcade(c, Mode, Shade, Tint, Dread), 1) * c.a * color.a
+}
+` + arcadeSrc
+
+// arcadeSrc: the palette itself, a texel's arcade color; shared by the palette shader and the props' (props.go).
+const arcadeSrc = `
+func arcade(c vec4, mode float, shade float, tint vec3, dread float) vec3 {
 	l := dot(c.rgb/c.a, vec3(0.299, 0.587, 0.114))
 	purple, green := vec3(0.62, 0.22, 1), vec3(0.2, 1, 0.35)
-	blue := mix(vec3(33, 33, 222)/255, purple, Dread)
+	blue := mix(vec3(33, 33, 222)/255, purple, dread)
 	rgb := blue
-	if Mode > 2.5 { // a ghost guest: one flat color, its shading kept as a darker tone, no white
-		rgb = mix(Tint*0.2, Tint, smoothstep(0.22, 0.42, l))
-	} else if Mode > 1.5 {
-		rgb = mix(Tint*0.18, Tint, smoothstep(0.22, 0.5, l))
+	if mode > 2.5 { // a ghost guest: one flat color, its shading kept as a darker tone, no white
+		rgb = mix(tint*0.2, tint, smoothstep(0.22, 0.42, l))
+	} else if mode > 1.5 {
+		rgb = mix(tint*0.18, tint, smoothstep(0.22, 0.5, l))
 		if l > 0.9 {
 			rgb = vec3(1)
 		}
-	} else if Mode > 0.5 {
-		rgb = blue * Shade * step(l, 0.33)
+	} else if mode > 0.5 {
+		rgb = blue * shade * step(l, 0.33)
 	} else if l >= 0.88 {
 		rgb = vec3(1, 1, 0)
 	} else if l >= 0.7 {
@@ -46,17 +53,17 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	} else if l >= 0.3 {
 		rgb = vec3(1, 0.72, 1)
 	}
-	if Mode < 0.5 && l >= 0.3 { // the bright bands go green, the cool ones purple
+	if mode < 0.5 && l >= 0.3 { // the bright bands go green, the cool ones purple
 		band := purple
 		if l >= 0.7 {
 			band = green
 		}
-		rgb = mix(rgb, band, Dread)
+		rgb = mix(rgb, band, dread)
 	}
-	if Mode < 0.5 || Mode > 1.5 { // the colors a little more saturated than the sheets' (F0 Ghost palette)
+	if mode < 0.5 || mode > 1.5 { // the colors a little more saturated than the sheets' (F0 Ghost palette)
 		rgb = clamp(mix(vec3(dot(rgb, vec3(0.299, 0.587, 0.114))), rgb, 1.3), 0, 1)
 	}
-	return vec4(rgb, 1) * c.a * color.a
+	return rgb
 }
 `
 
@@ -160,8 +167,8 @@ const bakeCap = 8192
 const bakeSheet = 1024
 
 type bakeSheets struct {
-	pages     []*ebiten.Image
-	x, y, row int // the next look's corner on the last page; row: the tallest look in the current row
+	pages []*ebiten.Image
+	shelf // the last page's packing
 }
 
 // bake paints k's look of its image once, onto the bake sheets; nil if it is bigger than a sheet.
@@ -177,21 +184,18 @@ func (g *Game) bake(k bakeKey) *ebiten.Image {
 	if w > bakeSheet || h > bakeSheet {
 		return nil
 	}
-	if s.x+w > bakeSheet { // the row is full: the next one
-		s.x, s.y, s.row = 0, s.y+s.row+1, 0
-	}
-	if len(s.pages) == 0 || s.y+h > bakeSheet { // the page is full: a new one
+	at, ok := s.place(w, h, bakeSheet)
+	if !ok || len(s.pages) == 0 { // no page yet, or the last is full: a new one
 		s.pages = append(s.pages, ebiten.NewImageWithOptions(image.Rect(0, 0, bakeSheet, bakeSheet), &ebiten.NewImageOptions{Unmanaged: true}))
-		s.x, s.y, s.row = 0, 0, 0
+		s.shelf = shelf{}
+		at, _ = s.place(w, h, bakeSheet)
 	}
+	page := s.pages[len(s.pages)-1]
 	op := &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{k.src},
 		Uniforms: map[string]any{"Mode": float32(k.mode), "Shade": k.shade, "Tint": k.tint[:], "Dread": k.dread}}
-	op.GeoM.Translate(float64(s.x), float64(s.y))
-	page := s.pages[len(s.pages)-1]
+	op.GeoM.Translate(float64(at.X), float64(at.Y))
 	page.DrawRectShader(w, h, g.palette, op)
-	img := page.SubImage(image.Rect(s.x, s.y, s.x+w, s.y+h)).(*ebiten.Image)
-	s.x += w + 1 // a pixel apart: no look bleeds into the next
-	s.row = max(s.row, h)
+	img := page.SubImage(image.Rectangle{at, at.Add(image.Pt(w, h))}).(*ebiten.Image)
 	g.baked[k] = img
 	g.bakes++
 	return img

@@ -7,7 +7,8 @@
 //
 // The flags reach the game through the page's ?args=. --series prints every frame's ms; --cpu the functions using
 // the most CPU (names need a build that keeps them: GOOS=js GOARCH=wasm go build -o web/game.wasm . && gzip -9 -nfk
-// web/game.wasm; tools/web.sh strips them). CHROME overrides the browser's path; SETTLE the ms waited before measuring.
+// web/game.wasm; tools/web.sh strips them). CHROME overrides the browser's path; SETTLE the ms waited before measuring; LOGS=1 prints the page's
+// console (a println in the game lands there).
 import { spawn } from "node:child_process";
 import os from "node:os";
 
@@ -40,6 +41,7 @@ try {
   if (opt.includes("--cpu")) await s("Profiler.start");
   const t = await ev(`new Promise(r=>{const a=[];let last=performance.now();const end=last+${+secs * 1000};(function f(n){a.push(n-last);last=n;if(n<end)requestAnimationFrame(f);else r(a)})(last)})`);
   const ms = t.slice(1);
+  if (process.env.LOGS) for (const e of events) if (e.method === "Runtime.consoleAPICalled") console.log(e.params.args.map(a => a.value).join(" "));
   if (opt.includes("--series")) console.log(ms.map(x => x.toFixed(0)).join(" "));
   const a = [...ms].sort((x, y) => x - y), q = f => a[Math.min(a.length - 1, Math.floor(a.length * f))].toFixed(1);
   const errs = events.filter(e => e.method === "Runtime.exceptionThrown" || (e.method === "Runtime.consoleAPICalled" && e.params.type === "error")).length;

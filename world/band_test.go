@@ -37,3 +37,10 @@ func TestBandGhostBlack(t *testing.T) {
 		t.Errorf("the band's luminance is %.3f: the ghost dimension would fill the walls blue", l)
 	}
 }
+
+func BenchmarkBandMask(b *testing.B) {
+	h := buildGrid(b, 4, 4) // 08 W3: a growth's first frame; 42 ms as wasm when it scanned the whole map
+	for range b.N {
+		h.Map.BandMask()
+	}
+}

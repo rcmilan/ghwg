@@ -173,3 +173,25 @@ func TestGrower(t *testing.T) {
 		t.Errorf("the grower ended with %d Rooms, grew at %v, Failures %v; want a grown hotel and none", res.Rooms, res.Grown, res.Failures)
 	}
 }
+
+// 08 W3: pulled back, a growth draws the hotel once; the warm-up's ghost frame must not leave its picture in the
+// real dimension's slide (a print showed the arcade palette mid-growth).
+func TestGrowPictureFollowsDimension(t *testing.T) {
+	g, err := NewGrid(2, 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Start(false)
+	g.DevGrow("col")
+	for g.viewT < 1 {
+		g.Update()
+	}
+	screen := ebiten.NewImage(screenW, screenH)
+	g.ghost = true
+	g.drawFrame(screen)
+	g.ghost = false
+	g.drawFrame(screen)
+	if g.growing == nil || g.growing.drawn != "real" {
+		t.Fatalf("the slide's picture is %q, want the real one", g.growing.drawn)
+	}
+}

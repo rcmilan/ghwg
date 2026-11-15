@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"image/color"
 	"math"
 	"strings"
@@ -222,9 +223,7 @@ func (g *Game) drawIntro(screen *ebiten.Image) {
 func (g *Game) drawZoom(screen *ebiten.Image, e float64) {
 	mw, mh := g.mapSize()
 	bw, bh := mw*zoom, mh*zoom
-	if g.wide == nil || g.wide.Bounds().Dx() != bw || g.wide.Bounds().Dy() != bh {
-		g.wide = ebiten.NewImage(bw, bh)
-	}
+	g.wide = reuse(&g.wideBuf, g.wide, image.Pt(bw, bh))
 	g.wide.Fill(assets.Night)
 	if g.ghost {
 		g.wide.Fill(color.Black)

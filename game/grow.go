@@ -32,10 +32,11 @@ const (
 // growth is the cinematic under way: the camera pulls back on the hotel as it stood, the new part slides in
 // from off screen, the camera comes back. The world waits; the map is already the new one.
 type growth struct {
-	col bool
-	t   float64     // the slide, 0..1
-	d   image.Point // how far the hall moved, world px
-	cut int         // world px: the new part lies east of this x (a column) or north of this y (a floor)
+	col   bool
+	t     float64     // the slide, 0..1
+	d     image.Point // how far the hall moved, world px
+	cut   int         // world px: the new part lies east of this x (a column) or north of this y (a floor)
+	drawn string      // the hotel view's picture (g.wide) holds the hotel, pulled all the way back, in this dimension ("real", "ghost")
 }
 
 // grown: the hotel is larger than the Run began with.

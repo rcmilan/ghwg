@@ -404,6 +404,12 @@ func (g *Game) bucketShadows() {
 // drawShadow draws the Shadows of wall tile p's run over it, clipped to the cell and the run, at their
 // alpha. Not over a lintel: it passes behind doors, as the windows and props drawn after cover it, and
 // the side lines are off its run. Fogged with the wall in real.
+// shadowOnWall: a Shadow walks the wall run of wall prop p this frame.
+func (g *Game) shadowOnWall(p prop) bool {
+	k := g.wallCell[p.cy*g.hotel.Map.W+p.cx]
+	return k >= 0 && len(g.onRun[k]) > 0
+}
+
 func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 	const ts = world.TileSize
 	k := g.wallCell[p.cy*g.hotel.Map.W+p.cx]

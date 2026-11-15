@@ -53,6 +53,7 @@ func main() {
 	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
 	prestige := flag.Bool("prestige", false, "dev: start a busy Run a few hours in with Father P's prestige cutscene playing (with -shot -at: 300 gathering, 400 he appears, 600 lines, 850 flip, 1100 race, 1300 white)")
 	level := flag.Int("level", 0, "dev: the prestige level the Run starts at (before every other start; -busy fills its larger hotel)")
+	growAt := flag.Int("growat", 0, "dev: a floor is added this many frames in, to profile a growth's first frames (with ?args= on the web build)")
 	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
 	flag.Parse()
@@ -91,7 +92,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry || *level > 0 || *shifts
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -177,8 +178,8 @@ func main() {
 		}
 		g.PlayIntro()
 	}
-	if *shifts {
-		run = &shifter{Game: g}
+	if *shifts || *growAt > 0 {
+		run = &shifter{Game: g, growAt: *growAt, shifts: *shifts}
 	}
 	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
 		w := &guard{Game: run}
@@ -190,15 +191,19 @@ func main() {
 	}
 }
 
-// shifter is -shifts: a shift every 150 frames.
+// shifter is -shifts (a shift every 150 frames) and -growat (a floor added at that frame).
 type shifter struct {
 	*game.Game
-	n int
+	n, growAt int
+	shifts    bool
 }
 
 func (s *shifter) Update() error {
-	if s.n++; s.n%150 == 0 {
+	if s.n++; s.shifts && s.n%150 == 0 {
 		s.DevShift()
+	}
+	if s.n == s.growAt {
+		s.DevGrow("floor")
 	}
 	return s.Game.Update()
 }
