@@ -160,6 +160,7 @@ type Game struct {
 	persist       bool                           // this Game reads and writes the save (save.go): only main's plain start sets it; dev starts, prints, tests and the sim never do
 	baked         map[bakeKey]*ebiten.Image      // each sprite's ghost-dimension look, painted once (ghost.go)
 	coverHalves   [2]*ebiten.Image               // coverHalf's two tiles, kept for blit's bake
+	bakes         int                            // looks baked in the frame being drawn (ghost.go bakeBudget)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

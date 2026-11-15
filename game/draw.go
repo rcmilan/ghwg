@@ -138,7 +138,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawShift(screen)
 		return
 	}
-	if !g.warm && g.state != StateTitle && g.fx[0] != nil {
+	if !g.warm && g.state != StateTitle && g.intro == nil && g.fx[0] != nil { // the opening draws no hotel to warm
 		g.warmUp(screen)
 	}
 	if g.reel != nil {
@@ -150,6 +150,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 // drawFrame draws the screen in the current dimension.
 func (g *Game) drawFrame(screen *ebiten.Image) {
+	g.bakes = 0
 	if g.intro != nil { // the opening draws its own, title included (intro.go)
 		g.drawIntro(screen)
 		return

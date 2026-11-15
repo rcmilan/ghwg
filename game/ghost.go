@@ -114,6 +114,14 @@ func (g *Game) blitPart(dst, src *ebiten.Image, r image.Rectangle, op *ebiten.Dr
 		k.tint[i] = steps(tint[i])
 	}
 	img, ok := g.baked[k]
+	if !ok && g.bakes >= bakeBudget { // this frame's bakes are spent: through the shader this once
+		part := src
+		if r != src.Bounds() {
+			part = src.SubImage(r).(*ebiten.Image)
+		}
+		g.shade(dst, part, op, mode, shade, tint, dread)
+		return
+	}
 	if !ok {
 		img = g.bake(k)
 	}
@@ -137,6 +145,11 @@ type bakeKey struct {
 
 func steps(v float32) float32 { return float32(math.Round(float64(v)*32)) / 32 }
 
+// bakeBudget: looks baked per drawn frame, so the first ghost frame (or the first after the floor is repainted)
+// never stalls on hundreds of them (08 W3 live test: lag on the first shift); the rest go through the shader
+// until baked, a few frames later.
+const bakeBudget = 32
+
 // bakeCap: ponytail: past this many looks the cache starts over, a backstop against an image made per frame
 // reaching blit; a leak shows as rebakes, never as memory.
 const bakeCap = 8192
@@ -151,6 +164,7 @@ func (g *Game) bake(k bakeKey) *ebiten.Image {
 	img.DrawRectShader(b.Dx(), b.Dy(), g.palette, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{k.src},
 		Uniforms: map[string]any{"Mode": float32(k.mode), "Shade": k.shade, "Tint": k.tint[:], "Dread": k.dread}})
 	g.baked[k] = img
+	g.bakes++
 	return img
 }
 
