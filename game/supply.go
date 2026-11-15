@@ -51,17 +51,21 @@ func (g *Game) atSupply() int {
 	return -1
 }
 
-// fetch puts one of supply k in the hands, from the stock; what was held goes back. An empty one gives nothing.
+// fetch puts one of supply k in the hands, from the stock; what was held goes back. Holding k itself puts it back
+// (08 F0), even on an empty shelf; any other empty one gives nothing.
 func (g *Game) fetch(k int) {
 	id := supplies[k].ID
-	if g.stock[id] == 0 {
-		return
+	switch {
+	case g.hands == id:
+		g.stock[id]++
+		g.hands = ""
+	case g.stock[id] > 0:
+		if g.hands != "" {
+			g.stock[g.hands]++
+		}
+		g.stock[id]--
+		g.hands = id
 	}
-	if g.hands != "" {
-		g.stock[g.hands]++
-	}
-	g.stock[id]--
-	g.hands = id
 }
 
 // deliver hands item to the Room's asking Party: it pays Pay × calm at once (calm falls with the Room's dread)

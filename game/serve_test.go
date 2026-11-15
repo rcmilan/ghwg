@@ -4,7 +4,7 @@ import "testing"
 
 // T109, T264, D163: SPACE at an Occupied Room's door in real answers its Party's request: the Room's Mood
 // rises by moodServe when answered at once, less after a wait; Fear doesn't move. With no request, or in
-// ghost, nothing happens. An expired ask lowers Mood by moodExpire.
+// ghost, nothing is served (SPACE opens the hotel view there, 08 F0). An expired ask lowers Mood by moodExpire.
 func TestServe(t *testing.T) {
 	g, s, p := settled(t)
 	spot := center(g.hotel.Rooms[p.Room].Spot())
@@ -14,13 +14,13 @@ func TestServe(t *testing.T) {
 	if g.roomMood(p.Room) != 0 {
 		t.Fatal("a Party that didn't ask was served")
 	}
-	p.asked = g.clock
+	p.asked, g.state = g.clock, StatePlay
 	g.ghost = true
 	press(g, s, spot)
 	if g.roomMood(p.Room) != 0 || !p.asking() {
 		t.Fatal("SPACE at the door in ghost served the Room")
 	}
-	g.ghost, p.want, g.hands = false, SupplyWater, SupplyWater
+	g.ghost, p.want, g.hands, g.state = false, SupplyWater, SupplyWater, StatePlay
 	press(g, s, spot)
 	if m := g.roomMood(p.Room); m != moodServe || p.Guests[0].Fear != 7 || p.asking() {
 		t.Fatalf("served at once: Mood %d Fear %d asking %v, want %d, 7, false", m, p.Guests[0].Fear, p.asking(), moodServe)
@@ -149,7 +149,7 @@ func TestTailTowardGuest(t *testing.T) {
 		{"beside, high", x - 300, y + 10, func(px, py float64) bool { return py < y && px < x+bw/2 }},
 		{"beside, low", x + bw + 300, y + bh - 10, func(px, py float64) bool { return py > y+bh && px > x+bw/2 }},
 	} {
-		m := tailGeoM(x, y, balloonW, balloonH, c.hx, c.hy)
+		m := tailGeoM(x, y, balloonW, balloonH, c.hx, c.hy, balloonScale)
 		if px, py := m.Apply(balloonTail-0.5, balloonTail+0.5); !c.ok(px, py) { // the tip pixel's center
 			t.Errorf("Guest %s: the tail's tip at (%.1f,%.1f), box at (%d,%d) %dx%d", c.name, px, py, x, y, bw, bh)
 		}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"ghosthotel/assets"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -155,6 +156,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		g.skull = bitmap(skullRows)
 	}
 	sw := s.Bounds().Dx()
+	g.drawBadge(s)
 	if n := g.guestNote; n.in > 0 {
 		ease := n.in * n.in * (3 - 2*n.in)
 		w := len(g.guestText) * glyphW * noteScale
@@ -200,6 +202,33 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
 	}
+}
+
+// newBuy: something in the store never ordered this Run is on sale and affordable (08 F0: the Terminal's "!").
+func (g *Game) newBuy() bool {
+	for i, it := range shop {
+		if it.Tab < tabCart && !g.bought[it.ID] && !g.owned(i) && g.onSale(i) && g.afford(g.priceOf(i)) && (it.Grow == 0 || g.growRefuse(it.Grow) == "") {
+			return true
+		}
+	}
+	return false
+}
+
+const badgeScale = 3 // the "!" over the Terminal's screen, as big as the counters
+
+// drawBadge blinks a "!" at the top right of the Terminal's screen while newBuy, in play, clear of the Concierge
+// behind it; off screen it waits at the nearest edge, seen from anywhere.
+func (g *Game) drawBadge(s *ebiten.Image) {
+	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || ebiten.Tick()/(tps/2)%2 == 1 || !g.newBuy() {
+		return
+	}
+	mw, mh := g.mapSize()
+	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	t := g.hotel.Terminal
+	w, h := glyphW*badgeScale, glyphH*badgeScale
+	x := min(max(t.Max.X*zoom-ox, hudMargin), s.Bounds().Dx()-w-hudMargin)
+	y := min(max((t.Min.Y+world.TileSize+10)*zoom-oy-13*badgeScale, hudMargin), s.Bounds().Dy()-h-hudMargin) // the glyph's foot (row 12) on the screen's top, 10 px into its cell
+	outline(s, "!", x, y, badgeScale, resInk(Money), 1)
 }
 
 // outline prints v at scale in c, at alpha a, outlined in black: words that stand alone, on no background.

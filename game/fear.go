@@ -19,17 +19,6 @@ const (
 
 func (g *Game) rotting(room int) bool { return g.roomMood(room) <= rotMood }
 
-// atDoor: the Room whose door spot the Concierge stands on, or -1.
-func (g *Game) atDoor() int {
-	at := image.Pt(int(g.player.X), int(g.player.Y))
-	for i, r := range g.hotel.Rooms {
-		if at.In(r.Spot()) {
-			return i
-		}
-	}
-	return -1
-}
-
 func (g *Game) feet() image.Point { return image.Pt(int(g.player.X), int(g.player.Y)) }
 
 // scare runs each game minute: a Shadow scares only on its patrols (shadow.go). A Party with a member at fearLimit steps

@@ -322,7 +322,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 		}
 	}
 	h.Lobby = image.Rect(l.hx*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
-	h.Terminal = image.Rect((computer-1)*TileSize, (l.counter-2)*TileSize, (computer+2)*TileSize, (l.counter+2)*TileSize).Add(slip)
+	h.Terminal = image.Rect(computer*TileSize, (l.counter-2)*TileSize, (computer+1)*TileSize, (l.counter+2)*TileSize).Add(slip) // only the computer's column, both sides of the counter: the cells touching it (08 F0)
 	h.Mirror = m.Center(mirror, l.hall+2)
 	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize).Add(slip)
 	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)

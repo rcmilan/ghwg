@@ -397,15 +397,6 @@ func (g *Game) nextGuest() string {
 	return "Guest arriving"
 }
 
-// dirtBalloonImage: the request balloon with a splat inside instead of "!!": a complaint about dirt.
-func dirtBalloonImage() *ebiten.Image {
-	const ox, oy = (balloonW - 7*2) / 2, (balloonH - 7*2) / 2 // the splat at 2×, centered
-	return paint(balloonW, balloonH, rounded(balloonW, balloonH, balloonR), func(x, y int) bool {
-		sx, sy := (x-ox)/2, (y-oy)/2
-		return x >= ox && y >= oy && sy < len(splatRows) && sx < len(splatRows[0]) && splatRows[sy][sx] == 'X'
-	})
-}
-
 // DevDirt is main's -dirt: every Room starts at n dirt (5 a spot).
 func (g *Game) DevDirt(n int) {
 	for i := range g.mood {

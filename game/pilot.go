@@ -388,14 +388,14 @@ func freeSpot(h *world.Hotel) image.Point {
 }
 
 // free: SPACE does nothing else where the Concierge stands: clear of the Terminal, the Mirror, the stock, and
-// of every Room and its door.
+// of every Room, its door and its card plate.
 func (p *Pilot) free(v View) bool {
 	h, at := p.hotel, v.Concierge
 	if at.In(h.Terminal) || at.In(h.MirrorSpot) || at.In(h.Kitchen) {
 		return false
 	}
 	for _, r := range h.Rooms {
-		if at.In(r.Shell()) || at.In(r.Spot()) {
+		if at.In(r.Shell()) || at.In(r.Spot()) || at.In(r.Plate()) {
 			return false
 		}
 	}
