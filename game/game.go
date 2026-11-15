@@ -18,7 +18,7 @@ const (
 	StateTitle = iota
 	StatePlay
 	StateTerminal
-	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
+	StateView  // the hotel view: the world in slow motion, the camera pulled back (hotelview.go)
 	StatePause // ESC with nothing open: Resume / Quit to title
 	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
 	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
@@ -107,12 +107,10 @@ type Game struct {
 	wiped         []wipe                         // cleaned spots, fading
 	arrivals      []arrival                      // per Room: its next Party's arrival (dirt.go)
 	stains        map[image.Point]*ebiten.Image  // dirt spots' stains, by cell (dirt.go)
-	dirtBox       *ebiten.Image                  // the dirt complaint balloon (dirt.go)
 	guestNote     slot                           // the next-guest notice in the left column (hud.go)
 	guestText     string                         // its text, kept while it slides out
 	hands         Unlock                         // the supply the Concierge carries, "" for none (supply.go)
 	delivered     Num                            // Money deliveries paid this Run (supply.go; the sim's money check)
-	askBox        *ebiten.Image                  // the request balloon, its item drawn in it (serve.go)
 	hushed        map[int]bool                   // Rooms whose ghost Shadow Father M banished, until its ghost leaves (shadow.go)
 	cover         *ebiten.Image                  // the covered Mirror's sprite (ghostguest.go)
 	mirrorAtStart bool                           // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
@@ -126,9 +124,8 @@ type Game struct {
 	changes       []*change                      // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
 	termBeds      int                            // the bed layout picked for a change at the Terminal, an index into bedKinds
 	bedsAtStart   string                         // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
-	termDepth     int                            // how far into the hotel view: 1 the Rooms, 2 a Room's actions, 3 its beds (hotelview.go)
+	termDepth     int                            // how far into the hotel view: 1 the hotel, 2 a Room picked, 3 its ring, 4 its beds (hotelview.go)
 	viewT         float64                        // the hotel view's pull-back, 0 the play camera .. 1 the whole hotel
-	panel         *ebiten.Image                  // the hotel view's action card (its whole-map frame is the intro's g.wide)
 	pausePick     int                            // the pause's picked row
 	growNext      int                            // the expansion paid for, played once the Terminal is closed: growCol or growFloor (grow.go, 07 H1)
 	growing       *growth                        // its cinematic under way, nil if none
