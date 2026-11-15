@@ -17,3 +17,8 @@ desktop.ini
 *.code-workspace
 .env
 .env.*
+
+# Web build output (tools/web.sh)
+web/game.wasm
+web/wasm_exec.js
+web/*.zip
