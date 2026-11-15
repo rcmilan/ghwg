@@ -175,3 +175,25 @@ func (g *Game) drawMoodFloor(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 }
+
+// DevFather is main's -father: Rooms 101 and 102 open with a Party settled in each, both Fathers on sale and Money
+// for both calls, Father K (M if strong) already called to Room 101 and walking in, the Concierge in the Lobby
+// Archway, where SPACE opens the hotel view: Room 102's ring hides that Father's call until he has walked out.
+func (g *Game) DevFather(strong bool) {
+	a := slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return r.Number == "101" })
+	g.unlock(Mirror)
+	m := shop[slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowFatherM })]
+	g.earned[Money] = max(g.earned[Money], g.boughtAt[Mirror][Money]+m.Earned[Money]) // K needs less
+	for _, room := range []int{a, (a + 1) % len(g.hotel.Rooms)} {
+		g.openRoom(room)
+		p := g.arrive(room)
+		p.Routine = homebody
+		p.schedule(g.clock)
+		g.settleIn(p)
+	}
+	g.wallet[Money] = max(g.wallet[Money], priestWeak+priestStrong)
+	g.callPriest(a, strong)
+	g.player.X, g.player.Y = float64(g.hotel.Archway.X), float64(g.hotel.Archway.Y)
+	w, h := g.mapSize()
+	g.cam.Snap(g.player.X, g.player.Y, w, h)
+}
