@@ -153,6 +153,9 @@ func TestRitual(t *testing.T) {
 		if pr.phase != rClose && pr.phase != rLeave && g.dirtLevel(0) != before {
 			t.Fatalf("the dirt changed in phase %d, before the burst landed", pr.phase)
 		}
+		if n := len(g.ritualLights()); (pr.phase == rChant || pr.phase == rBurst) != (n == 1) {
+			t.Fatalf("phase %d has %d ritual lights", pr.phase, n)
+		}
 		if pr.phase == rChant && pr.lift() < 0 {
 			t.Fatal("negative hop")
 		}

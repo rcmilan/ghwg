@@ -184,6 +184,7 @@ func (g *Game) lights() []light {
 	for _, p := range g.priests {
 		lantern(p.X, p.Y, p.Anim)
 	}
+	ls = append(ls, g.ritualLights()...)
 	for _, c := range g.couriers {
 		if c.out {
 			lantern(c.X, c.Y, c.Anim)

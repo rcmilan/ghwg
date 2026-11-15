@@ -319,45 +319,6 @@ func (g *Game) pace(pr *priest) {
 	g.priestRoute(pr, g.doorFront(pr.lap), -1)
 }
 
-// lift: how high the Priest is in his chant's hop, world px.
-func (pr *priest) lift() float64 {
-	if pr.phase != rChant {
-		return 0
-	}
-	return hopHeight / 2 * math.Abs(math.Sin(math.Pi*pr.t/chantHop))
-}
-
-// drawRituals: sparkles rising off a chanting Priest, the burst of light as the effect lands.
-func (g *Game) drawRituals(s *ebiten.Image, ox, oy int) {
-	spark := g.sprite("sparkle")
-	for _, pr := range g.priests {
-		x, y := pr.X*zoom-float64(ox), pr.Y*zoom-float64(oy)
-		switch pr.phase {
-		case rChant:
-			const n, rise = 6, 28.0 // sparkles, world px they climb
-			for k := range n {
-				f := math.Mod(pr.t/60+float64(k)/n, 1)
-				dx := math.Sin(float64(k)*2.4) * 9
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(-float64(spark.Bounds().Dx())/2, -float64(spark.Bounds().Dy())/2)
-				op.GeoM.Scale(zoom*0.7, zoom*0.7)
-				op.GeoM.Translate(x+dx*zoom, y-(6+rise*f)*zoom)
-				op.ColorScale.ScaleAlpha(float32(math.Sin(math.Pi * f)))
-				s.DrawImage(spark, op)
-			}
-		case rBurst:
-			f := pr.t / burstFrames
-			k := (1.5 + 3*f) * world.TileSize * zoom / float64(g.glow.Bounds().Dx()) // 1.5 tiles across, growing to 4.5
-			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, Blend: ebiten.BlendLighter}
-			op.GeoM.Translate(-float64(g.glow.Bounds().Dx())/2, -float64(g.glow.Bounds().Dy())/2)
-			op.GeoM.Scale(k, k)
-			op.GeoM.Translate(x, y-8*zoom)
-			op.ColorScale.ScaleAlpha(float32(1 - f))
-			s.DrawImage(g.glow, op)
-		}
-	}
-}
-
 // halveDirt: a Priest's work, half the Room's dirt left.
 func (g *Game) halveDirt(room int) { g.raiseMood(room, moodOf(g.dirtLevel(room)/2)) }
 
