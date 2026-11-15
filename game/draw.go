@@ -252,7 +252,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			continue
 		}
 		name := courierName
-		if len(c.drops) > 0 {
+		if c.carrying() {
 			name = courierBox
 		}
 		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y)))})

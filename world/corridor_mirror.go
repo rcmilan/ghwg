@@ -1,6 +1,9 @@
 package world
 
-import "image"
+import (
+	"image"
+	"strings"
+)
 
 // A Corridor Mirror (08 B1) hangs on a Room's front wall, near a corner, over its Corridor: one for each
 // Corridor a New floor made. Covered until Open; the game decides which Room, which corner and when.
@@ -53,4 +56,20 @@ func (h *Hotel) hangCorridorMirrors(i int) {
 			h.Map.Set(LayerDecor, m.Cell.X, m.Cell.Y+dy, id)
 		}
 	}
+}
+
+// RoomMirrorSpot: the cell, world px center, in front of where Room i's Mirror hangs once it has one (Land's
+// glass cell, a row down): the type's own wall mirror, else the middle of the back wall.
+func (h *Hotel) RoomMirrorSpot(i int) image.Point {
+	r := h.Rooms[i]
+	glass := image.Pt(RoomW/2, 1)
+	for _, cells := range r.Type.Tiles {
+		for c, tid := range cells {
+			if strings.HasPrefix(h.Map.TS.Tiles[tid].Name, mirrorTile+"r1") {
+				glass = image.Pt(c%RoomW, c/RoomW)
+			}
+		}
+	}
+	c := r.Origin.Add(glass).Add(image.Pt(0, 1))
+	return c.Mul(TileSize).Add(image.Pt(TileSize/2, TileSize/2))
 }

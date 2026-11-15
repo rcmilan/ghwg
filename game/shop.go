@@ -139,10 +139,10 @@ func (l cartLine) cost() Cost {
 // Buying never opens another item by itself (2026-11-08).
 func (g *Game) onSale(i int) bool {
 	it := shop[i]
-	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
-		return false
+	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
+		return g.nextCovered() >= 0
 	}
-	if it.ID == CorridorMirror && g.nextCovered() < 0 {
+	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
 	}
 	if it.ID == Deluxe && !g.grown() || (it.ID == Matchmaking || it.Shoes != 0) && g.staffed() == 0 || it.ID == WallWalk && !g.fullyGrown() { // the hotel expands first (2026-11-14); someone to do the matching (X2)
@@ -300,7 +300,9 @@ func (g *Game) ship(order []cartLine) {
 			if k := g.nextCovered(); k >= 0 { // paid at checkout
 				g.hotel.Corridors[k].Open = true
 			}
-		case it.ID == rowKey || it.ID == RoomMirror || it.ID == rowAddMirror: // walked to the Room's own door
+		case it.ID == RoomMirror || it.ID == rowAddMirror: // walked into the Room, to where the Mirror hangs
+			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
+		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
 		case !it.room():
 			stock.lines = append(stock.lines, l)
@@ -313,7 +315,7 @@ func (g *Game) ship(order []cartLine) {
 	}
 	c.drops = append(stops, c.drops...)
 	if len(c.drops) > 0 {
-		c.SetPath(g.hotel.Path(g.hotel.Spawn, c.drops[0].at, -1))
+		c.pathTo(g, c.drops[0])
 		g.couriers = append(g.couriers, c)
 	}
 }
