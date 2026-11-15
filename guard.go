@@ -38,6 +38,9 @@ func (w *guard) Draw(screen *ebiten.Image) {
 }
 
 func (w *guard) watch() {
+	if runtime.GOOS == "js" { // a browser tab is its own sandbox: no temp log to write, and os.Exit would only freeze the page
+		return
+	}
 	var m runtime.MemStats
 	for range time.Tick(500 * time.Millisecond) {
 		runtime.ReadMemStats(&m)
