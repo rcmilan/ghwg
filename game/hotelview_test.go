@@ -100,9 +100,10 @@ func TestRingBuys(t *testing.T) {
 	g := closedRun(t)
 	s := g.in.(*script)
 	g.own(Mirror)
+	g.own(unlockK)
 	g.own(BedsTwin)
 	g.earned = [2]Num{10000, 10000}
-	g.wallet = [2]Num{keyPrice(0) + priestWeak + bedKinds[1].Fee, 0}
+	g.wallet = [2]Num{keyPrice(0) + bedKinds[1].Fee, priestWeak}
 	g.state = StatePlay
 	to := func(id Unlock) (ks []ebiten.Key) { // D from where the ring opens to the action
 		r := g.ring(g.termCursor)
@@ -117,7 +118,7 @@ func TestRingBuys(t *testing.T) {
 	g.termCursor = 0
 	keys(g, s, ebiten.KeyD, ebiten.KeyD, ebiten.KeySpace) // Room 101 picked, then 102; its ring: the key alone
 	keys(g, s, ebiten.KeySpace)
-	if len(g.couriers) != 1 || len(g.cart) != 0 || g.wallet[Money] != priestWeak+bedKinds[1].Fee || g.state != StateView || g.termDepth != 2 {
+	if len(g.couriers) != 1 || len(g.cart) != 0 || g.wallet[Money] != bedKinds[1].Fee || g.state != StateView || g.termDepth != 2 {
 		t.Fatalf("the key: %d couriers, cart %v, Money %v, depth %d; want it paid at once and on its way, the Room still picked", len(g.couriers), g.cart, g.wallet[Money], g.termDepth)
 	}
 	deliver(t, g)
@@ -161,6 +162,8 @@ func TestRing(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
 	g.startRun()
 	g.own(Mirror)
+	g.own(unlockK)
+	g.own(unlockM)
 	g.earned = [2]Num{10000, 10000}
 	ids := func(room int) (v []Unlock) {
 		for _, i := range g.roomRows(room) {

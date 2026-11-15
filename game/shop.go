@@ -92,6 +92,13 @@ var shop = []Item{
 	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Hint: "Earn $" + fmtNum(keeperEarned) + " to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
 
+	{ID: unlockK, Tab: tabStaff, Once: true, Name: "Call Father K", Blurb: "Father K halves a Room's dirt. Each call costs Ectoplasm.", Hint: "Earn $250 after the Mirror to unlock.", Icon: fatherK.name, Head: true,
+		Cost: Cost{Ecto: unlockKEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}},
+	{ID: unlockM, Tab: tabStaff, Once: true, Name: "Call Father M", Blurb: "Father M clears a Room, banishes its Shadow, sends its ghosts over.", Hint: "Earn $750 after the Mirror to unlock.", Icon: fatherM.name, Head: true,
+		Cost: Cost{Ecto: unlockMEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}},
+	{ID: rowRetain, Tab: tabStaff, Name: "Retain Father K", Blurb: "Father K stays and cleans the ghostliest Room. Ectoplasm a day, or gone.", Hint: "Buy Call Father K to unlock.", Icon: fatherK.name, Head: true,
+		Cost: Cost{Ecto: retainerEcto}, Needs: []Unlock{unlockK}},
+
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowChange, Tab: tabRooms, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
@@ -101,10 +108,10 @@ var shop = []Item{
 		}},
 	{ID: rowDeluxe, Tab: tabRooms, Name: "Deluxe", Blurb: "This Room, finer. Once it's empty.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeFee},
 		Needs: []Unlock{Deluxe}, Send: func(g *Game, l cartLine) {}}, // its Send and Refuse are set in roomtype_change.go's init
-	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
-	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
+	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dirt. Paid per call.", Icon: fatherK.name, Head: true, Cost: Cost{Ecto: priestWeak},
+		Needs: []Unlock{unlockK}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
+	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes its Shadow, sends its ghosts over.", Icon: fatherM.name, Head: true, Cost: Cost{Ecto: priestStrong},
+		Needs: []Unlock{unlockM}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
 	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
 }
@@ -156,6 +163,10 @@ func (g *Game) addToCart(i, room int) string {
 	case it.unlock() && g.unlocked(it.ID):
 		return "ALREADY OWNED"
 	case g.owned(i):
+		return "ALREADY IN THE CART"
+	case it.ID == rowRetain && g.fatherIn(false):
+		return "FATHER K IS ALREADY IN THE HOTEL"
+	case it.ID == rowRetain && g.inCart(i) > 0:
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
 		return "CAN'T AFFORD"
@@ -261,6 +272,8 @@ func (g *Game) ship(order []cartLine) {
 			for range l.n {
 				g.hire()
 			}
+		case it.ID == rowRetain: // no courier: he walks in himself, on his retainer
+			g.retainK()
 		case it.Grow != 0: // no courier: the hotel grows as the Terminal closes (grow.go)
 			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock

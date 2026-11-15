@@ -3,6 +3,7 @@ package game
 import (
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"ghosthotel/entities"
@@ -415,5 +416,18 @@ func TestChangeKeepsSpiritDirt(t *testing.T) {
 	}
 	if kinds[true] != 2*spotUnit || kinds[false] != spotUnit {
 		t.Fatalf("after the change: %d spiritual dirt, %d normal; want %d and %d", kinds[true], kinds[false], 2*spotUnit, spotUnit)
+	}
+}
+
+// 08 W1 leftover: the store refuses the beds a Room has, even with the Room mirror owned and none in the Room.
+func TestNoSameBedsInStore(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.own(Mirror)
+	g.own(RoomMirror)
+	g.wallet = [2]Num{1000, 1000}
+	same := g.hotel.Rooms[0].Type.Beds
+	if why := order(t, g, 0, same); why != "ROOM 101 IS ALREADY "+strings.ToUpper(same) {
+		t.Fatalf("a change to the beds it has: %q", why)
 	}
 }

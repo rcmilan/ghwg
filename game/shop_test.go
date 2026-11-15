@@ -29,7 +29,7 @@ func storeRun(t *testing.T) *Game {
 func TestStoreCatalog(t *testing.T) {
 	g := storeRun(t)
 	basic := []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror}
-	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, Consume, ShiftAnywhere, rowFatherK, rowFatherM} {
+	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, Consume, ShiftAnywhere, rowFatherK, rowFatherM, unlockK, unlockM, rowRetain} {
 		if got := g.onSale(row(t, id)); got != slices.Contains(basic, id) {
 			t.Errorf("%s on sale at the start: %v", id, got)
 		}
@@ -76,6 +76,8 @@ func TestStoreOpens(t *testing.T) {
 func TestCheckout(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
+	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, k := row(t, SupplyWater), row(t, rowFatherK)
 	for _, add := range []struct{ i, room int }{{water, -1}, {water, -1}, {row(t, RoomLock), -1}, {k, 1}} {
@@ -84,7 +86,7 @@ func TestCheckout(t *testing.T) {
 		}
 	}
 	total := g.cartTotal()
-	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, RoomLock)].Cost[Money] + priestWeak, shop[row(t, RoomLock)].Cost[Ecto]}); total != want {
+	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, RoomLock)].Cost[Money], shop[row(t, RoomLock)].Cost[Ecto] + priestWeak}); total != want {
 		t.Fatalf("total %v, want %v", total, want)
 	}
 	g.wallet = [2]Num{total[Money] - 1, total[Ecto]}
@@ -108,6 +110,8 @@ func TestCheckout(t *testing.T) {
 func TestCartRules(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
+	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
 	m, k, fm := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM)
 	if g.addToCart(m, -1) == "" {

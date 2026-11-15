@@ -26,6 +26,8 @@ func deliver(t *testing.T, g *Game) {
 func TestCourier(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
+	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, lock := row(t, SupplyWater), row(t, RoomLock)
 	for _, add := range []struct{ i, room int }{{water, -1}, {lock, -1}, {row(t, rowFatherK), 0}} {
@@ -87,8 +89,10 @@ func TestCourier(t *testing.T) {
 func TestNoCourierForPriests(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
+	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.earned = [2]Num{1000, 1000}
-	g.wallet = [2]Num{1000, 0}
+	g.wallet = [2]Num{0, 1000}
 	if g.addToCart(row(t, rowFatherM), 1) != "" || g.placeOrder() != "" {
 		t.Fatal("couldn't buy Father M")
 	}
