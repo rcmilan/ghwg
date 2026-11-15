@@ -282,6 +282,9 @@ func (g *Game) DevGhosts(phantasm int) {
 	g.cam.Snap(g.player.X, g.player.Y, w, hh)
 }
 
+// DevGhost is main's -ghost: the Run shows the ghost dimension.
+func (g *Game) DevGhost(on bool) { g.ghost = on }
+
 // settleIn puts the Party, staying, on its Stay Spots (dev prints and tests).
 func (g *Game) settleIn(p *Party) {
 	p.state, p.settled = staying, true

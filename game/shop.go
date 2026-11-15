@@ -57,12 +57,8 @@ const (
 	rowFatherM Unlock = "father-m"
 )
 
-func noPriest(g *Game, room int) string {
-	if g.priestOn(room) {
-		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
-	}
-	return ""
-}
+func noFatherK(g *Game, room int) string { return g.noFather(room, false) }
+func noFatherM(g *Game, room int) string { return g.noFather(room, true) }
 
 // shop is the catalog, in its order: a tab lists its rows as they stand here, so a new row goes next to its
 // kind (the keys, then the Priests), not at the end. Prices, packs and thresholds are placeholders.
@@ -106,9 +102,9 @@ var shop = []Item{
 	{ID: rowDeluxe, Tab: tabRooms, Name: "Deluxe", Blurb: "This Room, finer. Once it's empty.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeFee},
 		Needs: []Unlock{Deluxe}, Send: func(g *Game, l cartLine) {}}, // its Send and Refuse are set in roomtype_change.go's init
 	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
 	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noPriest, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
+		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
 	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
 }

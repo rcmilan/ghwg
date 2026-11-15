@@ -30,17 +30,17 @@ var (
 	// sightLines: what a Guest says on seeing a Shadow dash, by its ghost's kind (kindOf: the stronger the
 	// ghost, the worse the fright); one at random. Placeholders.
 	sightLines = [len(ghostKinds)][]string{ // in its Room
-		{"Hm?", "Did something move?", "A draft?", "Huh.", "Just the curtain."},
-		{"What was that?!", "A shadow!", "Something moved!", "Who's there?", "Behind the lamp!"},
-		{"Eek!", "It ran along the wall!", "I saw it! I SAW it!", "Not again!", "Under the covers!"},
-		{"EEEEK!", "IT'S IN THE WALLS!", "GET ME OUT!", "NO NO NO!", "OPEN THE DOOR!"},
+		{"Hm?", "Did something move?", "A draft?", "Huh.", "Just the curtain.", odd("The curtain winked at me.")},
+		{"What was that?!", "A shadow!", "Something moved!", "Who's there?", "Behind the lamp!", odd("A shadow stole my toast!")},
+		{"Eek!", "It ran along the wall!", "I saw it! I SAW it!", "Not again!", "Under the covers!", odd("It took my left slipper!")},
+		{"EEEEK!", "IT'S IN THE WALLS!", "GET ME OUT!", "NO NO NO!", "OPEN THE DOOR!", odd("THE WALLPAPER IS SCREAMING!")},
 	}
 	// hallSights: the same in a Corridor or the hall, where there is no Room to want out of (2026-11-14).
 	hallSights = [len(ghostKinds)][]string{
-		{"Odd.", "A flicker?", "Hm. Nothing.", "Was that a moth?"},
-		{"Did you see that?", "Something's on the wall!", "Who's over there?", "That wasn't me."},
-		{"Yikes!", "The wall moved!", "It's following me!", "Walk faster!"},
-		{"IT'S OUT HERE TOO!", "DON'T LOOK BACK!", "THE WALLS!", "KEEP WALKING!"},
+		{"Odd.", "A flicker?", "Hm. Nothing.", "Was that a moth?", odd("Was that a polite moth?")},
+		{"Did you see that?", "Something's on the wall!", "Who's over there?", "That wasn't me.", odd("The wall waved at me.")},
+		{"Yikes!", "The wall moved!", "It's following me!", "Walk faster!", odd("The wall has legs!")},
+		{"IT'S OUT HERE TOO!", "DON'T LOOK BACK!", "THE WALLS!", "KEEP WALKING!", odd("I LEFT MY SOUP IN THERE!")},
 	}
 	shadowTint = []float32{.45, .2, .7} // ghost: a black figure would vanish on the black maze walls
 	shadowCast = append([]string{"Bob"}, guestCast[:]...)
@@ -341,7 +341,7 @@ func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 				g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
 			}
 			who := slices.Index(p.Guests, guest)
-			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, lines[g.words.IntN(len(lines))], g.tick})
+			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, g.pickLine(lines), g.tick})
 		}
 	}
 }

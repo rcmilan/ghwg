@@ -26,7 +26,7 @@ func main() {
 	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
 	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
-	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
+	ghost := flag.Bool("ghost", false, "dev: start the Run in the ghost dimension")
 	shop := flag.String("shop", "", "dev: start a Run on the Terminal's shop holding money,ecto (e.g. 30,40), every unlock but the Mirror locked")
 	shadow := flag.Float64("shadow", 0, "dev: start a Run where Room 101 gets a Shadow with this much essence, watched from the Corridor beside it")
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
@@ -78,26 +78,30 @@ func main() {
 	}
 	g.DevScale(*scale)
 	var run ebiten.Game = g
-	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0
+	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
+	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
+	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != ""
 	if dev {
-		if *intro >= 0 {
+		switch {
+		case *intro >= 0:
 			g.StartIntro(*intro)
-		} else {
-			g.Start(*ghost)
-		}
-		g.DevKey(*key)
-		if *kitchen {
-			g.DevKitchen()
-		}
-		if *busy {
+		case *busy: // it starts its own Run: first, so nothing after it is lost
 			g.DevBusy()
+		default:
+			g.Start(false)
 		}
+		g.DevGhost(*ghost)
+		g.DevKey(*key)
+		g.DevChange(*change)
 		if *staff != "" {
 			n, money := 1, 0.0
 			fmt.Sscanf(*staff, "%d,%g", &n, &money)
 			g.DevStaff(n, money)
 		}
-		g.DevChange(*change)
+		if *kitchen {
+			g.DevKitchen()
+		}
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
