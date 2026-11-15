@@ -48,6 +48,7 @@ type intro struct {
 	dirs   []float64         // each one's heading along it, ±1
 	walk   entities.Guest    // the Concierge's walk in
 	total  float64           // its length, world px
+	save   *saveData         // the save found at the title: SPACE continues it (save.go)
 }
 
 // PlayIntro makes the title and every Run start with the opening (main, for a person playing).
@@ -83,7 +84,7 @@ func (g *Game) beginIntro() {
 	if !g.introOn {
 		return
 	}
-	in := &intro{}
+	in := &intro{save: g.loadSave()}
 	mw, _ := g.mapSize()
 	for k := range ghostKinds { // one of each kind, spread along the street's three rows
 		at := g.hotel.Spawn
@@ -132,6 +133,10 @@ func (g *Game) updateIntro() {
 	switch in.phase {
 	case introTitle:
 		if space {
+			if in.save != nil && g.resume(in.save) { // CONTINUE: the checkpoint, no lines, no walk in
+				return
+			}
+			in = g.intro // a save that did not fit started the Run again
 			g.state, in.phase, in.frame = StatePlay, introText, 0
 		}
 	case introText:
@@ -176,7 +181,11 @@ func (g *Game) drawIntro(screen *ebiten.Image) {
 	if in.phase == introTitle {
 		rect(screen, 0, 12, sw, glyphH*(introTextSize+3)+16, color.RGBA{0, 0, 0, 170}) // at the top: the street stays clear
 		center("G H O S T   H O T E L", 20, introTextSize, assets.Ghost, 1)
-		center("[ SPACE ] open the hotel", 20+glyphH*introTextSize, 2, resInk(Money), 1)
+		start := "[ SPACE ] open the hotel"
+		if in.save != nil {
+			start = "[ SPACE ] continue"
+		}
+		center(start, 20+glyphH*introTextSize, 2, resInk(Money), 1)
 		center("WASD move / SPACE use / ESC title or quit", 20+glyphH*(introTextSize+2), 1, color.White, 1)
 		return
 	}

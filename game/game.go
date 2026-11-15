@@ -358,6 +358,9 @@ func (g *Game) advance(dx, dy, dt float64) {
 		g.acc--
 		g.tick++
 		g.advanceClock()
+		if g.clock%dayFrames == runStart { // dawn: the checkpoint (save.go)
+			g.saveDawn()
+		}
 	}
 	g.player.Move(dx, dy, conciergeSpeed*dt, g.conciergeBlocked)
 	g.hotel.UpdateDoors(g.doorActors(), g.boarded, dt)
