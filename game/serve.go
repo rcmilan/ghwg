@@ -12,7 +12,7 @@ import (
 // Serving (D149) and Guests asking for it (D163): a serve raises the Room's Mood, an expired ask lowers it
 // (moodServe, moodExpire). Placeholders, retuned at T112.
 const (
-	askMinutes = 180 // game minutes a request waits before it expires: a fetch and a walk (E5, was 60)
+	askMinutes = 270 // game minutes a request waits before it expires: 45 s, the worst 3x3 trip and detours (08 F0, was 180)
 	askPerDay  = 1.5 // requests a Party makes per awake day, on average
 	askGap     = 180 // game minutes at least from one request's end to the next
 	wakeHour   = 7   // Guests ask only from wakeHour
