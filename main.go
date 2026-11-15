@@ -52,6 +52,8 @@ func main() {
 	mirror := flag.Bool("mirror", false, "dev: Room 101 has a Room mirror and two ghosts (the second came through it), Room 102 none: its ring offers Add mirror (-view 1,1,0); you in 101; use with -ghost")
 	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
 	prestige := flag.Bool("prestige", false, "dev: start a busy Run a few hours in with Father P's prestige cutscene playing (with -shot -at: 300 gathering, 400 he appears, 600 lines, 850 flip, 1100 race, 1300 white)")
+	level := flag.Int("level", 0, "dev: the prestige level the Run starts at (before every other start; -busy fills its larger hotel)")
+	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
 	flag.Parse()
 
@@ -89,7 +91,8 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry || *level > 0 || *shifts
+	g.DevLevel(*level)
 	if dev {
 		switch {
 		case *intro >= 0:
@@ -174,6 +177,9 @@ func main() {
 		}
 		g.PlayIntro()
 	}
+	if *shifts {
+		run = &shifter{Game: g}
+	}
 	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
 		w := &guard{Game: run}
 		go w.watch()
@@ -182,6 +188,19 @@ func main() {
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// shifter is -shifts: a shift every 150 frames.
+type shifter struct {
+	*game.Game
+	n int
+}
+
+func (s *shifter) Update() error {
+	if s.n++; s.n%150 == 0 {
+		s.DevShift()
+	}
+	return s.Game.Update()
 }
 
 // shot runs the game unthrottled up to frame at, then saves one screen to path and quits: a dev print.

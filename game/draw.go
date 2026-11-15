@@ -196,7 +196,8 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // screen-px precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if g.floorImg == nil { // only the floor is pre-drawn; everything above it is y-sorted with the actors (D11)
-		g.floorImg, g.props, g.baked = g.paintFloor(), g.sortedProps(), nil // the props' band images are new: their looks too
+		g.floorImg, g.props = g.paintFloor(), g.sortedProps()
+		g.resetBakes() // the props' band images are new: their looks too
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
@@ -278,13 +279,17 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(z(a), z(b)) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
+	view := screen.Bounds().Inset(-2 * world.TileSize * zoom) // a prop this far off it can't reach it (a tall one, a band, a wall's Shadow)
 	drawProp := func(p prop) {
+		o := g.hotel.Map.Origin(p.cx, p.cy)
+		if b := g.tiles[p.id].Bounds(); !image.Pt(o.X*zoom-ox, o.Y*zoom-oy).In(view) && !image.Pt((o.X+b.Dx())*zoom-ox, (o.Y+b.Dy())*zoom-oy).In(view) {
+			return // off the picture: every prop of the hotel drawn each frame was most of a frame (08 W3 browser profile)
+		}
 		if g.reelingAt(p.l, p.cx, p.cy) { // rolling with its Room's reel
 			return
 		}
 		op.GeoM.Reset()
 		op.GeoM.Scale(zoom, zoom)
-		o := g.hotel.Map.Origin(p.cx, p.cy)
 		op.GeoM.Translate(float64(o.X*zoom-ox), float64(o.Y*zoom-oy))
 		s := g.dreadAt(image.Pt(p.cx, p.cy))
 		img := g.tiles[p.id]

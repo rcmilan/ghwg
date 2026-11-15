@@ -114,7 +114,10 @@ func (g *Game) blitPart(dst, src *ebiten.Image, r image.Rectangle, op *ebiten.Dr
 		k.tint[i] = steps(tint[i])
 	}
 	img, ok := g.baked[k]
-	if !ok && g.bakes >= bakeBudget { // this frame's bakes are spent: through the shader this once
+	if !ok && g.bakes < bakeBudget {
+		img = g.bake(k)
+	}
+	if img == nil { // this frame's bakes are spent (or it is too big to bake): through the shader this once
 		part := src
 		if r != src.Bounds() {
 			part = src.SubImage(r).(*ebiten.Image)
@@ -122,13 +125,10 @@ func (g *Game) blitPart(dst, src *ebiten.Image, r image.Rectangle, op *ebiten.Dr
 		g.shade(dst, part, op, mode, shade, tint, dread)
 		return
 	}
-	if !ok {
-		img = g.bake(k)
-	}
 	o := &ebiten.DrawImageOptions{GeoM: op.GeoM}
 	o.ColorScale.ScaleAlpha(op.ColorScale.A()) // the palette keeps only the alpha of the draw's color
 	if r != src.Bounds() {
-		img = img.SubImage(r.Sub(src.Bounds().Min)).(*ebiten.Image)
+		img = img.SubImage(r.Sub(src.Bounds().Min).Add(img.Bounds().Min)).(*ebiten.Image)
 	}
 	dst.DrawImage(img, o)
 }
@@ -154,18 +154,55 @@ const bakeBudget = 32
 // reaching blit; a leak shows as rebakes, never as memory.
 const bakeCap = 8192
 
-// bake paints k's look of its image once.
+// The looks are baked onto a few bake sheets, bakeSheet px square, packed in rows: few textures, so the sprites
+// batch, and none Ebitengine moves between its atlases (08 W3 browser profile: one small image per look, each drawn
+// into once, slowed every frame of a growth in ghost more than the last, until the browser crashed).
+const bakeSheet = 1024
+
+type bakeSheets struct {
+	pages     []*ebiten.Image
+	x, y, row int // the next look's corner on the last page; row: the tallest look in the current row
+}
+
+// bake paints k's look of its image once, onto the bake sheets; nil if it is bigger than a sheet.
 func (g *Game) bake(k bakeKey) *ebiten.Image {
-	if g.baked == nil || len(g.baked) >= bakeCap {
+	if len(g.baked) >= bakeCap {
+		g.resetBakes()
+	}
+	if g.baked == nil {
 		g.baked = map[bakeKey]*ebiten.Image{}
 	}
-	b := k.src.Bounds()
-	img := ebiten.NewImage(b.Dx(), b.Dy())
-	img.DrawRectShader(b.Dx(), b.Dy(), g.palette, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{k.src},
-		Uniforms: map[string]any{"Mode": float32(k.mode), "Shade": k.shade, "Tint": k.tint[:], "Dread": k.dread}})
+	b, s := k.src.Bounds(), &g.sheets
+	w, h := b.Dx(), b.Dy()
+	if w > bakeSheet || h > bakeSheet {
+		return nil
+	}
+	if s.x+w > bakeSheet { // the row is full: the next one
+		s.x, s.y, s.row = 0, s.y+s.row+1, 0
+	}
+	if len(s.pages) == 0 || s.y+h > bakeSheet { // the page is full: a new one
+		s.pages = append(s.pages, ebiten.NewImageWithOptions(image.Rect(0, 0, bakeSheet, bakeSheet), &ebiten.NewImageOptions{Unmanaged: true}))
+		s.x, s.y, s.row = 0, 0, 0
+	}
+	op := &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{k.src},
+		Uniforms: map[string]any{"Mode": float32(k.mode), "Shade": k.shade, "Tint": k.tint[:], "Dread": k.dread}}
+	op.GeoM.Translate(float64(s.x), float64(s.y))
+	page := s.pages[len(s.pages)-1]
+	page.DrawRectShader(w, h, g.palette, op)
+	img := page.SubImage(image.Rect(s.x, s.y, s.x+w, s.y+h)).(*ebiten.Image)
+	s.x += w + 1 // a pixel apart: no look bleeds into the next
+	s.row = max(s.row, h)
 	g.baked[k] = img
 	g.bakes++
 	return img
+}
+
+// resetBakes drops every look and frees the sheets: the props' band images are made again with the floor.
+func (g *Game) resetBakes() {
+	for _, p := range g.sheets.pages {
+		p.Deallocate()
+	}
+	g.baked, g.sheets = nil, bakeSheets{}
 }
 
 // shade is blit through the shader every draw: for the floor and the images made per frame, each one big draw.

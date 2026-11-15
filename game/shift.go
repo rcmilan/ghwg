@@ -28,6 +28,16 @@ func (g *Game) startShift() {
 	g.shifting = &shift{effect: g.chat.IntN(len(transitions)), start: g.tick, toGhost: !g.ghost, seed: g.chat.Float32()}
 }
 
+// DevShift is main's -shifts: a shift starts, unless one is under way or the game isn't in play.
+func (g *Game) DevShift() {
+	if g.shifting == nil && g.state == StatePlay {
+		g.startShift()
+	}
+}
+
+// DevLevel is main's -level: the prestige level, set before the Run's other dev starts.
+func (g *Game) DevLevel(n int) { g.level = n }
+
 // updateShift switches the dimension halfway through and ends the transition after flipFrames.
 func (g *Game) updateShift() {
 	s := g.shifting

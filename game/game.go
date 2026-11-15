@@ -161,6 +161,7 @@ type Game struct {
 	baked         map[bakeKey]*ebiten.Image      // each sprite's ghost-dimension look, painted once (ghost.go)
 	coverHalves   [2]*ebiten.Image               // coverHalf's two tiles, kept for blit's bake
 	bakes         int                            // looks baked in the frame being drawn (ghost.go bakeBudget)
+	sheets        bakeSheets                     // the pages the looks are baked on (ghost.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
