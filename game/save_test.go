@@ -204,3 +204,21 @@ func TestSaveTitleContinue(t *testing.T) {
 		t.Error("no save: the opening plays as before")
 	}
 }
+
+// A resumed Run with the pantry bought stands its shelves again (W3 merge: the growths ran before the locks).
+func TestSaveResumesPantry(t *testing.T) {
+	g1 := dressedRun(t, 1)
+	g1.level = 1
+	g1.boughtPantry()
+	if len(g1.hotel.Pantries) == 0 {
+		t.Fatal("no pantry on the grown hotel")
+	}
+	memStore(t)
+	g1.saveDawn()
+	g2, _ := headless(t, 2, 1, 99)
+	g2.startRun()
+	g2.persist = true
+	if !g2.resume(g2.loadSave()) || len(g2.hotel.Pantries) != len(g1.hotel.Pantries) || len(g2.pantryStock) != len(g2.hotel.Pantries) {
+		t.Fatalf("pantries %d, stocks %d; want %d", len(g2.hotel.Pantries), len(g2.pantryStock), len(g1.hotel.Pantries))
+	}
+}

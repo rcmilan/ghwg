@@ -325,6 +325,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		g.drawCatalog(s)
 		if len(g.listed(g.termTab)) == 0 {
 			help = "A/D TAB   ESC CLOSE"
+		} else if it := tabItems(g.termTab); g.termPick < len(it) && shop[it[g.termPick]].ID == rowFatherP {
+			help = "A/D TAB   W/S ITEM   SPACE ASK FATHER P   ESC CLOSE"
 		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)

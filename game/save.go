@@ -250,6 +250,8 @@ func (g *Game) restore(r *runState) error {
 			g.locked[id] = true
 		}
 	}
+	g.pantryStock = nil // the growths above ran before the locks: stand the shelves now, empty (their stock isn't saved)
+	g.openPantries()
 	g.boughtAt, g.stock = r.Bought, r.Stock
 	if g.stock == nil {
 		g.stock = map[Unlock]int{}
