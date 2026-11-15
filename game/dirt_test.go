@@ -47,7 +47,8 @@ func TestMess(t *testing.T) {
 
 // T201: a Room shows enough dirt spots to cover its dirt, past bigFrom each a spotUnit bigger (fewer,
 // bigger stains: 9 at the Closed Room's dirtMax), each on its own free floor cell, normal unless a ghost made it (a haunt:
-// spiritual); spots stay put, and when dirt falls the spiritual go first, newest first, then the newest normal.
+// spiritual); spots stay put, and when dirt falls the normal go first, newest first, then the newest spiritual (08 B1
+// live test 4: only a clean in ghost or a Priest should take those, and both clear their kind outright).
 func TestSpots(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
@@ -71,11 +72,11 @@ func TestSpots(t *testing.T) {
 	}
 	g.dirt[0] = []spot{{got[0].cell, false, spotUnit}, {got[1].cell, true, spotUnit}, {got[2].cell, false, spotUnit}, {got[3].cell, true, spotUnit}}
 	g.setDirtLevel(0, 2*spotUnit)
-	if want := []spot{{got[0].cell, false, spotUnit}, {got[2].cell, false, spotUnit}}; !slices.Equal(g.spots(0), want) {
-		t.Fatalf("down to 2 spots: %v, want the normal ones %v", g.spots(0), want)
+	if want := []spot{{got[1].cell, true, spotUnit}, {got[3].cell, true, spotUnit}}; !slices.Equal(g.spots(0), want) {
+		t.Fatalf("down to 2 spots: %v, want the spiritual ones %v", g.spots(0), want)
 	}
 	g.setDirtLevel(0, spotUnit)
-	if want := []spot{{got[0].cell, false, spotUnit}}; !slices.Equal(g.spots(0), want) {
+	if want := []spot{{got[1].cell, true, spotUnit}}; !slices.Equal(g.spots(0), want) {
 		t.Fatalf("down to 1 spot: %v, want the oldest %v", g.spots(0), want)
 	}
 	g.setDirtLevel(0, 2*spotUnit) // mess: normal

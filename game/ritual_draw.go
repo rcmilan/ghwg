@@ -15,8 +15,7 @@ import (
 // has presence: he hovers, traces a sigil on the floor that fills in, columns of light stand around it, motes
 // converge on him, and the burst sweeps the whole Room in a ring.
 const (
-	sigilFrames  = 90  // frames Father M takes to trace his circle
-	ritualSquash = .55 // the floor circle's height over its width: seen from above at a slant
+	sigilFrames = 90 // frames Father M takes to trace his circle
 )
 
 var (
@@ -71,7 +70,7 @@ func drawRing(s *ebiten.Image, x, y, r, frac float64, w float32, c [3]float32, a
 	n := max(2, int(48*math.Min(1, frac)))
 	for i := 0; i <= n; i++ {
 		t := 2*math.Pi*math.Min(1, frac)*float64(i)/float64(n) - math.Pi/2
-		px, py := float32(x+r*math.Cos(t)), float32(y+r*ritualSquash*math.Sin(t))
+		px, py := float32(x+r*math.Cos(t)), float32(y+r*math.Sin(t))
 		if i == 0 {
 			p.MoveTo(px, py)
 		} else {
@@ -93,42 +92,47 @@ func (g *Game) glowAt(s *ebiten.Image, x, y, d float64, c [3]float32, a float64)
 	s.DrawImage(g.glow, op)
 }
 
-// drawRituals: each Priest's ritual by phase and Father.
-func (g *Game) drawRituals(s *ebiten.Image, ox, oy int) {
+// drawRituals: each Priest's ritual by phase and Father. The floor pass (floor true: pools, rings, the sigil) goes
+// under the actors, the camera looking straight down, so the circles are round and the Priest stands over them
+// (08 B1 live test 4); the rest (motes, columns, flashes) over them.
+func (g *Game) drawRituals(s *ebiten.Image, ox, oy int, floor bool) {
 	for _, pr := range g.priests {
 		x, y := pr.X*zoom-float64(ox), pr.Y*zoom-float64(oy)
 		if pr.strong {
-			g.drawM(s, pr, x, y)
+			g.drawM(s, pr, x, y, floor)
 		} else {
-			g.drawK(s, pr, x, y)
+			g.drawK(s, pr, x, y, floor)
 		}
 	}
 }
 
-func (g *Game) drawK(s *ebiten.Image, pr *priest, x, y float64) {
+func (g *Game) drawK(s *ebiten.Image, pr *priest, x, y float64, floor bool) {
 	const r = 14 * zoom
-	switch pr.phase {
-	case rChant:
+	switch {
+	case pr.phase == rChant && floor:
 		f := math.Min(1, pr.t/60)
 		breath := .5 + .5*math.Sin(pr.t/45)
 		g.glowAt(s, x, y, 1.6*r*(1+.06*breath), kTint, .3*f)      // a faint pool under him
 		drawRing(s, x, y, r, 1, 1.5, kTint, .75*f*(.6+.4*breath)) // the ring, breathing
-		for k := range 3 {                                        // three motes, no more
+	case pr.phase == rChant:
+		f := math.Min(1, pr.t/60)
+		for k := range 3 { // three motes, no more
 			u := math.Mod(pr.t/180+float64(k)/3, 1)
-			g.glowAt(s, x+math.Sin(float64(k)*2.4+u*2)*7*zoom, y-(4+22*u)*zoom, 7*zoom, kTint, .8*math.Sin(math.Pi*u))
+			g.glowAt(s, x+math.Sin(float64(k)*2.4+u*2)*7*zoom, y-(4+22*u)*zoom, 7*zoom, kTint, .8*math.Sin(math.Pi*u)*f)
 		}
-	case rBurst:
+	case pr.phase == rBurst && floor:
 		f := pr.t / burstFrames
-		pulse := math.Sin(math.Pi * f)
 		drawRing(s, x, y, r*(1+.6*f), 1, 1.5, kTint, .5*(1-f))
-		g.glowAt(s, x, y-6*zoom, 3*world.TileSize*zoom*(.6+.4*f), kTint, .55*pulse) // one soft pulse
+	case pr.phase == rBurst:
+		f := pr.t / burstFrames
+		g.glowAt(s, x, y-6*zoom, 3*world.TileSize*zoom*(.6+.4*f), kTint, .55*math.Sin(math.Pi*f)) // one soft pulse
 	}
 }
 
-func (g *Game) drawM(s *ebiten.Image, pr *priest, x, y float64) {
+func (g *Game) drawM(s *ebiten.Image, pr *priest, x, y float64, floor bool) {
 	const r = 30 * zoom
-	switch pr.phase {
-	case rChant:
+	switch {
+	case pr.phase == rChant && floor:
 		f := math.Min(1, pr.t/sigilFrames)
 		g.glowAt(s, x, y, 2.4*r, mEdge, .2*f)
 		drawRing(s, x, y, r, f, 2, mEdge, .85)      // the circle traces itself round
@@ -136,29 +140,36 @@ func (g *Game) drawM(s *ebiten.Image, pr *priest, x, y float64) {
 		if f >= 1 {                                 // then a triangle pair joins them: six points, twelve rays
 			g.drawStar(s, x, y, r*.62, pr.t/400)
 		}
+		for k := range 4 { // where the columns stand
+			a := float64(k)*math.Pi/2 + math.Pi/4 + pr.t/300
+			g.glowAt(s, x+r*math.Cos(a), y+r*math.Sin(a), 10*zoom, mTint, .5*f)
+		}
+	case pr.phase == rChant:
+		f := math.Min(1, pr.t/sigilFrames)
 		for k := range 4 { // light columns stand on the circle
 			a := float64(k)*math.Pi/2 + math.Pi/4 + pr.t/300
-			cx, cy := x+r*math.Cos(a), y+r*ritualSquash*math.Sin(a)
+			cx, cy := x+r*math.Cos(a), y+r*math.Sin(a)
 			h := (22 + 6*math.Sin(pr.t/20+float64(k))) * zoom * f
 			var col vector.Path
 			col.MoveTo(float32(cx), float32(cy))
 			col.LineTo(float32(cx), float32(cy-h))
 			strokeP(s, &col, 3, mTint, .35*f)
-			g.glowAt(s, cx, cy, 10*zoom, mTint, .5*f)
 		}
 		for k := range 8 { // motes swirl in to him
 			u := math.Mod(pr.t/90+float64(k)/8, 1)
 			a := float64(k)*.785 + u*3
 			rr := r * (1 - u)
-			g.glowAt(s, x+rr*math.Cos(a), y-u*10*zoom+rr*ritualSquash*math.Sin(a), 5*zoom, mTint, .8*math.Sin(math.Pi*u)*f)
+			g.glowAt(s, x+rr*math.Cos(a), y-u*10*zoom+rr*math.Sin(a), 5*zoom, mTint, .8*math.Sin(math.Pi*u)*f)
 		}
-	case rBurst:
+	case pr.phase == rBurst && floor:
 		f := pr.t / burstFrames
 		drawRing(s, x, y, r, 1, 3, mEdge, 1-f)
 		for k, c := range [...][3]float32{mTint, mEdge} { // two rings sweep out past the walls, the gold first
 			e := math.Max(0, f*1.25-.25*float64(k))
 			drawRing(s, x, y, r*(1+7*e), 1, 8-4*float32(e), c, 1.2*(1-e))
 		}
+	case pr.phase == rBurst:
+		f := pr.t / burstFrames
 		g.glowAt(s, x, y-8*zoom, 3*world.TileSize*zoom*(.5+f)*3, mTint, .65*math.Sin(math.Pi*f)) // the flash, a Room wide
 		g.glowAt(s, x, y-8*zoom, 3*world.TileSize*zoom*(.5+f), [3]float32{1, 1, 1}, .5*(1-f))
 	}
@@ -170,7 +181,7 @@ func (g *Game) drawStar(s *ebiten.Image, x, y, r, rot float64) {
 		var p vector.Path
 		for i := 0; i <= 3; i++ {
 			a := rot + math.Pi/6*float64(3*t) + 2*math.Pi*float64(i)/3 - math.Pi/2
-			px, py := float32(x+r*math.Cos(a)), float32(y+r*ritualSquash*math.Sin(a))
+			px, py := float32(x+r*math.Cos(a)), float32(y+r*math.Sin(a))
 			if i == 0 {
 				p.MoveTo(px, py)
 			} else {

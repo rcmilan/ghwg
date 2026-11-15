@@ -54,7 +54,11 @@ func (g *Game) serve(room int) bool {
 			continue
 		}
 		wait := askMinutes * minuteFrames
-		g.addMood(room, (moodServe*(wait-(g.clock-p.asked))+wait-1)/wait) // rounded up
+		lift := (moodServe*(wait-(g.clock-p.asked)) + wait - 1) / wait // rounded up
+		if d := g.spiritDirt(room); d > 0 {                            // never past the spiritual dirt: only a clean or a Priest takes it
+			lift = min(lift, max(0, moodOf(d)-g.roomMood(room)))
+		}
+		g.addMood(room, lift)
 		p.asked, p.askEnded = 0, g.clock
 		g.serves++
 		return true

@@ -19,7 +19,7 @@ const (
 	priestStrong = 40 // Ecto: a call of Father M, clears it
 	unlockKEcto  = 30 // the STAFF unlock that puts Father K in the Rooms' rings
 	unlockMEcto  = 80
-	retainerEcto = 20 // Ecto a game day: Father K stays on rounds
+	retainerEcto = 150 // Ecto a game day: Father K stays on rounds; dear on purpose (08 B1 live test 4)
 
 	priestMinutes = 30 // game minutes a Priest chants in the Room
 	priestSpeed   = arriveSpeed

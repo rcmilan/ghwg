@@ -155,3 +155,20 @@ func TestTailTowardGuest(t *testing.T) {
 		}
 	}
 }
+
+// 08 B1 live test 4: a serve lifts the Room's Mood, which takes its normal dirt, never its spiritual: only a
+// clean in ghost or a Priest does.
+func TestServeLeavesSpiritualDirt(t *testing.T) {
+	g, _, p := settled(t)
+	g.ghostDirt(p.Room, 30)
+	spirit := g.spiritDirt(p.Room)
+	g.addDirtLevel(p.Room, 10)
+	if spirit == 0 || g.dirtLevel(p.Room) <= spirit {
+		t.Fatalf("setup: spiritual %d of %d dirt", spirit, g.dirtLevel(p.Room))
+	}
+	p.asked, p.want, g.hands = g.clock, SupplyWater, SupplyWater
+	g.serve(p.Room)
+	if g.spiritDirt(p.Room) != spirit || g.dirtLevel(p.Room) != spirit {
+		t.Fatalf("after a serve: spiritual %d of %d dirt, want %d of %d", g.spiritDirt(p.Room), g.dirtLevel(p.Room), spirit, spirit)
+	}
+}

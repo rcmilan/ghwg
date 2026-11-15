@@ -201,6 +201,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
 	g.drawReels(screen, ox, oy)
+	g.drawRituals(screen, ox, oy, true) // on the floor, under everyone
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -388,7 +389,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawTalk(screen, ox, oy)
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
-	g.drawRituals(screen, ox, oy)
+	g.drawRituals(screen, ox, oy, false)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-(g.now()-float64(f.at))*floaterRisePerFr)
 		switch {
