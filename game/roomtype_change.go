@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"math/rand/v2"
 	"slices"
 	"strings"
 
@@ -213,13 +214,30 @@ func (g *Game) updateChanges() {
 }
 
 // setRoom lands a Room Type on the Room, with its Mirror if it had one or (mirror) the in-Room Mirror is
-// bought. The Room's Mood is the Room's, not the furniture's: it stays, and its dirt is spotted again on the
-// new floor.
+// bought. The Room's Mood is the Room's, not the furniture's: it stays, and so does its dirt, each spot its kind
+// and size (08 F0: re-spotting it all turned a ghost's dirt normal); a spot the new furniture covers moves to a
+// bare cell.
 func (g *Game) setRoom(room int, t world.RoomType, mirror bool) {
 	g.hotel.Land(room, t, !g.hotel.Rooms[room].Mirror.Empty() || mirror && g.unlocked(RoomMirror))
 	g.floorImg, g.stains = nil, nil // re-rendered on the next Draw
-	if room < len(g.dirt) {
-		g.dirt[room] = nil
+	if room >= len(g.dirt) {
+		return
+	}
+	free, moved := g.floorCells(room), []int(nil)
+	for k, s := range g.dirt[room] {
+		if i := slices.Index(free, s.cell); i >= 0 {
+			free = slices.Delete(free, i, i+1)
+		} else {
+			moved = append(moved, k)
+		}
+	}
+	r := rand.New(rand.NewPCG(uint64(room)+1, uint64(g.dirtN[room])))
+	for _, k := range moved {
+		if len(free) > 0 {
+			i := r.IntN(len(free))
+			g.dirt[room][k].cell = free[i]
+			free = slices.Delete(free, i, i+1)
+		}
 	}
 }
 

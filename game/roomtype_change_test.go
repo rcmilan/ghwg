@@ -396,3 +396,26 @@ func TestDeluxe(t *testing.T) {
 		t.Fatalf("a Deluxe Room changed to Twin is %s %s, want Deluxe Twin", g.hotel.Rooms[0].Type.Name, g.hotel.Rooms[0].Type.Beds)
 	}
 }
+
+// 08 F0 (Dirt only in Deluxe): a change of type spots the Room's dirt on the new floor, each spot keeping its
+// kind: a ghost's dirt stays spiritual, the rest stays normal.
+func TestChangeKeepsSpiritDirt(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	free := g.floorCells(0)
+	g.dirt, g.dirtN = [][]spot{{{free[0], true, spotUnit}, {free[1], false, spotUnit}, {free[2], true, spotUnit}}, nil}, []int{3, 0}
+	g.setDirtLevel(0, 3*spotUnit)
+	twin, _ := world.TypeOf(g.types, "Twin")
+	g.setRoom(0, twin, false)
+	kinds := map[bool]int{}
+	floor := g.floorCells(0)
+	for _, s := range g.spots(0) {
+		kinds[s.spirit] += s.size
+		if !slices.Contains(floor, s.cell) {
+			t.Errorf("a dirt spot at %v is off the new floor", s.cell)
+		}
+	}
+	if kinds[true] != 2*spotUnit || kinds[false] != spotUnit {
+		t.Fatalf("after the change: %d spiritual dirt, %d normal; want %d and %d", kinds[true], kinds[false], 2*spotUnit, spotUnit)
+	}
+}
