@@ -74,7 +74,7 @@ A store item not on sale yet, listed with SOON; its detail shows its Hint, what 
 Money or Ectoplasm earned per real minute, averaged over the last game hour; shown only in the Terminal's bar.
 
 **Badge**:
-The blinking `!` by the Terminal's screen: something never bought this Run is on sale and affordable.
+The steady `!` by the Terminal's screen: something on sale and affordable that the open Terminal hasn't shown yet this Run.
 
 **Hotel view**:
 The whole hotel seen from afar: SPACE, wherever it has nothing else to do, pulls the camera back until every Room shows, each under its number and a Room Change on its way, while the world runs on in slow motion (a quarter speed). WASD picks a Room (the camera moves half way in); SPACE opens its Room ring. Everything bought for one Room is bought there and paid at once, with no cart. ESC steps back one level: beds, ring, Room, hotel, play. A Room not bought yet lies under a dark veil there.
