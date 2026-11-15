@@ -77,7 +77,7 @@ func (g *Game) playPrestige() {
 		return
 	}
 	g.state, g.ghost, g.shifting, g.viewT, g.hands = StatePlay, false, nil, 0, ""
-	if g.characters[fatherP.name][0] == nil {
+	if g.characters[fatherP.name][0] == nil && g.bases["Adam"][0] != nil { // a headless game has no sheets
 		g.characters[fatherP.name] = dress(g.bases["Adam"], palettes["Adam"], fatherP.look)
 	}
 	r := &prestigeReel{}
