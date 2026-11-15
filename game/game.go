@@ -147,6 +147,7 @@ type Game struct {
 	dt            float64                        // this step's frames of world time, at most 1; a whole frame (and ticked) outside a step, for the tests
 	acc           float64                        // world time since the last whole frame, 0..1
 	ticked        bool                           // a whole frame of world time ended this step: its per-frame logic runs
+	recent        []earning                      // the last game hour's earnings: the Terminal's rates (wallet.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

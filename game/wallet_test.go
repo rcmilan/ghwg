@@ -52,3 +52,23 @@ func TestTapped(t *testing.T) {
 		t.Fatalf("taps %v", g.taps)
 	}
 }
+
+// T334 (08 F0-T): the Terminal's header rates: what was earned in the last game hour, per real minute.
+func TestPerMinute(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.earn(Money, 10, noFloat)
+	g.clock += hourFrames / 2
+	g.earn(Ecto, 5, noFloat)
+	if got := g.perMinute(); got != (Cost{10 * minuteRate, 5 * minuteRate}) {
+		t.Fatalf("$10 and 5 Ecto in the last game hour: %v a minute", got)
+	}
+	g.clock += hourFrames / 2
+	if got := g.perMinute(); got != (Cost{0, 5 * minuteRate}) {
+		t.Fatalf("the $10 is an hour old: %v a minute, want only the Ecto", got)
+	}
+	g.startRun()
+	if got := g.perMinute(); got != (Cost{}) {
+		t.Fatalf("a new Run: %v a minute, want nothing", got)
+	}
+}
