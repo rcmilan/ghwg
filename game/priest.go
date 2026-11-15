@@ -74,6 +74,12 @@ func (g *Game) priestOn(room int) bool {
 	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == room && !pr.done })
 }
 
+// fatherIn: that Father (K, or M if strong) is anywhere in the hotel, walking in, working or leaving. One of each at
+// a time (08 F0); F0-G wires it into the calls' Refuse, F0-R hides the call in the ring with it.
+func (g *Game) fatherIn(strong bool) bool {
+	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong })
+}
+
 // workSpot: the Room's cell just inside its door.
 func (g *Game) workSpot(room int) image.Point {
 	return g.hotel.Rooms[room].Door.Add(image.Pt(0, -1)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))

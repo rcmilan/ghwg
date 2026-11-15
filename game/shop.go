@@ -28,6 +28,7 @@ type Item struct {
 	Tab    Tab
 	Name   string
 	Blurb  string // one cartLine on the detail pane
+	Hint   string // what unlocks it, shown while it's still a teaser (08 F0-T fills these)
 	Icon   string // assets/sprites/<Icon>.png, or a character whose head is the icon (Head)
 	Head   bool
 	Cost   Cost
