@@ -17,8 +17,12 @@ func main() {
 	flag.Parse()
 	files := http.FileServer(http.Dir("web"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/play" { // the game page itself: FileServer would redirect /index.html to /, this wrapper
+			http.ServeFile(w, r, "web/index.html")
+			return
+		}
 		if r.URL.Path == "/" || r.URL.Path == "/frame" {
-			src := "/index.html" + "?" + r.URL.RawQuery
+			src := "/play" + "?" + r.URL.RawQuery
 			w.Header().Set("Content-Type", "text/html")
 			fmt.Fprintf(w, `<!doctype html><body style="margin:0;background:#222;display:grid;place-items:center;height:100vh"><iframe src="%s" width="960" height="540" style="border:0" allow="autoplay; fullscreen"></iframe>`, strings.ReplaceAll(src, `"`, "&quot;"))
 			return
