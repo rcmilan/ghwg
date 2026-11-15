@@ -19,6 +19,19 @@ func (g *Game) openTerminal() {
 	g.state, g.termTab = StateTerminal, min(g.termTab, tabs-1)
 	g.refuse("")
 	g.snapPick()
+	g.see()
+}
+
+// see marks the fresh items of the open tab seen this Run: the Terminal's "!" no longer counts them (hud.go).
+func (g *Game) see() {
+	if g.seen == nil {
+		g.seen = map[Unlock]bool{}
+	}
+	for _, i := range tabItems(g.termTab) {
+		if g.fresh(i) {
+			g.seen[shop[i].ID] = true
+		}
+	}
 }
 
 // tabItems: the shop rows of a catalog tab, in order. Every item is always listed (2026-11-08).
@@ -86,9 +99,11 @@ func (g *Game) updateTerminal() {
 	case key(ebiten.KeyA):
 		g.termTab, g.termPick = (g.termTab+tabs-1)%tabs, 0
 		g.snapPick()
+		g.see()
 	case key(ebiten.KeyD):
 		g.termTab, g.termPick = (g.termTab+1)%tabs, 0
 		g.snapPick()
+		g.see()
 	case key(ebiten.KeyW):
 		g.pickStep(-1)
 	case key(ebiten.KeyS):

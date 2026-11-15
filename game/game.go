@@ -95,7 +95,7 @@ type Game struct {
 	stock         map[Unlock]int                 // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
 	earned        [2]Num                         // lifetime earnings this Run (wallet.go): open store items
 	boughtAt      map[Unlock][2]Num              // per unlock: earned when it arrived (shop.go onSale)
-	bought        map[Unlock]bool                // per Run: every store item ever ordered (the Terminal's "!", hud.go)
+	seen          map[Unlock]bool                // per Run: store items the open Terminal showed fresh (the "!", hud.go)
 	icons         map[string]*ebiten.Image       // assets/sprites, loaded on first use (terminal.go)
 	couriers      []*courier                     // on their way with an order (courier.go)
 	walls         []wallRun                      // the wall graph Shadows travel (D185, wall.go)
@@ -219,7 +219,7 @@ func (g *Game) startRun() {
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
-	g.bought = nil
+	g.seen = nil
 	g.state = StatePlay
 	first, ok := world.TypeOf(g.types, g.bedsAtStart)
 	if !ok {

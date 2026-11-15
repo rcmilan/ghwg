@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // 08 F0 (Glow, SPACE at a door, Put an item back): actionable names what SPACE does at the Concierge's spot and the
@@ -53,26 +55,41 @@ func TestActionableAgrees(t *testing.T) {
 	}
 }
 
-// 08 F0 (ESC and HUD): the Terminal's "!" shows while something there never ordered this Run is on sale and
-// affordable; once ordered it no longer counts, and a new Run counts it again.
+// 08 F0 (ESC and HUD, live test 2026-11-15): the Terminal's "!" shows while something there is on sale and
+// affordable that the open store hasn't shown yet this Run. A tab shown sees what it lists; an item that becomes
+// affordable later brings the "!" back until its tab is shown; a new Run sees nothing yet.
 func TestNewBuy(t *testing.T) {
-	g, _ := headless(t, 2, 1, 1)
+	g, s := headless(t, 2, 1, 1)
 	g.startRun()
 	if g.newBuy() {
 		t.Fatal(`"!" with an empty wallet`)
 	}
+	g.wallet[Money] = 60 // Water and the Mirror, not Food or Towels
+	if !g.newBuy() {
+		t.Fatal(`no "!" with $60 and nothing shown`)
+	}
+	g.termTab = tabHotel
+	g.openTerminal()
+	g.state = StatePlay
+	if !g.newBuy() {
+		t.Fatal(`no "!" with Water on sale and SUPPLIES never shown`)
+	}
+	g.termTab = tabSupplies
+	g.openTerminal()
+	g.state = StatePlay
+	if g.newBuy() {
+		t.Fatal(`"!" after both tabs with something affordable were shown`)
+	}
 	g.wallet[Money] = 1000
 	if !g.newBuy() {
-		t.Fatal(`no "!" with $1000 and nothing bought`)
+		t.Fatal(`no "!" with Food and Towels newly affordable`)
 	}
-	for i, it := range shop {
-		if it.Tab < tabCart && g.onSale(i) {
-			g.cart = append(g.cart, cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)})
-		}
-	}
-	g.wallet[Money] = 1e6
-	if g.placeOrder() != "" || g.newBuy() {
-		t.Fatalf(`"!" after everything on sale was ordered`)
+	g.termTab = tabStaff
+	g.openTerminal()
+	keys(g, s, ebiten.KeyD, ebiten.KeyD) // CART, then SUPPLIES
+	g.state = StatePlay
+	if g.newBuy() {
+		t.Fatal(`"!" after D showed SUPPLIES again`)
 	}
 	g.startRun()
 	g.wallet[Money] = 1000

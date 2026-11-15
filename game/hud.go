@@ -204,10 +204,16 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 	}
 }
 
-// newBuy: something in the store never ordered this Run is on sale and affordable (08 F0: the Terminal's "!").
+// fresh: store item i is listed, on sale, affordable and not owned: one the Terminal's "!" can count.
+func (g *Game) fresh(i int) bool {
+	it := shop[i]
+	return it.Tab < tabCart && !g.gone(i) && !g.owned(i) && g.onSale(i) && g.afford(g.priceOf(i)) && (it.Grow == 0 || g.growRefuse(it.Grow) == "")
+}
+
+// newBuy: a fresh store item the open Terminal hasn't shown this Run (08 F0: the Terminal's "!").
 func (g *Game) newBuy() bool {
 	for i, it := range shop {
-		if it.Tab < tabCart && !g.bought[it.ID] && !g.owned(i) && g.onSale(i) && g.afford(g.priceOf(i)) && (it.Grow == 0 || g.growRefuse(it.Grow) == "") {
+		if g.fresh(i) && !g.seen[it.ID] {
 			return true
 		}
 	}
@@ -216,10 +222,10 @@ func (g *Game) newBuy() bool {
 
 const badgeScale = 3 // the "!" over the Terminal's screen, as big as the counters
 
-// drawBadge blinks a "!" at the top right of the Terminal's screen while newBuy, in play, clear of the Concierge
+// drawBadge shows a "!" at the top right of the Terminal's screen while newBuy, in play, clear of the Concierge
 // behind it; off screen it waits at the nearest edge, seen from anywhere.
 func (g *Game) drawBadge(s *ebiten.Image) {
-	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || ebiten.Tick()/(tps/2)%2 == 1 || !g.newBuy() {
+	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || !g.newBuy() {
 		return
 	}
 	mw, mh := g.mapSize()

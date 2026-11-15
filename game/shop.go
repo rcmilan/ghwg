@@ -241,12 +241,6 @@ func (g *Game) placeOrder() string {
 	}
 	order := g.cart
 	g.cart = nil
-	if g.bought == nil {
-		g.bought = map[Unlock]bool{}
-	}
-	for _, l := range order { // the Terminal's "!" counts what was never bought this Run (hud.go)
-		g.bought[shop[l.item].ID] = true
-	}
 	g.ship(order)
 	return ""
 }
