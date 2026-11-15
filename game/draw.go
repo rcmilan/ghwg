@@ -78,7 +78,6 @@ type prop struct {
 	l         int // layer
 	id        world.TileID
 	band      *ebiten.Image // its part of the walls' top band, drawn over it (world/band.go); nil without one
-	wood      *ebiten.Image // the band's wood, white, its outline left out: a pair's tint in the hotel view (match.go)
 	bx, by    int           // where the band's part starts, in cell px
 }
 
@@ -94,7 +93,6 @@ func (g *Game) sortedProps() []prop {
 					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
 					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
 						p.band, p.bx, p.by = ebiten.NewImageFromImage(bands.SubImage(r.Add(m.Origin(x, y)))), r.Min.X, r.Min.Y
-						p.wood = woodOf(bands, r.Add(m.Origin(x, y)))
 					}
 					ps = append(ps, p)
 				}
@@ -198,6 +196,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
+	g.drawRoomGlow(screen, op)
 	g.drawMoodFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
@@ -294,7 +293,6 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if p.band != nil {
 			op.GeoM.Translate(float64(p.bx*zoom), float64(p.by*zoom))
 			put(p.band)
-			g.tintWood(screen, p, op)
 		}
 		if p.l == world.LayerWalls {
 			g.drawShadow(screen, p, ox, oy)

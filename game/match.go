@@ -151,45 +151,6 @@ const (
 	moteLoop = 180
 )
 
-// woodOf: the band's wood in r of the map's bands (world/band.go), white, its outline left out.
-func woodOf(bands *image.RGBA, r image.Rectangle) *ebiten.Image {
-	w := image.NewRGBA(r)
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X; x < r.Max.X; x++ {
-			if bands.RGBAAt(x, y) == world.BandColor {
-				w.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
-			}
-		}
-	}
-	return ebiten.NewImageFromImage(w)
-}
-
-// pairWalls: where a Room's tinted bands lie, its shell down to its lower wall's band: below it the hotel's
-// outer wall runs on beside the corridor (live test 3).
-func pairWalls(room world.Room) image.Rectangle {
-	r := room.Shell()
-	r.Max.Y = room.Door.Y*world.TileSize + world.BandRect("wall_lintel").Max.Y
-	return r
-}
-
-// tintWood: in the hotel view, a prop's band wood in a paired Room's ink, drawn right over its band with the
-// same op (drawWorld), so it lines up with it px for px; the outline keeps its colour.
-func (g *Game) tintWood(s *ebiten.Image, p prop, op *ebiten.DrawImageOptions) {
-	if g.state != StateView || p.wood == nil {
-		return
-	}
-	at := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
-	for i, room := range g.hotel.Rooms {
-		if c, ok := g.pairInk(i); ok && at.In(pairWalls(room)) {
-			o := &ebiten.DrawImageOptions{GeoM: op.GeoM}
-			o.ColorScale.ScaleWithColor(c)
-			o.ColorScale.ScaleAlpha(float32(g.viewT))
-			s.DrawImage(p.wood, o)
-			return
-		}
-	}
-}
-
 type mote struct {
 	at   image.Point // world px, its top-left
 	size int         // art px
@@ -212,7 +173,7 @@ func motes(shell image.Rectangle, room int, t int64) (ms [moteN]mote) {
 }
 
 // drawPair draws the Room's motes in its pair's ink c over the hotel view at scale k (screen px per world px),
-// offset (tx,ty) (viewAt); its band's wood is tinted in drawWorld (tintWood).
+// offset (tx,ty) (viewAt): motes only, the walls keep their colour (live test 4).
 func (g *Game) drawPair(s *ebiten.Image, room int, c color.RGBA, k, tx, ty float64) {
 	a := float32(g.viewT)
 	for _, m := range motes(g.hotel.Rooms[room].Shell(), room, ebiten.Tick()) {

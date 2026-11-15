@@ -68,7 +68,7 @@ _Avoid_: desk, reception
 The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
 
 **Hotel view**:
-The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a glow Room to Room (radial, behind the picked Room, in the Ectoplasm ink); SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
+The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a glow Room to Room (radial, from the picked Room, in the Ectoplasm ink, on the floors around it only); SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Pause**:
@@ -326,7 +326,7 @@ How much fright a human takes before it flees, rolled per Party as it books (6 t
 _Avoid_: courage, bravery, tolerance
 
 **Fit**, **good pair**, **bad pair**:
-A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing, the Party pays half its hourly rent (a placeholder), and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: the top band of the Room's walls takes its colour, and small motes of it rise in the Room, red for a bad pair, the Ectoplasm green and purple for a good one.
+A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing, the Party pays half its hourly rent (a placeholder), and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: small motes rise in the Room, red for a bad pair, the Ectoplasm green and purple for a good one.
 _Avoid_: match (for the pair), compatible, preference
 
 **Auto-book by fit**:

@@ -2,6 +2,7 @@ package game
 
 import (
 	"ghosthotel/assets"
+	"ghosthotel/world"
 	"image"
 	"image/color"
 	"slices"
@@ -204,7 +205,6 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	on := func(r image.Rectangle) image.Rectangle { // world px to screen px
 		return image.Rect(int(float64(r.Min.X)*k+tx), int(float64(r.Min.Y)*k+ty), int(float64(r.Max.X)*k+tx), int(float64(r.Max.Y)*k+ty))
 	}
-	g.drawRoomGlow(screen, on(g.hotel.Rooms[g.termCursor].Shell()))
 	for i, room := range g.hotel.Rooms {
 		r := on(room.Shell())
 		if g.boarded(i) { // a Room not bought yet lies under the fog (2026-11-14): the ones to buy stand out
@@ -332,30 +332,47 @@ func (g *Game) drawPause(s *ebiten.Image) {
 	}
 }
 
-// The picked Room's glow (live test 3): a radial glow from its centre in the Ectoplasm ink, breathing green to
-// purple, behind the Room and in front of everything around it, neighbours included. It cues what the cursor
-// is on; later, anything actionable. Placeholders: glowReach (radius, in Room widths) and glowAlpha (at the
-// centre).
+// The picked Room's glow (live tests 3, 4): a radial glow from its centre in the Ectoplasm ink, breathing green
+// to purple, on the floors around it only: drawn right after the floor (drawWorld), so every wall, prop and
+// actor stands in front of it, and nothing outside the hotel takes it. The Room itself is cut out of it. It
+// cues what the cursor is on; later, anything actionable. Placeholders: glowReach (radius, in Room widths) and
+// glowAlpha (at the centre).
 const (
 	glowReach = 1.2
 	glowAlpha = 1.0
 )
 
-var glowLayer *ebiten.Image // the screen-sized layer the Room is cut out of
+var glowLayer *ebiten.Image // the floor's size, world px
 
-func (g *Game) drawRoomGlow(s *ebiten.Image, r image.Rectangle) {
-	if glowLayer == nil || glowLayer.Bounds() != s.Bounds() {
-		glowLayer = ebiten.NewImage(s.Bounds().Dx(), s.Bounds().Dy())
+// drawRoomGlow: op is the floor's (drawWorld).
+func (g *Game) drawRoomGlow(s *ebiten.Image, op *ebiten.DrawImageOptions) {
+	if g.state != StateView {
+		return
+	}
+	if glowLayer == nil || glowLayer.Bounds() != g.floorImg.Bounds() {
+		glowLayer = ebiten.NewImage(g.floorImg.Bounds().Dx(), g.floorImg.Bounds().Dy())
 	}
 	glowLayer.Clear()
+	r := g.hotel.Rooms[g.termCursor].Shell()
 	rad := glowReach * float64(r.Dx())
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-	op.GeoM.Scale(2*rad/float64(g.glow.Bounds().Dx()), 2*rad/float64(g.glow.Bounds().Dx())) // the Terminal's glow sprite (light.go)
+	k := 2 * rad / float64(g.glow.Bounds().Dx()) // the Terminal's glow sprite (light.go)
+	o := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	o.GeoM.Scale(k, k)
 	c := r.Min.Add(r.Max).Div(2)
-	op.GeoM.Translate(float64(c.X)-rad, float64(c.Y)-rad)
-	op.ColorScale.ScaleWithColor(resInk(Ecto))
-	op.ColorScale.ScaleAlpha(glowAlpha * float32(g.viewT))
-	glowLayer.DrawImage(g.glow, op)
-	glowLayer.SubImage(r).(*ebiten.Image).Clear()                                // the Room stands in front of it
-	s.DrawImage(glowLayer, &ebiten.DrawImageOptions{Blend: ebiten.BlendLighter}) // light, so it reads on the floors
+	o.GeoM.Translate(float64(c.X)-rad, float64(c.Y)-rad)
+	o.ColorScale.ScaleWithColor(resInk(Ecto))
+	o.ColorScale.ScaleAlpha(glowAlpha * float32(g.viewT))
+	glowLayer.DrawImage(g.glow, o)
+	glowLayer.DrawImage(g.floorImg, &ebiten.DrawImageOptions{Blend: ebiten.BlendDestinationIn}) // floors only
+	m := g.hotel.Map
+	for y := range m.H { // nor the void around the hotel, a floor tile too
+		for x := range m.W {
+			if m.TS.Tiles[m.At(world.LayerFloor, x, y)].Name == "void" {
+				o := m.Origin(x, y)
+				glowLayer.SubImage(image.Rectangle{o, o.Add(image.Pt(world.TileSize, world.TileSize))}).(*ebiten.Image).Clear()
+			}
+		}
+	}
+	glowLayer.SubImage(r).(*ebiten.Image).Clear() // not the Room itself
+	s.DrawImage(glowLayer, &ebiten.DrawImageOptions{GeoM: op.GeoM, Blend: ebiten.BlendLighter})
 }

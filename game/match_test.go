@@ -6,8 +6,6 @@ import (
 	"slices"
 	"testing"
 
-	"ghosthotel/world"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -154,27 +152,7 @@ func TestPairing(t *testing.T) {
 	if c, ok := g.pairInk(1); !ok || c.R < 200 || c.G > 80 {
 		t.Errorf("a bad pair's tint %v, want red", c)
 	}
-	// live test 2: the ink takes the Room's walls' top band, top and bottom, and never the Room's middle
-	g.props = g.sortedProps()
 	shell := g.hotel.Rooms[1].Shell()
-	mid := shell.Inset(shell.Dy() / 3)
-	var top, bottom bool
-	for _, p := range g.props {
-		r := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
-		if p.wood == nil || !r.In(pairWalls(g.hotel.Rooms[1])) { // as tintWood picks them
-			continue
-		}
-		top, bottom = top || r.Max.Y <= mid.Min.Y, bottom || r.Min.Y >= mid.Max.Y
-		if !r.In(shell) || r.Overlaps(mid) {
-			t.Errorf("tinted band %v: want it in the shell %v, clear of its middle %v", r, shell, mid)
-		}
-	}
-	if lo := pairWalls(g.hotel.Rooms[1]).Max.Y; lo >= shell.Max.Y-world.TileSize { // live test 3
-		t.Errorf("tinted bands reach y %d, the outer wall beside the corridor (shell ends %d)", lo, shell.Max.Y)
-	}
-	if !top || !bottom {
-		t.Errorf("tinted band on the top wall %v, on the bottom wall %v; want both", top, bottom)
-	}
 	// its motes stay in the shell and rise
 	for tick := range int64(3 * moteLoop) {
 		for _, m := range motes(shell, 1, tick) {
