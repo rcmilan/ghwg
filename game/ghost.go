@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,9 +28,9 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	blue := mix(vec3(33, 33, 222)/255, purple, Dread)
 	rgb := blue
 	if Mode > 2.5 { // a ghost guest: one flat color, its shading kept as a darker tone, no white
-		rgb = mix(Tint*0.3, Tint, smoothstep(0.2, 0.45, l))
+		rgb = mix(Tint*0.2, Tint, smoothstep(0.22, 0.42, l))
 	} else if Mode > 1.5 {
-		rgb = mix(Tint*0.25, Tint, smoothstep(0.2, 0.55, l))
+		rgb = mix(Tint*0.18, Tint, smoothstep(0.22, 0.5, l))
 		if l > 0.9 {
 			rgb = vec3(1)
 		}
@@ -50,6 +51,9 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 			band = green
 		}
 		rgb = mix(rgb, band, Dread)
+	}
+	if Mode < 0.5 || Mode > 1.5 { // the colors a little more saturated than the sheets' (F0 Ghost palette)
+		rgb = clamp(mix(vec3(dot(rgb, vec3(0.299, 0.587, 0.114))), rgb, 1.3), 0, 1)
 	}
 	return vec4(rgb, 1) * c.a * color.a
 }
@@ -101,4 +105,21 @@ func (g *Game) blit(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, mode in
 	sop := &ebiten.DrawRectShaderOptions{GeoM: op.GeoM, ColorScale: op.ColorScale, Images: [4]*ebiten.Image{src},
 		Uniforms: map[string]any{"Mode": float32(mode), "Shade": shade, "Tint": tint, "Dread": dread}}
 	dst.DrawRectShader(b.Dx(), b.Dy(), g.palette, sop)
+}
+
+// Levitation (F0): a ghost, and the Concierge in ghost, is drawn hoverUp px off the floor, drifting
+// ±hoverDrift every hoverPeriod frames. Drawing only.
+const (
+	hoverUp     = 3
+	hoverDrift  = 1
+	hoverPeriod = 2 * tps
+)
+
+// hover: how high name floats at tick, world px; each name drifts on its own beat.
+func hover(tick int, name string) float64 {
+	beat := 0
+	for _, c := range name {
+		beat += int(c) * 7
+	}
+	return hoverUp + hoverDrift*math.Sin(2*math.Pi*float64(tick+beat)/hoverPeriod)
 }
