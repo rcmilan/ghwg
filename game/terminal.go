@@ -50,7 +50,8 @@ func tabItems(t Tab) []int {
 func (g *Game) gone(i int) bool {
 	it := shop[i]
 	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
-		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax || it.ID == rowRetain && g.fatherIn(false)
+		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax || it.ID == rowRetain && g.fatherIn(false) ||
+		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() // every one uncovered (08 B1)
 }
 
 // listed: the rows tab t shows, as indexes into tabItems(t), which g.termPick also is.

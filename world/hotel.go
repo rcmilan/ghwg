@@ -79,22 +79,23 @@ type Room struct {
 type Hotel struct {
 	l              layout
 	Map            *Tilemap
-	Rooms          []Room          // in map order, back row first: the Terminal draws them as they stand
-	Doors          []Door          // one per Room (same index), then the Entrance
-	Spawn          image.Point     // on the street below the Entrance, where guests appear
-	Exit           image.Point     // where guests leave, a cell west of Spawn: the southbound lane, keeping right (D89)
-	Archway        image.Point     // center of the Lobby Archway, on the Hall Wall's bottom row
-	ConciergeStart image.Point     // behind the counter's computer
-	Terminal       image.Rectangle // the computer and the cell on either side of it, both sides of the counter
-	Mirror         image.Point     // where the Concierge stands to shift dimensions: below the Lobby mirror (D142)
-	MirrorSpot     image.Rectangle // where SPACE shifts: the cell in front of the mirror and the one east of it, clear of the Terminal
-	Lights         []image.Point   // ceiling lights over the Corridors (D95)
-	Lobby          image.Rectangle // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
-	Stock          image.Rectangle // the kitchen's prop row, flush against its back wall: solid, its props fetched from the row below (E8, K1, F1)
-	Kitchen        image.Rectangle // the kitchen (F1): the Lobby's part east of the Archway, walled off, its back wall's face included
-	HallY          int             // the Hall Wall's top, world px: the hall, the street included, is all that lies below (H1)
-	Windows        []image.Point   // where each window's light falls at night, on the floor below it (F0 Lighting)
-	Plants         []Plant         // potted plants (F0 Decor)
+	Rooms          []Room           // in map order, back row first: the Terminal draws them as they stand
+	Doors          []Door           // one per Room (same index), then the Entrance
+	Spawn          image.Point      // on the street below the Entrance, where guests appear
+	Exit           image.Point      // where guests leave, a cell west of Spawn: the southbound lane, keeping right (D89)
+	Archway        image.Point      // center of the Lobby Archway, on the Hall Wall's bottom row
+	ConciergeStart image.Point      // behind the counter's computer
+	Terminal       image.Rectangle  // the computer and the cell on either side of it, both sides of the counter
+	Mirror         image.Point      // where the Concierge stands to shift dimensions: below the Lobby mirror (D142)
+	MirrorSpot     image.Rectangle  // where SPACE shifts: the cell in front of the mirror
+	Lights         []image.Point    // ceiling lights over the Corridors (D95)
+	Lobby          image.Rectangle  // the Lobby, Hall Wall face included: lit as a whole at night (S6 review)
+	Stock          image.Rectangle  // the kitchen's prop row, flush against its back wall: solid, its props fetched from the row below (E8, K1, F1)
+	Kitchen        image.Rectangle  // the kitchen (F1): the Lobby's part east of the Archway, walled off, its back wall's face included
+	HallY          int              // the Hall Wall's top, world px: the hall, the street included, is all that lies below (H1)
+	Windows        []image.Point    // where each window's light falls at night, on the floor below it (F0 Lighting)
+	Plants         []Plant          // potted plants (F0 Decor)
+	Corridors      []CorridorMirror // the Mirrors on the Corridors a New floor made (08 B1), set by SetCorridorMirrors
 }
 
 // Plant is a potted plant at a hand-placed spot nobody walks through, solid: its cell's bottom middle, world
@@ -324,7 +325,7 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	h.Lobby = image.Rect(l.hx*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
 	h.Terminal = image.Rect(computer*TileSize, (l.counter-2)*TileSize, (computer+1)*TileSize, (l.counter+2)*TileSize).Add(slip) // only the computer's column, both sides of the counter: the cells touching it (08 F0)
 	h.Mirror = m.Center(mirror, l.hall+2)
-	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+2)*TileSize, (l.hall+3)*TileSize).Add(slip)
+	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+1)*TileSize, (l.hall+3)*TileSize).Add(slip) // the cell touching it (08 B1)
 	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
 	h.Stock = image.Rect((kx+1)*TileSize, (l.hall+2)*TileSize, (kx+1+KitchenW)*TileSize, (l.hall+3)*TileSize).Add(slip)
 	m.Block = map[image.Point]bool{}
@@ -390,6 +391,7 @@ const mirrorTile = "prop_mirror_" // the Mirror's two tiles: r0c0 over r1c0
 // wall; without, a type's wall mirror is left off, and nobody looks in it.
 func (h *Hotel) Land(i int, t RoomType, mirror bool) {
 	r, ts := &h.Rooms[i], h.Map.TS
+	defer h.hangCorridorMirrors(i) // the Room's tiles just overwrote the face it carries
 	o := r.Origin.Mul(TileSize)
 	r.Type, r.Stays, r.Lanes, r.Spots, r.Mirror = t, nil, nil, nil, image.Rectangle{}
 	for _, s := range t.Spots {
@@ -445,7 +447,7 @@ func (h *Hotel) Land(i int, t RoomType, mirror bool) {
 		id, _ := ts.ID(name)
 		h.Map.Set(LayerProps, at.X, at.Y-dy, id)
 	}
-	r.Mirror = image.Rectangle{at.Add(image.Pt(-1, 1)).Mul(TileSize), at.Add(image.Pt(2, 2)).Mul(TileSize)} // the cells below it, as the Lobby's MirrorSpot
+	r.Mirror = image.Rectangle{at.Add(image.Pt(0, 1)).Mul(TileSize), at.Add(image.Pt(1, 2)).Mul(TileSize)} // the cell below it, as the Lobby's MirrorSpot
 }
 
 // OuterLine: column x carries a hotel outer side line in its decor layer.

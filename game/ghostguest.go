@@ -60,17 +60,19 @@ func kindHue(k int) [3]float32 { return ghostKinds[k].Hue }
 func strong(ghost *entities.Guest) bool { return ghost.Phantasm >= phantasmStrong }
 
 // arriveGhost books a ghost Party into the Room and puts it on the Street, bound for its Stay Spots. It is
-// solo, or a pair in a Room with two Stay Spots, one of the 4 characters each.
+// solo, or a pair in a Room with two Stay Spots, one of the 4 characters each. A Room that already holds a
+// ghost takes the next through its mirror (08 B1): solo, from the glass.
 func (g *Game) arriveGhost(room int) *Party {
 	if room < 0 || room >= len(g.hotel.Rooms) {
 		return nil
 	}
 	r := g.hotel.Rooms[room]
 	guest := g.newGhost()
+	through := !g.vacant(room, Ghost) && g.hasMirror(room)
 	p := &Party{Guests: []*entities.Guest{guest},
 		Booking: Booking{Room: room, Realm: Ghost, Nights: 1 + g.chat.IntN(maxNights), Rate: r.Type.Rate,
 			checkoutAt: checkoutHour*hourFrames + g.chat.IntN(checkoutJitter)}}
-	if len(r.Stays) >= 2 && g.chat.Float64() < pairOdds {
+	if len(r.Stays) >= 2 && !through && g.chat.Float64() < pairOdds {
 		mate := g.newGhost()
 		mate.Leader = guest
 		p.Guests = append(p.Guests, mate)
@@ -80,9 +82,69 @@ func (g *Game) arriveGhost(room int) *Party {
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
+	if through { // it never meets the first on the way (they are mates to the bumping), nor the Street
+		for _, q := range g.parties {
+			if q.Occupies(room, Ghost) {
+				guest.Leader = q.Guests[0]
+				break
+			}
+		}
+		guest.X, guest.Y = float64(r.Mirror.Min.X+r.Mirror.Max.X)/2, float64(r.Mirror.Min.Y+r.Mirror.Max.Y)/2
+	}
 	g.parties = append(g.parties, p)
 	g.checkIn(p)
+	if through {
+		g.sendParty(p, g.stayOf(p, 0))
+	}
 	return p
+}
+
+// hasMirror: the Room has its own mirror, so a second ghost slot.
+func (g *Game) hasMirror(room int) bool { return !g.hotel.Rooms[room].Mirror.Empty() }
+
+// mirrorGhost: the Party is the one that came through a Room mirror: a solo ghost trailing the Room's first.
+func mirrorGhost(p *Party) bool {
+	return p.Realm == Ghost && len(p.Guests) == 1 && p.Guests[0].Leader != nil
+}
+
+// stayOf: where Guest i of the Party stands: its Stay Spot; the mirror's ghost takes the Room's last, or
+// beside the first when there is only one.
+func (g *Game) stayOf(p *Party, i int) image.Point {
+	r := g.hotel.Rooms[p.Room]
+	if !mirrorGhost(p) {
+		return r.Stays[i]
+	}
+	if at := r.Stays[len(r.Stays)-1]; len(r.Stays) > 1 {
+		return at
+	} else {
+		return at.Add(image.Pt(world.TileSize, 0))
+	}
+}
+
+// ghostSlots: how many ghost Parties the Room takes at once: one, two with a mirror.
+func (g *Game) ghostSlots(room int) int {
+	if g.hasMirror(room) {
+		return 2
+	}
+	return 1
+}
+
+// ghostsIn: the ghost Parties booked into the Room.
+func (g *Game) ghostsIn(room int) (n int) {
+	for _, p := range g.parties {
+		if p.Occupies(room, Ghost) {
+			n++
+		}
+	}
+	return n
+}
+
+// mirrorSlot: the Room's second ghost arrival, for a Room with a mirror (kept as long as the Rooms are).
+func (g *Game) mirrorSlot(room int) *arrival {
+	if len(g.mirrorSlots) != len(g.hotel.Rooms) {
+		g.mirrorSlots = make([]arrival, len(g.hotel.Rooms))
+	}
+	return &g.mirrorSlots[room]
 }
 
 func (g *Game) newGhost() *entities.Guest {
@@ -91,13 +153,19 @@ func (g *Game) newGhost() *entities.Guest {
 	return &guest
 }
 
-// bookGhost: the Room's next ghost Party arrives gap game minutes from now.
+// bookGhost: the Room's next ghost Party arrives gap game minutes from now: in its first arrival, or in the
+// second (a mirror's) when the first is taken, so each slot books on its own.
 func (g *Game) bookGhost(room, gap int) {
-	g.ghostArrivals[room] = arrival{g.clock, g.clock + gap*minuteFrames}
+	slot := &g.ghostArrivals[room]
+	if slot.at > 0 && g.hasMirror(room) {
+		slot = g.mirrorSlot(room)
+	}
+	*slot = arrival{g.clock, g.clock + gap*minuteFrames}
 }
 
 // maybeGhostIn is maybeWalkIn for the ghost layer: nothing books until the Mirror is unlocked. Ghosts ignore
-// dirt, but a Closed Room (Mood at the floor) takes no Party of either realm.
+// dirt, but a Closed Room (Mood at the floor) takes no Party of either realm. A Room with a mirror also books
+// a second ghost, on the same schedule as any free slot, apart from the first (08 B1).
 func (g *Game) maybeGhostIn() {
 	if !g.unlocked(Mirror) {
 		return
@@ -108,13 +176,31 @@ func (g *Game) maybeGhostIn() {
 			booked++
 		}
 	}
-	for i, a := range g.ghostArrivals {
-		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Ghost) && !g.closed(i) && !g.changing(i) && g.spawnClearIn(Ghost) {
-			g.ghostArrivals[i] = arrival{}
-			g.arriveGhost(i)
-			booked++
+	for i := range g.ghostArrivals {
+		second := g.mirrorSlot(i)
+		if !g.hasMirror(i) {
+			*second = arrival{}
+		} else if n := g.ghostsIn(i); g.isOwned(i) && n+b2i(g.ghostArrivals[i].at > 0)+b2i(second.at > 0) == 1 {
+			g.bookGhost(i, bookGap) // its second slot is free and unbooked
+		}
+		for _, a := range []*arrival{&g.ghostArrivals[i], second} {
+			if a.at > 0 && g.clock >= a.at && g.isOwned(i) && g.ghostsIn(i) < g.ghostSlots(i) && (booked < g.demand() || !g.vacant(i, Ghost)) &&
+				!g.closed(i) && !g.changing(i) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
+				if g.vacant(i, Ghost) {
+					booked++
+				}
+				*a = arrival{}
+				g.arriveGhost(i)
+			}
 		}
 	}
+}
+
+func b2i(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // inRoom: the Party is inside its Room, either realm: staying, with every Guest inside the Room's shell.
@@ -282,6 +368,28 @@ func (g *Game) DevGhosts(phantasm int) {
 	g.cam.Snap(g.player.X, g.player.Y, w, hh)
 }
 
+// DevMirror is main's -mirror: the Room mirror is owned and Room 101 hangs its own, holding two ghosts (the second
+// came in through it); Room 102 has none, so its ring offers Add mirror. The wallet can pay it; the Concierge
+// stands in Room 101.
+func (g *Game) DevMirror() {
+	g.unlock(Mirror)
+	g.roomOwned = nil
+	g.own(RoomMirror)
+	g.setRoom(0, g.hotel.Rooms[0].Type, true)
+	g.wallet[Money], g.wallet[Ecto] = max(g.wallet[Money], 300), max(g.wallet[Ecto], 300)
+	for n := g.ghostsIn(0); n < 2; n++ {
+		p := g.arriveGhost(0)
+		p.Guests, p.Nights = p.Guests[:1], 3
+		p.schedule(g.clock)
+		p.Guests[0].Phantasm = 5 + 4*n
+		g.settleIn(p)
+	}
+	r := g.hotel.Rooms[0].Origin
+	g.player.X, g.player.Y = float64((r.X+world.RoomW/2)*world.TileSize), float64((r.Y+world.RoomH-3)*world.TileSize)
+	w, h := g.mapSize()
+	g.cam.Snap(g.player.X, g.player.Y, w, h)
+}
+
 // DevGhost is main's -ghost: the Run shows the ghost dimension.
 func (g *Game) DevGhost(on bool) { g.ghost = on }
 
@@ -289,16 +397,19 @@ func (g *Game) DevGhost(on bool) { g.ghost = on }
 func (g *Game) settleIn(p *Party) {
 	p.state, p.settled = staying, true
 	for i, guest := range p.Guests {
-		at := g.hotel.Rooms[p.Room].Stays[i]
+		at := g.stayOf(p, i)
 		guest.X, guest.Y, guest.Path = float64(at.X), float64(at.Y), nil
 	}
 }
 
 // covered: the prop is a tile of the lobby's Mirror (the two cells above its standing spot) while the Mirror
-// is still locked: drawn covered. A Room's own mirror prop is a separate upgrade (K1) and is never covered.
+// is still locked, or of a Corridor Mirror not yet uncovered: drawn covered. A Room's own mirror prop is a separate upgrade (K1) and is never covered.
 func (g *Game) covered(p prop) bool {
 	c := g.hotel.Map.Cell(g.hotel.Mirror)
-	return !g.unlocked(Mirror) && p.cx == c.X && (p.cy == c.Y-2 || p.cy == c.Y-1) && strings.HasPrefix(g.ts.Tiles[p.id].Name, "prop_mirror_")
+	if !strings.HasPrefix(g.ts.Tiles[p.id].Name, "prop_mirror_") {
+		return false
+	}
+	return !g.unlocked(Mirror) && p.cx == c.X && (p.cy == c.Y-2 || p.cy == c.Y-1) || g.coveredCorridor(p) // or a Corridor Mirror not yet uncovered
 }
 
 // coverHalf: the covered Mirror's upper (r0) or lower (r1) 16x16 tile.
