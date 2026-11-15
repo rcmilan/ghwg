@@ -150,6 +150,10 @@ type Game struct {
 	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
 	mirrorSlots   []arrival                      // per Room with a mirror: its second ghost's arrival (ghostguest.go, 08 B1)
 	guestAge      int                            // frames the next-guest notice has shown its text: it holds noticeFrames, like the feed (08 B1 live test 5)
+	level         int                            // prestige level: the max grid is (3+level)² (08 P1, prestige.go)
+	bonus         float64                        // the permanent income multiplier, 1 at first, cumulative over prestiges (earn, wallet.go)
+	runEcto       Num                            // Ectoplasm earned this Run, before the bonus: grows the bonus at a prestige
+	persist       bool                           // this Game reads and writes the save (save.go): only main's plain start sets it; dev starts, prints, tests and the sim never do
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
