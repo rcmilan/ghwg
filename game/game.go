@@ -150,6 +150,7 @@ type Game struct {
 	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
 	mirrorSlots   []arrival                      // per Room with a mirror: its second ghost's arrival (ghostguest.go, 08 B1)
 	guestAge      int                            // frames the next-guest notice has shown its text: it holds noticeFrames, like the feed (08 B1 live test 5)
+	reel          *prestigeReel                  // Father P's cutscene while it plays (prestige_reel.go)
 	level         int                            // prestige level: the max grid is (3+level)² (08 P1, prestige.go)
 	bonus         float64                        // the permanent income multiplier, 1 at first, cumulative over prestiges (earn, wallet.go)
 	runEcto       Num                            // Ectoplasm earned this Run, before the bonus: grows the bonus at a prestige
@@ -272,7 +273,7 @@ func (g *Game) Update() error {
 	} else {
 		g.viewT = max(0, g.viewT-1.0/viewFrames)
 	}
-	if g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
+	if g.reel == nil && g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
 		switch {
 		case g.state == StateTitle:
 			return ebiten.Termination
@@ -298,6 +299,8 @@ func (g *Game) Update() error {
 		g.beginGrow()
 	}
 	switch {
+	case g.reel != nil: // Father P's cutscene: no input but SPACE to skip (prestige_reel.go)
+		g.updateReel()
 	case g.intro != nil: // the opening, the title included: the world waits for it
 		g.updateIntro()
 	case g.state == StateGrow:

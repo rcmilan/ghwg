@@ -94,9 +94,9 @@ func (g *Game) drawPrestigeCard(s *ebiten.Image) {
 	g.tintedAt(s, "ESC BACK", x+w-40-8*glyphW, y+h-40, 1, storeDim, 1)
 }
 
-// DevPrestige is main's -prestige-ready: a full level-1 hotel, every key bought, the Terminal open on Father P's
+// DevPrestigeReady is main's -prestige-ready: a full level-1 hotel, every key bought, the Terminal open on Father P's
 // row with the means to pay and (card) his confirm card open.
-func (g *Game) DevPrestige(card bool) {
+func (g *Game) DevPrestigeReady(card bool) {
 	g.level, g.bonus = 1, 1.8
 	g.DevBusy()
 	g.busy, g.runEcto, g.wallet = false, 3000, [2]Num{2000, 400}

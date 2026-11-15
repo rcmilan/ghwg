@@ -140,6 +140,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if !g.warm && g.state != StateTitle && g.fx[0] != nil {
 		g.warmUp(screen)
 	}
+	if g.reel != nil {
+		g.drawReel(screen)
+		return
+	}
 	g.drawFrame(screen)
 }
 
@@ -227,7 +231,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, realm := range [...]Realm{Human, Ghost} {
-		if realm == Ghost && !g.ghost { // in real a ghost shows only through its area's Shadows
+		if realm == Ghost && !g.ghost && g.reel == nil { // in real a ghost shows only through its area's Shadows
 			continue
 		}
 		for _, guest := range g.guestsIn(realm) {
