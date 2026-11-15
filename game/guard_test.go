@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,9 @@ import (
 //   - the HUD's words stand alone, on no background, and the feed carries events (a Room at -100, a Party fleeing), no system text, neither a
 //     confirmation nor a refusal (show, don't tell); why a SPACE did nothing is kept for the View alone.
 func TestNoMessageLine(t *testing.T) {
+	if runtime.GOOS == "js" {
+		t.Skip("reads the source files, which Node on Windows cannot list")
+	}
 	files, _ := filepath.Glob("*.go")
 	var all strings.Builder
 	for _, f := range files {

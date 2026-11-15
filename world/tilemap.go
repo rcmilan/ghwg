@@ -14,6 +14,9 @@ type Tilemap struct {
 	// H1: the rows from SlipRow down stand Slip px east of the cell grid: the hall, half a cell off the Rooms'
 	// grid under an odd count of Room columns. Every px <-> cell conversion goes through Cell, Origin and Center.
 	Slip, SlipRow int
+	Rev           int    // counts Set calls: what a cached route (or the solid cache) asks to know the map is the same
+	solid         []int8 // Solid cache for Path: 1 open, 2 solid, 0 unknown; reset when Rev changes
+	solidRev      int
 }
 
 func (m *Tilemap) slip(y int) int {
@@ -55,7 +58,10 @@ func (m *Tilemap) At(l, x, y int) TileID {
 	return m.Cells[l][y*m.W+x]
 }
 
-func (m *Tilemap) Set(l, x, y int, id TileID) { m.Cells[l][y*m.W+x] = id }
+func (m *Tilemap) Set(l, x, y int, id TileID) {
+	m.Cells[l][y*m.W+x] = id
+	m.Rev++
+}
 
 // Solid reports whether any layer has a collision rect in cell (x,y). Outside the map is solid.
 func (m *Tilemap) Solid(x, y int) bool {
@@ -68,6 +74,21 @@ func (m *Tilemap) Solid(x, y int) bool {
 		}
 	}
 	return false
+}
+
+// solidFast is Solid, remembered until the next Set. ponytail: a direct change to Block is not seen; bump Rev with it.
+func (m *Tilemap) solidFast(x, y int) bool {
+	if m.solidRev != m.Rev+1 || len(m.solid) != m.W*m.H {
+		m.solid, m.solidRev = make([]int8, m.W*m.H), m.Rev+1
+	}
+	i := y*m.W + x
+	if m.solid[i] == 0 {
+		m.solid[i] = 1
+		if m.Solid(x, y) {
+			m.solid[i] = 2
+		}
+	}
+	return m.solid[i] == 2
 }
 
 // SortY is the world-px y at which cell (x,y) is drawn among the actors (D11): the lower edge of its

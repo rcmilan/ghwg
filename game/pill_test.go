@@ -2,6 +2,7 @@ package game
 
 import (
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -20,6 +21,9 @@ func TestPillOnScreenOverVeils(t *testing.T) {
 		if x < 0 || y < 0 || x+31*balloonScale > screenW || y+balloonH*balloonScale > screenH {
 			t.Errorf("guest %v: pill at %d,%d runs off the %dx%d screen", g, x, y, screenW, screenH)
 		}
+	}
+	if runtime.GOOS == "js" {
+		return // the rest reads the source file, which Node on Windows cannot open
 	}
 	b, err := os.ReadFile("hotelview.go")
 	if err != nil {

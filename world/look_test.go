@@ -73,7 +73,8 @@ func TestPlantsOutOfTheWay(t *testing.T) {
 			if !h.Map.Solid(c.X, c.Y) {
 				t.Errorf("plant at %v is not solid", c)
 			}
-			delete(h.Map.Block, c) // where would the routes go without it?
+			delete(h.Map.Block, c)
+			h.Map.Rev++ // where would the routes go without it?
 			for _, a := range stops {
 				for _, b := range stops {
 					for _, w := range h.Path(a, b, -1) {
@@ -84,6 +85,7 @@ func TestPlantsOutOfTheWay(t *testing.T) {
 				}
 			}
 			h.Map.Block[c] = true
+			h.Map.Rev++
 		}
 	})
 }

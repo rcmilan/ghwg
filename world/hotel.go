@@ -97,6 +97,7 @@ type Hotel struct {
 	Plants         []Plant          // potted plants (F0 Decor)
 	Corridors      []CorridorMirror // the Mirrors on the Corridors a New floor made (08 B1), set by SetCorridorMirrors
 	Pantries       []Pantry         // the shelves SetPantries stood (08 P1-U)
+	pf             pathBuf          // Path's reused memory
 }
 
 // Plant is a potted plant at a hand-placed spot nobody walks through, solid: its cell's bottom middle, world
@@ -470,6 +471,7 @@ const PantrySprite = "shelf_b"
 // on the cell nearest the middle of the hotel that is no doormat, not within 2 cells of the Mirror, not against a Room's side wall and not in a
 // column Corridor.
 func (h *Hotel) SetPantries(on bool) {
+	defer func() { h.Map.Rev++ }() // the shelves change Block: Path's solid cache must see it
 	for _, p := range h.Pantries {
 		delete(h.Map.Block, p.Cell)
 	}

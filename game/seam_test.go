@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,9 @@ import (
 
 // T247: the currency is Ectoplasm and the old name is gone from every .go file in the repo.
 func TestNoOldCurrencyName(t *testing.T) {
+	if runtime.GOOS == "js" {
+		t.Skip("reads the source files, which Node on Windows cannot list")
+	}
 	old := "spo" + "ok"
 	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || filepath.Ext(path) != ".go" {
