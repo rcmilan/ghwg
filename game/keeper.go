@@ -23,7 +23,6 @@ const (
 	keeperFee           = 100           // $ to hire one
 	keeperWage          = 60            // $ each, a game day
 	keeperEarned        = 500           // $ the hotel has taken before one answers the ad: about minute 6 of a Run, after its third Room (2026-11-14, 4c)
-	keeperMax           = 3
 	keeperSpeed         = conciergeSpeed
 	keeperNear          = 3           // tiles: the Concierge this close hears what it has to say
 	keeperChat          = 0.25        // of the times he comes near with nothing wrong, it says a line; a problem is always said
@@ -31,6 +30,9 @@ const (
 	keeperRest          = 20          // game minutes it stands at a spot before walking on, about
 	keeperStroll        = arriveSpeed // its pace with no job on
 )
+
+// keeperCap: housekeepers allowed with n Rooms owned: one per three, rounded up, at least one (08 P1).
+func keeperCap(n int) int { return max(1, (n+2)/3) }
 
 // Running shoes (08 B1): three tiers in Ectoplasm, each +15% walking speed, added up (1.15, 1.30, 1.45), for every
 // staff member, later hires too; never the Concierge. Placeholder prices.

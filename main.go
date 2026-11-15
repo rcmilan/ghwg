@@ -43,6 +43,7 @@ func main() {
 	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first) picked; a second number -1 picks none, 1 opens its ring, 2 its Change type's beds, a third focusing that action (clockwise from the top) or bed (e.g. 1,1,2), with -shot -at")
 	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
 	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
+	prestige := flag.Int("prestige-ready", -1, "dev: a full level-1 hotel, every key bought, the Terminal on Father P's row; 1 with his confirm card open")
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
 	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
@@ -86,13 +87,15 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *prestige >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices
 	if dev {
 		switch {
 		case *intro >= 0:
 			g.StartIntro(*intro)
 		case *busy: // it starts its own Run: first, so nothing after it is lost
 			g.DevBusy()
+		case *prestige >= 0:
+			g.Start(false)
 		default:
 			g.Start(false)
 		}
@@ -132,6 +135,9 @@ func main() {
 			g.DevCorridors(*corridors)
 		}
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
+	}
+	if *prestige >= 0 {
+		g.DevPrestige(*prestige == 1)
 	}
 	if *shop != "" {
 		var money, ecto float64

@@ -17,11 +17,10 @@ import (
 // built again one bigger and everything follows its place: a Room keeps its type, its state and its guests,
 // and the hall, which never grows, stays centered under the Rooms with all that goes on in it.
 const (
-	maxCols, maxRows = 3, 3 // the grid's limit (placeholder: the layout takes any)
-	growCol          = 1    // Item.Grow: a Room column,
-	growFloor        = 2    // a floor
-	growEcto         = 60   // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
-	growFrames       = 60   // the new part's slide in, between the pull-back out and back in
+	growCol    = 1  // Item.Grow: a Room column,
+	growFloor  = 2  // a floor
+	growEcto   = 60 // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
+	growFrames = 60 // the new part's slide in, between the pull-back out and back in
 )
 
 // The store's rows for it. Not unlocks: their IDs only name them.
@@ -45,24 +44,31 @@ func (g *Game) grown() bool {
 	return g.grid0 != [2]int{} && [2]int{c, r} != g.grid0
 }
 
-func growCost(g *Game) Cost { return Cost{Ecto: growPrice(g.hotel.Grid())} }
+// maxGrid: the hotel's limit at a prestige level, in Rooms a side (08 P1: each prestige lifts it by one).
+func maxGrid(level int) int { return 3 + level }
 
-// growPrice: the next expansion's Ectoplasm for a cols x rows hotel.
-func growPrice(cols, rows int) Num {
-	n := growEcto
+func growCost(g *Game) Cost {
+	c, r := g.hotel.Grid()
+	return Cost{Ecto: growPrice(c, r, g.ownedCount())}
+}
+
+// growPrice: the next expansion's Ectoplasm for a cols x rows hotel with n Rooms owned: it doubles with each
+// step and rises with the Rooms owned (roomPrice).
+func growPrice(cols, rows, n int) Num {
+	p := growEcto
 	for range cols - 2 + rows - 1 {
-		n *= 2
+		p *= 2
 	}
-	return Num(n)
+	return roomPrice(Num(p), n)
 }
 
 // growRefuse: why the hotel can't grow that way now, "" if it can.
 func (g *Game) growRefuse(kind int) string {
 	c, r := g.hotel.Grid()
 	switch {
-	case kind == growCol && c >= maxCols:
+	case kind == growCol && c >= maxGrid(g.level):
 		return "THE HOTEL IS AS WIDE AS IT GETS"
-	case kind == growFloor && r >= maxRows:
+	case kind == growFloor && r >= maxGrid(g.level):
 		return "THE HOTEL IS AS TALL AS IT GETS"
 	case g.growNext != 0 || slices.ContainsFunc(g.cart, func(l cartLine) bool { return shop[l.item].Grow != 0 }):
 		return "ONE EXPANSION AT A TIME"

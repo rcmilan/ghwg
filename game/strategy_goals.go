@@ -36,8 +36,9 @@ func (goals) Act(v View, p *Pilot) {
 	default:
 		c, r := v.Hotel.Grid()
 		n := len(v.Rooms)
+		owned := n - boardedIn(v)
 		grow, grew := GrowCol, func(v View) bool { return len(v.Rooms) > n }
-		if c >= maxCols {
+		if c >= maxGrid(0) {
 			grow = GrowFloor
 		}
 		plain := slices.IndexFunc(v.Rooms, func(r RoomView) bool { return !r.Boarded && !r.Changing && r.Type != deluxeTier })
@@ -48,11 +49,11 @@ func (goals) Act(v View, p *Pilot) {
 			cost Cost
 			got  func(View) bool
 		}{
-			{growPrice(c, r) == growEcto, grow, -1, Cost{Ecto: growEcto}, grew},
+			{growPrice(c, r, 0) == growEcto, grow, -1, Cost{Ecto: growPrice(c, r, owned)}, grew},
 			{!v.RoomMirror, RoomMirror, first, shop[row(RoomMirror)].Cost, courier},
 			{sells(Deluxe), Deluxe, -1, shop[row(Deluxe)].Cost, courier},
 			{plain >= 0 && sells(rowDeluxe), rowDeluxe, plain, shop[row(rowDeluxe)].Cost, func(v View) bool { return v.Rooms[plain].Changing || v.Rooms[plain].Type == deluxeTier }},
-			{c < maxCols || r < maxRows, grow, -1, Cost{Ecto: growPrice(c, r)}, grew},
+			{c < maxGrid(0) || r < maxGrid(0), grow, -1, Cost{Ecto: growPrice(c, r, owned)}, grew},
 		} {
 			if s.want {
 				if buy(s.id, s.room, s.cost, s.got) {
