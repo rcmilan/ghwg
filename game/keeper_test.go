@@ -185,13 +185,13 @@ func TestStaffer(t *testing.T) {
 	g := storeRun(t)
 	g.earned[Money], g.wallet[Money] = 10000, 10000
 	i := row(t, rowKeeper)
-	for n := range keeperMax {
+	for n := range keeperCap(g.ownedCount()) {
 		if why := g.addToCart(i, -1); why != "" {
 			t.Fatalf("hire %d: %q", n+1, why)
 		}
 	}
 	if g.addToCart(i, -1) == "" {
-		t.Fatalf("the cart took housekeeper %d", keeperMax+1)
+		t.Fatalf("the cart took housekeeper %d", keeperCap(g.ownedCount())+1)
 	}
 	if testing.Short() {
 		return

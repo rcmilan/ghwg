@@ -19,8 +19,8 @@ func (g *Game) DevBusy() {
 	g.openAtStart, g.mirrorAtStart, g.bedsAtStart, g.introOn = true, true, "Twin", false
 	g.startRun()
 	g.busy = true
-	for c, r := g.hotel.Grid(); c < maxCols || r < maxRows; c, r = g.hotel.Grid() {
-		if _, err := g.grow(c < maxCols); err != nil {
+	for c, r := g.hotel.Grid(); c < maxGrid(g.level) || r < maxGrid(g.level); c, r = g.hotel.Grid() {
+		if _, err := g.grow(c < maxGrid(g.level)); err != nil {
 			break
 		}
 	}
@@ -34,7 +34,7 @@ func (g *Game) DevBusy() {
 	g.floorImg, g.stains = nil, nil
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.wallet[Money] = 100000
-	for range keeperMax {
+	for range keeperCap(g.ownedCount()) {
 		g.hire()
 	}
 	w, h := g.mapSize()

@@ -11,7 +11,7 @@ func TestBusyHotel(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
 	g.DevBusy()
-	if c, r := g.hotel.Grid(); c != maxCols || r != maxRows || len(g.keepers) != keeperMax {
+	if c, r := g.hotel.Grid(); c != maxGrid(0) || r != maxGrid(0) || len(g.keepers) != keeperCap(9) {
 		t.Fatalf("the busy hotel is %dx%d with %d housekeepers", c, r, len(g.keepers))
 	}
 	worst, where, most := 0, image.Point{}, 0
