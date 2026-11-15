@@ -164,6 +164,14 @@ func woodOf(bands *image.RGBA, r image.Rectangle) *ebiten.Image {
 	return ebiten.NewImageFromImage(w)
 }
 
+// pairWalls: where a Room's tinted bands lie, its shell down to its lower wall's band: below it the hotel's
+// outer wall runs on beside the corridor (live test 3).
+func pairWalls(room world.Room) image.Rectangle {
+	r := room.Shell()
+	r.Max.Y = room.Door.Y*world.TileSize + world.BandRect("wall_lintel").Max.Y
+	return r
+}
+
 // tintWood: in the hotel view, a prop's band wood in a paired Room's ink, drawn right over its band with the
 // same op (drawWorld), so it lines up with it px for px; the outline keeps its colour.
 func (g *Game) tintWood(s *ebiten.Image, p prop, op *ebiten.DrawImageOptions) {
@@ -172,7 +180,7 @@ func (g *Game) tintWood(s *ebiten.Image, p prop, op *ebiten.DrawImageOptions) {
 	}
 	at := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
 	for i, room := range g.hotel.Rooms {
-		if c, ok := g.pairInk(i); ok && at.In(room.Shell()) {
+		if c, ok := g.pairInk(i); ok && at.In(pairWalls(room)) {
 			o := &ebiten.DrawImageOptions{GeoM: op.GeoM}
 			o.ColorScale.ScaleWithColor(c)
 			o.ColorScale.ScaleAlpha(float32(g.viewT))
@@ -211,11 +219,6 @@ func (g *Game) drawPair(s *ebiten.Image, room int, c color.RGBA, k, tx, ty float
 		w := max(1, int(math.Round(float64(m.size)*k)))
 		rect(s, int(float64(m.at.X)*k+tx), int(float64(m.at.Y)*k+ty), w, w, color.NRGBA{c.R, c.G, c.B, uint8(200 * m.a * a)})
 	}
-}
-
-// edges: the four sides of a frame w px thick just inside r.
-func edges(r image.Rectangle, w int) [4]image.Rectangle {
-	return [...]image.Rectangle{{r.Min, image.Pt(r.Max.X, r.Min.Y+w)}, {image.Pt(r.Min.X, r.Max.Y-w), r.Max}, {r.Min, image.Pt(r.Min.X+w, r.Max.Y)}, {image.Pt(r.Max.X-w, r.Min.Y), r.Max}}
 }
 
 // pairInk: the Room's pair's ink in the hotel view, false for none.

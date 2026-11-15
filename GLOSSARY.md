@@ -68,7 +68,7 @@ _Avoid_: desk, reception
 The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
 
 **Hotel view**:
-The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a highlight Room to Room; SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
+The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a glow Room to Room (radial, behind the picked Room, in the Ectoplasm ink); SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Pause**:

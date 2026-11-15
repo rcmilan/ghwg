@@ -161,13 +161,16 @@ func TestPairing(t *testing.T) {
 	var top, bottom bool
 	for _, p := range g.props {
 		r := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
-		if p.wood == nil || !r.In(shell) { // as tintWood picks them
+		if p.wood == nil || !r.In(pairWalls(g.hotel.Rooms[1])) { // as tintWood picks them
 			continue
 		}
 		top, bottom = top || r.Max.Y <= mid.Min.Y, bottom || r.Min.Y >= mid.Max.Y
 		if !r.In(shell) || r.Overlaps(mid) {
 			t.Errorf("tinted band %v: want it in the shell %v, clear of its middle %v", r, shell, mid)
 		}
+	}
+	if lo := pairWalls(g.hotel.Rooms[1]).Max.Y; lo >= shell.Max.Y-world.TileSize { // live test 3
+		t.Errorf("tinted bands reach y %d, the outer wall beside the corridor (shell ends %d)", lo, shell.Max.Y)
 	}
 	if !top || !bottom {
 		t.Errorf("tinted band on the top wall %v, on the bottom wall %v; want both", top, bottom)
