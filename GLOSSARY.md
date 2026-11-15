@@ -159,7 +159,7 @@ A Room at Mood -100. No new Party comes to it; a Party already in it stays until
 _Avoid_: blocked, locked
 
 **Priest**:
-A visitor the Concierge calls and pays for at the Terminal, one per Room at a time. He walks in from the Street, works half an hour in the Room, lowers its dread and leaves. A **Weak** Priest, Father K, halves it; a **Strong** one, Father M, clears it. Both wear a black cassock with a white collar.
+A visitor the Concierge calls to a Room from its ring in the Hotel view, one per Room and one of each Father in the hotel at a time; each Father's call is first unlocked once in the Terminal's STAFF tab, and every call costs Ectoplasm. He walks in, does his Ritual and leaves. A **Weak** Priest, Father K, halves the Room's dirt; a **Strong** one, Father M, also raises its Mood, banishes its Shadow and sends every ghost in it over, each paying at once the Ectoplasm its remaining haunts would have earned. Both wear a black cassock with a white collar.
 _Avoid_: exorcist, cleaner
 
 ## Serving
@@ -236,7 +236,7 @@ The darkness layer over the hotel. Its tint follows the Clock, and Light Sources
 A lamp, ceiling light, street lamp, window, the kitchen's night lights, a Lantern or the Terminal screen: it cuts a glow out of the Lightmap at night.
 
 **Lantern**:
-The beam of light ahead of the Concierge and every staff member at night, on only in the dark: off where an area light already lights their spot (the Lobby while its lights are on, the kitchen, the Room the Concierge is in).
+The beam of light ahead of the Concierge and every staff member at night, on only in the dark: off where an area light already lights their spot (the Lobby while its lights are on, the kitchen, the Room the Concierge is in). It stops at the first wall.
 
 **Glow**:
 The Ectoplasm-ink light on the prop SPACE would act on, shown only while the Concierge stands in its range.
@@ -316,7 +316,7 @@ How a Room Change shows: the Room's whole footprint rolls like a slot machine's 
 _Avoid_: slot machine (as a mechanic: nothing is random), transition
 
 **In-Room Mirror**:
-A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, on a first Room's actions in the Hotel view: paid at once, carried by the Courier to that Room's door and hung when he gets there, its Guests in or not (a scheduled Room Change keeps waiting); from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm.
+A Mirror on a Room's back wall, where SPACE shifts the Dimension as at the Lobby's. Bought once, with Ectoplasm, on a first Room's actions in the Hotel view: paid at once, carried by the Courier to that Room's door and hung when he gets there, its Guests in or not (a scheduled Room Change keeps waiting); from then on every Room gets one with its next Room Change, or when its key opens it, and each Room Change also costs Ectoplasm. Once it is owned, a Room without one shows **Add mirror** in its ring (Money and Ectoplasm), and the Courier hangs it in place of the prop on that wall. A Room with a Mirror has a second ghost slot: a lone ghost books into it on its own and checks in through the Mirror; Matching reads the higher Phantasm of the two.
 _Avoid_: vanity, second Mirror, Room mirror (the store row's name only)
 
 **Growth**:
@@ -327,7 +327,7 @@ _Avoid_: expansion (as the mechanic's name), upgrade, Spin
 The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.
 
 **Housekeeper**:
-A member of staff hired at the Terminal's STAFF tab, up to three at once; she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
+A member of staff hired at the Terminal's STAFF tab, up to three at once; she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. Idle, she sweeps the Room with the most normal dirt, empty or sleeping Rooms first; spiritual dirt is never hers. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
 _Avoid_: maid, cleaner, keeper (the Keeper is a Strategy)
 
 **Staffer**:
@@ -337,7 +337,7 @@ The Strategy that opens Rooms, keeps the Stock up, hires one Housekeeper as soon
 A stress Run (`-busy`, `TestBusyHotel`): the hotel at 3 by 3, every Room open with Twin beds, Parties and ghosts arriving minutes apart and replaced minutes after they leave, three Housekeepers, a Courier restocking for free. It shows everyone walking at once and counts how often a walker is stopped by someone ahead.
 
 **Notice**:
-The HUD's place for words to the player: one text on its left column, white outlined in black, on no background, under the Money counter and the next-guest note, sliding in, holding three seconds and sliding out. The game says nothing through it today: it has no system text, neither a confirmation nor a refusal. What a buy did shows in the world and on the counters; what can't be bought looks it (a dimmed row, a covered Mirror); only the store's own page uses words, kept short ("CAN'T AFFORD"). The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a system text.
+The HUD's place for words to the player: a feed on the right, under the Ectoplasm counter and TALK's cue, of brief lines (about 4 s) in green or purple, at most three, the oldest leaving early. It fires when a Room reaches Mood -100 (ghost-only Rooms too) and when a human Party flees; staff leaving unpaid only say so. Code says it with `g.notice(text, ink)`. What a buy did shows in the world and on the counters; the store's own page keeps its words short. The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a text outside `g.notice`.
 _Avoid_: message, message line, status bar, toast
 
 **Room-only line**:
@@ -388,3 +388,18 @@ The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a pl
 
 **Matcher**, **asker** (`matcher`, `asker`):
 Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, whenever the guest is not snubbed. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.
+
+**Ritual**:
+A Priest's work in a Room: he walks to its middle, says an opening line, chants with a small hop while sparkles rise, a burst of light lands the effect, he says a closing line and leaves.
+
+**Retainer**:
+Father K's daily wage in Ectoplasm, a STAFF row once his call is unlocked. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any; his call is not offered meanwhile. Short of it on payday, he leaves at once and the row is offered again.
+
+**Running shoes**:
+Three STAFF tiers in Ectoplasm, each +15% walking speed (added) for every Housekeeper, Priest and the Courier, later hires included; never the Concierge. Only the next tier is listed.
+
+**Wall-walking**:
+A HOTEL upgrade in Ectoplasm, on sale once the hotel is 3 by 3: in the ghost Dimension the Concierge passes through Room walls; outer walls, the Hall Wall and props stay solid. Shifting back inside a wall puts him on the nearest open floor. In ghost he is a benevolent ghost: he hears only ghost lines, and never bothers guests by lingering.
+
+**Corridor mirror**:
+A Mirror on a Corridor made by a New floor, one per such Corridor, at a random Room's front-wall corner each Run, covered at first. Uncovered for Ectoplasm (doubling per Mirror) by SPACE on the cell below it or the HOTEL row; then it Shifts like the Lobby's.
