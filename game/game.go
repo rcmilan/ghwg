@@ -662,3 +662,13 @@ func (g *Game) Layout(_, _ int) (int, int) {
 	g.sizeFx(viewW*zoom, viewH*zoom)
 	return viewW * zoom, viewH * zoom
 }
+
+// NewGrid is NewSeed on a cols x rows hotel: main's -grid without -play.
+func NewGrid(cols, rows int, seed uint64) (*Game, error) {
+	g, err := newWorld(cols, rows, seed)
+	if err != nil {
+		return nil, err
+	}
+	g.in, g.headless = keyboard{}, false
+	return g, g.loadImages()
+}

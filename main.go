@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
+	"math/rand/v2"
 	"os"
 
 	"ghosthotel/assets"
@@ -21,7 +22,7 @@ const noMood = 1000
 func main() {
 	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. smart")
 	seed := flag.Uint64("seed", 1, "dev: the Run's seed (with -play, or alone for the same hotel in a print)")
-	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
+	grid := flag.String("grid", "2x1", "dev: the Room grid, colsxrows (e.g. 3x3; with -play too)")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
@@ -44,6 +45,7 @@ func main() {
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
 	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
+	father := flag.String("father", "", "dev: start a Run with Rooms 101 and 102 open and guests in, Money for both Fathers, Father k (or m) already walking to Room 101, you in the Lobby Archway: SPACE, then Room 102's ring has no call for him until he walks out")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
@@ -59,18 +61,18 @@ func main() {
 	}
 	var g *game.Game
 	var err error
+	var cols, rows int
+	if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
+		log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
+	}
 	if *play == "" {
-		g, err = game.New()
-		flag.Visit(func(f *flag.Flag) {
-			if f.Name == "seed" && err == nil { // -seed alone: the same hotel again, for prints
-				g, err = game.NewSeed(*seed)
-			}
-		})
-	} else {
-		var cols, rows int
-		if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
-			log.Fatalf("-grid %q: want colsxrows, like 2x1", *grid)
+		seeded := false
+		flag.Visit(func(f *flag.Flag) { seeded = seeded || f.Name == "seed" })
+		if !seeded { // -seed alone: the same hotel again, for prints
+			*seed = rand.Uint64()
 		}
+		g, err = game.NewGrid(cols, rows, *seed)
+	} else {
 		g, err = game.Play(*play, cols, rows, *seed, *react, *keyGap)
 	}
 	if err != nil {
@@ -81,7 +83,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != ""
 	if dev {
 		switch {
 		case *intro >= 0:
@@ -108,6 +110,9 @@ func main() {
 		g.DevHaunt(*haunt)
 		g.DevDirt(*dirt)
 		g.DevGhosts(*ghosts)
+		if *father != "" {
+			g.DevFather(*father == "m")
+		}
 		if *mood != noMood {
 			g.DevMood(*mood)
 		}
