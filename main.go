@@ -33,6 +33,7 @@ func main() {
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
 	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
 	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
+	notices := flag.Bool("notices", false, "dev: start a Run with three notices stacked in the right-side feed")
 	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
 	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
 	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
@@ -83,7 +84,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices
 	if dev {
 		switch {
 		case *intro >= 0:
@@ -115,6 +116,9 @@ func main() {
 		}
 		if *mood != noMood {
 			g.DevMood(*mood)
+		}
+		if *notices {
+			g.DevNotices()
 		}
 		g.DevGrow(*grow)
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open

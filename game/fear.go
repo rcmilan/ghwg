@@ -51,6 +51,9 @@ func (g *Game) scare() {
 func (g *Game) flee(p *Party) {
 	p.Fled, p.state, p.fledAt, p.greet, p.talk = true, leaving, g.tick, noGreeting, nil
 	g.leaveMess(p)
+	if p.Realm == Human { // only human Parties flee; staff leaving unpaid get no notice
+		g.notice("GUESTS FLED ROOM "+g.hotel.Rooms[p.Room].Number, green)
+	}
 	g.book(p.Room, fleeGap)
 	for i := range p.Guests { // "RUN!" only on the way out (Live test 9, 2026-11-08)
 		p.talk = append(p.talk, line{i, []string{"AAAH!", "RUN!"}[i], g.tick})

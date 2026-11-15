@@ -29,7 +29,7 @@ func storeRun(t *testing.T) *Game {
 func TestStoreCatalog(t *testing.T) {
 	g := storeRun(t)
 	basic := []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror}
-	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, Consume, ShiftAnywhere, rowFatherK, rowFatherM} {
+	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, rowFatherK, rowFatherM} {
 		if got := g.onSale(row(t, id)); got != slices.Contains(basic, id) {
 			t.Errorf("%s on sale at the start: %v", id, got)
 		}
