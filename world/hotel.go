@@ -96,6 +96,7 @@ type Hotel struct {
 	Windows        []image.Point    // where each window's light falls at night, on the floor below it (F0 Lighting)
 	Plants         []Plant          // potted plants (F0 Decor)
 	Corridors      []CorridorMirror // the Mirrors on the Corridors a New floor made (08 B1), set by SetCorridorMirrors
+	pf             pathBuf          // Path's reused memory
 }
 
 // Plant is a potted plant at a hand-placed spot nobody walks through, solid: its cell's bottom middle, world

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"iter"
 	"image"
 	"math"
 	"slices"
@@ -188,24 +189,35 @@ const (
 // guests: everyone on the map. A member walking out of the Entrance is gone once it reaches the Exit,
 // so it never blocks the Street while its mate catches up.
 func (g *Game) guests() []*entities.Guest {
-	var gs []*entities.Guest
-	for _, realm := range [...]Realm{Human, Ghost} {
-		gs = append(gs, g.guestsIn(realm)...)
-	}
-	return gs
+	return slices.AppendSeq(slices.Collect(g.guestsIn(Human)), g.guestsIn(Ghost))
 }
 
-// guestsIn: the guests of one realm on the map.
-func (g *Game) guestsIn(realm Realm) []*entities.Guest {
-	var gs []*entities.Guest
-	for _, p := range g.parties {
-		for _, guest := range p.Guests {
-			if p.Realm == realm && p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
-				gs = append(gs, guest)
+// guestsIn: the guests of one realm on the map, found as the loop asks: no slice (it ran per walker per
+// frame). A loop that changes Paths or Party states while it runs wants slices.Collect.
+func (g *Game) guestsIn(realm Realm) iter.Seq[*entities.Guest] {
+	return func(yield func(*entities.Guest) bool) {
+		for _, p := range g.parties {
+			for _, guest := range p.Guests {
+				if p.Realm == realm && p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
+					if !yield(guest) {
+						return
+					}
+				}
 			}
 		}
 	}
-	return gs
+}
+
+// has: guest is on the map.
+func (g *Game) has(guest *entities.Guest) bool {
+	for _, realm := range [...]Realm{Human, Ghost} {
+		for o := range g.guestsIn(realm) {
+			if o == guest {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // vacant: no Party of the realm occupies the Room.
@@ -254,9 +266,12 @@ func (g *Game) spawnClear() bool { return g.spawnClearIn(Human) }
 
 // spawnClearIn: spawnClear among the realm's own, which a Party of the other never blocks.
 func (g *Game) spawnClearIn(realm Realm) bool {
-	return !slices.ContainsFunc(g.guestsIn(realm), func(guest *entities.Guest) bool {
-		return math.Hypot(guest.X-float64(g.hotel.Spawn.X), guest.Y-float64(g.hotel.Spawn.Y)) < world.TileSize
-	})
+	for guest := range g.guestsIn(realm) {
+		if math.Hypot(guest.X-float64(g.hotel.Spawn.X), guest.Y-float64(g.hotel.Spawn.Y)) < world.TileSize {
+			return false
+		}
+	}
+	return true
 }
 
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.

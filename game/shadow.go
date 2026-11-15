@@ -251,7 +251,7 @@ const areaGap = 20
 // switches on its Room's only. A flag on the area, not a figure bound to the ghost.
 func (g *Game) updateAreaShades() {
 	on := map[int]bool{}
-	for _, guest := range g.guestsIn(Ghost) {
+	for guest := range g.guestsIn(Ghost) {
 		if k := g.areaRun(guest.X, guest.Y); k >= 0 && (strong(guest) || g.roomOfRun(k) >= 0) { // any ghost in a Room, a strong one anywhere
 			on[k] = true
 		}
@@ -317,7 +317,7 @@ func (g *Game) updateAreaShades() {
 
 // areaPhantasm: the Phantasm of the strongest ghost in the area named by the run, 0 with none.
 func (g *Game) areaPhantasm(run int) (most int) {
-	for _, ghost := range g.guestsIn(Ghost) {
+	for ghost := range g.guestsIn(Ghost) {
 		if g.areaRun(ghost.X, ghost.Y) == run {
 			most = max(most, ghost.Phantasm)
 		}

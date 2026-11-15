@@ -5,7 +5,6 @@ import (
 	"maps"
 	"slices"
 
-	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
@@ -108,11 +107,15 @@ func (g *Game) view() View {
 				rv.Asking, rv.Wants = true, p.want
 			}
 		}
-		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guestsIn(Human), func(guest *entities.Guest) bool {
-			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
-		})
+		rv.Away = !rv.Vacant
+		for guest := range g.guestsIn(Human) {
+			if guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
+				rv.Away = false
+				break
+			}
+		}
 		if g.ghost {
-			for _, guest := range g.guestsIn(Human) {
+			for guest := range g.guestsIn(Human) {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
 				}

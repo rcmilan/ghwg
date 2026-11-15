@@ -39,6 +39,7 @@ const (
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
 type Game struct {
+	steered       map[*entities.Guest]steerMemo // steerRoute
 	state         int
 	hotel         *world.Hotel
 	types         []world.RoomType // every loaded Room Type, drawn from at each Run start
@@ -408,7 +409,7 @@ func (g *Game) separateIn(realm Realm) {
 	if g.realm() == realm {
 		bodies = append(bodies, body{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil})
 	}
-	for _, guest := range g.walkers(realm) {
+	for guest := range g.walkers(realm) {
 		if guest.Phasing {
 			continue
 		}
@@ -560,7 +561,7 @@ func (g *Game) steer(guest *entities.Guest) {
 	if g.realm() == realm {
 		see(g.player.X, g.player.Y)
 	}
-	for _, o := range g.walkers(realm) {
+	for o := range g.walkers(realm) {
 		if o == guest || o.Phasing || o.Mate(guest) {
 			continue
 		}
@@ -574,9 +575,42 @@ func (g *Game) steer(guest *entities.Guest) {
 	if len(avoid) == 0 {
 		return
 	}
-	if way := g.route(guest, guest.Path[len(guest.Path)-1], avoid...); way != nil {
+	if way := g.steerRoute(guest, here, avoid); way != nil {
 		guest.Detour(way)
 	}
+}
+
+// steerMemo: a walker's last way round the ones ahead. One held up looks again every steerEvery frames from the
+// same cell for the same goal around the same ones: the way is the same until the map changes.
+type steerMemo struct {
+	h           *world.Hotel
+	rev, n, own int // the map's Rev and the Rooms' count when it was found, and whose Room door is open
+	here, to    image.Point
+	avoid       [4]image.Point // cells
+	nAvoid      int
+	way         []image.Point
+}
+
+func (g *Game) steerRoute(guest *entities.Guest, here image.Point, avoid []image.Point) []image.Point {
+	m := g.hotel.Map
+	k := steerMemo{h: g.hotel, rev: m.Rev, n: len(g.hotel.Rooms), own: guest.RoomIndex, here: here, to: guest.Path[len(guest.Path)-1], nAvoid: len(avoid)}
+	if len(avoid) > len(k.avoid) {
+		return g.route(guest, k.to, avoid...)
+	}
+	for i, p := range avoid {
+		k.avoid[i] = m.Cell(p)
+	}
+	if old, ok := g.steered[guest]; ok && old.h == k.h && old.rev == k.rev && old.n == k.n && old.own == k.own && old.here == k.here && old.to == k.to && old.avoid == k.avoid && old.nAvoid == k.nAvoid {
+		return slices.Clone(old.way)
+	}
+	if k.way = g.route(guest, k.to, avoid...); k.way == nil {
+		return nil
+	}
+	if g.steered == nil || len(g.steered) > 1024 { // ponytail: wiped now and then, not per departed guest
+		g.steered = map[*entities.Guest]steerMemo{}
+	}
+	g.steered[guest] = k
+	return slices.Clone(k.way)
 }
 
 // yieldAhead: how many waypoints ahead a guest looks for a choke point. It waits a cell or two short of
@@ -596,7 +630,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 	c := m.Center(m.Cell(ahead[i]).X, m.Cell(ahead[i]).Y)
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
-	for _, o := range g.walkers(g.realmOf(guest)) {
+	for o := range g.walkers(g.realmOf(guest)) {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
@@ -622,7 +656,7 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	if g.realm() == realm && hit(g.player.X, g.player.Y) {
 		return g.player.X, g.player.Y, true
 	}
-	for _, o := range g.walkers(realm) {
+	for o := range g.walkers(realm) {
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}

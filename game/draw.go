@@ -133,6 +133,7 @@ func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, 
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	defer drawFPS(screen)
 	if g.shifting != nil && g.state != StateTitle {
 		g.drawShift(screen)
 		return
@@ -230,7 +231,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if realm == Ghost && !g.ghost { // in real a ghost shows only through its area's Shadows
 			continue
 		}
-		for _, guest := range g.guestsIn(realm) {
+		for guest := range g.guestsIn(realm) {
 			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
 				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest)}
 			switch {

@@ -319,7 +319,7 @@ func (g *Game) visible() []*entities.Guest {
 	if g.ghost {
 		return g.guests()
 	}
-	return g.guestsIn(Human)
+	return slices.Collect(g.guestsIn(Human))
 }
 
 // A human seen from the ghost dimension: a flat white silhouette with a small white glow (placeholders).
