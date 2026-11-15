@@ -74,7 +74,7 @@ func TestNotice(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
 	for _, w := range []string{"ONE", "TWO", "THREE", "FOUR"} {
-		g.notice(w, green)
+		g.notice(w)
 	}
 	live := func() (n int) {
 		for _, it := range g.note.items {
@@ -97,12 +97,18 @@ func TestNotice(t *testing.T) {
 		t.Fatalf("the newest slid in %.2f, want 1", g.note.items[len(g.note.items)-1].in)
 	}
 	for _, it := range g.note.items {
-		for _, l := range it.lines() {
-			if len(l) > noticeWrap {
-				t.Errorf("the line %q is over %d letters", l, noticeWrap)
-			}
+		if w := len(it.text) * glyphW * hudScale; w > screenW/2 {
+			t.Errorf("%q is %d px wide: one line, at most half the screen", it.text, w)
 		}
 	}
+	if g.noticesHidden() {
+		t.Fatal("notices hidden in play")
+	}
+	g.state = StateTerminal
+	if !g.noticesHidden() {
+		t.Fatal("notices show over the open Terminal")
+	}
+	g.state = StatePlay
 	for range noticeFrames + 2*slideFrames {
 		g.updateHUD()
 	}

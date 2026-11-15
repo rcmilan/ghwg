@@ -103,7 +103,7 @@ func TestCountersAtTerminal(t *testing.T) {
 func TestNoticeMoodFloor(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.notice("", green) // an empty text is nothing
+	g.notice("") // an empty text is nothing
 	g.addMood(0, -50)
 	if len(g.note.items) != 0 {
 		t.Fatalf("a notice at Mood %d", g.roomMood(0))
@@ -114,6 +114,9 @@ func TestNoticeMoodFloor(t *testing.T) {
 	if len(g.note.items) != 1 {
 		t.Fatalf("%d notices at the floor, want 1", len(g.note.items))
 	}
+	if want := g.hotel.Rooms[0].Number + " CLOSED"; g.note.items[0].text != want {
+		t.Fatalf("notice %q, want %q", g.note.items[0].text, want)
+	}
 }
 
 // B1-N: a human Party fleeing says so; a ghost Party leaving does not.
@@ -122,6 +125,9 @@ func TestNoticeFlee(t *testing.T) {
 	g.flee(p)
 	if len(g.note.items) != 1 {
 		t.Fatalf("%d notices after a flight, want 1", len(g.note.items))
+	}
+	if want := "GUESTS FLED " + g.hotel.Rooms[p.Room].Number; g.note.items[0].text != want {
+		t.Fatalf("notice %q, want %q", g.note.items[0].text, want)
 	}
 	p.Realm = Ghost
 	g.flee(p)
