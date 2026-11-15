@@ -159,8 +159,11 @@ func TestPairing(t *testing.T) {
 	shell := g.hotel.Rooms[1].Shell()
 	mid := shell.Inset(shell.Dy() / 3)
 	var top, bottom bool
-	for _, p := range g.pairCaps(1) {
+	for _, p := range g.props {
 		r := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
+		if p.wood == nil || !r.In(shell) { // as tintWood picks them
+			continue
+		}
 		top, bottom = top || r.Max.Y <= mid.Min.Y, bottom || r.Min.Y >= mid.Max.Y
 		if !r.In(shell) || r.Overlaps(mid) {
 			t.Errorf("tinted band %v: want it in the shell %v, clear of its middle %v", r, shell, mid)

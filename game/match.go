@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math"
 	"math/rand/v2"
-	"slices"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -152,12 +151,35 @@ const (
 	moteLoop = 180
 )
 
-// pairCaps: the props whose part of the walls' top band (world/band.go) lies in the Room's shell.
-func (g *Game) pairCaps(room int) []prop {
-	shell := g.hotel.Rooms[room].Shell()
-	return slices.DeleteFunc(slices.Clone(g.props), func(p prop) bool {
-		return p.band == nil || !world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy)).In(shell)
-	})
+// woodOf: the band's wood in r of the map's bands (world/band.go), white, its outline left out.
+func woodOf(bands *image.RGBA, r image.Rectangle) *ebiten.Image {
+	w := image.NewRGBA(r)
+	for y := r.Min.Y; y < r.Max.Y; y++ {
+		for x := r.Min.X; x < r.Max.X; x++ {
+			if bands.RGBAAt(x, y) == world.BandColor {
+				w.SetRGBA(x, y, color.RGBA{255, 255, 255, 255})
+			}
+		}
+	}
+	return ebiten.NewImageFromImage(w)
+}
+
+// tintWood: in the hotel view, a prop's band wood in a paired Room's ink, drawn right over its band with the
+// same op (drawWorld), so it lines up with it px for px; the outline keeps its colour.
+func (g *Game) tintWood(s *ebiten.Image, p prop, op *ebiten.DrawImageOptions) {
+	if g.state != StateView || p.wood == nil {
+		return
+	}
+	at := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
+	for i, room := range g.hotel.Rooms {
+		if c, ok := g.pairInk(i); ok && at.In(room.Shell()) {
+			o := &ebiten.DrawImageOptions{GeoM: op.GeoM}
+			o.ColorScale.ScaleWithColor(c)
+			o.ColorScale.ScaleAlpha(float32(g.viewT))
+			s.DrawImage(p.wood, o)
+			return
+		}
+	}
 }
 
 type mote struct {
@@ -181,20 +203,10 @@ func motes(shell image.Rectangle, room int, t int64) (ms [moteN]mote) {
 	return ms
 }
 
-// drawPair draws the Room's pair in ink c over the hotel view at scale k (screen px per world px), offset
-// (tx,ty) (viewAt): the band's wood takes c exactly, its outline a darker shade of it.
+// drawPair draws the Room's motes in its pair's ink c over the hotel view at scale k (screen px per world px),
+// offset (tx,ty) (viewAt); its band's wood is tinted in drawWorld (tintWood).
 func (g *Game) drawPair(s *ebiten.Image, room int, c color.RGBA, k, tx, ty float64) {
-	a, b := float32(g.viewT), world.BandColor
-	for _, p := range g.pairCaps(room) {
-		at := g.hotel.Map.Origin(p.cx, p.cy).Add(image.Pt(p.bx, p.by))
-		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-		op.GeoM.Scale(k, k)
-		op.GeoM.Translate(float64(at.X)*k+tx, float64(at.Y)*k+ty)
-		op.ColorScale.ScaleWithColor(c)
-		op.ColorScale.Scale(255/float32(b.R), 255/float32(b.G), 255/float32(b.B), 1)
-		op.ColorScale.ScaleAlpha(a)
-		s.DrawImage(p.band, op)
-	}
+	a := float32(g.viewT)
 	for _, m := range motes(g.hotel.Rooms[room].Shell(), room, ebiten.Tick()) {
 		w := max(1, int(math.Round(float64(m.size)*k)))
 		rect(s, int(float64(m.at.X)*k+tx), int(float64(m.at.Y)*k+ty), w, w, color.NRGBA{c.R, c.G, c.B, uint8(200 * m.a * a)})
