@@ -7,7 +7,7 @@ func walk(a *Anim, x, y *float64, dx, dy float64, n int) {
 	for range n {
 		*x += dx
 		*y += dy
-		a.Update(*x, *y)
+		a.Update(*x, *y, 1)
 	}
 }
 
@@ -26,7 +26,7 @@ func TestAnimFacingFromVelocity(t *testing.T) {
 	}
 	for _, c := range cases {
 		a, x, y := NewAnim(), 0.0, 0.0
-		a.Update(x, y)
+		a.Update(x, y, 1)
 		walk(&a, &x, &y, c.dx, c.dy, 3)
 		if a.Facing != c.want || !a.Moving {
 			t.Errorf("%s: facing %d moving %v, want facing %d moving", c.name, a.Facing, a.Moving, c.want)
@@ -36,7 +36,7 @@ func TestAnimFacingFromVelocity(t *testing.T) {
 
 func TestAnimDiagonalKeepsFacing(t *testing.T) {
 	a, x, y := NewAnim(), 0.0, 0.0
-	a.Update(x, y)
+	a.Update(x, y, 1)
 	walk(&a, &x, &y, 0, -1, 2) // facing up
 	walk(&a, &x, &y, 0.7, -0.7, 10)
 	if a.Facing != FaceUp {
@@ -51,7 +51,7 @@ func TestAnimDiagonalKeepsFacing(t *testing.T) {
 
 func TestAnimFrames(t *testing.T) {
 	a, x, y := NewAnim(), 0.0, 0.0
-	a.Update(x, y)
+	a.Update(x, y, 1)
 	if a.Moving || a.Facing != FaceDown {
 		t.Fatalf("a new actor should idle facing down, got facing %d moving %v", a.Facing, a.Moving)
 	}
@@ -72,7 +72,7 @@ func TestAnimFrames(t *testing.T) {
 			t.Fatalf("frames %v, want %v", seen, want)
 		}
 	}
-	a.Update(x, y) // stopped
+	a.Update(x, y, 1) // stopped
 	if a.Moving || a.Frame() != 12 {
 		t.Errorf("after stopping: moving %v frame %d, want idle from the left strip's first frame (12)", a.Moving, a.Frame())
 	}
@@ -81,9 +81,9 @@ func TestAnimFrames(t *testing.T) {
 // Standing still, the idle cycle plays once, then holds its first frame for a random pause.
 func TestAnimIdlePauses(t *testing.T) {
 	a, x, y := NewAnim(), 0.0, 0.0
-	a.Update(x, y)
+	a.Update(x, y, 1)
 	walk(&a, &x, &y, 1, 0, 5)
-	a.Update(x, y) // stop
+	a.Update(x, y, 1) // stop
 	first := int(FaceRight) * FramesPerFacing
 	held, cycled := 0, false
 	for f := range idlePauseMax + idleCycle + 1 {
@@ -95,19 +95,19 @@ func TestAnimIdlePauses(t *testing.T) {
 			break
 		}
 		held++
-		a.Update(x, y)
+		a.Update(x, y, 1)
 	}
 	if !cycled {
 		t.Fatalf("idle held frame %d for %d frames, want the cycle to play within %d", first, held, idlePauseMax+idleCycle)
 	}
 	for f := range idleCycle + 1 { // the cycle plays through, then holds again
-		a.Update(x, y)
+		a.Update(x, y, 1)
 		if a.Frame() == first && f < idleCycle-2*tps/animFPS {
 			t.Fatalf("cycle back on the first frame after %d of %d frames", f, idleCycle)
 		}
 	}
 	for range idlePauseMin - 10 { // the hold began a few frames before the cycle loop ended
-		if a.Update(x, y); a.Frame() != first {
+		if a.Update(x, y, 1); a.Frame() != first {
 			t.Fatalf("idle frame %d during the pause, want %d", a.Frame(), first)
 		}
 	}

@@ -11,59 +11,46 @@ const (
 type Door struct {
 	Room  int             // index into Hotel.Rooms; -1 for the Entrance
 	Rect  image.Rectangle // world px covered by the leaves
-	slide int             // 0 shut .. DoorSlideFrames fully open
+	slide float64         // 0 shut .. DoorSlideFrames fully open
 }
 
-// Actor is someone the doors react to: the Guest of Rooms[Room], or the Concierge (Room -1).
+// Actor is someone the doors react to: the Guest of Rooms[Room], or the staff (Room -1): the Concierge, a
+// courier, a Priest.
 type Actor struct {
 	Box  image.Rectangle // foot box, world px
 	Room int
 }
 
 // Open is how far the leaves have slid: 0 shut, 1 fully open.
-func (d Door) Open() float64 { return float64(d.slide) / DoorSlideFrames }
+func (d Door) Open() float64 { return d.slide / DoorSlideFrames }
 
 // Solid: a door blocks unless it is fully open.
 func (d Door) Solid() bool { return d.slide < DoorSlideFrames }
 
-// Allows applies D21 to an actor (a Guest's own Room index, or -1 for the Concierge): the Entrance lets
-// anyone through; a Room door lets its own Guest through always, and the Concierge while the Room is
-// Vacant or from inside it.
-func (d Door) Allows(actor int, inside, occupied bool) bool {
-	switch {
-	case d.Room < 0:
-		return true
-	case actor >= 0:
-		return actor == d.Room
-	default:
-		return !occupied || inside
-	}
-}
+// Allows: the Entrance lets anyone through; a Room door opens to the staff (actor -1) and to its own Guest
+// (K1, 2026-11-11: D21 and D91 shut an Occupied Room to the Concierge; that rule is gone).
+func (d Door) Allows(actor int) bool { return d.Room < 0 || actor < 0 || actor == d.Room }
 
-// UpdateDoors slides every door one frame: toward open while an allowed actor is within reach, or while
-// anyone stands in the doorway (a door never closes on someone); toward shut otherwise.
-func (h *Hotel) UpdateDoors(actors []Actor, occupied func(room int) bool) {
+// UpdateDoors slides every door dt frames: toward open while an allowed actor is within reach, or while
+// anyone stands in the doorway (a door never closes on someone); toward shut otherwise. A boarded Room's
+// door stays shut to everyone.
+func (h *Hotel) UpdateDoors(actors []Actor, boarded func(room int) bool, dt float64) {
 	for i := range h.Doors {
 		d := &h.Doors[i]
 		want := false
 		for _, a := range actors {
-			if a.Box.Overlaps(d.Rect) {
-				want = true
+			if d.Room >= 0 && boarded(d.Room) {
 				break
 			}
-			if !a.Box.Overlaps(d.Rect.Inset(-doorReach)) {
-				continue
-			}
-			inside := d.Room >= 0 && center(a.Box).In(h.Rooms[d.Room].Shell())
-			if d.Allows(a.Room, inside, d.Room >= 0 && occupied(d.Room)) {
+			if a.Box.Overlaps(d.Rect) || a.Box.Overlaps(d.Rect.Inset(-doorReach)) && d.Allows(a.Room) {
 				want = true
 				break
 			}
 		}
 		if want {
-			d.slide = min(d.slide+1, DoorSlideFrames)
+			d.slide = min(d.slide+dt, DoorSlideFrames)
 		} else {
-			d.slide = max(d.slide-1, 0)
+			d.slide = max(d.slide-dt, 0)
 		}
 	}
 }
@@ -89,5 +76,3 @@ func (r Room) Spot() image.Rectangle {
 	c := r.Door.Add(image.Pt(0, 2)).Mul(TileSize)
 	return image.Rectangle{c, c.Add(image.Pt(TileSize, 2*TileSize))}
 }
-
-func center(r image.Rectangle) image.Point { return r.Min.Add(r.Max).Div(2) }

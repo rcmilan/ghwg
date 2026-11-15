@@ -62,6 +62,7 @@ func TestPilotFlip(t *testing.T) {
 	a := g.autopilot(nop{}, 30, 6)
 	p := a.pilot
 	run(t, g, tps, func() bool { return g.state == StatePlay })
+	g.unlock(Mirror) // a covered Mirror flips nothing
 	p.Flip(true)
 	run(t, g, 60*tps, func() bool { return p.Idle() })
 	if !g.ghost {

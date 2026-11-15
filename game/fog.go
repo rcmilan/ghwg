@@ -26,9 +26,9 @@ func (g *Game) updateFog() {
 	}
 	for i := range g.fog {
 		if g.fogged(i) {
-			g.fog[i] = min(g.fog[i]+1.0/fogFrames, 1)
+			g.fog[i] = min(g.fog[i]+g.dt/fogFrames, 1)
 		} else {
-			g.fog[i] = max(g.fog[i]-1.0/fogFrames, 0)
+			g.fog[i] = max(g.fog[i]-g.dt/fogFrames, 0)
 		}
 	}
 }
@@ -39,7 +39,7 @@ func (g *Game) fogged(room int) bool {
 		return false
 	}
 	for _, p := range g.parties {
-		if p.Occupies(room) {
+		if p.Occupies(room, Human) {
 			return p.settled || !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool {
 				return !image.Pt(int(guest.X), int(guest.Y)).In(shell)
 			})

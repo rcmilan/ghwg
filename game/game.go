@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"slices"
+	"time"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -17,6 +18,10 @@ const (
 	StateTitle = iota
 	StatePlay
 	StateTerminal
+	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
+	StatePause // ESC with nothing open: Resume / Quit to title
+	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
+	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -34,84 +39,122 @@ const (
 var guestCast = [...]string{"Adam", "Amelia", "Alex"}
 
 type Game struct {
-	state      int
-	hotel      *world.Hotel
-	types      []world.RoomType // every loaded Room Type, drawn from at each Run start
-	ts         *world.Tileset
-	cam        Camera
-	player     entities.Player
-	parties    []*Party // every Party on the map
-	tick       int      // simulation frames since launch
-	clock      int      // game time (clock.go)
-	fast       bool     // T held: the clock runs ×10
-	wallet     [2]Num   // Money and Spook (wallet.go, D178)
-	ghost      bool     // the whole hotel is in the ghost dimension (D141); else the real one
-	roomSpook  []int    // per Room: its Spook level (D147, priest.go)
-	serves     int      // requests answered this Run (serve.go)
-	expired    int      // requests left to expire this Run
-	priests    []*priest
-	shades     []shades // per Room: its Shadow People (D169, D185, shadow.go)
-	termCursor int      // the Terminal's selected Room
-	termPick   int      // the store's selected row in its tab, or in the cart (the last row is checkout)
-	walkIns    int      // Walk-ins this Run
-	floaters   []floater
-	locked     map[Unlock]bool  // nil: everything unlocked (unlock.go)
-	taps       [][taskCount]Num // per Room and Task: taps done (tap.go)
-	fog        []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
-	message    string
-	rng        *rand.Rand
-	chat       *rand.Rand                    // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
-	in         input                         // the keys (input.go)
-	headless   bool                          // no window: step skips what only drawing needs
-	auto       *autopilot                    // a Strategy plays instead of a person (sim.go)
-	tiles      []*ebiten.Image               // by world.TileID
-	characters map[string][2]*ebiten.Image   // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
-	bases      map[string][2]*image.RGBA     // each character's sheets as drawn, to recolor (D166)
-	floorImg   *ebiten.Image                 // the floor layer pre-rendered at 1px per world px
-	props      []prop                        // every other static tile, by SortY
-	dark       *ebiten.Image                 // the darkness layer, the size of what drawWorld draws onto (light.go)
-	pool, glow *ebiten.Image                 // light sprites: a ceiling light's pool, the Terminal's glow
-	palette    *ebiten.Shader                // the ghost dimension's arcade palette (ghost.go)
-	transition *ebiten.Shader                // the Mirror's transitions (shift.go)
-	fx         [2]*ebiten.Image              // a transition's real and ghost pictures
-	shifting   *shift                        // the Mirror's transition under way, nil if none (D170)
-	ink        *ebiten.Image                 // scratch for tinted text (haunt.go)
-	heart      *ebiten.Image                 // the serve pop (serve.go)
-	balloon    *ebiten.Image                 // a Guest's request (serve.go)
-	tail       *ebiten.Image                 // the balloon's tail, pointing down
-	boxes      map[int]*ebiten.Image         // speech balloons' boxes, by width in balloon px (serve.go)
-	warm       bool                          // the shaders have been drawn once (shift.go warmUp)
-	spill      *ebiten.Image                 // the hall light through the Archway, built on first use (spill.go)
-	hud        [2]counter                    // per Res: its counter on screen (hud.go)
-	skull      *ebiten.Image                 // the Spook counter's icon (hud.go)
-	termTab    Tab                           // the store's open tab (shop.go)
-	placing    int                           // the Service row waiting for its Room, or -1 (terminal.go)
-	cart       []cartLine                    // the store's cart (shop.go)
-	stock      map[Unlock]int                // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
-	earned     [2]Num                        // lifetime earnings this Run (wallet.go): open store items
-	boughtAt   map[Unlock][2]Num             // per unlock: earned when it arrived (shop.go onSale)
-	icons      map[string]*ebiten.Image      // assets/sprites, loaded on first use (terminal.go)
-	couriers   []*courier                    // on their way with an order (courier.go)
-	hexed      []hexMark                     // per Room: its last hex (haunt.go)
-	walls      []wallRun                     // the wall graph Shadows travel (D185, wall.go)
-	wallCell   []int                         // each map cell's run, -1 if none (wall.go)
-	onRun      [][]*shade                    // this frame's Shadows by run, for drawShadow
-	dirt       [][]spot                      // per Room: its dirt spots (dirt.go)
-	dirtN      []int                         // per Room: spots ever placed, the next one's seed
-	wiped      []wipe                        // cleaned spots, fading
-	arrivals   []arrival                     // per Room: its next Party's arrival (dirt.go)
-	stains     map[image.Point]*ebiten.Image // dirt spots' stains, by cell (dirt.go)
-	dirtBox    *ebiten.Image                 // the dirt complaint balloon (dirt.go)
-	guestNote  slot                          // the next-guest notice in the left column (hud.go)
-	guestText  string                        // its text, kept while it slides out
-	hands      Unlock                        // the supply the Concierge carries, "" for none (supply.go)
-	delivered  Num                           // Money deliveries paid this Run (supply.go; the sim's money check)
-	askBox     *ebiten.Image                 // the request balloon, its item drawn in it (serve.go)
+	state         int
+	hotel         *world.Hotel
+	types         []world.RoomType // every loaded Room Type, drawn from at each Run start
+	ts            *world.Tileset
+	cam           Camera
+	player        entities.Player
+	parties       []*Party // every Party on the map
+	tick          int      // simulation frames since launch
+	clock         int      // game time (clock.go)
+	fast          bool     // T held: the world runs ×fastScale (clock.go)
+	wallet        [2]Num   // Money and Ecto (wallet.go, D178)
+	ghost         bool     // the whole hotel is in the ghost dimension (D141); else the real one
+	mood          []int    // per Room: its Mood, -100..100 (mood.go)
+	serves        int      // requests answered this Run (serve.go)
+	expired       int      // requests left to expire this Run
+	priests       []*priest
+	shades        []shades // per Room: its Shadow People (D169, D185, shadow.go)
+	termCursor    int      // the Terminal's selected Room
+	termPick      int      // the store's selected row in its tab, or in the cart (the last row is checkout)
+	walkIns       int      // Walk-ins this Run
+	floaters      []floater
+	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
+	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
+	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
+	rng           *rand.Rand
+	chat          *rand.Rand                     // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
+	linger        struct{ room, from, last int } // the Concierge's visit to an occupied Room: which, since when, and the last frame of it (party.go's intrude)
+	words         *rand.Rand                     // the lines themselves (2026-11-14, 4c): chat came to roll ghosts' bookings and pastimes too, so a text edit moved the sim
+	in            input                          // the keys (input.go)
+	headless      bool                           // no window: step skips what only drawing needs
+	auto          *autopilot                     // a Strategy plays instead of a person (sim.go)
+	tiles         []*ebiten.Image                // by world.TileID
+	characters    map[string][2]*ebiten.Image    // idle_anim, run sheets by name, a Guest's recolored on first use (draw.go)
+	bases         map[string][2]*image.RGBA      // each character's sheets as drawn, to recolor (D166)
+	floorImg      *ebiten.Image                  // the floor layer pre-rendered at 1px per world px
+	props         []prop                         // every other static tile, by SortY
+	dark          *ebiten.Image                  // the darkness layer, the size of what drawWorld draws onto (light.go)
+	pool, glow    *ebiten.Image                  // light sprites: a ceiling light's pool, the Terminal's glow
+	palette       *ebiten.Shader                 // the ghost dimension's arcade palette (ghost.go)
+	transition    *ebiten.Shader                 // the Mirror's transitions (shift.go)
+	fx            [2]*ebiten.Image               // a transition's real and ghost pictures
+	shifting      *shift                         // the Mirror's transition under way, nil if none (D170)
+	ink           *ebiten.Image                  // scratch for tinted text (fear.go)
+	balloon       *ebiten.Image                  // a Guest's request (serve.go)
+	tail          *ebiten.Image                  // the balloon's tail, pointing down
+	boxes         map[int]*ebiten.Image          // speech balloons' boxes, by width in balloon px (serve.go)
+	warm          bool                           // the shaders have been drawn once (shift.go warmUp)
+	spill         *ebiten.Image                  // the hall light through the Archway, built on first use (spill.go)
+	hud           [2]counter                     // per Res: its counter on screen (hud.go)
+	skull         *ebiten.Image                  // the Ecto counter's icon (hud.go)
+	termTab       Tab                            // the store's open tab (shop.go)
+	placing       int                            // the Service row waiting for its Room, or -1 (terminal.go)
+	cart          []cartLine                     // the store's cart (shop.go)
+	stock         map[Unlock]int                 // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
+	earned        [2]Num                         // lifetime earnings this Run (wallet.go): open store items
+	boughtAt      map[Unlock][2]Num              // per unlock: earned when it arrived (shop.go onSale)
+	icons         map[string]*ebiten.Image       // assets/sprites, loaded on first use (terminal.go)
+	couriers      []*courier                     // on their way with an order (courier.go)
+	walls         []wallRun                      // the wall graph Shadows travel (D185, wall.go)
+	wallCell      []int                          // each map cell's run, -1 if none (wall.go)
+	onRun         [][]*shade                     // this frame's Shadows by run, for drawShadow
+	dirt          [][]spot                       // per Room: its dirt spots (dirt.go)
+	dirtN         []int                          // per Room: spots ever placed, the next one's seed
+	byGhost       bool                           // the spots being placed are a ghost's doing: spiritual (mood.go's ghostDirt)
+	wiped         []wipe                         // cleaned spots, fading
+	arrivals      []arrival                      // per Room: its next Party's arrival (dirt.go)
+	stains        map[image.Point]*ebiten.Image  // dirt spots' stains, by cell (dirt.go)
+	dirtBox       *ebiten.Image                  // the dirt complaint balloon (dirt.go)
+	guestNote     slot                           // the next-guest notice in the left column (hud.go)
+	guestText     string                         // its text, kept while it slides out
+	hands         Unlock                         // the supply the Concierge carries, "" for none (supply.go)
+	delivered     Num                            // Money deliveries paid this Run (supply.go; the sim's money check)
+	askBox        *ebiten.Image                  // the request balloon, its item drawn in it (serve.go)
+	hushed        map[int]bool                   // Rooms whose ghost Shadow Father M banished, until its ghost leaves (shadow.go)
+	cover         *ebiten.Image                  // the covered Mirror's sprite (ghostguest.go)
+	mirrorAtStart bool                           // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
+	ghostArrivals []arrival                      // per Room: its next ghost Party's arrival (ghostguest.go)
+	areaShades    []*shade                       // the Shadow People strong ghosts switch on, one per area (shadow.go)
+	roomOwned     []bool                         // per Room: owned, so open for business; nil owns all (owned.go, 07 B1)
+	openAtStart   bool                           // the sim's Open and most tests: a Run starts with every Room owned
+	introOn       bool                           // a Run starts with the opening intro (intro.go); off for the sim, the tests and prints
+	intro         *intro                         // the intro under way, nil if none
+	wide          *ebiten.Image                  // the whole hotel at zoom, the intro's first shots (intro.go)
+	changes       []*change                      // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
+	termBeds      int                            // the bed layout picked for a change at the Terminal, an index into bedKinds
+	bedsAtStart   string                         // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
+	termDepth     int                            // how far into the hotel view: 1 the Rooms, 2 a Room's actions, 3 its beds (hotelview.go)
+	viewT         float64                        // the hotel view's pull-back, 0 the play camera .. 1 the whole hotel
+	panel         *ebiten.Image                  // the hotel view's action card (its whole-map frame is the intro's g.wide)
+	pausePick     int                            // the pause's picked row
+	growNext      int                            // the expansion paid for, played once the Terminal is closed: growCol or growFloor (grow.go, 07 H1)
+	growing       *growth                        // its cinematic under way, nil if none
+	grid0         [2]int                         // the Room grid a Run starts with, cols and rows: a grown hotel is rebuilt to it
+	note          notice                         // the HUD's text notice (hud.go, 07 U2): the only place for words to the player; the game says none today
+	keepers       []*housekeeper                 // the housekeepers on the map (keeper.go, 07 H1 step 3)
+	staffPaid     Num                            // Money paid to hire and keep them this Run (the sim's money check)
+	hired, quits  int                            // housekeepers hired, and walked out unpaid, this Run
+	busy          bool                           // the busy hotel, a stress Run (busy.go)
+	bumps, paces  int                            // frames a walker was stopped by someone ahead, and frames walked, this Run (busy.go)
+	refused       string                         // why the last SPACE did nothing, "" when it did: the View's, never drawn (view.go refuse)
+	parley        *parley                        // the talk under way (talkmove.go, 07 X2)
+	talkCue       slot                           // TALK on the HUD's right (hud.go)
+	offered       Num                            // Money paid for offers this Run (the sim's money check)
+	focus         *ebiten.Shader                 // the talk's close-in and blur (talkmove.go)
+	scale         float64                        // the world time scale (D1, clock.go): 1 normal, under 1 slow motion
+	dt            float64                        // this step's frames of world time, at most 1; a whole frame (and ticked) outside a step, for the tests
+	acc           float64                        // world time since the last whole frame, 0..1
+	ticked        bool                           // a whole frame of world time ended this step: its per-frame logic runs
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
-func New() (*Game, error) {
-	g, err := newWorld(world.Cols, world.Rows, rand.Uint64())
+func New() (*Game, error) { return NewSeed(rand.Uint64()) }
+
+// NewSeed is New with the Run's seed given (dev prints: the same hotel again).
+func NewSeed(seed uint64) (*Game, error) {
+	g, err := newWorld(world.Cols, world.Rows, seed)
 	if err != nil {
 		return nil, err
 	}
@@ -131,11 +174,11 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 		return nil, err
 	}
 	rng := rand.New(rand.NewPCG(seed, seed))
-	h, err := world.Build(ts, types, cols, rows, rng)
+	h, err := world.Build(ts, types, cols, rows)
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{state: StateTitle, hotel: h, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), ts: ts, in: &script{}, headless: true}
+	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ts: ts, in: &script{}, headless: true, scale: 1, dt: 1, ticked: true}
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
@@ -158,6 +201,7 @@ func (g *Game) loadImages() (err error) {
 	g.characters[fatherK.name] = dress(g.bases["Bob"], palettes["Bob"], fatherK.look)
 	g.characters[fatherM.name] = dress(g.bases["Bob"], palettes["Bob"], fatherM.look)
 	g.loadCourier()
+	g.loadKeeper()
 	return nil
 }
 
@@ -165,52 +209,98 @@ func (g *Game) mapSize() (int, int) {
 	return g.hotel.Map.W * world.TileSize, g.hotel.Map.H * world.TileSize
 }
 
-// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and given its Room Type for the Run
-// (D135: no Spin after this), no money.
+// startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and a Standard Single (K1: the Run-start
+// draw is gone; Rooms change type one by one, roomtype_change.go), no money.
 func (g *Game) startRun() {
-	g.parties, g.floaters, g.walkIns, g.fog, g.hexed, g.priests = nil, nil, 0, nil, nil, nil
-	g.roomSpook, g.shades, g.serves, g.expired = make([]int, len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
+	g.ungrow()
+	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
+	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.state = StatePlay
-	g.hotel.Furnish(world.Draw(g.types, len(g.hotel.Rooms), g.rng))
+	first, ok := world.TypeOf(g.types, g.bedsAtStart)
+	if !ok {
+		first, _ = world.TypeOf(g.types, "Single")
+	}
+	for i := range g.hotel.Rooms {
+		g.hotel.Land(i, first, false)
+	}
+	for _, c := range g.changes {
+		c.pics.free()
+	}
+	g.changes, g.termBeds = nil, 0
 	g.floorImg = nil // re-rendered on the next Draw
 	g.player = entities.NewPlayer(g.hotel.ConciergeStart)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	g.hud, g.guestNote, g.guestText = [2]counter{}, slot{}, ""
 	g.couriers, g.hands, g.delivered = nil, "", 0
+	g.keepers, g.staffPaid, g.hired, g.quits = nil, 0, 0, 0
+	g.busy, g.bumps, g.paces = false, 0, 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
+	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
+	g.hushed = map[int]bool{}
+	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
+	// T272); and with K1's bed layouts and in-Room Mirror to buy
+	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
+	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
+	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
+	if !g.openAtStart {
+		g.closeRooms()
+	}
+	g.beginIntro()
 }
 
 func (g *Game) Update() error {
 	if g.auto != nil {
 		g.auto.drive(g)
 	}
-	if g.in.JustPressed(ebiten.KeyEscape) {
-		switch g.state {
-		case StateTitle:
+	if g.state == StateView || g.growing != nil && g.growing.t < 1 { // the hotel view's camera: out while it is open (or the hotel grows), back in once closed
+		g.viewT = min(1, g.viewT+1.0/viewFrames)
+	} else {
+		g.viewT = max(0, g.viewT-1.0/viewFrames)
+	}
+	if g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
+		switch {
+		case g.state == StateTitle:
 			return ebiten.Termination
-		case StateTerminal:
-			if g.placing >= 0 { // ESC backs out of the Room pick first
-				g.placing = -1
-				break
-			}
-			g.state, g.message = StatePlay, ""
+		case g.state == StateGrow: // it plays out
+		case g.state == StateTalk: // the world gets its pace back (talkmove.go, X2)
+			g.endTalk()
+		case g.state != StatePlay:
+			g.state = StatePlay
+			g.refuse("")
+		case g.intro != nil || g.auto != nil: // the opening, or a Strategy playing: back to the title
+			g.toTitle()
 		default:
-			g.state = StateTitle
+			g.state, g.pausePick = StatePause, 0
 		}
 		return nil
 	}
+	if g.growNext != 0 && g.state == StatePlay && g.shifting == nil && g.intro == nil { // paid for, the Terminal closed
+		g.beginGrow()
+	}
 	switch {
+	case g.intro != nil: // the opening, the title included: the world waits for it
+		g.updateIntro()
+	case g.state == StateGrow:
+		g.updateGrow()
 	case g.state == StateTitle:
 		if g.in.JustPressed(ebiten.KeySpace) {
 			g.startRun()
 		}
 	case g.state == StateTerminal: // the world and the Clock wait (D73)
 		g.updateTerminal()
+		g.updateHUD()
+	case g.state == StateView:
+		g.updateView()
+		g.updateHUD()
+	case g.state == StatePause:
+		g.updatePause()
+	case g.state == StateTalk: // the world runs on in slow motion, stepped by updateParley (X2, D1)
+		g.updateParley()
 		g.updateHUD()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
@@ -221,30 +311,59 @@ func (g *Game) Update() error {
 		case g.shifting != nil: // SPACE waits for the transition (D170)
 		case g.atTerminal():
 			g.openTerminal()
-		case g.atMirror():
+		case g.atMirror() && g.unlocked(Mirror):
+			g.startShift()
+		case g.atMirror(): // covered until the courier installs it
+			g.refuse("THE MIRROR IS COVERED")
+		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
 			g.startShift()
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
-		case !g.ghost && g.atDoor() >= 0 && g.occupied(g.atDoor()):
-			g.deliver(g.atDoor(), g.hands)
-		case g.ghost && g.hexable() >= 0:
-			g.hex(g.hexable(), g.feet())
+		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
+		case g.talker() != nil: // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
+			g.startTalk(g.talker())
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)
+			} else if g.atSupply() < 0 && g.atDoor() < 0 { // SPACE where nothing else is its to do: the hotel view (U2); not at a door or a supply that had nothing for it
+				g.openView()
 			}
 		}
 	}
 	return nil
 }
 
-// step advances the world one frame with the Concierge walking in direction (dx,dy). No input, no
-// rendering: the headless sim drives it directly.
+// step advances the world one real frame, by the time scale (clock.go), with the Concierge walking in
+// direction (dx,dy). No input, no rendering: the headless sim drives it directly.
 func (g *Game) step(dx, dy float64) {
-	g.tick++
-	g.advanceClock()
-	g.player.Move(dx, dy, conciergeSpeed, g.conciergeBlocked)
-	g.hotel.UpdateDoors(g.actors(), g.occupied)
+	start := time.Now()
+	for left := g.timeScale(); left > 0; left-- {
+		g.advance(dx, dy, min(left, 1))
+		if !g.headless && time.Since(start) > stepBudget { // a window never spends more of a frame than this on the world, whatever the scale: it runs slower instead
+			break
+		}
+	}
+	if !g.headless {
+		w, h := g.mapSize()
+		g.cam.Follow(g.player.X, g.player.Y, w, h)
+	}
+	g.updateHUD()
+}
+
+// stepBudget: the most of a real frame (16.7 ms) a window's step spends on the world.
+const stepBudget = 4 * time.Millisecond
+
+// advance runs dt (at most 1) frames of world time.
+func (g *Game) advance(dx, dy, dt float64) {
+	g.dt, g.acc = dt, g.acc+dt
+	if g.ticked = g.acc >= 1; g.ticked {
+		g.acc--
+		g.tick++
+		g.advanceClock()
+	}
+	g.player.Move(dx, dy, conciergeSpeed*dt, g.conciergeBlocked)
+	g.hotel.UpdateDoors(g.doorActors(), g.boarded, dt)
+	g.updateChanges()
 	g.updateParties()
 	g.updateTalk()
 	g.updatePriests()
@@ -252,19 +371,20 @@ func (g *Game) step(dx, dy float64) {
 	g.separate()
 	g.updateFog()
 	g.updateCouriers()
+	g.updateKeepers()
+	if g.busy {
+		g.busyStep()
+	}
 	if !g.headless {
-		g.player.Anim.Update(g.player.X, g.player.Y)
+		g.player.Anim.Update(g.player.X, g.player.Y, dt)
 		for _, guest := range g.guests() {
-			guest.Anim.Update(guest.X, guest.Y)
+			guest.Anim.Update(guest.X, guest.Y, dt)
 		}
 		for _, pr := range g.priests {
-			pr.Anim.Update(pr.X, pr.Y)
+			pr.Anim.Update(pr.X, pr.Y, dt)
 		}
-		w, h := g.mapSize()
-		g.cam.Follow(g.player.X, g.player.Y, w, h)
 	}
 	g.floaters = slices.DeleteFunc(g.floaters, func(f floater) bool { return g.tick-f.at > floaterFrames })
-	g.updateHUD()
 }
 
 // blocked: a foot box would hit a wall or a shut door.
@@ -272,31 +392,31 @@ func (g *Game) blocked(r image.Rectangle) bool {
 	return g.hotel.Map.BlockedBox(r) || g.hotel.DoorBlocks(r)
 }
 
-// conciergeBlocked: blocked, and also every Occupied Room's doorway, open or not (D91), so the Concierge
-// can't slip in behind a Party; from inside the Room it lets him out (D21), as when a Party checks into
-// the Room he's in. A bed's lane lets him lie in it (D167).
-func (g *Game) conciergeBlocked(r image.Rectangle) bool {
-	at, now := image.Pt(int(g.player.X), int(g.player.Y)), entities.FootBox(g.player.X, g.player.Y)
-	return g.blocked(r) && !g.inLane(r) || slices.ContainsFunc(g.hotel.Doors, func(d world.Door) bool {
-		if d.Room < 0 || !d.Rect.Overlaps(r) {
-			return false
-		}
-		inside := at.In(g.hotel.Rooms[d.Room].Shell()) || now.Overlaps(d.Rect) // already in the doorway: never trapped in it
-		return !d.Allows(-1, inside, g.occupied(d.Room))
-	})
-}
+// conciergeBlocked: blocked, but for a bed's side, which lets him lie in it (D167). He walks into any open
+// Room, its guests in or not (K1, 2026-11-11: D91's shut doorway is gone); only a boarded door stays shut.
+func (g *Game) conciergeBlocked(r image.Rectangle) bool { return g.blocked(r) && !g.inLane(r) }
 
 // separate pushes overlapping foot boxes apart along their shallower overlap, split by each actor's
 // give (D22b). A push into a wall or a shut door is dropped. Phasing guests are skipped (D22c).
 func (g *Game) separate() {
+	for _, realm := range [...]Realm{Human, Ghost} {
+		g.separateIn(realm)
+	}
+}
+
+// separateIn: separate for the actors of one realm; the Concierge is in the one he stands in.
+func (g *Game) separateIn(realm Realm) {
 	type body struct {
 		x, y    *float64
 		give    float64
 		blocked func(image.Rectangle) bool
 		guest   *entities.Guest // nil: the Concierge
 	}
-	bodies := []body{{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil}}
-	for _, guest := range g.walkers() {
+	var bodies []body
+	if g.realm() == realm {
+		bodies = append(bodies, body{&g.player.X, &g.player.Y, conciergeGive, g.conciergeBlocked, nil})
+	}
+	for _, guest := range g.walkers(realm) {
 		if guest.Phasing {
 			continue
 		}
@@ -344,37 +464,41 @@ func sign(v float64) float64 {
 	return 1
 }
 
-// actors: everyone on the map the doors react to.
-func (g *Game) actors() []world.Actor {
+// doorActors: everyone on the map the doors react to, of either realm: a door is one structure. The staff
+// (the Concierge, a Priest, a courier) open any door, a Guest its own.
+func (g *Game) doorActors() []world.Actor {
 	as := []world.Actor{{Box: entities.FootBox(g.player.X, g.player.Y), Room: -1}}
 	for _, guest := range g.guests() {
 		as = append(as, world.Actor{Box: entities.FootBox(guest.X, guest.Y), Room: guest.RoomIndex})
 	}
-	for _, pr := range g.priests { // his door pass: his own Room's door, Occupied or not
-		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: pr.RoomIndex})
+	for _, pr := range g.priests {
+		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
 	}
 	as = append(as, g.courierActors()...)
+	as = append(as, g.keeperActors()...)
 	return as
 }
 
-// occupied: a Room's door is shut to the Concierge only while a Guest of its Party is inside (Live test 5,
-// 2026-11-08; D91 barred it for the whole Booking); already inside, the door lets him out, and his minutes
-// in there cost its Guests Comfort (intrude).
-func (g *Game) occupied(room int) bool {
-	_, gs := g.inside(room)
-	return len(gs) > 0
-}
+// boarded: the Room isn't owned yet: its door stays shut to everyone (07 B1). An owned Room's door opens to
+// the Concierge whoever is in; his minutes in there with its Guests cost the Room Mood (intrude).
+func (g *Game) boarded(room int) bool { return !g.isOwned(room) }
 
 // walk advances a guest along its path. It waits in place while the next step would hit a shut door,
 // and sidesteps to its right (left if a wall is there) while the next step would bump into someone
 // ahead, so two guests meeting head-on pass each other.
 func (g *Game) walk(guest *entities.Guest, speed float64) bool {
-	guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	if g.ticked {
+		guest.TrackProgress(stuckFrames) // measures last frame's walk and pushes
+	}
+	g.steer(guest)
 	if !guest.Phasing && g.yields(guest) {
 		return false
 	}
 	x, y, path := guest.X, guest.Y, guest.Path
-	done := guest.FollowPath(speed)
+	if len(path) > 0 {
+		g.paces++
+	}
+	done := guest.FollowPath(speed * g.dt)
 	if g.hotel.DoorBlocks(entities.FootBox(guest.X, guest.Y)) {
 		guest.X, guest.Y, guest.Path = x, y, path
 		return false
@@ -382,9 +506,16 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	hx, hy := guest.X-x, guest.Y-y
 	if bx, by, bump := g.bumpsAhead(guest, hx, hy); !guest.Phasing && bump {
 		guest.X, guest.Y, guest.Path = x, y, path
+		g.bumps++
 		// A Party waiting in the hall stays for hours: go around it (dirt.go). A courier goes around anyone:
 		// he is faster than a Party walking in and tailgated it up the Corridor (Live test 7, 2026-11-08).
-		if (g.waiting(bx, by) || guest.Character == courierName) && len(path) > 0 {
+		if staff(guest) && len(path) > 0 {
+			// The staff never stop for anyone (2026-11-14): they steer around whoever is ahead before they
+			// meet (steer); one they still run into, with no way around, they pass through.
+			guest.Phase()
+			return false
+		}
+		if g.waiting(bx, by) && len(path) > 0 {
 			g.send(guest, path[len(path)-1], image.Pt(int(bx), int(by)))
 			return false
 		}
@@ -406,6 +537,56 @@ func (g *Game) walk(guest *entities.Guest, speed float64) bool {
 	return done
 }
 
+// staff: a courier or a housekeeper: they have somewhere to be.
+func staff(guest *entities.Guest) bool {
+	return guest.Character == courierName || guest.Character == keeperName
+}
+
+// steerAhead: the waypoints ahead a member of staff watches; steerEvery: frames between its looks.
+const steerAhead, steerEvery = 3, 6
+
+// steerMax: the detours one errand allows; past it the walker keeps its way, as before it could steer.
+const steerMax = 40
+
+// steer: a member of staff looks ahead as it walks: someone on the next cells of its way, it takes another way
+// round them now, well before they meet. With no other way it walks on (walk lets it through).
+func (g *Game) steer(guest *entities.Guest) {
+	if len(guest.Path) == 0 || guest.Phasing || !g.ticked || g.tick%steerEvery != 0 || guest.Detours() >= steerMax {
+		return
+	}
+	m := g.hotel.Map
+	here := m.Cell(image.Pt(int(guest.X), int(guest.Y)))
+	ahead := guest.Path[:min(len(guest.Path), steerAhead)]
+	var avoid []image.Point
+	see := func(x, y float64) {
+		at := image.Pt(int(x), int(y))
+		if c := m.Cell(at); c != here && slices.ContainsFunc(ahead, func(p image.Point) bool { return m.Cell(p) == c }) {
+			avoid = append(avoid, at)
+		}
+	}
+	realm := g.realmOf(guest)
+	if g.realm() == realm {
+		see(g.player.X, g.player.Y)
+	}
+	for _, o := range g.walkers(realm) {
+		if o == guest || o.Phasing || o.Mate(guest) {
+			continue
+		}
+		// Two walking at each other: only one goes round, the other keeps its way (2026-11-14: two housekeepers
+		// at the kitchen each took the other's side, again and again, and never passed).
+		if (guest.X < o.X || guest.X == o.X && guest.Y < o.Y) && slices.ContainsFunc(o.Path[:min(len(o.Path), steerAhead)], func(p image.Point) bool { return m.Cell(p) == here }) {
+			continue
+		}
+		see(o.X, o.Y)
+	}
+	if len(avoid) == 0 {
+		return
+	}
+	if way := g.route(guest, guest.Path[len(guest.Path)-1], avoid...); way != nil {
+		guest.Detour(way)
+	}
+}
+
 // yieldAhead: how many waypoints ahead a guest looks for a choke point. It waits a cell or two short of
 // it, which leaves the way out clear.
 const yieldAhead = 3
@@ -415,19 +596,20 @@ const yieldAhead = 3
 // wait on each other. The Concierge is left to the sidestep and the push give (D22b).
 func (g *Game) yields(guest *entities.Guest) bool {
 	ahead := guest.Path[:min(len(guest.Path), yieldAhead)]
-	i := slices.IndexFunc(ahead, func(p image.Point) bool { return g.hotel.Choke(p.Div(world.TileSize)) })
+	m := g.hotel.Map
+	i := slices.IndexFunc(ahead, func(p image.Point) bool { return g.hotel.Choke(m.Cell(p)) })
 	if i < 0 {
 		return false
 	}
-	c := ahead[i].Div(world.TileSize).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
+	c := m.Center(m.Cell(ahead[i]).X, m.Cell(ahead[i]).Y)
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
-	for _, o := range g.walkers() {
+	for _, o := range g.walkers(g.realmOf(guest)) {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
-		on := image.Pt(int(o.X), int(o.Y)).Div(world.TileSize)
-		if slices.ContainsFunc(ahead, func(p image.Point) bool { return p.Div(world.TileSize) == on }) &&
+		on := m.Cell(image.Pt(int(o.X), int(o.Y)))
+		if slices.ContainsFunc(ahead, func(p image.Point) bool { return m.Cell(p) == on }) &&
 			(float64(o.Path[0].X)-o.X)*hx+(float64(o.Path[0].Y)-o.Y)*hy < 0 { // on the stretch, coming the other way
 			return true
 		}
@@ -444,10 +626,11 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	hit := func(x, y float64) bool {
 		return entities.FootBox(x, y).Overlaps(box) && (x-guest.X)*hx+(y-guest.Y)*hy > 0
 	}
-	if hit(g.player.X, g.player.Y) {
+	realm := g.realmOf(guest)
+	if g.realm() == realm && hit(g.player.X, g.player.Y) {
 		return g.player.X, g.player.Y, true
 	}
-	for _, o := range g.walkers() {
+	for _, o := range g.walkers(realm) {
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}

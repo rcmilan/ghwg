@@ -12,6 +12,7 @@ func headless(t *testing.T, cols, rows int, seed uint64) (*Game, *script) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	g.openAtStart = true // most tests are about something else than buying Rooms (owned_test.go)
 	return g, g.in.(*script)
 }
 

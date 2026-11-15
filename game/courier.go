@@ -9,8 +9,8 @@ import (
 	"ghosthotel/world"
 )
 
-// Courier and stock (D200): checkout sends a courier with the order. He drops Supplies and unlocks at the
-// stock, left of the entrance hall, and a Shadow at its Room's door, then leaves. Placeholders.
+// Courier and stock (D200): checkout sends a courier with the order. He fills each Supply at its prop in the
+// kitchen (F1), drops the unlocks there too, then leaves. Placeholders.
 const (
 	courierSpeed = conciergeSpeed
 	courierName  = "Courier"     // Alex in a brown uniform (T240)
@@ -26,6 +26,8 @@ func init() {
 type courier struct {
 	entities.Guest
 	drops []drop // still to make, in order; then out the Exit
+	voice
+	out bool // the world has run since the order: he is at the Entrance. Until then (the store or the hotel view still open) he isn't drawn
 }
 
 // drop: where the courier hands over some of the order's lines.
@@ -34,7 +36,7 @@ type drop struct {
 	lines []cartLine
 }
 
-// stockDrop: where the courier stands to fill the stock, the cell below the middle of the area.
+// stockDrop: where the courier drops the unlocks, the cell below the middle of the kitchen's prop row.
 func (g *Game) stockDrop() image.Point {
 	s := g.hotel.Stock
 	return image.Pt((s.Min.X+s.Max.X)/2, s.Max.Y+world.TileSize/2)
@@ -48,10 +50,17 @@ func (g *Game) doorDrop(room int) image.Point {
 func (g *Game) updateCouriers() {
 	kept := g.couriers[:0]
 	for _, c := range g.couriers {
+		c.out = true
 		arrived := g.walk(&c.Guest, courierSpeed)
 		if !g.headless {
-			c.Anim.Update(c.X, c.Y)
+			c.Anim.Update(c.X, c.Y, g.dt)
 		}
+		g.comeNear(&c.Guest, &c.voice, func() []string {
+			if len(c.drops) > 0 {
+				return g.sometimes(courierIn)
+			}
+			return g.sometimes(courierOut)
+		})
 		if !arrived {
 			kept = append(kept, c)
 			continue
@@ -89,18 +98,23 @@ func (c *courier) paid() Cost {
 	for _, d := range c.drops {
 		for _, l := range d.lines {
 			t[Money] += l.cost()[Money]
-			t[Spook] += l.cost()[Spook]
+			t[Ecto] += l.cost()[Ecto]
 		}
 	}
 	return t
 }
 
-// walkers: the guests and the couriers, for bumping, yielding and pushing: a courier and a Party walking
-// in met head-on and walked through each other (Live test 6, 2026-11-08).
-func (g *Game) walkers() []*entities.Guest {
-	gs := g.guests()
-	for _, c := range g.couriers {
-		gs = append(gs, &c.Guest)
+// walkers: the guests and the couriers of one realm, for bumping, yielding and pushing: a courier and a
+// Party walking in met head-on and walked through each other (Live test 6, 2026-11-08).
+func (g *Game) walkers(realm Realm) []*entities.Guest {
+	gs := g.guestsIn(realm)
+	if realm == Human {
+		for _, c := range g.couriers {
+			gs = append(gs, &c.Guest)
+		}
+		for _, k := range g.keepers {
+			gs = append(gs, &k.Guest)
+		}
 	}
 	return gs
 }

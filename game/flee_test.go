@@ -11,7 +11,7 @@ import (
 func TestFleeHop(t *testing.T) {
 	g, _, p := settled(t)
 	g.flee(p)
-	if !g.vacant(p.Room) {
+	if !g.vacant(p.Room, Human) {
 		t.Fatal("the Room isn't Vacant at once")
 	}
 	type pos struct{ x, y float64 }
@@ -39,7 +39,8 @@ func TestFleeHop(t *testing.T) {
 	}
 }
 
-// T115, D165: a Guest is heard near the Concierge; in real, not from inside a Room nor through a wall.
+// T115, D165: a Guest is heard near the Concierge; in real, not through a wall, and one inside a Room only
+// from inside that Room (Z1).
 func TestHears(t *testing.T) {
 	g, _, p := settled(t)
 	guest, r := p.Guests[0], g.hotel.Rooms[p.Room]
@@ -50,7 +51,7 @@ func TestHears(t *testing.T) {
 		real, inGhost bool
 	}{
 		{"near, outside", center(r.Spot()).X, center(r.Spot()).Y, 2 * world.TileSize, true, true},
-		{"near, inside", center(r.Shell()).X, center(r.Shell()).Y, 2 * world.TileSize, false, true},
+		{"near, inside, he too", center(r.Shell()).X, center(r.Shell()).Y, 2 * world.TileSize, true, true},
 		{"far", center(r.Spot()).X, center(r.Spot()).Y, (hearRange + 1) * world.TileSize, false, false},
 		{"behind a wall", center(r.Spot()).X, center(r.Spot()).Y, 0, false, true}, // the Concierge in the Lobby, below the corridor's wall
 	} {

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"math"
 	"slices"
 	"strings"
@@ -47,15 +48,16 @@ func wallRuns(m *world.Tilemap) (runs []wallRun, cells []int) {
 	}
 	// span: the world-px part of foot cell (x,y) that no side line's hitbox covers, on either face row
 	span := func(x, y int) (a, b int) {
-		a, b = x*ts, (x+1)*ts
+		o := m.Origin(x, y).X
+		a, b = o, o+ts
 		for _, c := range [2]int{y - 1, y} {
 			for _, l := range [2]int{world.LayerWalls, world.LayerDecor} {
 				if t := tile(l, x, c); strings.HasPrefix(t.Name, "border_") {
 					for _, s := range t.Solid {
 						if s.Min.X == 0 {
-							a = max(a, x*ts+s.Max.X)
+							a = max(a, o+s.Max.X)
 						} else {
-							b = min(b, x*ts+s.Min.X)
+							b = min(b, o+s.Min.X)
 						}
 					}
 				}
@@ -78,13 +80,14 @@ func wallRuns(m *world.Tilemap) (runs []wallRun, cells []int) {
 	runs = slices.DeleteFunc(runs, func(r wallRun) bool { return r.x1-r.x0 < charW })
 	// line: the left px of the side line whose hitbox covers px column px on face row y or the row above
 	line := func(px, y int) int {
-		x := px / ts
+		x := m.Cell(image.Pt(px, y*ts)).X
+		o := m.Origin(x, y).X
 		for _, c := range [2]int{y - 1, y} {
 			for _, l := range [2]int{world.LayerWalls, world.LayerDecor} {
 				if t := tile(l, x, c); strings.HasPrefix(t.Name, "border_") {
 					for _, s := range t.Solid {
-						if x*ts+s.Min.X <= px && px < x*ts+s.Max.X {
-							return x*ts + s.Min.X
+						if o+s.Min.X <= px && px < o+s.Max.X {
+							return o + s.Min.X
 						}
 					}
 				}
@@ -117,7 +120,7 @@ func wallRuns(m *world.Tilemap) (runs []wallRun, cells []int) {
 	}
 	for k, r := range runs { // ponytail: one run per cell; side lines sit on cell edges, so none share one
 		row := int(r.y) / ts
-		for x := int(r.x0) / ts; x*ts < int(r.x1); x++ {
+		for x := m.Cell(image.Pt(int(r.x0), row*ts)).X; m.Origin(x, row).X < int(r.x1); x++ {
 			cells[row*m.W+x], cells[(row-1)*m.W+x] = k, k
 		}
 	}
@@ -168,16 +171,17 @@ func (g *Game) sendShade(sh *shade, to int, x float64) {
 	sh.goal = clamp(x, lo, hi)
 }
 
-// move takes a Shadow one frame along its way: it runs at shadowSpeed to the nearer blink spot toward the
+// move takes a Shadow a step (g.dt frames) along its way: it runs at shadowSpeed to the nearer blink spot toward the
 // next run, fades out, blinks onto it at the same x, and fades in. True once it stands at its goal.
 func (g *Game) move(sh *shade) bool {
 	r := g.walls[sh.run]
 	defer func() {
-		sh.anim.Update(sh.x, g.walls[sh.run].y)
+		sh.anim.Update(sh.x, g.walls[sh.run].y, g.dt)
 		sh.anim.Facing = entities.Toward(sh.dir, 0)
 	}()
 	if sh.fade > 0 {
-		if sh.fade++; sh.fade == teleportFrames/2 {
+		was := sh.fade
+		if sh.fade += g.dt; was < teleportFrames/2 && sh.fade >= teleportFrames/2 { // halfway: it blinks
 			sh.run, sh.path = sh.path[0], sh.path[1:]
 			lo, hi := g.walls[sh.run].ends()
 			sh.x = clamp(sh.x, lo, hi)
@@ -194,9 +198,9 @@ func (g *Game) move(sh *shade) bool {
 			to = hi
 		}
 	}
-	speed := shadowSpeed
+	speed := shadowSpeed * g.dt
 	if sh.patrol {
-		speed = patrolSpeed
+		speed = patrolSpeed * g.dt
 	}
 	if d := to - sh.x; math.Abs(d) > speed {
 		sh.x, sh.dir = sh.x+math.Copysign(speed, d), math.Copysign(1, d)

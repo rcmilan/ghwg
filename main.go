@@ -15,20 +15,36 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+// noMood: the -mood flag is not set.
+const noMood = 1000
+
 func main() {
-	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. haunter")
-	seed := flag.Uint64("seed", 1, "dev, with -play: the Run's seed")
+	play := flag.String("play", "", "dev: a Strategy plays instead of you (watch mode), e.g. smart")
+	seed := flag.Uint64("seed", 1, "dev: the Run's seed (with -play, or alone for the same hotel in a print)")
 	grid := flag.String("grid", "2x1", "dev, with -play: the Room grid, colsxrows")
 	react := flag.Int("react", 30, "dev, with -play: frames the Pilot waits before each action")
 	keyGap := flag.Int("keygap", 6, "dev, with -play: frames between the Pilot's key taps")
 	shotPath := flag.String("shot", "", "dev: start a Run, fast-forward to frame -at, save the screen to this PNG and quit")
 	at := flag.Int("at", 0, "dev, with -shot: the frame to capture, from 08:00 on Day 1 (600 frames = 1 game hour)")
 	ghost := flag.Bool("ghost", false, "dev, with -shot: start the Run in the ghost dimension")
-	shop := flag.String("shop", "", "dev: start a Run on the Terminal's shop holding money,spook (e.g. 30,40), every unlock but the Mirror locked")
-	hexAt := flag.String("hex", "", "dev, with -shot: 8 frames before -at, the Concierge stands on map cell x,y and hexes the Room beside it")
+	shop := flag.String("shop", "", "dev: start a Run on the Terminal's shop holding money,ecto (e.g. 30,40), every unlock but the Mirror locked")
 	shadow := flag.Float64("shadow", 0, "dev: start a Run where Room 101 gets a Shadow with this much essence, watched from the Corridor beside it")
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
-	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much Room Spook, so dirty (5 a spot)")
+	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
+	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
+	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
+	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
+	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
+	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -term 2,1,1 shows Room 102's actions)")
+	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it (e.g. 1,0: the HOTEL tab's first row); see -view for a Room's actions")
+	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
+	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first), a second number 1 opening its actions (e.g. 1,1), with -shot -at")
+	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
+	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
+	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
+	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
+	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
+	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -45,6 +61,11 @@ func main() {
 	var err error
 	if *play == "" {
 		g, err = game.New()
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "seed" && err == nil { // -seed alone: the same hotel again, for prints
+				g, err = game.NewSeed(*seed)
+			}
+		})
 	} else {
 		var cols, rows int
 		if _, err := fmt.Sscanf(*grid, "%dx%d", &cols, &rows); err != nil {
@@ -55,31 +76,68 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	g.DevScale(*scale)
 	var run ebiten.Game = g
-	if *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 {
-		g.Start(*ghost)
+	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 || *change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0
+	if dev {
+		if *intro >= 0 {
+			g.StartIntro(*intro)
+		} else {
+			g.Start(*ghost)
+		}
+		g.DevKey(*key)
+		if *kitchen {
+			g.DevKitchen()
+		}
+		if *busy {
+			g.DevBusy()
+		}
+		if *staff != "" {
+			n, money := 1, 0.0
+			fmt.Sscanf(*staff, "%d,%g", &n, &money)
+			g.DevStaff(n, money)
+		}
+		g.DevChange(*change)
 		if *shadow > 0 {
 			g.DevShadow(*shadow)
 		}
 		g.DevHaunt(*haunt)
 		g.DevDirt(*dirt)
+		g.DevGhosts(*ghosts)
+		if *mood != noMood {
+			g.DevMood(*mood)
+		}
+		g.DevGrow(*grow)
+		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 	}
 	if *shop != "" {
-		var money, spook float64
-		if _, err := fmt.Sscanf(*shop, "%g,%g", &money, &spook); err != nil {
-			log.Fatalf("-shop %q: want money,spook, like 30,40", *shop)
+		var money, ecto float64
+		if _, err := fmt.Sscanf(*shop, "%g,%g", &money, &ecto); err != nil {
+			log.Fatalf("-shop %q: want money,ecto, like 30,40", *shop)
 		}
-		g.ShopPrint(money, spook)
+		g.ShopPrint(money, ecto)
+	}
+	if *hotelView != "" {
+		var room, open int
+		fmt.Sscanf(*hotelView, "%d,%d", &room, &open)
+		g.DevView(room, open == 1)
+	}
+	if *term != "" {
+		var tab, row, place int
+		fmt.Sscanf(*term, "%d,%d,%d", &tab, &row, &place)
+		g.DevTerm(tab, row, place == 1)
 	}
 	if *shotPath != "" {
 		s := &shot{Game: g, path: *shotPath, at: *at}
-		if *hexAt != "" {
-			s.hex = new(image.Point)
-			if _, err := fmt.Sscanf(*hexAt, "%d,%d", &s.hex.X, &s.hex.Y); err != nil {
-				log.Fatalf("-hex %q: want x,y", *hexAt)
-			}
-		}
 		run = s
+	}
+	if *play == "" && !*skipIntro && !dev { // a person starting from the title: the opening
+		g.PlayIntro()
+	}
+	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
+		w := &guard{Game: run}
+		go w.watch()
+		run = w
 	}
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)
@@ -92,7 +150,6 @@ type shot struct {
 	path      string
 	at, frame int
 	saved     bool
-	hex       *image.Point // -hex
 }
 
 func (s *shot) Update() error {
@@ -100,9 +157,6 @@ func (s *shot) Update() error {
 		return ebiten.Termination
 	}
 	for n := 0; s.frame < s.at && n < 2000; n++ { // ponytail: 2000 Updates per tick keeps the window responsive
-		if s.hex != nil && s.frame == s.at-8 {
-			s.Game.HexFrom(*s.hex)
-		}
 		if err := s.Game.Update(); err != nil {
 			return err
 		}

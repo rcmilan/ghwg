@@ -34,6 +34,13 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold(ebiten.KeySpace)
 		return
 	}
+	if g.state == StateGrow { // the hotel grows: nothing to press
+		a.keys.hold()
+		return
+	}
+	if (g.state == StateView || g.state == StateTalk) && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2), or a talk (X2): out of it
+		a.pilot.Close()
+	}
 	if a.pilot.Idle() && a.idle && g.clock/minuteFrames == a.minute { // nothing to do: skip the View
 		a.pilot.frame++
 		a.keys.hold()
@@ -58,8 +65,11 @@ type Config struct {
 	Seed          uint64
 	Name          string // the Strategy's name, for the report
 	Strategy      Strategy
-	React, KeyGap int  // the Pilot's pace (D104); 0, 0 is frame-perfect
-	NoCheck       bool // skip the invariants (D108)
+	React, KeyGap int    // the Pilot's pace (D104); 0, 0 is frame-perfect
+	NoCheck       bool   // skip the invariants (D108)
+	Mirror        bool   // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
+	Open          bool   // start the Run with every Room owned (a normal Run starts with them boarded up, 07 B1)
+	Beds          string // start the Run with every Room of this bed layout (a normal Run starts all Single, 07 K1): Twin brings pairs
 }
 
 type Failure struct{ Clock, Reason string }
@@ -73,38 +83,58 @@ type Result struct {
 	Sold        int   // Room-nights: Rooms Occupied at each Midnight
 	Available   int   // Rooms at each Midnight
 	Bookings    int
+	Ghosts      int // ghost Parties booked (07 G1): they pay no Money
 	Paid        int
-	Pairs       int // Bookings of two
-	Outings     int // Tourist days out
-	Fled        int // Parties that ran from a haunt
-	Walked      int // Parties that walked away from a dirty Room (dirt.go)
-	Cleans      int // dirt spots cleaned
-	Spook       int // at the end of the Run
-	Haunts      int // hexes (taps)
-	Serves      int // requests answered
-	Expired     int // requests left to expire
-	Priests     int // called and paid
-	PriestSpend int // $ paid for them
-	ClosedHours int // Room-hours spent Closed
-	Failures    []Failure
+	Pairs       int       // Bookings of two
+	Outings     int       // Tourist days out
+	Fled        int       // Parties that ran from a haunt
+	Walked      int       // Parties that walked away from a dirty Room (dirt.go)
+	Cleans      int       // dirt spots cleaned
+	Ecto        int       // at the end of the Run
+	Serves      int       // requests answered
+	Expired     int       // requests left to expire
+	Priests     int       // called and paid
+	PriestSpend int       // $ paid for them
+	ClosedHours int       // Room-hours spent Closed
+	MirrorAt    float64   // game hours from the Run start until the Mirror unlocked; -1 if it never did (07 B1)
+	RoomMirror  float64   // the same, until the first Room had its own Mirror: the opening loop's finish line (07 K1)
+	MirrorBuy   float64   // the same, until the in-Room Mirror was bought (its first Room may still be waiting to change)
+	Changes     int       // changes of type ordered
+	Grown       []float64 // game hours from the Run start at each expansion of the hotel (07 H1)
+	Rooms       int       // at the end of the Run
+	Hired       int       // housekeepers hired (07 H1 step 3),
+	Quit        int       // of whom walked out unpaid,
+	StaffSpend  int       // and the $ they cost, fees and wages
+	// Pacing (2026-11-14, 4c). The player must always have something to buy or to do: the longest stretch with
+	// neither is 30 s before the first Growth, 60 s before the first housekeeper, 90 s before the in-Room Mirror.
+	HiredAt    float64    // game hours from the Run start until the first housekeeper; -1 if none was hired
+	DeluxeAt   float64    // the same, until the first Room's upgrade to Deluxe was ordered
+	Waits      [3]float64 // real seconds: the longest the Strategy stood with nothing to do, in each of those three stretches
+	EctoEarned int        // over the Run, spent or not
+	Offered    int        // $ paid for offers to move a Party (07 X2)
+	Failures   []Failure
 }
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
 type sim struct {
-	cfg     Config
-	g       *Game
-	a       *autopilot
-	res     Result
-	booked  []*Party
-	seen    map[*Party]partyState // each Party's state last frame
-	paid    map[*Party]bool
-	fled    map[*Party]bool
-	phased  map[*entities.Guest]bool
-	legs    map[*Party]leg
-	called  map[*priest]bool
-	shipped map[*courier]bool
-	rent    map[*Party]Num // each Party's rent counted so far
-	closed  int            // Room-frames Closed
+	cfg       Config
+	g         *Game
+	a         *autopilot
+	res       Result
+	booked    []*Party
+	seen      map[*Party]partyState // each Party's state last frame
+	paid      map[*Party]bool
+	fled      map[*Party]bool
+	phased    map[*entities.Guest]bool
+	legs      map[*Party]leg
+	called    map[*priest]bool
+	shipped   map[*courier]bool
+	rent      map[*Party]Num  // each Party's rent counted so far
+	byDay     []Num           // MoneyByDay before rounding
+	seenGhost map[*Party]bool // the ghost Parties counted
+	changed   map[*change]bool
+	closed    int // Room-frames Closed
+	wait      int // frames the Strategy has had nothing to do
 }
 
 type leg struct {
@@ -130,8 +160,9 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{},
-		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days)}}
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
+		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1}}
+	g.mirrorAtStart, g.openAtStart, g.bedsAtStart = cfg.Mirror, cfg.Open, cfg.Beds
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
 }
@@ -150,14 +181,14 @@ func (s *sim) frame() bool {
 	vacant := 0
 	if g.clock%dayFrames == dayFrames-1 {
 		for i := range g.hotel.Rooms {
-			if g.vacant(i) {
+			if g.vacant(i, Human) {
 				vacant++
 			}
 		}
 	}
-	clock, money, spook, title, scaring := g.clock, g.wallet[Money], g.wallet[Spook], g.state == StateTitle, s.scaring()
-	delivered := g.delivered
-	hexes, roomSpook, cleans := g.hexes(), slices.Clone(g.roomSpook), slices.Clone(g.taps)
+	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
+	delivered, serves, staffPaid, offered := g.delivered, g.serves, g.staffPaid, g.offered
+	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
 		working[pr] = !pr.done
@@ -166,9 +197,34 @@ func (s *sim) frame() bool {
 	if title {
 		return true
 	}
+	if len(g.mood) != len(moods) { // the hotel grew: its Rooms' indices moved, nothing else did this frame
+		moods, cleans = slices.Clone(g.mood), slices.Clone(g.taps)
+		s.res.Grown = append(s.res.Grown, float64(g.clock-runStart)/hourFrames)
+	}
+	if s.res.MirrorAt < 0 && g.unlocked(Mirror) {
+		s.res.MirrorAt = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.RoomMirror < 0 && slices.ContainsFunc(g.hotel.Rooms, func(r world.Room) bool { return !r.Mirror.Empty() }) {
+		s.res.RoomMirror = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.MirrorBuy < 0 && g.unlocked(RoomMirror) {
+		s.res.MirrorBuy = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.HiredAt < 0 && g.hired > 0 {
+		s.res.HiredAt = float64(g.clock-runStart) / hourFrames
+	}
+	if s.res.DeluxeAt < 0 && slices.ContainsFunc(g.changes, func(c *change) bool { return c.to.Name == deluxeTier }) { // ordered: the Room may wait to empty
+		s.res.DeluxeAt = float64(g.clock-runStart) / hourFrames
+	}
+	if s.wait++; !s.a.idle || g.state != StatePlay {
+		s.wait = 0
+	}
+	if k := s.stretch(); k < len(s.res.Waits) {
+		s.res.Waits[k] = max(s.res.Waits[k], float64(s.wait)/tps)
+	}
 	if clock/dayFrames != g.clock/dayFrames { // Midnight
 		for i := range g.hotel.Rooms {
-			if !g.vacant(i) {
+			if !g.vacant(i, Human) {
 				s.res.Sold++
 			}
 		}
@@ -177,7 +233,6 @@ func (s *sim) frame() bool {
 			s.fail("%d Rooms were booked by the first Midnight (rampDays)", n-vacant)
 		}
 	}
-	hexed := g.hexes() > hexes
 	cleaned := false
 	for i := range g.taps {
 		if g.taps[i][TaskHousekeep] > cleans[i][TaskHousekeep] {
@@ -185,7 +240,6 @@ func (s *sim) frame() bool {
 			s.res.Cleans++
 		}
 	}
-	s.res.Haunts += int(g.hexes() - hexes)
 	spent := 0
 	for _, pr := range g.priests {
 		if !s.called[pr] {
@@ -194,9 +248,16 @@ func (s *sim) frame() bool {
 		}
 	}
 	s.res.PriestSpend += spent
-	for _, c := range g.couriers { // the rest of a checkout: what the courier carries (D200)
+	spent += int(g.staffPaid - staffPaid + g.offered - offered) // a housekeeper's fee or wage, an offer to move (X2)
+	for _, c := range g.couriers {                              // the rest of a checkout: what the courier carries (D200)
 		if !s.shipped[c] {
 			s.shipped[c], spent = true, spent+int(c.paid()[Money])
+		}
+	}
+	for _, c := range g.changes { // and a change of type's fee
+		if !s.changed[c] {
+			s.changed[c], spent = true, spent+int(c.paid[Money])
+			s.res.Changes++
 		}
 	}
 	for i := range g.hotel.Rooms {
@@ -205,25 +266,32 @@ func (s *sim) frame() bool {
 		}
 		finished := slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == i && pr.done && working[pr] })
 		swept := i < len(cleans) && g.taps[i][TaskHousekeep] > cleans[i][TaskHousekeep]
-		if !s.cfg.NoCheck && i < len(roomSpook) && g.roomSpook[i] < roomSpook[i] && !finished && !swept {
-			s.fail("room %d's Spook dropped %d with no Priest finishing nor a clean there", i, roomSpook[i]-g.roomSpook[i])
+		if !s.cfg.NoCheck && i < len(moods) && g.mood[i] > moods[i] && !finished && !swept && g.serves == serves {
+			s.fail("room %d's Mood rose %d with no Priest finishing, clean or serve there", i, g.mood[i]-moods[i])
 		}
 	}
 	banked := g.delivered - delivered // paid at the door (E5)
 	for _, p := range g.parties {
+		if p.Realm == Ghost { // a ghost Party pays nothing, never flees nor complains: only counted
+			if !s.seenGhost[p] {
+				s.seenGhost[p] = true
+				s.res.Ghosts++
+			}
+			continue
+		}
 		banked, s.rent[p] = banked+p.rent-s.rent[p], p.rent
 		if !slices.Contains(s.booked, p) {
 			s.booked = append(s.booked, p)
 			s.res.Bookings++
 			if !s.cfg.NoCheck && g.closed(p.Room) {
-				s.fail("a Party booked Closed room %d (Spook %d)", p.Room, g.roomSpook[p.Room])
+				s.fail("a Party booked Closed room %d (Mood %d)", p.Room, g.roomMood(p.Room))
 			}
 			if len(p.Guests) == 2 {
 				s.res.Pairs++
 			}
 		}
 		if p.Paid && !s.paid[p] {
-			s.paid[p], banked = true, banked+Num(p.Payout())
+			s.paid[p], banked = true, banked+p.tip
 			s.res.Paid++
 			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
@@ -246,12 +314,13 @@ func (s *sim) frame() bool {
 		s.seen[p] = p.state
 	}
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
-		s.res.MoneyByDay[d] += int(g.wallet[Money] - money)
+		s.byDay[d] += g.wallet[Money] - money // rent comes in by the frame, in cents: summed before it is rounded
+		s.res.MoneyByDay[d] = int(s.byDay[d])
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Spook] > spook && !hexed && !cleaned && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
-			s.fail("Spook rose %s with no hex, ghost clean, nor a shadowed or haunted Room holding its Party", fmtNum(g.wallet[Spook]-spook))
+		if g.wallet[Ecto] > ecto && !cleaned && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+			s.fail("Ecto rose %s with no ghost clean nor a shadowed Room holding its Party", fmtNum(g.wallet[Ecto]-ecto))
 		}
 	}
 	return len(s.res.Failures) == 0
@@ -265,7 +334,7 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	if d := g.wallet[Money] - money - banked + Num(spent); d > 1e-6 || d < -1e-6 {
 		s.fail("money went up %s, but Guests paid %s and Priests cost %d", fmtNum(g.wallet[Money]-money), fmtNum(banked), spent)
 	}
-	home := image.Pt(int(g.player.X), int(g.player.Y)).Div(world.TileSize) == g.hotel.ConciergeStart.Div(world.TileSize)
+	home := g.hotel.Map.Cell(image.Pt(int(g.player.X), int(g.player.Y))) == g.hotel.Map.Cell(g.hotel.ConciergeStart)
 	for _, guest := range g.guests() {
 		if guest.Phasing && !s.phased[guest] && home {
 			s.fail("a guest of room %d phased at %v with the Concierge at the Terminal",
@@ -286,17 +355,36 @@ func (s *sim) check(money Num, banked Num, spent int) {
 	}
 }
 
-// scaring: some Room has a Shadow (D169) or a running haunt with its Party in the hotel.
+// stretch: which of the Run's three paced stretches it is in: 0 before the first Growth, 1 before the first
+// housekeeper, 2 before the in-Room Mirror, 3 after.
+func (s *sim) stretch() int {
+	switch {
+	case len(s.res.Grown) == 0:
+		return 0
+	case s.res.HiredAt < 0:
+		return 1
+	case s.res.RoomMirror < 0:
+		return 2
+	}
+	return 3
+}
+
+// scaring: some Room has a Shadow (D169) with its Party in the hotel, or a Corridor or the hall has one.
 func (s *sim) scaring() bool {
 	g := s.g
+	if len(g.areaShades) > 0 { // a ghost's Shadow in a Corridor or the hall scares whoever walks by
+		return true
+	}
 	return slices.ContainsFunc(g.parties, func(p *Party) bool {
-		return !p.Paid && p.state != out && (g.shaded(p.Room) || g.haunting(p.Room))
+		return !p.Paid && p.state != out && g.shaded(p.Room)
 	})
 }
 
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
-	s.res.Spook, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Spook]), s.closed/hourFrames, s.g.serves, s.g.expired
+	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
+	s.res.Rooms, s.res.EctoEarned, s.res.Offered = len(s.g.hotel.Rooms), int(s.g.earned[Ecto]), int(s.g.offered)
+	s.res.Hired, s.res.Quit, s.res.StaffSpend = s.g.hired, s.g.quits, int(s.g.staffPaid)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {

@@ -10,6 +10,31 @@ type Tilemap struct {
 	W, H  int
 	Cells [NumLayers][]TileID // W*H each, row-major
 	TS    *Tileset
+	Block map[image.Point]bool // cells solid whatever their tiles: a prop drawn as a sprite stands there (K1's stock props)
+	// H1: the rows from SlipRow down stand Slip px east of the cell grid: the hall, half a cell off the Rooms'
+	// grid under an odd count of Room columns. Every px <-> cell conversion goes through Cell, Origin and Center.
+	Slip, SlipRow int
+}
+
+func (m *Tilemap) slip(y int) int {
+	if y >= m.SlipRow {
+		return m.Slip
+	}
+	return 0
+}
+
+// Origin is the world px of cell (x,y)'s top-left corner.
+func (m *Tilemap) Origin(x, y int) image.Point { return image.Pt(x*TileSize+m.slip(y), y*TileSize) }
+
+// Center is the world px of cell (x,y)'s center.
+func (m *Tilemap) Center(x, y int) image.Point {
+	return m.Origin(x, y).Add(image.Pt(TileSize/2, TileSize/2))
+}
+
+// Cell is the cell under world px p.
+func (m *Tilemap) Cell(p image.Point) image.Point {
+	y := p.Y / TileSize
+	return image.Pt((p.X-m.slip(y))/TileSize, y)
 }
 
 func NewTilemap(ts *Tileset, w, h int) *Tilemap {
@@ -34,7 +59,7 @@ func (m *Tilemap) Set(l, x, y int, id TileID) { m.Cells[l][y*m.W+x] = id }
 
 // Solid reports whether any layer has a collision rect in cell (x,y). Outside the map is solid.
 func (m *Tilemap) Solid(x, y int) bool {
-	if !m.inside(x, y) {
+	if !m.inside(x, y) || m.Block[image.Pt(x, y)] {
 		return true
 	}
 	for l := range m.Cells {
@@ -89,8 +114,11 @@ func (m *Tilemap) BlockedBox(r image.Rectangle) bool {
 		return true
 	}
 	for y := r.Min.Y / TileSize; y <= (r.Max.Y-1)/TileSize; y++ {
-		for x := r.Min.X / TileSize; x <= (r.Max.X-1)/TileSize; x++ {
-			origin := image.Pt(x*TileSize, y*TileSize)
+		for x := (r.Min.X - m.slip(y)) / TileSize; x <= (r.Max.X-1-m.slip(y))/TileSize; x++ {
+			if m.Block[image.Pt(x, y)] {
+				return true
+			}
+			origin := m.Origin(x, y)
 			for l := range m.Cells {
 				for _, s := range m.TS.Tiles[m.At(l, x, y)].Solid {
 					if s.Add(origin).Overlaps(r) {

@@ -85,7 +85,9 @@ var (
 
 // dressed: a new Guest's name, base character and a random look's seed (D166), from the talk's random
 // source so the sim's stays untouched.
-func (g *Game) dressed(base string) string { return base + "#" + strconv.FormatUint(g.chat.Uint64(), 10) }
+func (g *Game) dressed(base string) string {
+	return base + "#" + strconv.FormatUint(g.chat.Uint64(), 10)
+}
 
 func randomLook(r *rand.Rand) look {
 	return look{hair: hairs[r.IntN(len(hairs))], skin: skins[r.IntN(len(skins))], top: tops[r.IntN(len(tops))], bottom: bottoms[r.IntN(len(bottoms))]}

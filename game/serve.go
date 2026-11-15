@@ -1,27 +1,22 @@
 package game
 
 import (
-	"image"
 	"image/color"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
-	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Serving (D149), Comfort (D146) and Guests asking for it (D163). Placeholders, retuned at T112.
+// Serving (D149) and Guests asking for it (D163): a serve raises the Room's Mood, an expired ask lowers it
+// (moodServe, moodExpire). Placeholders, retuned at T112.
 const (
-	comfortStep  = 25  // Comfort a serve gives each Guest inside when answered at once; less the longer they waited
-	comfortMax   = 75  // a fully looked-after Party pays +75%
-	comfortBonus = 1   // % more pay per point of the Party's mean Comfort
-	askMinutes   = 180 // game minutes a request waits before it expires: a fetch and a walk (E5, was 60)
-	askPenalty   = 10  // Comfort each Guest loses when its request expires
-	askPerDay    = 1.5 // requests a Party makes per awake day, on average
-	askGap       = 180 // game minutes at least from one request's end to the next
-	wakeHour     = 7   // Guests ask only from wakeHour
-	sleepHour    = 23  // to sleepHour
+	askMinutes = 180 // game minutes a request waits before it expires: a fetch and a walk (E5, was 60)
+	askPerDay  = 1.5 // requests a Party makes per awake day, on average
+	askGap     = 180 // game minutes at least from one request's end to the next
+	wakeHour   = 7   // Guests ask only from wakeHour
+	sleepHour  = 23  // to sleepHour
 )
 
 // asking: the Party wants service now (its "!!" balloon is up).
@@ -29,17 +24,18 @@ func (p *Party) asking() bool { return p.asked > 0 }
 
 // updateAsks runs each game minute (D163). A Party in its Room, awake, askGap after its last request,
 // asks at random, askPerDay times a day on average. Unanswered for askMinutes, the request expires and
-// each Guest loses askPenalty Comfort. One that leaves its Room lapses unpunished.
+// the Room loses moodExpire Mood. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
 	awake := !asleep(g.clock)
 	for _, p := range g.parties {
+		if p.Realm != Human { // a ghost asks for nothing
+			continue
+		}
 		switch {
 		case p.asking() && p.state != staying:
 			p.asked, p.askEnded = 0, g.clock
 		case p.asking() && g.clock-p.asked >= askMinutes*minuteFrames:
-			for _, guest := range p.Guests {
-				guest.Comfort = max(0, guest.Comfort-askPenalty)
-			}
+			g.addMood(p.Room, -moodExpire)
 			p.asked, p.askEnded = 0, g.clock
 			g.expired++
 		case !p.asking() && p.state == staying && awake && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
@@ -49,63 +45,20 @@ func (g *Game) updateAsks() {
 	}
 }
 
-// serve answers the Room's request (D163): every Guest of its Party inside gains Comfort, comfortStep
-// if served at once, falling to 0 as the request nears expiry and as the Room Spook nears spookLimit, up
-// to comfortMax, and a heart pops over the door for each that gained. Fear is untouched. False when the
-// Room's Party isn't asking.
+// serve answers the Room's request (D163): its Mood rises by moodServe if served at once, falling to 0 as
+// the request nears expiry. Fear is untouched. False when the Room's Party isn't asking.
 func (g *Game) serve(room int) bool {
-	r := g.hotel.Rooms[room]
 	for _, p := range g.parties {
-		if !p.Occupies(room) || !p.asking() || p.state != staying {
+		if !p.Occupies(room, Human) || !p.asking() || p.state != staying {
 			continue
 		}
-		wait, calm := askMinutes*minuteFrames, max(0, spookLimit-g.roomSpook[room])
-		gain := (comfortStep*(wait-(g.clock-p.asked))*calm + wait*spookLimit - 1) / (wait * spookLimit) // rounded up: worth 0 only in a Closed Room
-		n := 0
-		for _, guest := range p.Guests {
-			if image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) && gain > 0 {
-				guest.Comfort = min(comfortMax, guest.Comfort+gain)
-				n++
-			}
-		}
-		door := r.Door.Mul(world.TileSize)
-		for i := range n { // one heart per Guest served, side by side over the door: the Room's inside is off screen from its door
-			g.floaters = append(g.floaters, floater{float64(door.X+world.TileSize/2) + float64(2*i-n+1)*5, float64(door.Y), "", g.tick, floatHeart})
-		}
+		wait := askMinutes * minuteFrames
+		g.addMood(room, (moodServe*(wait-(g.clock-p.asked))+wait-1)/wait) // rounded up
 		p.asked, p.askEnded = 0, g.clock
 		g.serves++
 		return true
 	}
 	return false
-}
-
-// heartRows is the serve pop, 7x6 px.
-var heartRows = [...]string{
-	".XX.XX.",
-	"XXXXXXX",
-	"XXXXXXX",
-	".XXXXX.",
-	"..XXX..",
-	"...X...",
-}
-
-// drawHeart draws the pop centered on (x,y), screen px.
-func (g *Game) drawHeart(s *ebiten.Image, x, y int) {
-	if g.heart == nil {
-		g.heart = ebiten.NewImage(len(heartRows[0]), len(heartRows))
-		for j, row := range heartRows {
-			for i, c := range row {
-				if c == 'X' {
-					g.heart.Set(i, j, color.RGBA{255, 90, 140, 255})
-				}
-			}
-		}
-	}
-	const scale = 2
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x-len(heartRows[0])*scale/2), float64(y-len(heartRows)*scale/2))
-	s.DrawImage(g.heart, op)
 }
 
 // The request balloon, in pixels drawn balloonScale times: a white rounded box with a bold "!!" (3-px

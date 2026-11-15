@@ -17,10 +17,10 @@ func TestArrival(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
 	p := g.walkIn()
-	if p == nil || p.Room < 0 || g.vacant(p.Room) || p.state != checkingIn {
+	if p == nil || p.Room < 0 || g.vacant(p.Room, Human) || p.state != checkingIn {
 		t.Fatalf("a Walk-in on a Vacant hotel: %+v; want it booked, its Room Occupied, walking in", p)
 	}
-	p.Routine = homebody // no day out: on the ×10 clock below, a Tourist's walk back can outlast the budget
+	p.Routine = homebody // no day out: with T held below (before D1 only the clock ran ×10), a Tourist's walk back can outlast the budget
 	room := p.Room
 	rate := g.hotel.Rooms[room].Type.Rate
 	if p.Rate != rate || len(g.hotel.Rooms[room].Stays) < len(p.Guests) {
@@ -40,13 +40,13 @@ func TestArrival(t *testing.T) {
 	g.hotel.Rooms[room].Type.Rate = 999 // the Rate is locked on arrival
 	g.fast = true
 	for !p.Paid {
-		if g.clock > p.Checkout+4*hourFrames { // ×10 clock: the walk from the bed to the door takes ~2 game hours
+		if g.clock > p.Checkout+6*hourFrames { // T held: before D1 only the clock ran ×10 and this walk took 1–4.4 game hours (300 seeds); now the walk runs ×10 too
 			t.Fatalf("still unpaid at %s, checkout was %s: %s", clockText(g.clock), clockText(p.Checkout), where(p.Guests))
 		}
 		g.step(0, 0)
 	}
 	// Step 2: the stay pays by the hour in the Room (arrival to Checkout is short of Nights × 24 h) plus the tip
-	if g.wallet[Money] < Num(rate*p.Nights)*2/3 || p.Occupies(room) {
+	if g.wallet[Money] < Num(rate*p.Nights)*2/3 || p.Occupies(room, Human) {
 		t.Errorf("after Checkout: money %v (want most of %d), Room still held by the Party", g.wallet[Money], rate*p.Nights)
 	}
 	if g.clock < p.Checkout {
@@ -117,7 +117,7 @@ func TestScheduleDraw(t *testing.T) {
 }
 
 // D88: a Tourist is out between its out and back times on every day of its routine but the checkout
-// day; booked after 10:00, its routine starts the next day.
+// day; its routine starts the day after it arrives.
 func TestTouristDays(t *testing.T) {
 	at := func(d, h, m int) int { return (d-1)*dayFrames + h*hourFrames + m*minuteFrames }
 	b := Booking{Nights: 3, Routine: tourist, outAt: 9 * hourFrames, backAt: 20 * hourFrames, checkoutAt: 11 * hourFrames}
@@ -138,8 +138,8 @@ func TestTouristDays(t *testing.T) {
 	}
 	early := b
 	early.schedule(at(1, 8, 30))
-	if !early.Out(at(1, 9, 30)) {
-		t.Error("a Tourist booked at 08:30 isn't out at 09:30 the same day")
+	if early.Out(at(1, 9, 30)) || !early.Out(at(2, 9, 30)) { // 2026-11-11: it stays in the day it arrives
+		t.Error("a Tourist booked at 08:30 went out the same day, or stayed in the next")
 	}
 	home := b
 	home.Routine = homebody
@@ -148,36 +148,61 @@ func TestTouristDays(t *testing.T) {
 	}
 }
 
-// D91, Live test 5 (2026-11-08): a Room's doorway is barred to the Concierge only while a Guest of its
-// Party is inside; while they walk up, are out or wait in the hall, he may go in. Inside with them, each
-// game minute costs each Guest intrudeComfort.
-func TestConciergeKeptOut(t *testing.T) {
+// T298 (K1, 2026-11-11): a door opens to whoever is near. The Concierge walks into a Room with its Guests in
+// it (D21 and D91 kept him out); every intrudeEvery game minutes in there with them cost the Room intrudeMood.
+func TestConciergeWalksIn(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	door := g.hotel.Doors[0].Rect
-	if g.conciergeBlocked(door) != g.blocked(door) { // a shut door blocks anyone
-		t.Fatal("a Vacant Room's doorway is barred to the Concierge alone")
-	}
 	p := g.walkIn()
 	p.Routine = homebody // a Tourist goes out about 09:00, mid-test
-	if door = g.hotel.Doors[p.Room].Rect; g.conciergeBlocked(door) != g.blocked(door) {
-		t.Error("the Concierge is barred from a Room whose Party is still walking up")
-	}
 	for p.state != staying {
 		g.step(0, 0)
 	}
-	if !g.conciergeBlocked(door) {
-		t.Error("the Concierge can enter the doorway with the Guests inside")
+	r, door := g.hotel.Rooms[p.Room], g.hotel.Doors[p.Room].Rect
+	g.player.X, g.player.Y = float64(door.Min.X+world.TileSize/2), float64(r.Spot().Min.Y+world.TileSize/2)
+	for range 4 * tps {
+		g.step(0, -1) // up, through the door
 	}
-	r := g.hotel.Rooms[p.Room]
-	in := r.Door.Add(image.Pt(0, -2)).Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2))
-	g.player.X, g.player.Y = float64(in.X), float64(in.Y)
-	c := p.Guests[0].Comfort
-	for range 2 * minuteFrames {
+	if !g.feet().In(r.Shell()) || g.feet().In(door) {
+		t.Fatalf("the Concierge at %v did not walk into the Room with its Guests in", g.feet())
+	}
+	if g.fogged(p.Room) {
+		t.Error("the Room is fogged over the Concierge")
+	}
+	for g.clock%minuteFrames != 0 {
 		g.step(0, 0)
 	}
-	if p.Guests[0].Comfort != c-2*intrudeComfort {
-		t.Errorf("2 minutes in with the Guests: Comfort %d → %d, want −%d", c, p.Guests[0].Comfort, 2*intrudeComfort)
+	c := g.roomMood(p.Room)
+	g.linger.from = g.clock // the visit, counted from here
+	for range (intrudeGrace+intrudeEvery)*minuteFrames + 1 {
+		g.step(0, 0)
+	}
+	if g.roomMood(p.Room) != c-2*intrudeMood { // one as the grace ends, one intrudeEvery later
+		t.Errorf("the grace and 10 minutes more in with the Guests: Mood %d → %d, want −%d", c, g.roomMood(p.Room), 2*intrudeMood)
+	}
+	// the courier and a Priest open any door too; another Room's Guest doesn't
+	g.player.X, g.player.Y = float64(g.hotel.ConciergeStart.X), float64(g.hotel.ConciergeStart.Y)
+	other := (p.Room + 1) % len(g.hotel.Rooms)
+	at := g.doorDrop(other)
+	open := func(add func()) float64 {
+		g.couriers, g.priests = nil, nil
+		for range 2 * world.DoorSlideFrames {
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
+		}
+		add()
+		for range world.DoorSlideFrames {
+			g.hotel.UpdateDoors(g.doorActors(), g.boarded, 1)
+		}
+		return g.hotel.Doors[other].Open()
+	}
+	if open(func() { g.couriers = []*courier{{Guest: entities.NewGuest(at, courierName)}} }) != 1 {
+		t.Error("the door did not open to a courier")
+	}
+	if open(func() { g.priests = []*priest{{Guest: entities.NewGuest(at, fatherK.name)}} }) != 1 {
+		t.Error("the door did not open to a Priest")
+	}
+	if open(func() { p.Guests[0].X, p.Guests[0].Y = float64(at.X), float64(at.Y) }) != 0 {
+		t.Error("the door opened to another Room's Guest")
 	}
 }
 
@@ -281,10 +306,8 @@ func TestPairFollows(t *testing.T) {
 func TestFollowerAhead(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
+	furnish(t, g, "Twin")
 	room := g.freeRoom(2)
-	if room < 0 {
-		t.Skip("no 2-Guest Room on this seed")
-	}
 	r := g.hotel.Rooms[room]
 	lead := entities.NewGuest(g.hotel.Spawn, "Adam")
 	mate := entities.NewGuest(r.Stays[1], "Alex")

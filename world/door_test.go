@@ -5,33 +5,30 @@ import (
 	"testing"
 )
 
-func TestDoorAllows(t *testing.T) {
+func TestDoorAllows(t *testing.T) { // K1 (2026-11-11): the staff open any Room's door, a Guest only its own
 	room, entrance := Door{Room: 0}, Door{Room: -1}
-	const concierge = -1
+	const staff = -1
 	cases := []struct {
-		name                     string
-		door                     Door
-		actor                    int
-		inside, occupied, allows bool
+		name   string
+		door   Door
+		actor  int
+		allows bool
 	}{
-		{"own guest, room vacant", room, 0, false, false, true},
-		{"own guest, room occupied", room, 0, true, true, true},
-		{"another room's guest", room, 2, false, false, false},
-		{"concierge, room vacant", room, concierge, false, false, true},
-		{"concierge outside an occupied room", room, concierge, false, true, false},
-		{"concierge inside an occupied room", room, concierge, true, true, true},
-		{"concierge at the Entrance", entrance, concierge, false, true, true},
-		{"any guest at the Entrance", entrance, 3, false, false, true},
+		{"own guest", room, 0, true},
+		{"another room's guest", room, 2, false},
+		{"the staff at a Room", room, staff, true},
+		{"the staff at the Entrance", entrance, staff, true},
+		{"any guest at the Entrance", entrance, 3, true},
 	}
 	for _, c := range cases {
-		if got := c.door.Allows(c.actor, c.inside, c.occupied); got != c.allows {
+		if got := c.door.Allows(c.actor); got != c.allows {
 			t.Errorf("%s: allows %v, want %v", c.name, got, c.allows)
 		}
 	}
 }
 
 func TestDoorSolidUnlessFullyOpen(t *testing.T) {
-	for slide, solid := range map[int]bool{0: true, DoorSlideFrames / 2: true, DoorSlideFrames - 1: true, DoorSlideFrames: false} {
+	for slide, solid := range map[float64]bool{0: true, DoorSlideFrames / 2: true, DoorSlideFrames - 1: true, DoorSlideFrames: false} {
 		d := Door{slide: slide}
 		if d.Solid() != solid {
 			t.Errorf("open %.2f: solid %v, want %v", d.Open(), d.Solid(), solid)
@@ -70,9 +67,9 @@ func TestUpdateDoors(t *testing.T) {
 	outside := footAt(image.Pt(mid, d.Rect.Max.Y+6)) // corridor, just below the door
 	inside := footAt(image.Pt(mid, d.Rect.Min.Y-6))  // room floor, just above the door
 	doorway := footAt(image.Pt(mid, d.Rect.Min.Y+20))
-	run := func(frames int, occupied bool, actors ...Actor) {
+	run := func(frames int, boarded bool, actors ...Actor) {
 		for range frames {
-			h.UpdateDoors(actors, func(int) bool { return occupied })
+			h.UpdateDoors(actors, func(int) bool { return boarded }, 1)
 		}
 	}
 	reset := func() {
@@ -91,24 +88,28 @@ func TestUpdateDoors(t *testing.T) {
 	}
 
 	reset()
-	run(DoorSlideFrames, true, Actor{outside, -1})
+	run(DoorSlideFrames, true, Actor{outside, -1}, Actor{outside, 0}, Actor{inside, -1})
 	if d.Open() != 0 {
-		t.Errorf("occupied room: opened %.2f for the concierge outside", d.Open())
+		t.Errorf("a boarded Room opened %.2f", d.Open())
 	}
-	run(DoorSlideFrames, true, Actor{inside, -1})
+	run(DoorSlideFrames, false, Actor{inside, -1})
 	if d.Solid() {
-		t.Errorf("occupied room: not open for the concierge inside (open %.2f)", d.Open())
+		t.Errorf("not open for the staff inside (open %.2f)", d.Open())
 	}
 
 	reset()
-	run(DoorSlideFrames, true, Actor{outside, 0})
+	run(DoorSlideFrames, false, Actor{outside, 2})
+	if d.Open() != 0 {
+		t.Errorf("opened %.2f for another Room's guest", d.Open())
+	}
+	run(DoorSlideFrames, false, Actor{outside, 0})
 	if d.Solid() {
 		t.Errorf("not open for its own guest (open %.2f)", d.Open())
 	}
-	if run(DoorSlideFrames, true, Actor{doorway, 2}); d.Solid() {
+	if run(DoorSlideFrames, false, Actor{doorway, 2}); d.Solid() {
 		t.Error("closed on someone standing in the doorway")
 	}
-	if run(DoorSlideFrames, true); d.Open() != 0 {
+	if run(DoorSlideFrames, false); d.Open() != 0 {
 		t.Errorf("still open %.2f with nobody near", d.Open())
 	}
 }

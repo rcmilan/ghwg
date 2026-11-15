@@ -3,6 +3,7 @@ package game
 import (
 	"image/color"
 	"math"
+	"strings"
 
 	"ghosthotel/assets"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // The HUD (D179): a counter per currency appears when its wallet value changes, rolls to it, slides in
-// from the screen's edge (Money from the left, Spook from the right), holds, then slides back out. Each
+// from the screen's edge (Money from the left, Ecto from the right), holds, then slides back out. Each
 // side is a column of notices, centered vertically on what it shows (2026-11-08): a notice coming in or
 // going makes the others ease to their new places. Placeholders.
 const (
@@ -23,7 +24,49 @@ const (
 	noteScale   = 2       // a text notice's size
 	slotGap     = 12      // screen px between notices in a column
 	slotEase    = 0.15    // of the way to its new place a notice moves per frame
+	noticeWrap  = 18      // a text notice's line, in letters: it stays in the screen's side margin
 )
+
+// notice is the HUD's text notice (07 U2): the one place for words to the player. The game says none today
+// (2026-11-14: no system text, neither a confirmation nor a refusal; show, don't tell), so nothing calls notify
+// but the tests; the mechanic stays. It slides in on the left column, holds, and slides out. It is the only place for it: the game has no message
+// line, and nothing else may print one (guard_test.go).
+type notice struct {
+	text string
+	on   bool // said and not yet dropped: what the View reads, shown or slid out
+	age  int  // frames since it was said
+	slot
+}
+
+// notify says text on the HUD; "" drops what it was saying.
+func (g *Game) notify(text string) {
+	if text == "" {
+		g.note.on = false
+		return
+	}
+	g.note.text, g.note.on, g.note.age = text, true, 0
+}
+
+// said: what the HUD's notice says, "" once dropped.
+func (g *Game) said() string {
+	if g.note.on {
+		return g.note.text
+	}
+	return ""
+}
+
+// lines: the notice's text, wrapped at its words.
+func (n notice) lines() []string {
+	var ls []string
+	for _, w := range strings.Fields(n.text) {
+		if k := len(ls) - 1; k >= 0 && len(ls[k])+1+len(w) <= noticeWrap {
+			ls[k] += " " + w
+		} else {
+			ls = append(ls, w)
+		}
+	}
+	return ls
+}
 
 // slot: a notice's place in its side column: how far in it is slid, and its top, screen px.
 type slot struct{ in, y float64 }
@@ -82,19 +125,27 @@ func (g *Game) updateHUD() {
 		} else {
 			c.shown += Num(math.Copysign(d, gap))
 		}
-		if g.state == StateTerminal { // the Terminal shows both, live, and they hold from its close
+		if g.state == StateTerminal || g.state == StateView { // the Terminal and the hotel view show both, live, and they hold from its close
 			c.age = 0
 		}
 	}
-	want := func(r Res) bool { return g.state == StateTerminal || g.hud[r].seen && g.hud[r].age < holdFrames }
+	want := func(r Res) bool {
+		return g.state == StateTerminal || g.state == StateView || g.hud[r].seen && g.hud[r].age < holdFrames
+	}
 	if t := g.nextGuest(); t != "" {
 		g.guestText = t
 	}
 	note := g.nextGuest() != ""
-	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * noteScale}, []bool{want(Money), note})
-	column([]*slot{&g.hud[Spook].slot}, []int{glyphH * hudScale}, []bool{want(Spook)})
+	g.note.age++
+	say := g.note.on && g.note.age < holdFrames
+	column([]*slot{&g.hud[Money].slot, &g.guestNote, &g.note.slot}, []int{glyphH * hudScale, glyphH * noteScale, len(g.note.lines()) * glyphH * noteScale},
+		[]bool{want(Money), note, say})
+	g.note.slide(say)
+	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would start the talk
+	column([]*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue})
+	g.talkCue.slide(cue)
 	g.hud[Money].slide(want(Money))
-	g.hud[Spook].slide(want(Spook))
+	g.hud[Ecto].slide(want(Ecto))
 	g.guestNote.slide(note)
 }
 
@@ -109,6 +160,23 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		w := len(g.guestText) * glyphW * noteScale
 		printAt(s, g.guestText, int(-float64(w)+float64(w+hudMargin)*ease), int(n.y), noteScale, resInk(Money), 1)
 	}
+	if n := g.note; n.in > 0 { // words alone, never on a background (2026-11-14): white, outlined in black
+		ease := n.in * n.in * (3 - 2*n.in)
+		ls := n.lines()
+		w := 0
+		for _, l := range ls {
+			w = max(w, len(l)*glyphW*noteScale)
+		}
+		x := int(-float64(w) + float64(w+hudMargin)*ease)
+		for k, l := range ls {
+			outline(s, l, x, int(n.y)+k*glyphH*noteScale, noteScale, color.White, 1)
+		}
+	}
+	if c := g.talkCue; c.in > 0 { // TALK, from off the right edge, in the Ectoplasm counter's own style (live test 1)
+		ease := c.in * c.in * (3 - 2*c.in)
+		w := 4 * glyphW * hudScale
+		g.tintedAt(s, "TALK", int(float64(sw)-float64(w+hudMargin)*ease), int(c.y), hudScale, resInk(Ecto), 1)
+	}
 	for r, c := range g.hud {
 		y := int(c.y)
 		if c.in == 0 {
@@ -120,24 +188,33 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 			v = "$" + v
 		}
 		w := len(v) * glyphW * hudScale
-		if Res(r) == Spook {
+		if Res(r) == Ecto {
 			w += (len(skullRows[0]) + 2) * hudScale
 		}
 		travel := float64(w + hudMargin)
 		x := int(-float64(w) + travel*ease) // from off the left edge
-		if Res(r) == Spook {
+		if Res(r) == Ecto {
 			x = int(float64(sw) - travel*ease) // from off the right edge
-			g.stamp(s, g.skull, x, y+skullDY*hudScale, hudScale, resInk(Spook))
+			g.stamp(s, g.skull, x, y+skullDY*hudScale, hudScale, resInk(Ecto))
 			x += (len(skullRows[0]) + 2) * hudScale
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
 	}
 }
 
+// outline prints v at scale in c, at alpha a, outlined in black: words that stand alone, on no background.
+func outline(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	k := int(scale)
+	for _, d := range [...][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, -1}, {-1, 1}, {1, 1}} {
+		printAt(s, v, x+d[0]*k, y+d[1]*k, scale, color.Black, a)
+	}
+	printAt(s, v, x, y, scale, c, a)
+}
+
 // The debug font's glyph cell, px; its digits sit on rows 3..12 of the 16.
 const glyphW, glyphH = 6, 16
 
-// The Spook icon (the skull), drawn in the ink of the currency; skullDY lines it up with the digits.
+// The Ecto icon (the skull), drawn in the ink of the currency; skullDY lines it up with the digits.
 var skullRows = []string{
 	"..XXXXX..",
 	".XXXXXXX.",
@@ -184,7 +261,7 @@ var (
 	silver = color.RGBA{206, 212, 226, 255}
 	green  = color.RGBA{96, 226, 120, 255}
 	purple = color.RGBA{168, 92, 230, 255}
-	inks   = [2][2]color.RGBA{Money: {gold, silver}, Spook: {green, purple}}
+	inks   = [2][2]color.RGBA{Money: {gold, silver}, Ecto: {green, purple}}
 )
 
 // inkAt: r's color t frames into its cycle, eased from the first ink to the second at half a period and
@@ -197,7 +274,6 @@ func inkAt(r Res, t int64) color.RGBA {
 }
 
 // tinted prints v in the debug font at 1×, in c at alpha a (no shadow, 2026-11-08).
-// text() can't: it's white only.
 func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a float32) {
 	g.tintedAt(s, v, x, y, 1, c, a)
 }

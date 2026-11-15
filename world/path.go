@@ -9,9 +9,13 @@ import (
 // Path costs (D89): a step costs stepCost, plus keepRightCost when the cell to its right (for the
 // direction of travel) is open floor too. So paths hug the right-hand side and two-way traffic splits into
 // lanes in every Corridor of 2 or more cells, at most ~30% longer than the shortest route.
+// The Lobby Archway's side columns are one-way, down on the west and up on the east (F1, 2026-11-14): a step
+// the wrong way costs wrongWayCost more, so nobody walks up the column the others walk down, against the
+// Hall Wall, unless the rest of the Archway is taken.
 const (
 	stepCost      = 10
 	keepRightStep = 3
+	wrongWayCost  = 4 * stepCost
 )
 
 var keepRightCost = keepRightStep // a var so tests can compare against the plain shortest path
@@ -23,7 +27,7 @@ var keepRightCost = keepRightStep // a var so tests can compare against the plai
 // (world px) are solid too: someone standing there.
 func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []image.Point {
 	m := h.Map
-	start, goal := from.Div(TileSize), to.Div(TileSize)
+	start, goal := m.Cell(from), m.Cell(to)
 	if !m.inside(start.X, start.Y) || !m.inside(goal.X, goal.Y) {
 		return nil
 	}
@@ -34,7 +38,7 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 		}
 	}
 	for _, p := range avoid {
-		closed[p.Div(TileSize)] = true
+		closed[m.Cell(p)] = true
 	}
 	open := func(p image.Point) bool { return m.inside(p.X, p.Y) && !closed[p] && !m.Solid(p.X, p.Y) }
 	idx := func(p image.Point) int { return p.Y*m.W + p.X }
@@ -62,6 +66,9 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 			if r := n.Add(image.Pt(-d.Y, d.X)); open(r) && m.At(LayerWalls, r.X, r.Y) == 0 { // the right hand (y points down): floor, not a wall's rect-free top row
 				k += keepRightCost
 			}
+			if l := h.l; n.Y >= l.hall && n.Y <= l.hall+1 && (d.Y < 0 && n.X == l.archway || d.Y > 0 && n.X == l.archway+l.archwayW-1) {
+				k += wrongWayCost
+			}
 			if cost[idx(n)] < 0 || k < cost[idx(n)] {
 				prev[idx(n)], cost[idx(n)] = c.at, k
 				heap.Push(q, cell{k, idx(n)})
@@ -73,7 +80,7 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 	}
 	var path []image.Point
 	for i := idx(goal); i != idx(start); i = prev[i] {
-		path = append(path, image.Pt(i%m.W*TileSize+TileSize/2, i/m.W*TileSize+TileSize/2))
+		path = append(path, m.Center(i%m.W, i/m.W))
 	}
 	if len(path) == 0 { // already in the goal cell
 		return []image.Point{to}

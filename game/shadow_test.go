@@ -10,31 +10,20 @@ import (
 	"ghosthotel/world"
 )
 
-// T160 (D169), T211 (D185): a Shadow costs shadowPrice Spook, up to shadowCap per Room, and is born on
-// the wall nearest its box, by the Room's door; a Strong Priest banishes them all, a Weak one leaves them.
-func TestBuyShadow(t *testing.T) {
+// T160 (D169), T211 (D185), T250: a Shadow is born on the wall nearest its box, by the Room's door, up to
+// shadowCap per Room; a Strong Priest banishes them all, a Weak one leaves them. The store sells none.
+func TestPlaceShadow(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.wallet[Spook] = 2*shadowPrice - 1
-	g.buyShadow(0) // the store's keys: TestStoreKeys
-	if !g.shaded(0) || g.wallet[Spook] != shadowPrice-1 {
-		t.Fatalf("bought: shaded %v, Spook %v; want a Shadow in Room 0 and %d Spook", g.shaded(0), g.wallet[Spook], shadowPrice-1)
-	}
-	if g.shadowCap(0) != 1 {
-		t.Fatalf("Room 0 holds %d Shadows, want 1 (placeholder)", g.shadowCap(0))
-	}
-	if msg := g.buyShadow(0); msg == "" || len(g.shades[0]) != 1 || g.wallet[Spook] != shadowPrice-1 {
-		t.Fatalf("a Shadow past Room 0's cap: %q, %d Shadows, Spook %v", msg, len(g.shades[0]), g.wallet[Spook])
+	g.placeShadow(0)
+	if !g.shaded(0) || g.shadowCap(0) != 1 {
+		t.Fatalf("placed: shaded %v, cap %d; want a Shadow in Room 0 and a cap of 1 (placeholder)", g.shaded(0), g.shadowCap(0))
 	}
 	at := g.doorDrop(0)
 	if sh := g.shades[0][0]; sh.run != g.runAt(float64(at.X), float64(at.Y)) || g.walls[sh.run].y > float64(at.Y) {
 		t.Fatalf("born on run %d, want the one nearest the box at the door (%d)", sh.run, g.runAt(float64(at.X), float64(at.Y)))
 	}
-	if msg := g.buyShadow(1); msg == "" || g.shaded(1) || g.wallet[Spook] != shadowPrice-1 {
-		t.Fatalf("a Shadow without the Spook: %q, Spook %v", msg, g.wallet[Spook])
-	}
-	g.wallet[Spook] = shadowPrice
-	g.buyShadow(1)
+	g.placeShadow(1)
 	g.shades[1] = append(g.shades[1], &shade{run: g.shades[1][0].run, essence: shadowEssence}) // past the cap, as R1 will allow
 	g.wallet[Money] = priestWeak + priestStrong
 	g.callPriest(0, false)
@@ -48,6 +37,11 @@ func TestBuyShadow(t *testing.T) {
 	if !g.shaded(0) || g.shaded(1) {
 		t.Fatalf("after Father K in Room 0 and Father M in Room 1: shaded %v %v, want true false", g.shaded(0), g.shaded(1))
 	}
+	for _, i := range tabItems(tabRooms) {
+		if shop[i].Name == "Shadow Person" {
+			t.Fatal("a Room's actions have a Shadow row")
+		}
+	}
 }
 
 // home puts a fresh Shadow at the west end of the Room's back wall, due now.
@@ -58,20 +52,19 @@ func home(g *Game, room int) *shade {
 	return sh
 }
 
-// T161 (D169), T209 (D185): a bought Shadow runs home to its Room's back wall, to an end hidden behind a
-// side wall. It patrols every 60 game minutes at 0 Room Spook, every 20 at the limit, from that end to the
+// T161 (D169), T209 (D185): a Shadow runs home to its Room's back wall, to an end hidden behind a
+// side wall. It patrols every 60 game minutes in a calm Room, every 20 in a Closed one, from that end to the
 // other, and only with a Guest inside.
 func TestShadowRuns(t *testing.T) {
 	g, _, p := settled(t)
 	room := p.Room
-	for spook, want := range map[int]int{0: 60, spookLimit: 20, 2 * spookLimit: 20} {
-		if g.roomSpook[room] = spook; g.shadowGap(room) != want*minuteFrames {
-			t.Errorf("Room Spook %d: a run every %d frames, want %d game minutes", spook, g.shadowGap(room), want)
+	for mood, want := range map[int]int{moodMax: 60, moodMin: 20} {
+		if g.mood[room] = mood; g.shadowGap(room) != want*minuteFrames {
+			t.Errorf("Room Mood %d: a run every %d frames, want %d game minutes", mood, g.shadowGap(room), want)
 		}
 	}
-	g.roomSpook[room] = 0
-	g.wallet[Spook] = shadowPrice
-	g.buyShadow(room)
+	g.mood[room] = moodMax
+	g.placeShadow(room)
 	sh := g.shades[room][0]
 	run, xa, xb := g.backWall(room)
 	const line = 6 // a side line's hitbox, px
@@ -113,6 +106,7 @@ func TestShadowRuns(t *testing.T) {
 // hidden steady Fear).
 func TestShadowFear(t *testing.T) {
 	g, _, p := settled(t)
+	setNerve(p, fearLimit/nerveFear) // its Nerve rolled at random (X2): the default's
 	room, r := p.Room, g.hotel.Rooms[p.Room]
 	run := func(clock int, face entities.Facing, at func(i int) image.Point, fear int) int {
 		t.Helper()
@@ -122,7 +116,7 @@ func TestShadowFear(t *testing.T) {
 			guest.X, guest.Y, guest.Path, guest.Fear, guest.Anim.Facing = float64(pt.X), float64(pt.Y), nil, fear, face
 		}
 		p.talk = nil
-		spook, roomSpook := g.wallet[Spook], g.roomSpook[room]
+		ecto, mood := g.wallet[Ecto], g.roomMood(room)
 		sh := home(g, room)
 		for g.updateShadows(); sh.patrol; g.updateShadows() {
 		}
@@ -132,21 +126,21 @@ func TestShadowFear(t *testing.T) {
 				t.Fatalf("mates facing alike gained %d and %d Fear", gained, guest.Fear-fear)
 			}
 		}
-		if g.wallet[Spook]-spook != Num(gained*len(p.Guests)) || g.roomSpook[room]-roomSpook != gained*len(p.Guests) {
-			t.Fatalf("Spook +%v, Room Spook +%d; want the Fear given, %d", g.wallet[Spook]-spook, g.roomSpook[room]-roomSpook, gained*len(p.Guests))
+		if g.wallet[Ecto]-ecto != Num(gained*len(p.Guests)) || mood-g.roomMood(room) != len(p.Guests)*dirtMood(gained) {
+			t.Fatalf("Ecto +%v, Room Mood -%d; want the Fear given, %d, and its weight in Mood", g.wallet[Ecto]-ecto, mood-g.roomMood(room), gained*len(p.Guests))
 		}
 		return gained
 	}
 	stay := func(i int) image.Point { return r.Stays[i] }
 	noon := 12 * hourFrames
-	if got := run(noon, entities.FaceDown, stay, 0); got != shadowUnseen || len(p.talk) > 0 {
-		t.Fatalf("facing away: +%d Fear, lines %v; want +%d and no line", got, p.talk, shadowUnseen)
+	if got := run(noon, entities.FaceDown, stay, 0); got != 0 || len(p.talk) > 0 {
+		t.Fatalf("facing away: +%d Fear, lines %v; want +%d and no line", got, p.talk, 0)
 	}
 	if got := run(noon, entities.FaceUp, stay, 0); got != shadowSeen || len(p.talk) != len(p.Guests) {
 		t.Fatalf("facing it: +%d Fear, lines %v; want +%d and a line each", got, p.talk, shadowSeen)
 	}
 	for i, l := range p.talk {
-		if l.who != i || !slices.Contains(sightLines, l.text) {
+		if l.who != i || !slices.Contains(sightLines[0], l.text) {
 			t.Fatalf("line %d: %+v, want a sighting line by Guest %d", i, l, i)
 		}
 	}
@@ -158,8 +152,8 @@ func TestShadowFear(t *testing.T) {
 	if h := g.lift(p.Guests[0]); h != 0 {
 		t.Fatalf("a seer's hop is over, still %.1f px up", h)
 	}
-	if got := run(2*hourFrames, entities.FaceUp, func(i int) image.Point { return sleepSpot(r.Lanes[i]) }, 0); got != shadowUnseen {
-		t.Fatalf("asleep in bed facing it: +%d Fear, want +%d", got, shadowUnseen)
+	if got := run(2*hourFrames, entities.FaceUp, func(i int) image.Point { return sleepSpot(r.Lanes[i]) }, 0); got != 0 {
+		t.Fatalf("asleep in bed facing it: +%d Fear, want +%d", got, 0)
 	}
 	if got := run(noon, entities.FaceUp, stay, fearLimit-5); got != 4 {
 		t.Fatalf("at Fear %d: +%d, want 4 (up to fearLimit-1)", fearLimit-5, got)

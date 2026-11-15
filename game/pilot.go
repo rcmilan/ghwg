@@ -112,18 +112,36 @@ func goTo(to image.Point) action {
 }
 
 // route: a path from at to `to` around the guests in sight; through them if they wall it off. A Room's
-// door is open to the path only when `to` is in that doorway.
+// door is open to the path only when `to` is in that doorway. From one Room into another it is two paths, out
+// to the first one's door spot and on (2026-11-14, 4c: only one door opens to a path, so he stood in a Room for
+// good while the next one's dirt waited).
 func (p *Pilot) route(v View, at, to image.Point) []image.Point {
-	own, c := -1, to.Div(world.TileSize)
+	m := p.hotel.Map
+	own, in, c := -1, -1, m.Cell(to)
 	for i, r := range p.hotel.Rooms {
-		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) || at.In(r.Shell()) { // into or out of a Room: its door is open
+		if at.In(r.Shell()) {
+			in = i
+		}
+		if c == r.Door || c == r.Door.Add(image.Pt(0, 1)) || to.In(r.Shell()) { // into a Room: its door is open
 			own = i
 		}
 	}
+	if in >= 0 && own >= 0 && in != own {
+		s := p.hotel.Rooms[in].Spot()
+		out := s.Min.Add(s.Max).Div(2)
+		a, b := p.route(v, at, out), p.route(v, out, to)
+		if a == nil || b == nil {
+			return nil
+		}
+		return append(a, b...)
+	}
+	if own < 0 {
+		own = in // out of a Room: its door is open
+	}
 	var avoid []image.Point
 	for _, cell := range v.Guests {
-		if cell != c && cell != at.Div(world.TileSize) {
-			avoid = append(avoid, cell.Mul(world.TileSize).Add(image.Pt(world.TileSize/2, world.TileSize/2)))
+		if cell != c && cell != m.Cell(at) {
+			avoid = append(avoid, m.Center(cell.X, cell.Y))
 		}
 	}
 	if path := p.hotel.Path(at, to, own, avoid...); path != nil {
@@ -150,11 +168,23 @@ func (p *Pilot) OpenTerminal() {
 }
 
 // Flip walks to the Mirror and presses SPACE, unless the hotel is already in that dimension: then it
-// does nothing at all.
+// does nothing at all. In a Room with its own Mirror it uses that one (2026-11-14, 4c).
 func (p *Pilot) Flip(ghost bool) {
-	walk, walked, taps := goTo(p.hotel.Mirror), false, 0
+	var walk action
+	spot, walked, taps := p.hotel.MirrorSpot, false, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
+		if walk == nil {
+			to := p.hotel.Mirror
+			for _, r := range p.hotel.Rooms {
+				if v.Concierge.In(r.Shell()) && !r.Mirror.Empty() {
+					spot, to = r.Mirror, r.Mirror.Min.Add(r.Mirror.Max).Div(2)
+				}
+			}
+			walk = goTo(to)
+		}
 		switch {
+		case v.MirrorLocked && v.Ghost != ghost: // covered: nothing to flip with
+			return true, false
 		case v.Shifting: // the transition runs out first (D170)
 		case v.Ghost == ghost:
 			return true, true
@@ -164,55 +194,7 @@ func (p *Pilot) Flip(ghost bool) {
 				return true, false
 			}
 			walked = done
-		case taps >= 3 || !v.Concierge.In(p.hotel.MirrorSpot):
-			return true, false
-		case p.tap(ebiten.KeySpace):
-			taps++
-		}
-		return false, false
-	})
-}
-
-// Hex flips to ghost, walks to the nearest floor tile beside the Room's walls (any side) and presses
-// SPACE until Spook rises: one hex.
-func (p *Pilot) Hex(room int) {
-	const ts = world.TileSize
-	p.Flip(true)
-	var walk action
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		if beside(p.hotel, v.Concierge) == room {
-			return true, true
-		}
-		if walk == nil {
-			var best []image.Point
-			s := p.hotel.Rooms[room].Shell().Inset(-ts)
-			for y := s.Min.Y + ts/2; y < s.Max.Y; y += ts {
-				for x := s.Min.X + ts/2; x < s.Max.X; x += ts {
-					c := image.Pt(x, y)
-					if beside(p.hotel, c) != room {
-						continue
-					}
-					if path := p.route(v, v.Concierge, c); path != nil && (best == nil || len(path) < len(best)) {
-						best = path
-					}
-				}
-			}
-			if best == nil {
-				return true, false
-			}
-			walk = goTo(best[len(best)-1])
-		}
-		return walk(p, v)
-	})
-	spook, taps := Num(-1), 0
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		if spook < 0 {
-			spook = v.Spook
-		}
-		switch {
-		case taps > 0 && v.Spook > spook:
-			return true, true
-		case taps >= 3 || beside(p.hotel, v.Concierge) != room:
+		case taps >= 3 || !v.Concierge.In(spot):
 			return true, false
 		case p.tap(ebiten.KeySpace):
 			taps++
@@ -262,17 +244,32 @@ func (p *Pilot) Serve(room int) {
 }
 
 // Clean walks to the dirt spot at (world px) in the Room and presses SPACE until the Room's spots drop.
-// It fails when they don't after 3 taps.
+// It fails when they don't after 3 taps. A spot under the Room's own Mirror is cleaned from the nearest floor
+// below it: SPACE there shifts, and anywhere in the Room cleans (2026-11-14, 4c).
 func (p *Pilot) Clean(room int, at image.Point) {
+	if r, m := p.hotel.Rooms[room], p.hotel.Map; at.In(r.Mirror) {
+		c := m.Cell(at)
+	find:
+		for dy := 1; dy <= world.RoomH; dy++ {
+			for _, dx := range [...]int{0, -1, 1} {
+				if n := m.Center(c.X+dx, c.Y+dy); !m.Solid(c.X+dx, c.Y+dy) && n.In(r.Shell()) {
+					at = n
+					break find
+				}
+			}
+		}
+	}
 	p.GoTo(at)
 	n, taps := -1, 0
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		if n < 0 {
-			n = len(v.Rooms[room].Dirt)
+			n = len(v.Rooms[room].Dirt) + len(v.Rooms[room].Spirit)
 		}
 		switch {
-		case len(v.Rooms[room].Dirt) < n:
+		case len(v.Rooms[room].Dirt)+len(v.Rooms[room].Spirit) < n:
 			return true, true
+		case v.Terminal.View || v.Talk.Open: // the stain was gone (its Room was refurnished) and SPACE opened the hotel view or a talk: no more SPACE, the next is a Room's action
+			return true, false
 		case taps >= 3:
 			return true, false
 		case p.tap(ebiten.KeySpace):
@@ -292,19 +289,68 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
-// BuyShadow buys a Shadow Person for the Room at the Terminal (D169), as CallPriest. It fails when the
-// Terminal refuses (no Spook, or one is already there).
-func (p *Pilot) BuyShadow(room int) {
-	p.Buy(rowShadow, room, func(v View) bool { return v.Rooms[room].Shadow })
+// Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the Room's
+// Change type is open. ok once the Room is changing or has changed.
+func (p *Pilot) Change(room int, beds string) {
+	p.buy(rowChange, room, beds, func(v View) bool { return v.Rooms[room].Changing || v.Rooms[room].Beds == beds })
 }
 
-// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE (and, for a
-// Service, the Room), then the cart's checkout; it closes the Terminal. ok if got holds then. It gives up
-// when the item isn't for sale or the store refuses it.
-func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
+// Buy opens the Terminal and orders one item through the store's keys: its tab, its row, SPACE, then the
+// cart's checkout, and closes the Terminal. An action for a Room goes through the hotel view instead, from
+// where he stands if SPACE does nothing else there (else from the Lobby's corner): SPACE, the Room, the action (and its beds), paid at once. ok if got holds then. It gives up when the item isn't for sale or the
+// store refuses it.
+func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) { p.buy(id, room, "", got) }
+
+func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 	i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == id })
 	tab := shop[i].Tab
 	pos := slices.Index(tabItems(tab), i)
+	if shop[i].room() {
+		pressed, leave, paid, opened, spins := false, false, false, false, 0
+		walk := goTo(freeSpot(p.hotel))
+		p.do(func(p *Pilot, v View) (bool, bool) {
+			t := v.Terminal
+			if !t.View {
+				switch {
+				case opened:
+					return true, paid && got(v)
+				case t.Open: // SPACE opened the store instead: out, and give up
+					opened = p.tap(ebiten.KeyEscape)
+				case v.Shifting:
+				case !p.free(v): // SPACE opens the hotel view only where it does nothing else (U2): walk there first
+					if done, ok := walk(p, v); done && !ok {
+						return true, false
+					}
+				default:
+					opened = p.tap(ebiten.KeySpace)
+				}
+				return false, false
+			}
+			opened = true
+			paid = paid || pressed && t.Depth == 1 // bought: the store is back on the grid
+			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds) || t.Depth == 2 && !slices.Contains(t.Rows, i)
+			k, last := ebiten.KeySpace, false
+			switch {
+			case leave:
+				k = ebiten.KeyEscape
+			case t.Depth == 1 && t.Cursor != room:
+				k = ebiten.KeyD
+			case t.Depth == 2 && t.Pick != slices.Index(t.Rows, i):
+				k = ebiten.KeyS
+			case t.Depth == 3 && t.Beds != beds:
+				k = ebiten.KeyS
+				spins++
+			default:
+				last = t.Depth == 3 || t.Depth == 2 && beds == ""
+			}
+			if !p.tap(k) && k == ebiten.KeyS && t.Depth == 3 {
+				spins--
+			}
+			pressed = pressed || last && p.lastTap == p.frame
+			return false, false
+		})
+		return
+	}
 	p.OpenTerminal()
 	cart0, paid := -1, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
@@ -318,12 +364,8 @@ func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
 		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || !added && (t.Message != "" || !t.Placing && !slices.Contains(v.Shop, i)):
+		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i)):
 			k = ebiten.KeyEscape
-		case t.Placing && t.Cursor != room:
-			k = ebiten.KeyD
-		case t.Placing:
-			k = ebiten.KeySpace
 		case !added && t.Tab != tab, added && t.Tab != tabCart:
 			k = ebiten.KeyD
 		case !added && t.Pick != pos:
@@ -340,13 +382,78 @@ func (p *Pilot) Buy(id Unlock, room int, got func(View) bool) {
 	})
 }
 
-// Close shuts the open Terminal with ESC.
+// freeSpot: a place where SPACE has nothing else to do and nobody walks: the Lobby's south-west corner.
+func freeSpot(h *world.Hotel) image.Point {
+	return h.Lobby.Min.Add(image.Pt(world.TileSize*3/2, h.Lobby.Dy()-world.TileSize*3/2))
+}
+
+// free: SPACE does nothing else where the Concierge stands: clear of the Terminal, the Mirror, the stock, and
+// of every Room and its door.
+func (p *Pilot) free(v View) bool {
+	h, at := p.hotel, v.Concierge
+	if at.In(h.Terminal) || at.In(h.MirrorSpot) || at.In(h.Kitchen) {
+		return false
+	}
+	for _, r := range h.Rooms {
+		if at.In(r.Shell()) || at.In(r.Spot()) {
+			return false
+		}
+	}
+	return true
+}
+
+// Close shuts the open Terminal, the hotel view or a talk, with ESC.
 func (p *Pilot) Close() {
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		if !v.Terminal.Open {
+		if !v.Terminal.Open && !v.Terminal.View && !v.Talk.Open {
 			return true, true
 		}
 		p.tap(ebiten.KeyEscape)
+		return false, false
+	})
+}
+
+// Talk walks into the Room in the real Dimension, opens the talk with its Party (SPACE), picks the target Room
+// where the offer costs least (A/D) and the offer (W/S), and makes it (SPACE); a refusal ends the talk by itself. It
+// gives up, with ESC, on a talk that won't open or an offer the wallet can't pay (07 X2).
+func (p *Pilot) Talk(room, offer int) {
+	p.Flip(false)
+	d := p.hotel.Rooms[room].Door
+	p.GoTo(p.hotel.Map.Center(d.X, d.Y-1))
+	taps, made := 0, false
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		t := v.Talk
+		switch {
+		case v.Terminal.View || v.Terminal.Open: // SPACE found no talk: out
+			p.tap(ebiten.KeyEscape)
+			return true, false
+		case !t.Open:
+			if made || taps >= 3 {
+				return true, made
+			}
+			if p.tap(ebiten.KeySpace) {
+				taps++
+			}
+			return false, false
+		}
+		best := 0
+		for i, pr := range t.Prices {
+			if pr[offer] < t.Prices[best][offer] {
+				best = i
+			}
+		}
+		switch {
+		case made || t.Prices[best][offer] > v.Money: // refused, or out of reach
+			if p.tap(ebiten.KeyEscape) {
+				made, taps = false, 3
+			}
+		case t.To != best:
+			p.tap(ebiten.KeyD)
+		case t.Pick != offer:
+			p.tap(ebiten.KeyS)
+		case p.tap(ebiten.KeySpace):
+			made = true
+		}
 		return false, false
 	})
 }

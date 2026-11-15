@@ -1,0 +1,163 @@
+package game
+
+import (
+	"slices"
+
+	"ghosthotel/assets"
+	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+)
+
+// Buy Rooms (07 B1): a new Run starts with every Room closed and unowned (boarded door, no bookings, shut to the
+// Concierge) and Money for exactly one Room key. Keys are a Service of the Terminal's SERVICES tab, picking the
+// Room; the courier walks the key to that Room's door and on the drop the Room is owned. The price of a key rises
+// with each Room owned. All amounts are placeholders, chosen so a Run reaches the Mirror early (the user's
+// pacing goal): the Mirror ($10, shop.go) is about 4 game hours of one Room's rent.
+const (
+	keyBase     = 100     // $: the first Room key
+	keyStep     = 25      // $: each Room already owned adds this to the next key
+	mirrorPrice = 15      // $: the Mirror
+	twinPrice   = 350     // $: Twin beds, the pacing lever (Z1); Double is twice it
+	startMoney  = keyBase // $: a Run starts with exactly one key's worth
+	startStock  = 2       // and this many of each Supply: the first Party's asks, before the Room has paid for a case (2026-11-14)
+)
+
+// rowKey is the Room key's Service row.
+const rowKey Unlock = "room-key"
+
+// keyPrice: the key of the next Room, with n Rooms already owned.
+func keyPrice(n int) Num { return Num(keyBase + keyStep*n) }
+
+// isOwned: the Room is open for business. A nil g.roomOwned owns everything (the sim's Open, most tests).
+func (g *Game) isOwned(room int) bool {
+	return g.roomOwned == nil || room < 0 || room >= len(g.roomOwned) || g.roomOwned[room]
+}
+
+// ownedCount: Rooms owned.
+func (g *Game) ownedCount() int {
+	n := 0
+	for i := range g.hotel.Rooms {
+		if g.isOwned(i) {
+			n++
+		}
+	}
+	return n
+}
+
+// priceOf: what item i costs now: its own Price (the key's rises), else its Cost.
+func (g *Game) priceOf(i int) Cost {
+	if p := shop[i].Price; p != nil {
+		return p(g)
+	}
+	return shop[i].Cost
+}
+
+// keyCost: the next key's price: it rises with each Room owned and each key already paid for or in the cart.
+func keyCost(g *Game) Cost { return Cost{Money: keyPrice(g.ownedCount() + g.keysOut())} }
+
+// closeRooms is the opening state: no Room owned, Money for one key.
+func (g *Game) closeRooms() {
+	g.roomOwned = make([]bool, len(g.hotel.Rooms))
+	g.wallet[Money] = startMoney
+	g.stock = map[Unlock]int{}
+	for _, s := range supplies {
+		g.stock[s.ID] = startStock
+	}
+}
+
+// openRoom: the key reached the Room's door. It is owned from now: its door unboards and its first Party and
+// ghost book as at a Run's start. It opens with its own Mirror once the in-Room Mirror is bought (K1).
+func (g *Game) openRoom(room int) {
+	if g.roomOwned == nil || g.isOwned(room) {
+		return
+	}
+	g.roomOwned[room] = true
+	g.setRoom(room, g.hotel.Rooms[room].Type, true)
+	g.book(room, firstGap)
+	g.bookGhost(room, firstGap)
+}
+
+// keysOut: the keys in the cart or on their way (2026-11-14: several may be, one a Room; each is priced as if
+// the ones before it had arrived).
+func (g *Game) keysOut() int {
+	n := 0
+	key := func(l cartLine) bool { return shop[l.item].ID == rowKey }
+	for _, l := range g.cart {
+		if key(l) {
+			n++
+		}
+	}
+	for _, c := range g.couriers {
+		for _, d := range c.drops {
+			for _, l := range d.lines {
+				if key(l) {
+					n++
+				}
+			}
+		}
+	}
+	return n
+}
+
+// init sets the key's Refuse and Price here: they read the shop, which would be an initialization cycle in its literal.
+func init() {
+	for i := range shop {
+		if shop[i].ID == rowKey {
+			shop[i].Refuse, shop[i].Price = noKey, keyCost
+		}
+	}
+}
+
+func noKey(g *Game, room int) string {
+	if g.isOwned(room) {
+		return "ROOM " + g.hotel.Rooms[room].Number + " IS ALREADY OPEN"
+	}
+	return ""
+}
+
+// sprite: an assets/sprites image, loaded on first use.
+func (g *Game) sprite(name string) *ebiten.Image {
+	if g.icons == nil {
+		g.icons = map[string]*ebiten.Image{}
+	}
+	img, ok := g.icons[name]
+	if rows := tileIcons[name]; !ok && rows != nil {
+		img = g.tileIcon(rows)
+		g.icons[name] = img
+	} else if !ok {
+		img, _, _ = ebitenutil.NewImageFromFileSystem(assets.FS, "sprites/"+name+".png")
+		g.icons[name] = img
+	}
+	return img
+}
+
+// drawBoarded draws a closed Room's door as A3's boarded door, over the door's two cells (drawDoors).
+func (g *Game) drawBoarded(screen *ebiten.Image, d world.Door, ox, oy int) {
+	img := g.sprite("door_boarded")
+	if img == nil {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(d.Rect.Min.X*zoom-ox), float64(d.Rect.Min.Y*zoom-oy))
+	g.blit(screen, img, op, modeProp, 0, nil, g.roomShift(d.Room))
+}
+
+// DevKey is main's -key: the Run has already ordered the key of the Room (0-based), the Concierge standing in
+// the Corridor by its door, to watch the courier bring it (use with -shot -at).
+func (g *Game) DevKey(room int) {
+	if room < 0 || room >= len(g.hotel.Rooms) {
+		return
+	}
+	g.wallet[Money] = max(g.wallet[Money], keyPrice(g.ownedCount()))
+	k := slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowKey })
+	if g.addToCart(k, room) == "" {
+		g.placeOrder()
+	}
+	s := g.hotel.Rooms[room].Spot()
+	g.player.X, g.player.Y = float64(s.Min.X-2*world.TileSize), float64(s.Max.Y)
+	w, h := g.mapSize()
+	g.cam.Snap(g.player.X, g.player.Y, w, h)
+}

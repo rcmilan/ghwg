@@ -11,7 +11,7 @@ func TestCounters(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
 	g.step(0, 0)
-	if g.hud[Money].in != 0 || g.hud[Spook].in != 0 {
+	if g.hud[Money].in != 0 || g.hud[Ecto].in != 0 {
 		t.Fatal("a counter shows at the Run start")
 	}
 	g.earn(Money, 100, noFloat)
@@ -19,8 +19,8 @@ func TestCounters(t *testing.T) {
 	if c := g.hud[Money]; c.in <= 0 || c.in >= 1 || c.shown <= 0 || c.shown >= 100 {
 		t.Fatalf("one frame after +100: in %v, shown %v; want sliding in and rolling", c.in, c.shown)
 	}
-	if g.hud[Spook].in != 0 {
-		t.Fatal("Spook shows though only Money changed")
+	if g.hud[Ecto].in != 0 {
+		t.Fatal("Ecto shows though only Money changed")
 	}
 	for range tps - 1 {
 		g.step(0, 0)
@@ -57,7 +57,7 @@ func TestCounters(t *testing.T) {
 	}
 }
 
-// T180: resInk's cycle runs gold → silver → gold for Money and green → purple → green for Spook.
+// T180: resInk's cycle runs gold → silver → gold for Money and green → purple → green for Ecto.
 func TestInkCycle(t *testing.T) {
 	for _, c := range []struct {
 		r    Res
@@ -65,7 +65,7 @@ func TestInkCycle(t *testing.T) {
 		want color.RGBA
 	}{
 		{Money, 0, gold}, {Money, inkPeriod / 2, silver}, {Money, inkPeriod, gold},
-		{Spook, 0, green}, {Spook, inkPeriod / 2, purple}, {Spook, inkPeriod, green},
+		{Ecto, 0, green}, {Ecto, inkPeriod / 2, purple}, {Ecto, inkPeriod, green},
 	} {
 		if got := inkAt(c.r, c.t); got != c.want {
 			t.Errorf("inkAt(%d, %d) = %v, want %v", c.r, c.t, got, c.want)
@@ -82,7 +82,7 @@ func TestCountersAtTerminal(t *testing.T) {
 	for range slideFrames + holdFrames {
 		g.updateHUD()
 	}
-	if m, s := g.hud[Money], g.hud[Spook]; m.in != 1 || s.in != 1 || m.shown != 50 {
+	if m, s := g.hud[Money], g.hud[Ecto]; m.in != 1 || s.in != 1 || m.shown != 50 {
 		t.Fatalf("Terminal open: in %v/%v, shown %v; want both in, $50", m.in, s.in, m.shown)
 	}
 	g.pay(Cost{Money: 20})
@@ -94,7 +94,7 @@ func TestCountersAtTerminal(t *testing.T) {
 	for range holdFrames + slideFrames {
 		g.updateHUD()
 	}
-	if g.hud[Money].in != 0 || g.hud[Spook].in != 0 {
+	if g.hud[Money].in != 0 || g.hud[Ecto].in != 0 {
 		t.Fatal("counters stay after the Terminal closes")
 	}
 }

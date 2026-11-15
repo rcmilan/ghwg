@@ -27,8 +27,8 @@ func TestRoomTypeTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[[2]string]int{
-		{"Standard", "Single"}: 25, {"Standard", "Twin"}: 40, {"Standard", "Double"}: 40,
-		{"Deluxe", "Single"}: 40, {"Deluxe", "Twin"}: 64, {"Deluxe", "Double"}: 64,
+		{"Standard", "Single"}: 125, {"Standard", "Twin"}: 200, {"Standard", "Double"}: 200, // Z1: ×5
+		{"Deluxe", "Single"}: 200, {"Deluxe", "Twin"}: 320, {"Deluxe", "Double"}: 320,
 	}
 	seen := map[[2]string]bool{}
 	for _, rt := range types {

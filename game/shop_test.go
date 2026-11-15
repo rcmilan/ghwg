@@ -29,12 +29,15 @@ func storeRun(t *testing.T) *Game {
 func TestStoreCatalog(t *testing.T) {
 	g := storeRun(t)
 	basic := []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror}
-	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, Hex, RoomLock, Consume, ShiftAnywhere, rowFatherK, rowFatherM, rowShadow} {
+	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, Consume, ShiftAnywhere, rowFatherK, rowFatherM} {
 		if got := g.onSale(row(t, id)); got != slices.Contains(basic, id) {
 			t.Errorf("%s on sale at the start: %v", id, got)
 		}
 	}
-	for _, it := range shop {
+	for _, it := range shop { // T249, T250: no Hex, no bought Shadow
+		if it.ID == "hex" || it.ID == "shadow" || it.Name == "Hex" || it.Name == "Shadow Person" {
+			t.Errorf("the store still sells %q", it.Name)
+		}
 		if len(it.Blurb)*glyphW > paneW-24 {
 			t.Errorf("%s: the blurb overflows the detail pane", it.ID)
 		}
@@ -45,25 +48,26 @@ func TestStoreCatalog(t *testing.T) {
 // them arrived, so buying never opens another item by itself.
 func TestStoreOpens(t *testing.T) {
 	g := storeRun(t)
-	hex := row(t, Hex)
-	g.earn(Spook, 1000, noFloat) // earned before the Mirror: doesn't count
-	g.wallet[Money] = 10
+	lock := row(t, RoomLock)
+	g.earn(Ecto, 1000, noFloat) // earned before the Mirror: doesn't count
+	g.wallet[Money] = mirrorPrice
 	if g.addToCart(row(t, Mirror), -1) != "" || g.placeOrder() != "" {
 		t.Fatal("couldn't buy the Mirror")
 	}
 	if deliver(t, g); !g.unlocked(Mirror) {
 		t.Fatal("the Mirror didn't arrive")
 	}
-	if g.onSale(hex) {
-		t.Fatal("buying the Mirror opened Hex at once")
+	if g.onSale(lock) {
+		t.Fatal("buying the Mirror opened the Room lock at once")
 	}
-	g.earn(Spook, shop[hex].Earned[Spook]-1, noFloat)
-	if g.onSale(hex) {
-		t.Fatal("Hex open under its threshold")
+	g.boughtAt[Mirror] = g.earned // ghosts now come in with the Mirror and may earn Ectoplasm while the courier leaves
+	g.earn(Ecto, shop[lock].Earned[Ecto]-1, noFloat)
+	if g.onSale(lock) {
+		t.Fatal("Room lock open under its threshold")
 	}
-	g.earn(Spook, 1, noFloat)
-	if !g.onSale(hex) {
-		t.Fatal("Hex not open at its threshold")
+	g.earn(Ecto, 1, noFloat)
+	if !g.onSale(lock) {
+		t.Fatal("Room lock not open at its threshold")
 	}
 }
 
@@ -74,67 +78,64 @@ func TestCheckout(t *testing.T) {
 	g.unlock(Mirror)
 	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, k := row(t, SupplyWater), row(t, rowFatherK)
-	for _, add := range []struct{ i, room int }{{water, -1}, {water, -1}, {row(t, Hex), -1}, {k, 1}} {
+	for _, add := range []struct{ i, room int }{{water, -1}, {water, -1}, {row(t, RoomLock), -1}, {k, 1}} {
 		if why := g.addToCart(add.i, add.room); why != "" {
 			t.Fatalf("add %s: %q", shop[add.i].ID, why)
 		}
 	}
 	total := g.cartTotal()
-	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, Hex)].Cost[Money] + priestWeak}); total != want {
+	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, RoomLock)].Cost[Money] + priestWeak, shop[row(t, RoomLock)].Cost[Ecto]}); total != want {
 		t.Fatalf("total %v, want %v", total, want)
 	}
-	g.wallet = [2]Num{total[Money] - 1, 0}
-	if g.placeOrder() == "" || len(g.cart) != 4-1 || g.unlocked(Hex) {
+	g.wallet = [2]Num{total[Money] - 1, total[Ecto]}
+	if g.placeOrder() == "" || len(g.cart) != 4-1 || g.unlocked(RoomLock) {
 		t.Fatal("a short wallet still bought something")
 	}
 	g.wallet[Money]++
-	if why := g.placeOrder(); why != "" || g.wallet[Money] != 0 || len(g.cart) != 0 {
+	if why := g.placeOrder(); why != "" || g.wallet != [2]Num{} || len(g.cart) != 0 {
 		t.Fatalf("checkout: %q, $%v, cart %v", why, g.wallet[Money], g.cart)
 	}
 	if !g.priestOn(1) || g.priestOn(0) {
 		t.Fatalf("Priest on 1 %v, on 0 %v; want on 1", g.priestOn(1), g.priestOn(0))
 	}
 	deliver(t, g) // E8: the courier brings the rest
-	if g.stock[SupplyWater] != 2*shop[water].Pack || !g.unlocked(Hex) {
-		t.Fatalf("delivered: stock %v, Hex %v", g.stock, g.unlocked(Hex))
+	if g.stock[SupplyWater] != 2*shop[water].Pack || !g.unlocked(RoomLock) {
+		t.Fatalf("delivered: stock %v, Room lock %v", g.stock, g.unlocked(RoomLock))
 	}
 }
 
-// The cart refuses an owned unlock, a second copy of one, and a second Priest or Shadow for a Room.
+// The cart refuses an owned unlock, a second copy of one, and a second Priest for a Room.
 func TestCartRules(t *testing.T) {
 	g := storeRun(t)
 	g.unlock(Mirror)
-	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
-	m, k, fm, sh := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM), row(t, rowShadow)
+	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
+	m, k, fm := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM)
 	if g.addToCart(m, -1) == "" {
 		t.Error("an owned unlock went in the cart")
 	}
-	if g.addToCart(row(t, Hex), -1) != "" || g.addToCart(row(t, Hex), -1) == "" {
+	if g.addToCart(row(t, RoomLock), -1) != "" || g.addToCart(row(t, RoomLock), -1) == "" {
 		t.Error("an unlock went in the cart twice")
 	}
 	if g.addToCart(k, 0) != "" || g.addToCart(fm, 0) == "" || g.addToCart(fm, 1) != "" {
 		t.Error("Priests: want one per Room")
 	}
-	g.placeShadow(1)
-	if g.addToCart(sh, 1) == "" || g.addToCart(sh, 0) != "" {
-		t.Error("Shadow: want refused where one is, taken where none is")
-	}
-	g.cart, g.wallet = nil, [2]Num{15, 0}
+	g.cart, g.wallet = nil, [2]Num{75, 0}
 	w := row(t, SupplyWater)
-	if g.addToCart(w, -1) != "" || g.addToCart(w, -1) == "" || g.addToCart(sh, 0) == "" {
+	if g.addToCart(w, -1) != "" || g.addToCart(w, -1) == "" {
 		t.Error("the cart took more than the wallet holds")
 	}
 }
 
-// T185: A/D picks the tab, W/S the row, SPACE adds (a Service asks its Room), the cart's last row checks
-// out; in either dimension.
+// T185: A/D picks the tab, W/S the row, SPACE adds, the cart's last row checks out, which closes the store;
+// in either dimension. (What is for one Room is bought in the hotel view: hotelview_test.go.)
 func TestStoreKeys(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := headless(t, 2, 1, 1)
 		g.startRun()
+		g.unlock(Mirror) // Priests are sold once the Mirror is owned
 		g.ghost = ghost
 		g.earned = [2]Num{1000, 1000}
-		g.wallet = [2]Num{0, shadowPrice}
+		g.wallet = shop[row(t, SupplyFood)].Cost
 		tap := func(keys ...ebiten.Key) {
 			for _, k := range keys {
 				s.hold()
@@ -144,22 +145,16 @@ func TestStoreKeys(t *testing.T) {
 			}
 		}
 		g.openTerminal()
-		pos := slices.Index(tabItems(tabServices), row(t, rowShadow))
-		tap(ebiten.KeyD, ebiten.KeyD) // Services
-		for range pos {
+		for range slices.Index(tabItems(tabSupplies), row(t, SupplyFood)) {
 			tap(ebiten.KeyS)
 		}
-		tap(ebiten.KeySpace, ebiten.KeyD, ebiten.KeySpace) // the Shadow, Room 1, in the cart
-		if len(g.cart) != 1 || g.placing >= 0 {
-			t.Fatalf("ghost %v: cart %v, placing %d; want the Shadow in the cart", ghost, g.cart, g.placing)
+		tap(ebiten.KeySpace) // Food, in the cart
+		if len(g.cart) != 1 {
+			t.Fatalf("ghost %v: cart %v; want Food in the cart", ghost, g.cart)
 		}
-		tap(ebiten.KeyD, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
-		if g.state != StateTerminal || !g.coming(rowShadow, 1) || g.coming(rowShadow, 0) || g.wallet[Spook] != 0 {
-			t.Fatalf("ghost %v: open %v, shaded %v %v, Spook %v; want a Shadow in Room 1 only", ghost, g.state == StateTerminal, g.shaded(0), g.shaded(1), g.wallet[Spook])
-		}
-		tap(ebiten.KeyEscape)
-		if g.state != StatePlay {
-			t.Fatal("ESC didn't close the store")
+		tap(ebiten.KeyA, ebiten.KeyS, ebiten.KeySpace) // the cart, its checkout row, place the order
+		if g.state != StatePlay || len(g.couriers) != 1 || g.wallet[Money] != 0 {
+			t.Fatalf("ghost %v: open %v, %d couriers, money %v; want the Food paid, on its way, and the store closed", ghost, g.state == StateTerminal, len(g.couriers), g.wallet[Money])
 		}
 	}
 }
