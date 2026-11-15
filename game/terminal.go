@@ -49,7 +49,7 @@ func tabItems(t Tab) []int {
 // staff at their max. The store doesn't list it (08 F0-T: menus show only what applies; a teaser stays).
 func (g *Game) gone(i int) bool {
 	it := shop[i]
-	return it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
+	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
 		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax
 }
 

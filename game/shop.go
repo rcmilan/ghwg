@@ -42,6 +42,7 @@ type Item struct {
 	Send   func(g *Game, l cartLine)
 	Once   bool
 	Hire   bool // staff: one more walks in each time it is bought (keeper.go)
+	Shoes  int  // running shoes: the tier (1..3), bought in order; the row of the next one shows (keeper.go)
 	Grow   int  // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
 }
 
@@ -88,6 +89,10 @@ var shop = []Item{
 	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Hint: "Earn $" + fmtNum(keeperEarned) + " to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
 
+	{ID: shoeIDs[0], Tab: tabStaff, Shoes: 1, Name: "Running shoes I", Blurb: "Staff walk 15% faster. Laces not included.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[0]}},
+	{ID: shoeIDs[1], Tab: tabStaff, Shoes: 2, Name: "Running shoes II", Blurb: "Staff walk another 15% faster.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[1]}},
+	{ID: shoeIDs[2], Tab: tabStaff, Shoes: 3, Name: "Running shoes III", Blurb: "Staff walk another 15% faster. Rude to ghosts.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[2]}},
+
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
 	{ID: rowChange, Tab: tabRooms, Name: "Change type", Blurb: "New beds for a Room, once it's empty.", Icon: "icon_door", Cost: Cost{Money: bedKinds[0].Fee}, Price: changeCost,
@@ -123,7 +128,7 @@ func (g *Game) onSale(i int) bool {
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
 	}
-	if it.ID == Deluxe && !g.grown() || it.ID == Matchmaking && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
+	if it.ID == Deluxe && !g.grown() || (it.ID == Matchmaking || it.Shoes != 0) && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
 		return false
 	}
 	var since [2]Num
@@ -140,6 +145,9 @@ func (g *Game) onSale(i int) bool {
 // owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
+	if it.Shoes != 0 {
+		return slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i })
+	}
 	return it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
 }
 
@@ -257,6 +265,8 @@ func (g *Game) ship(order []cartLine) {
 			for range l.n {
 				g.hire()
 			}
+		case it.Shoes != 0: // no courier: the staff lace up at once
+			g.own(it.ID)
 		case it.Grow != 0: // no courier: the hotel grows as the Terminal closes (grow.go)
 			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
