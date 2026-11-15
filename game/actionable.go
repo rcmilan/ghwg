@@ -35,6 +35,12 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		t := g.hotel.Terminal
 		return actTerminal, image.Rect(t.Min.X, t.Min.Y+ts, t.Max.X, t.Max.Y-ts)
 	}
+	if k := g.atCorridorMirror(); k >= 0 { // a Corridor Mirror shifts like the Lobby's once the courier uncovers it
+		if m := g.hotel.Corridors[k]; m.Open {
+			return actMirror, m.Glass
+		}
+		return actNone, image.Rectangle{}
+	}
 	if g.atMirror() {
 		if !g.unlocked(Mirror) { // covered until the courier installs it
 			return actNone, image.Rectangle{}
@@ -44,7 +50,7 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	}
 	for _, r := range g.hotel.Rooms { // a Room's own Mirror shifts too (K1)
 		if feet.In(r.Mirror) {
-			return actRoomMirror, image.Rect(r.Mirror.Min.X+ts, r.Mirror.Min.Y-2*ts, r.Mirror.Min.X+2*ts, r.Mirror.Min.Y)
+			return actRoomMirror, image.Rect(r.Mirror.Min.X, r.Mirror.Min.Y-2*ts, r.Mirror.Max.X, r.Mirror.Min.Y)
 		}
 	}
 	if k := g.atSupply(); k >= 0 {
@@ -100,7 +106,7 @@ func (g *Game) space() {
 	case actView:
 		g.openView()
 	default:
-		if g.shifting == nil && g.atMirror() {
+		if g.shifting == nil && (g.atMirror() || g.atCorridorMirror() >= 0) {
 			g.refuse("THE MIRROR IS COVERED")
 		}
 	}

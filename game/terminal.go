@@ -49,8 +49,9 @@ func tabItems(t Tab) []int {
 // staff at their max. The store doesn't list it (08 F0-T: menus show only what applies; a teaser stays).
 func (g *Game) gone(i int) bool {
 	it := shop[i]
-	return it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
-		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax
+	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
+		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax || it.ID == rowRetain && g.fatherIn(false) ||
+		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() // every one uncovered (08 B1)
 }
 
 // listed: the rows tab t shows, as indexes into tabItems(t), which g.termPick also is.
@@ -145,7 +146,7 @@ func (g *Game) press() string {
 func (g *Game) ShopPrint(money, ecto float64) {
 	g.locked = map[Unlock]bool{}
 	for _, it := range shop {
-		if it.Tab == tabHotel {
+		if it.Tab == tabHotel || it.Once && it.Tab == tabStaff {
 			g.locked[it.ID] = true
 		}
 	}
@@ -313,6 +314,9 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		help = "A/D TAB   W/S LINE   SPACE REMOVE ONE / PLACE ORDER   ESC CLOSE"
 	} else {
 		g.drawCatalog(s)
+		if len(g.listed(g.termTab)) == 0 {
+			help = "A/D TAB   ESC CLOSE"
+		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)
 	g.tintedAt(s, clockText(g.clock), screenW-16-glyphW*len(clockText(g.clock)), footY, 1, storeInk, 1)
@@ -414,7 +418,7 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	y := bodyY + 160
 	g.tintedAt(s, strings.ToUpper(it.Name), paneX+16, y, 3, storeInk, 1)
 	g.tintedAt(s, g.about(i), paneX+16, y+54, 1, storeInk, 1)
-	g.drawPrice(s, g.priceOf(i), paneX+16, y+80, 2, g.onSale(i) && !g.affords(i))
+	g.drawPrice(s, g.priceOf(i), paneX+16, y+80, 2, !g.affords(i))
 	status := ""
 	switch {
 	case !g.onSale(i):

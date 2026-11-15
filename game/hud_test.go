@@ -98,3 +98,61 @@ func TestCountersAtTerminal(t *testing.T) {
 		t.Fatal("counters stay after the Terminal closes")
 	}
 }
+
+// B1-N: a Room reaching -100 says so once, not every frame or on later knocks at the floor.
+func TestNoticeMoodFloor(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.notice("") // an empty text is nothing
+	g.addMood(0, -50)
+	if len(g.note.items) != 0 {
+		t.Fatalf("a notice at Mood %d", g.roomMood(0))
+	}
+	g.addMood(0, -100)
+	g.addMood(0, -5)
+	g.updateHUD()
+	if len(g.note.items) != 1 {
+		t.Fatalf("%d notices at the floor, want 1", len(g.note.items))
+	}
+	if want := g.hotel.Rooms[0].Number + " CLOSED"; g.note.items[0].text != want {
+		t.Fatalf("notice %q, want %q", g.note.items[0].text, want)
+	}
+}
+
+// B1-N: a human Party fleeing says so; a ghost Party leaving does not.
+func TestNoticeFlee(t *testing.T) {
+	g, _, p := settled(t)
+	g.flee(p)
+	if len(g.note.items) != 1 {
+		t.Fatalf("%d notices after a flight, want 1", len(g.note.items))
+	}
+	if want := "GUESTS FLED " + g.hotel.Rooms[p.Room].Number; g.note.items[0].text != want {
+		t.Fatalf("notice %q, want %q", g.note.items[0].text, want)
+	}
+	p.Realm = Ghost
+	g.flee(p)
+	if len(g.note.items) != 1 {
+		t.Fatalf("a ghost Party's flight added a notice")
+	}
+}
+
+// 08 B1 live test 5: the next-guest note holds as long as a feed notice, then slides out, its guest still booked.
+func TestNextGuestNoteHolds(t *testing.T) {
+	g, _, p := settled(t)
+	g.flee(p)
+	if g.nextGuest() == "" {
+		t.Fatal("setup: no guest booked after the flight")
+	}
+	for range noticeFrames / 2 {
+		g.updateHUD()
+	}
+	if g.guestNote.in == 0 {
+		t.Fatal("the next-guest note isn't in")
+	}
+	for range noticeFrames + 2*slideFrames {
+		g.updateHUD()
+	}
+	if g.guestNote.in != 0 || g.nextGuest() == "" {
+		t.Fatalf("after %d frames: note in %.2f, booked %q; want out, still booked", 3*noticeFrames/2+2*slideFrames, g.guestNote.in, g.nextGuest())
+	}
+}

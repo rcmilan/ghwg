@@ -56,13 +56,14 @@ func TestTerminalHides(t *testing.T) {
 	for range keeperMax {
 		g.hire()
 	}
-	if len(g.listed(tabStaff)) != 0 || slices.Contains(g.forSale(), row(t, rowKeeper)) {
+	g.own(unlockK) // the Fathers: both calls bought, K on his retainer
+	g.own(unlockM)
+	g.retainK()
+	if h := slices.Index(tabItems(tabStaff), row(t, rowKeeper)); slices.Contains(g.listed(tabStaff), h) || slices.Contains(g.forSale(), row(t, rowKeeper)) {
 		t.Fatalf("staff full: listed %v, for sale %v", g.listed(tabStaff), g.forSale())
 	}
-	keys(g, s, ebiten.KeyD) // STAFF, nothing in it: no row, and SPACE does nothing
-	keys(g, s, ebiten.KeyS, ebiten.KeySpace)
-	if g.termTab != tabStaff || len(g.cart) != 0 {
-		t.Fatalf("tab %d, cart %v; want STAFF and nothing bought", g.termTab, g.cart)
+	if len(g.listed(tabStaff)) != 1 { // only the first running shoes
+		t.Fatalf("staff full: listed %v, want just the next running shoes", g.listed(tabStaff))
 	}
 }
 

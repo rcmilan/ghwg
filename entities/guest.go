@@ -39,8 +39,11 @@ func NewGuest(at image.Point, character string) Guest {
 	return Guest{X: float64(at.X), Y: float64(at.Y), RoomIndex: -1, Character: character, FleeAt: DefaultFleeAt, Haunt: DefaultHaunt, Anim: NewAnim()}
 }
 
-// Mate: a and b are in one Party. Mates never bump, push or yield to each other: the Party walks as one.
-func (g *Guest) Mate(o *Guest) bool { return g.Leader == o || o.Leader == g }
+// Mate: a and b are in one Party, or both trail one leader (a Room mirror's ghost and a pair's mate, 08 B1).
+// Mates never bump, push or yield to each other: the Party walks as one.
+func (g *Guest) Mate(o *Guest) bool {
+	return g.Leader == o || o.Leader == g || g.Leader != nil && g.Leader == o.Leader
+}
 
 // waypointSlack (world px): a guest this close to a waypoint with more after it, or past it along the
 // next leg and this close to that leg's line, has reached it. So a push past it never turns the guest

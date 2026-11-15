@@ -33,6 +33,7 @@ func main() {
 	haunt := flag.Int("haunt", 0, "dev: start a Run with this many Shadows wandering the walls forever, to watch them move")
 	dirt := flag.Int("dirt", 0, "dev: start a Run with every Room at this much dirt (5 a spot)")
 	mood := flag.Int("mood", noMood, "dev: start a Run with every Room at this Room Mood (-100..100)")
+	notices := flag.Bool("notices", false, "dev: start a Run with three notices stacked in the right-side feed")
 	ghosts := flag.Int("ghosts", 0, "dev: start a Run with a human and a ghost of this Phantasm (1..12; 4 and up is strong) settled in Room 101, you inside it")
 	skipIntro := flag.Bool("skipintro", false, "dev: skip the opening intro (the sim and the other dev starts never play it)")
 	intro := flag.Int("intro", -1, "dev: start at the opening: 0 the title, 1 the three lines, 2 the walk in (with -shot -at)")
@@ -47,6 +48,8 @@ func main() {
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
 	father := flag.String("father", "", "dev: start a Run with Rooms 101 and 102 open and guests in, Money for both Fathers, Father k (or m) already walking to Room 101, you in the Lobby Archway: SPACE, then Room 102's ring has no call for him until he walks out")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
+	mirror := flag.Bool("mirror", false, "dev: Room 101 has a Room mirror and two ghosts (the second came through it), Room 102 none: its ring offers Add mirror (-view 1,1,0); you in 101; use with -ghost")
+	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -83,7 +86,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices
 	if dev {
 		switch {
 		case *intro >= 0:
@@ -94,6 +97,12 @@ func main() {
 			g.Start(false)
 		}
 		g.DevGhost(*ghost)
+		// The Room's Mood is one value, set by -dirt and -mood: the later of the two wins it. -mood also stands the
+		// Concierge in Room 101, so both go first: any start after them that places him takes him from there.
+		g.DevDirt(*dirt)
+		if *mood != noMood {
+			g.DevMood(*mood)
+		}
 		g.DevKey(*key)
 		g.DevChange(*change)
 		if *staff != "" {
@@ -108,15 +117,20 @@ func main() {
 			g.DevShadow(*shadow)
 		}
 		g.DevHaunt(*haunt)
-		g.DevDirt(*dirt)
 		g.DevGhosts(*ghosts)
+		if *mirror {
+			g.DevMirror()
+		}
 		if *father != "" {
 			g.DevFather(*father == "m")
 		}
-		if *mood != noMood {
-			g.DevMood(*mood)
+		if *notices {
+			g.DevNotices()
 		}
 		g.DevGrow(*grow)
+		if *corridors >= 0 { // after the growth that makes them
+			g.DevCorridors(*corridors)
+		}
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 	}
 	if *shop != "" {

@@ -87,7 +87,7 @@ func (g *Game) idle(p *Party, i int) {
 	if len(p.acts) != len(p.Guests) {
 		p.acts = make([]act, len(p.Guests))
 	}
-	r := g.hotel.Rooms[p.Room]
-	p.acts[i] = act{at: r.Stays[i], idle: true, dur: actMin + g.chat.IntN(actMax-actMin+1)}
-	p.Guests[i].SetPath(g.route(p.Guests[i], r.Stays[i]))
+	at := g.stayOf(p, i) // the Stay Spot (a mirror's ghost has its own, ghostguest.go)
+	p.acts[i] = act{at: at, idle: true, dur: actMin + g.chat.IntN(actMax-actMin+1)}
+	p.Guests[i].SetPath(g.route(p.Guests[i], at))
 }

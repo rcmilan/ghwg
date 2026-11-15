@@ -32,6 +32,29 @@ const (
 	keeperStroll        = arriveSpeed // its pace with no job on
 )
 
+// Running shoes (08 B1): three tiers in Ectoplasm, each +15% walking speed, added up (1.15, 1.30, 1.45), for every
+// staff member, later hires too; never the Concierge. Placeholder prices.
+const shoeBoost = .15
+
+var (
+	shoeIDs   = [3]Unlock{"shoes-1", "shoes-2", "shoes-3"}
+	shoePrice = [3]Num{25, 50, 100}
+)
+
+// shoeTier: the tiers bought this Run (boughtAt is reset with the Run).
+func (g *Game) shoeTier() int {
+	n := 0
+	for _, id := range shoeIDs {
+		if _, ok := g.boughtAt[id]; ok {
+			n++
+		}
+	}
+	return n
+}
+
+// shoeGone: the row of tier t is not the next to buy: bought already, or the one before it is not.
+func (g *Game) shoeGone(t int) bool { return t != g.shoeTier()+1 }
+
 var keeperLook = look{hair: 0x2b2630, skin: 0xffe6d6, top: 0x24202a, bottom: 0xf2f2f6}
 
 var (
@@ -192,6 +215,34 @@ func (g *Game) nextJob(k *housekeeper) bool {
 			}
 		}
 	}
+	return g.sweep(k) // nothing asked, nothing complained of: the Room with the most dirt
+}
+
+// sweep (08 B1): the idle housekeeper cleans the Room with the most regular dirt nobody is cleaning, a Room with
+// no Guest in it, or its Guests asleep, before one with them up and about. Spiritual dirt is never its to clean.
+func (g *Game) sweep(k *housekeeper) bool {
+	best, free, most := -1, false, 0
+	for i := range g.hotel.Rooms {
+		n := g.normalDirt(i)
+		if !g.isOwned(i) || n == 0 || slices.ContainsFunc(g.keepers, func(o *housekeeper) bool { return o.room == i && o.job == cleaning }) {
+			continue
+		}
+		_, in := g.inside(i)
+		f := len(in) == 0 || asleep(g.clock)
+		if best < 0 || f && !free || f == free && n > most {
+			best, free, most = i, f, n
+		}
+	}
+	if best < 0 {
+		return false
+	}
+	for _, s := range g.spots(best) {
+		if !s.spirit {
+			k.job, k.room = cleaning, best
+			g.sendKeeper(k, g.hotel.Map.Center(s.cell.X, s.cell.Y), best)
+			return true
+		}
+	}
 	return false
 }
 
@@ -228,7 +279,7 @@ func (g *Game) updateKeepers() {
 		if k.job == resting {
 			speed = keeperStroll
 		}
-		arrived := g.walk(&k.Guest, speed)
+		arrived := g.walk(&k.Guest, speed*g.staffSpeed())
 		if !g.headless {
 			k.Anim.Update(k.X, k.Y, g.dt)
 		}

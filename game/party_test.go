@@ -324,3 +324,24 @@ func TestFollowerAhead(t *testing.T) {
 		g.step(0, 0)
 	}
 }
+
+// 08 B1: lingering is the Concierge's alone and only in real: in ghost he costs the Room no Mood.
+func TestNoLingerInGhost(t *testing.T) {
+	g := mustNew(t)
+	g.startRun()
+	p := g.walkIn()
+	p.Routine = homebody
+	for p.state != staying {
+		g.step(0, 0)
+	}
+	r := g.hotel.Rooms[p.Room]
+	g.player.X, g.player.Y = float64(r.Spot().Min.X+world.TileSize/2), float64(r.Spot().Min.Y+world.TileSize/2)
+	g.ghost = true
+	c := g.roomMood(p.Room)
+	for range (intrudeGrace + 2*intrudeEvery) * minuteFrames {
+		g.step(0, 0)
+	}
+	if g.roomMood(p.Room) < c {
+		t.Errorf("the ghost Concierge lingered: Mood %d → %d", c, g.roomMood(p.Room))
+	}
+}

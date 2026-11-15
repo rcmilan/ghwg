@@ -25,7 +25,7 @@ func TestPlaceShadow(t *testing.T) {
 	}
 	g.placeShadow(1)
 	g.shades[1] = append(g.shades[1], &shade{run: g.shades[1][0].run, essence: shadowEssence}) // past the cap, as R1 will allow
-	g.wallet[Money] = priestWeak + priestStrong
+	g.wallet[Ecto] = priestWeak + priestStrong
 	g.callPriest(0, false)
 	g.callPriest(1, true)
 	for i := 0; len(g.priests) > 0; i++ {

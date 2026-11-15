@@ -3,6 +3,7 @@ package game
 import (
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"ghosthotel/entities"
@@ -206,7 +207,7 @@ func TestChangeBookedRoom(t *testing.T) {
 	}
 }
 
-// T278, T301: the in-Room Mirror is bought once, with Ectoplasm, for its first Room, where it is hung at
+// T278, T301: the in-Room Mirror is bought once, with Money and Ectoplasm (08 B1), for its first Room, where it is hung at
 // once, guests in or not, with no reel and no wait. From then on a change costs
 // Ectoplasm too, and every Room that changes, or that a key opens, has its own Mirror: SPACE under it shifts.
 // A boarded Room can't change.
@@ -216,10 +217,10 @@ func TestRoomMirror(t *testing.T) {
 	g.roomOwned[0] = true
 	g.own(Mirror)
 	g.own(BedsTwin)
-	g.wallet = [2]Num{200, roomMirrorEcto + 10}
+	g.wallet = [2]Num{200 + roomMirrorMoney, roomMirrorEcto + 10}
 	m := row(t, RoomMirror)
-	if it := shop[m]; it.Tab != tabRooms || it.Cost != (Cost{Ecto: roomMirrorEcto}) || !g.onSale(m) {
-		t.Fatalf("the Room mirror: tab %d, cost %v, on sale %v; want a Service for Ectoplasm only", it.Tab, it.Cost, g.onSale(m))
+	if it := shop[m]; it.Tab != tabRooms || it.Cost != (Cost{Money: roomMirrorMoney, Ecto: roomMirrorEcto}) || !g.onSale(m) {
+		t.Fatalf("the Room mirror: tab %d, cost %v, on sale %v; want a Service for Money and Ectoplasm (08 B1)", it.Tab, it.Cost, g.onSale(m))
 	}
 	g.termBeds = 1
 	if c := changeCost(g); c != (Cost{Money: bedKinds[1].Fee}) {
@@ -279,7 +280,7 @@ func TestRoomMirror(t *testing.T) {
 	p := g.arrive(0)
 	g.settleIn(p)
 	p.Rate = 0 // no rent in the wallet
-	g.wallet = [2]Num{bedKinds[1].Fee, roomMirrorEcto}
+	g.wallet = [2]Num{bedKinds[1].Fee + roomMirrorMoney, roomMirrorEcto}
 	if why := order(t, g, 0, "Twin"); why != "" {
 		t.Fatal(why)
 	}
@@ -415,5 +416,18 @@ func TestChangeKeepsSpiritDirt(t *testing.T) {
 	}
 	if kinds[true] != 2*spotUnit || kinds[false] != spotUnit {
 		t.Fatalf("after the change: %d spiritual dirt, %d normal; want %d and %d", kinds[true], kinds[false], 2*spotUnit, spotUnit)
+	}
+}
+
+// 08 W1 leftover: the store refuses the beds a Room has, even with the Room mirror owned and none in the Room.
+func TestNoSameBedsInStore(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.own(Mirror)
+	g.own(RoomMirror)
+	g.wallet = [2]Num{1000, 1000}
+	same := g.hotel.Rooms[0].Type.Beds
+	if why := order(t, g, 0, same); why != "ROOM 101 IS ALREADY "+strings.ToUpper(same) {
+		t.Fatalf("a change to the beds it has: %q", why)
 	}
 }

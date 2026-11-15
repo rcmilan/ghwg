@@ -83,7 +83,8 @@ func (g *Game) leaveMess(p *Party) {
 // Room at 200 has 12, not 40: E6 close-out, 2026-11-08). A new spot takes a free floor
 // cell picked from its own seed, so spots stay put, most often one touching an older spot, so the dirt
 // grows in stains (2026-11-08), and is spiritual when a ghost made it (g.byGhost); a cleaned one leaves at
-// once, and dirt falling otherwise (a Priest) takes spiritual spots first, newest first.
+// once, and dirt falling otherwise takes the normal spots first, newest first: only a clean in ghost or a
+// Priest takes the spiritual (08 B1 live test 4: a serve wiped them).
 func (g *Game) spots(room int) []spot {
 	if len(g.dirt) != len(g.hotel.Rooms) {
 		g.dirt, g.dirtN = make([][]spot, len(g.hotel.Rooms)), make([]int, len(g.hotel.Rooms))
@@ -97,7 +98,7 @@ func (g *Game) spots(room int) []spot {
 	for len(g.dirt[room]) > 0 {
 		k := len(g.dirt[room]) - 1
 		for i := k; i >= 0; i-- {
-			if g.dirt[room][i].spirit {
+			if !g.dirt[room][i].spirit {
 				k = i
 				break
 			}

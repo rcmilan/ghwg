@@ -148,6 +148,8 @@ type Game struct {
 	recent        []earning                      // the last game hour's earnings: the Terminal's rates (wallet.go)
 	viewIn        float64                        // the hotel view's camera from the whole hotel (0) to the picked Room (1), eased (hotelview.go)
 	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
+	mirrorSlots   []arrival                      // per Room with a mirror: its second ghost's arrival (ghostguest.go, 08 B1)
+	guestAge      int                            // frames the next-guest notice has shown its text: it holds noticeFrames, like the feed (08 B1 live test 5)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -248,6 +250,7 @@ func (g *Game) startRun() {
 	// T272); and with K1's bed layouts and in-Room Mirror to buy
 	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
 	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
+	g.locked[unlockK], g.locked[unlockM] = true, true         // 08 B1-P: the Fathers' calls
 	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()

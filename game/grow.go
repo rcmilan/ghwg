@@ -192,6 +192,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 	if err != nil {
 		return image.Point{}, err
 	}
+	h.SetCorridorMirrors(g.corridorMirrors(old, h)) // before the Rooms land again, which hang them back (08 B1)
 	// The Rooms move down by a new floor's height; the hall and the street, with them and sideways, to stay centered.
 	d := image.Pt(h.Lobby.Min.X-old.Lobby.Min.X, h.HallY-old.HallY)
 	at := func(p image.Point) image.Point {
@@ -219,7 +220,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 	g.roomOwned = regrid(g.roomOwned, n, room, false)
 	g.mood, g.shades, g.taps = regrid(g.mood, n, room, moodStart), regrid(g.shades, n, room, nil), regrid(g.taps, n, room, [taskCount]Num{})
 	g.fog, g.dirtN = regrid(g.fog, n, room, 0), regrid(g.dirtN, n, room, 0)
-	g.arrivals, g.ghostArrivals = regrid(g.arrivals, n, room, arrival{}), regrid(g.ghostArrivals, n, room, arrival{})
+	g.arrivals, g.ghostArrivals, g.mirrorSlots = regrid(g.arrivals, n, room, arrival{}), regrid(g.ghostArrivals, n, room, arrival{}), regrid(g.mirrorSlots, n, room, arrival{})
 	cell := image.Pt(0, d.Y/world.TileSize) // dirt lies in the Rooms
 	for _, spots := range g.dirt {
 		for i := range spots {

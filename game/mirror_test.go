@@ -1,0 +1,367 @@
+package game
+
+import (
+	"image"
+	"math"
+	"slices"
+	"testing"
+
+	"ghosthotel/entities"
+	"ghosthotel/world"
+)
+
+// mirrorRun: a Run on a cols x rows grid, every Room open, the Mirror owned and the Room mirror bought, nobody
+// booked on their own; Room 0 hangs its mirror.
+func mirrorRun(t *testing.T, cols, rows int) (*Game, *script) {
+	t.Helper()
+	g, s := headless(t, cols, rows, 1)
+	g.startRun()
+	g.own(Mirror)
+	g.own(RoomMirror)
+	g.arrivals, g.ghostArrivals, g.mirrorSlots = make([]arrival, len(g.hotel.Rooms)), make([]arrival, len(g.hotel.Rooms)), nil
+	g.setRoom(0, g.hotel.Rooms[0].Type, true)
+	return g, s
+}
+
+// 08 B1 (Room mirror, Two ghosts): a Room with a mirror takes a second ghost, which books on its own on the
+// same schedule as a free slot, checks in through the mirror, and goes on its own; a Room without one never
+// holds two.
+func TestMirrorSecondGhost(t *testing.T) {
+	g, _ := mirrorRun(t, 2, 1)
+	first := ghostIn(t, g, 0, 5)
+	other := ghostIn(t, g, 1, 5)
+	g.fast = true
+	var second *Party
+	for i := 0; i < 8*hourFrames && second == nil; i++ {
+		g.step(0, 0)
+		for _, p := range g.parties {
+			if p.Realm == Ghost && p.Room == 0 && p != first {
+				second = p
+			}
+		}
+	}
+	if second == nil {
+		t.Fatal("the mirror Room never booked a second ghost")
+	}
+	m := g.hotel.Rooms[0].Mirror
+	if d := math.Hypot(second.Guests[0].X-float64(m.Min.X+m.Max.X)/2, second.Guests[0].Y-float64(m.Min.Y+m.Max.Y)/2); d > world.TileSize || !mirrorGhost(second) {
+		t.Errorf("the second ghost came in %.0f px from the mirror (mirror ghost %v); want it through the mirror", d, mirrorGhost(second))
+	}
+	if g.ghostsIn(0) != 2 || g.ghostsIn(1) != 1 || !slices.Contains(g.parties, other) {
+		t.Errorf("ghosts in Room 0 %d, in Room 1 %d; want 2 and 1", g.ghostsIn(0), g.ghostsIn(1))
+	}
+	for range 4 * hourFrames { // the Room without a mirror never takes a second
+		g.step(0, 0)
+		if g.ghostsIn(1) > 1 {
+			t.Fatal("a Room without a mirror holds two ghosts")
+		}
+	}
+	// each on its own: the first passes on, the second stays and the first's slot books again
+	first.Guests[0].PassAt = g.clock
+	for range passFrames + 1 {
+		g.step(0, 0)
+	}
+	if slices.Contains(g.parties, first) {
+		t.Fatal("the first ghost, passing on, is still a Party")
+	}
+	if g.ghostArrivals[0].at == 0 && g.mirrorSlot(0).at == 0 && g.ghostsIn(0) < 2 {
+		t.Error("the freed slot didn't book its next ghost")
+	}
+}
+
+// 08 B1 (Two ghosts): Matching reads the higher Phantasm of the Room's two ghosts.
+func TestMirrorMatchingHigher(t *testing.T) {
+	g, _ := mirrorRun(t, 2, 1)
+	ghostOf(g, 0, 3)
+	ghostOf(g, 0, 9)
+	if g.ghostsIn(0) != 2 || g.roomPhantasm(0) != 9 {
+		t.Fatalf("two ghosts of 3 and 9: %d in the Room, Phantasm %d; want 2 and 9", g.ghostsIn(0), g.roomPhantasm(0))
+	}
+	settledHuman(t, g, 0, 6)
+	if g.pairing(0) != badPair {
+		t.Errorf("a Nerve 6 human with a 9 beside a 3: pairing %d, want a bad pair", g.pairing(0))
+	}
+}
+
+// 08 B1 (W2 gaps): sendOver sends every ghost of the Room over at once, both slots, each paying the Ectoplasm
+// its remaining haunts would have earned; another Room's ghost stays.
+func TestSendOver(t *testing.T) {
+	g, _ := mirrorRun(t, 2, 1)
+	a, b, c := ghostOf(g, 0, 4), ghostOf(g, 0, 10), ghostOf(g, 1, 6)
+	a.Guests[0].Haunted = 1
+	want := 3*hauntEcto(a.Guests[0]) + 10*hauntEcto(b.Guests[0])
+	if hauntEcto(a.Guests[0]) <= 0 {
+		t.Fatal("a haunt is worth no Ectoplasm")
+	}
+	g.sendOver(0)
+	if g.wallet[Ecto] != want || g.earned[Ecto] != want {
+		t.Errorf("sent over: Ectoplasm %v earned %v, want %v", g.wallet[Ecto], g.earned[Ecto], want)
+	}
+	if a.Guests[0].PassAt == 0 || b.Guests[0].PassAt == 0 || c.Guests[0].PassAt != 0 {
+		t.Errorf("passing on: %d %d, the other Room's %d; want both here, none there", a.Guests[0].PassAt, b.Guests[0].PassAt, c.Guests[0].PassAt)
+	}
+	g.sendOver(0)
+	if g.wallet[Ecto] != want {
+		t.Errorf("sent over twice: Ectoplasm %v, want it paid once, %v", g.wallet[Ecto], want)
+	}
+}
+
+// 08 B1 (Mirror retrofit, Ring layout, Mirrors and Father K): until the one-time Room mirror is owned the
+// lower-right slot offers it; once owned, a Room without a mirror offers Add mirror there and one with a mirror
+// offers nothing. Both cost Money and Ectoplasm. The courier brings it to the door and it is hung.
+func TestAddMirror(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.own(Mirror)
+	slot := func(room int) Unlock {
+		if i := g.ring(room)[ringSlot[RoomMirror]]; i >= 0 {
+			return shop[i].ID
+		}
+		return ""
+	}
+	if c := shop[row(t, RoomMirror)].Cost; slot(0) != RoomMirror || c[Money] == 0 || c[Ecto] == 0 {
+		t.Fatalf("before the unlock: slot holds %q at %v; want the unlock, for Money and Ectoplasm", slot(0), c)
+	}
+	g.own(RoomMirror)
+	g.setRoom(0, g.hotel.Rooms[0].Type, true)
+	if slot(0) != "" || slot(1) != rowAddMirror {
+		t.Fatalf("after: Room 0 (mirror) slot %q, Room 1 slot %q; want empty and Add mirror", slot(0), slot(1))
+	}
+	add := row(t, rowAddMirror)
+	if c := shop[add].Cost; c[Money] == 0 || c[Ecto] == 0 {
+		t.Errorf("Add mirror costs %v, want Money and Ectoplasm", c)
+	}
+	g.wallet = [2]Num{shop[add].Cost[Money] - 1, shop[add].Cost[Ecto]}
+	if why := g.buyNow(add, 1); why != "CAN'T AFFORD" {
+		t.Errorf("short of Money: %q", why)
+	}
+	g.wallet = shop[add].Cost
+	if why := g.buyNow(add, 1); why != "" {
+		t.Fatal(why)
+	}
+	if g.wallet != [2]Num{} || !g.hotel.Rooms[1].Mirror.Empty() || len(g.couriers) != 1 || slot(1) != "" {
+		t.Fatalf("ordered: wallet %v, hung %v, couriers %d, slot %q; want paid, on its way, hidden", g.wallet, !g.hotel.Rooms[1].Mirror.Empty(), len(g.couriers), slot(1))
+	}
+	deliver(t, g)
+	if g.hotel.Rooms[1].Mirror.Empty() || g.ghostSlots(1) != 2 || slot(1) != "" {
+		t.Errorf("delivered: hung %v, slots %d, ring %q; want the mirror up, two ghost slots, no Add mirror", !g.hotel.Rooms[1].Mirror.Empty(), g.ghostSlots(1), slot(1))
+	}
+}
+
+// growFloors: a 2x1 Run after n New floors.
+func growFloors(t *testing.T, n int) *Game {
+	t.Helper()
+	g, _ := headless(t, 2, 1, 7)
+	g.startRun()
+	g.own(Mirror)
+	for range n {
+		g.growNext = growFloor
+		g.beginGrow()
+		g.growing, g.state, g.viewT = nil, StatePlay, 0
+	}
+	return g
+}
+
+// 08 B1 (Corridor mirrors, Ground corridor): a New floor's Corridor has a Mirror on a Room's front wall, covered,
+// one a Corridor, none on the ground one; a New column keeps them; the same seed picks the same corners.
+func TestCorridorMirrorsOnGrowth(t *testing.T) {
+	g := growFloors(t, 2)
+	if _, rows := g.hotel.Grid(); rows != 3 || len(g.hotel.Corridors) != 2 {
+		t.Fatalf("%d rows, %d Corridor Mirrors; want 3 floors, 2 Mirrors (the ground Corridor has the Lobby's)", rows, len(g.hotel.Corridors))
+	}
+	for _, m := range g.hotel.Corridors {
+		if m.Floor < 1 || m.Open || m.Room < 0 {
+			t.Errorf("Mirror %+v: want a New floor's, covered", m)
+		}
+		if g.hotel.Rooms[m.Room].Origin.Y+world.RoomH != m.Spot.Min.Y/world.TileSize {
+			t.Errorf("Mirror %+v: spot not in the Corridor under its Room", m)
+		}
+	}
+	covered := 0
+	for _, p := range g.sortedProps() {
+		if g.covered(p) {
+			covered++
+		}
+	}
+	if covered != 4 { // two tiles each, nothing else
+		t.Errorf("%d covered tiles, want 4", covered)
+	}
+	want := slices.Clone(g.hotel.Corridors)
+	g.growNext = growCol
+	g.beginGrow()
+	if len(g.hotel.Corridors) != 2 || g.hotel.Corridors[0].Col != want[0].Col || g.hotel.Corridors[1].West != want[1].West {
+		t.Errorf("after a New column: %+v, was %+v; want the same corners", g.hotel.Corridors, want)
+	}
+	h := growFloors(t, 2).hotel.Corridors
+	for k := range h {
+		if h[k].Col != want[k].Col || h[k].West != want[k].West {
+			t.Errorf("same seed, Mirror %d at %d/%v then %d/%v", k, want[k].Col, want[k].West, h[k].Col, h[k].West)
+		}
+	}
+	if g0, _ := headless(t, 2, 3, 1); len(g0.hotel.Corridors) != 0 {
+		t.Error("a hotel that began 3 floors tall has Corridor Mirrors")
+	}
+}
+
+// 08 B1 (Corridor mirrors): covered, SPACE on its cell only refuses (no glow); the HOTEL row at the Terminal sends a
+// courier to that cell, who uncovers it on arrival, for Money and Ectoplasm; the price doubles; then SPACE shifts there.
+func TestCorridorMirrorCourier(t *testing.T) {
+	g := growFloors(t, 2)
+	s := g.in.(*script)
+	m0 := g.hotel.Corridors[0]
+	spot := center(m0.Spot)
+	g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+	g.wallet = [2]Num{10 * uncoverMoney, 10 * uncoverEcto}
+	if act, r := g.actionable(); act != actNone || !r.Empty() {
+		t.Fatalf("covered: actionable %d glow %v; want nothing", act, r)
+	}
+	if press(g, s, spot); g.hotel.Corridors[0].Open || g.shifting != nil {
+		t.Fatal("SPACE uncovered or shifted a covered Mirror")
+	}
+	i := row(t, CorridorMirror)
+	if g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
+		t.Fatalf("first price %v", g.priceOf(i))
+	}
+	g.openTerminal()
+	if why := g.addToCart(i, -1); why != "" {
+		t.Fatal(why)
+	}
+	if why := g.addToCart(i, -1); why == "" {
+		t.Error("two in the cart")
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	g.state = StatePlay
+	if g.wallet != [2]Num{9 * uncoverMoney, 9 * uncoverEcto} || g.hotel.Corridors[0].Open || len(g.couriers) != 1 {
+		t.Fatalf("after checkout: wallet %v, open %v, couriers %d; want paid once, still covered, a courier on his way", g.wallet, g.hotel.Corridors[0].Open, len(g.couriers))
+	}
+	if k := g.nextCovered(); k != 1 || g.priceOf(i) != (Cost{Money: 2 * uncoverMoney, Ecto: 2 * uncoverEcto}) {
+		t.Errorf("while he walks: next %d at %v; want the second, doubled", k, g.priceOf(i))
+	}
+	for f := 0; !g.hotel.Corridors[0].Open; f++ {
+		if f > 3*60*tps {
+			t.Fatal("the courier never uncovered it")
+		}
+		g.step(0, 0)
+	}
+	if g.hotel.Corridors[1].Open {
+		t.Error("the second was uncovered too")
+	}
+	g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+	if act, r := g.actionable(); act != actMirror || r != m0.Glass {
+		t.Errorf("uncovered: actionable %d glow %v; want a shift over %v", act, r, m0.Glass)
+	}
+}
+
+// 08 B1 (Corridor mirrors): the HOTEL row's price, and it is gone once every Mirror is uncovered or on its way.
+func TestCorridorMirrorRow(t *testing.T) {
+	g := growFloors(t, 1)
+	i := row(t, CorridorMirror)
+	if !g.onSale(i) || g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
+		t.Fatalf("on sale %v at %v; want on sale for $%d and %d Ectoplasm", g.onSale(i), g.priceOf(i), uncoverMoney, uncoverEcto)
+	}
+	g.wallet = [2]Num{2 * uncoverMoney, 2 * uncoverEcto}
+	if why := g.buyNow(i, -1); why != "" {
+		t.Fatal(why)
+	}
+	if g.onSale(i) || !g.gone(i) {
+		t.Error("the row stays while the last Mirror is on its way")
+	}
+}
+
+// 08 B1 (W1 leftovers): dev starts combine. -match after -ghosts leaves Rooms 101 and 102 with the match's two
+// pairs only (the later wins what both set), and never lowers a wallet another start filled.
+func TestDevStartsCombine(t *testing.T) {
+	g, _ := headless(t, 3, 1, 1)
+	g.startRun()
+	g.DevGhosts(9)
+	g.wallet[Money] = 5000
+	g.DevMatch(0)
+	for room := range 2 {
+		if g.ghostsIn(room) != 1 || g.humanIn(room) == nil {
+			t.Errorf("Room %d: %d ghosts, human %v; want the match's one of each", room, g.ghostsIn(room), g.humanIn(room) != nil)
+		}
+	}
+	if g.wallet[Money] != 5000 {
+		t.Errorf("Money %v after -match, want the 5000 another start set kept", g.wallet[Money])
+	}
+}
+
+// reachable: a Concierge's foot box centered on px is clear of walls and props, and a path leads there from the Entrance.
+func reachable(g *Game, p image.Point) bool {
+	return !g.blocked(entities.FootBox(float64(p.X), float64(p.Y))) && len(g.hotel.Path(g.hotel.Spawn, p, -1)) > 0
+}
+
+// 08 B1 live test 2: every Corridor Mirror's activation cell, on any hotel, is open floor with a way to it; the
+// -corridors start puts the Concierge on an open, reachable cell beside it.
+func TestCorridorMirrorReachable(t *testing.T) {
+	for seed := uint64(1); seed <= 40; seed++ {
+		for _, cols := range []int{2, 3, 4} {
+			g, _ := headless(t, cols, 1, seed)
+			g.startRun()
+			g.own(Mirror)
+			g.growNext = growFloor
+			g.beginGrow()
+			g.growing, g.state, g.viewT = nil, StatePlay, 0
+			for _, m := range g.hotel.Corridors {
+				if !reachable(g, center(m.Spot)) {
+					t.Fatalf("seed %d cols %d: Mirror %+v: its activation cell is blocked or unreachable", seed, cols, m)
+				}
+			}
+			g.DevCorridors(0)
+			if !reachable(g, image.Pt(int(g.player.X), int(g.player.Y))) {
+				t.Fatalf("seed %d cols %d: -corridors 0 puts the Concierge at (%.0f,%.0f), blocked or cut off", seed, cols, g.player.X, g.player.Y)
+			}
+		}
+	}
+}
+
+// 08 B1 live test 3: the -grow floor -corridors 0 start, the Mirror not bought, still shows the HOTEL row, on sale.
+func TestCorridorMirrorRowDevStart(t *testing.T) {
+	g, _ := headless(t, 2, 1, 7)
+	g.startRun()
+	g.DevGrow("floor")
+	g.DevCorridors(0)
+	i := row(t, CorridorMirror)
+	if !g.onSale(i) || g.gone(i) {
+		t.Fatalf("on sale %v, gone %v; want listed and on sale while one is covered", g.onSale(i), g.gone(i))
+	}
+}
+
+// 08 B1 live test 1: the courier carries the mirror into the Room, to the cell in front of where it hangs, and it
+// appears when he gets there; then he walks out (the Room mirror unlock and Add mirror alike).
+func TestCourierHangsMirrorInRoom(t *testing.T) {
+	for _, unlock := range []bool{true, false} {
+		g, _ := headless(t, 2, 1, 1)
+		g.startRun()
+		g.own(Mirror)
+		id, room := rowAddMirror, 1
+		if unlock {
+			id = RoomMirror
+		} else {
+			g.own(RoomMirror)
+			g.setRoom(0, g.hotel.Rooms[0].Type, true)
+		}
+		g.wallet = [2]Num{1000, 1000}
+		if why := g.buyNow(row(t, id), room); why != "" {
+			t.Fatal(why)
+		}
+		g.state = StatePlay
+		c, spot := g.couriers[0], g.hotel.RoomMirrorSpot(room)
+		for f := 0; g.hotel.Rooms[room].Mirror.Empty(); f++ {
+			if f > 3*60*tps {
+				t.Fatalf("unlock %v: never hung; courier at %.0f,%.0f", unlock, c.X, c.Y)
+			}
+			g.step(0, 0)
+		}
+		at := image.Pt(int(c.X), int(c.Y))
+		if !at.In(g.hotel.Rooms[room].Shell()) || math.Hypot(c.X-float64(spot.X), c.Y-float64(spot.Y)) > world.TileSize/2 {
+			t.Errorf("unlock %v: hung with the courier at %v, want inside the Room at %v", unlock, at, spot)
+		}
+		if !g.hotel.Rooms[room].Mirror.Max.In(image.Rect(spot.X, spot.Y, spot.X+world.TileSize, spot.Y+world.TileSize).Add(image.Pt(-world.TileSize/2, -world.TileSize/2)).Inset(-1)) {
+			t.Errorf("unlock %v: the glass spot %v is not where the courier stood (%v)", unlock, g.hotel.Rooms[room].Mirror, spot)
+		}
+		deliver(t, g)
+	}
+}

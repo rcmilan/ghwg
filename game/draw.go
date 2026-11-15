@@ -245,14 +245,14 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, pr := range g.priests {
-		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y)))})
+		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y))), lift: pr.lift()})
 	}
 	for _, c := range g.couriers {
 		if !c.out { // ordered, the store or the hotel view still open: he walks in once it closes
 			continue
 		}
 		name := courierName
-		if len(c.drops) > 0 {
+		if c.carrying() {
 			name = courierBox
 		}
 		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y)))})
@@ -312,6 +312,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	propsUpTo(0) // the rugs, under the stains; furniture goes over them (Live test 7, 2026-11-08)
 	g.drawDirt(screen, ox, oy)
+	g.drawRituals(screen, ox, oy, true) // on the floor, over the rugs and stains, under everyone (08 B1 live test 5)
 	stockY, stocked := float64(g.hotel.Stock.Max.Y), false
 	stock := func() { // the stock props: over the wall they stand against, under whoever stands in front
 		if !stocked {
@@ -320,11 +321,26 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			stocked = true
 		}
 	}
+	_, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
+	glowed := lit.Empty() || g.state != StatePlay || g.intro != nil
+	glow := func() {
+		if !glowed {
+			if lit.Max.Y <= int(stockY)+world.TileSize { // a kitchen shelf: its props first
+				stock()
+			}
+			propsUpTo(float64(lit.Max.Y))
+			g.drawActGlow(screen, ox, oy)
+			glowed = true
+		}
+	}
 	for _, a := range actors {
 		if z(a) >= stockY {
 			stock()
 		}
 		propsUpTo(z(a))
+		if z(a) > float64(lit.Max.Y) {
+			glow()
+		}
 		fx, fy := at(a.x, a.y)
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
@@ -356,6 +372,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	stock()
+	glow()
 	propsUpTo(math.Inf(1))
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
 		if g.ghost { // floating with him
@@ -366,10 +383,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
-	g.drawRequests(screen, ox, oy)
+	if screen != g.wide { // the hotel view draws them on the screen, over its veils (hotelview.go)
+		g.drawRequests(screen, ox, oy, zoom)
+	}
 	g.drawTalk(screen, ox, oy)
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
+	g.drawRituals(screen, ox, oy, false)
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-(g.now()-float64(f.at))*floaterRisePerFr)
 		switch {

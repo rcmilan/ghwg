@@ -42,6 +42,7 @@ type Item struct {
 	Send   func(g *Game, l cartLine)
 	Once   bool
 	Hire   bool // staff: one more walks in each time it is bought (keeper.go)
+	Shoes  int  // running shoes: the tier (1..3), bought in order; the row of the next one shows (keeper.go)
 	Grow   int  // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
 }
 
@@ -49,7 +50,9 @@ type Item struct {
 func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
-func (it Item) unlock() bool { return it.Tab == tabHotel && !it.room() && it.Grow == 0 || it.Once }
+func (it Item) unlock() bool {
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+}
 
 // The Services aren't unlocks; their IDs only name them.
 const (
@@ -74,23 +77,31 @@ var shop = []Item{
 		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 200}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Hint: "Earn 100 Ectoplasm after the Mirror to unlock.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "A plate by each door: who is in, at a glance.", Hint: "Earn 100 Ectoplasm after the Mirror to unlock.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
 		Needs: []Unlock{Mirror}, Earned: Cost{Ecto: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Hint: "Earn 200 Ectoplasm after the Room lock to unlock.", Icon: "painting_scary_b", Cost: Cost{Money: 500, Ecto: 50},
-		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Hint: "Earn $5000 and 1000 Ectoplasm after the Mirror to unlock.", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
 	{ID: Deluxe, Tab: tabHotel, Name: "Deluxe rooms", Blurb: "Finer rooms. Guests pay the difference.", Hint: "Grow the hotel to unlock.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeEcto},
 		Needs: []Unlock{Mirror}},
 	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_col",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
+	{ID: CorridorMirror, Tab: tabHotel, Name: "Corridor mirror", Blurb: "A courier uncovers a Corridor's Mirror. Shift from there.", Hint: "Grow a floor to unlock.", Icon: "icon_mirror", Cost: Cost{Money: uncoverMoney, Ecto: uncoverEcto}, Price: uncoverCost,
+		Needs: []Unlock{Mirror}},
 	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
 	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Hint: "Earn $" + fmtNum(keeperEarned) + " to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
+
+	{ID: shoeIDs[0], Tab: tabStaff, Shoes: 1, Name: "Running shoes I", Blurb: "Staff walk 15% faster. Laces not included.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[0]}},
+	{ID: shoeIDs[1], Tab: tabStaff, Shoes: 2, Name: "Running shoes II", Blurb: "Staff walk another 15% faster.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[1]}},
+	{ID: shoeIDs[2], Tab: tabStaff, Shoes: 3, Name: "Running shoes III", Blurb: "Staff walk another 15% faster. Rude to ghosts.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[2]}},
+	{ID: unlockK, Tab: tabStaff, Once: true, Name: "Call Father K", Blurb: "Father K halves a Room's dirt. Each call costs Ectoplasm.", Hint: "Earn $250 after the Mirror to unlock.", Icon: fatherK.name, Head: true,
+		Cost: Cost{Ecto: unlockKEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}},
+	{ID: unlockM, Tab: tabStaff, Once: true, Name: "Call Father M", Blurb: "Father M clears a Room, banishes its Shadow, sends its ghosts over.", Hint: "Earn $750 after the Mirror to unlock.", Icon: fatherM.name, Head: true,
+		Cost: Cost{Ecto: unlockMEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}},
+	{ID: rowRetain, Tab: tabStaff, Name: "Retain Father K", Blurb: "Father K stays and cleans the ghostliest Room. Ectoplasm a day, or gone.", Hint: "Buy Call Father K to unlock.", Icon: fatherK.name, Head: true,
+		Cost: Cost{Ecto: retainerEcto}, Needs: []Unlock{unlockK}},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
@@ -101,12 +112,14 @@ var shop = []Item{
 		}},
 	{ID: rowDeluxe, Tab: tabRooms, Name: "Deluxe", Blurb: "This Room, finer. Once it's empty.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeFee},
 		Needs: []Unlock{Deluxe}, Send: func(g *Game, l cartLine) {}}, // its Send and Refuse are set in roomtype_change.go's init
-	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dread. Paid by the hour.", Icon: fatherK.name, Head: true, Cost: Cost{Money: priestWeak},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
-	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes a Shadow. Cash only.", Icon: fatherM.name, Head: true, Cost: Cost{Money: priestStrong},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
-	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror of its own for every Room you change.", Icon: "icon_mirror", Cost: Cost{Ecto: roomMirrorEcto},
+	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dirt. Paid per call.", Icon: fatherK.name, Head: true, Cost: Cost{Ecto: priestWeak},
+		Needs: []Unlock{unlockK}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
+	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes its Shadow, sends its ghosts over.", Icon: fatherM.name, Head: true, Cost: Cost{Ecto: priestStrong},
+		Needs: []Unlock{unlockM}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
+	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror per Room. A second ghost checks in through it.", Icon: "icon_mirror", Cost: Cost{Money: roomMirrorMoney, Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
+	{ID: rowAddMirror, Tab: tabRooms, Name: "Add mirror", Blurb: "Hang a Mirror here. A second ghost checks in through it.", Icon: "icon_mirror", Cost: Cost{Money: addMirrorMoney, Ecto: addMirrorEcto},
+		Needs: []Unlock{RoomMirror}, Refuse: noAddMirror, Send: (*Game).buyAddMirror},
 }
 
 // cartLine is one cart entry: n of a Supply, an unlock, or a Service for a Room (else room is -1).
@@ -124,10 +137,13 @@ func (l cartLine) cost() Cost {
 // Buying never opens another item by itself (2026-11-08).
 func (g *Game) onSale(i int) bool {
 	it := shop[i]
+	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
+		return g.nextCovered() >= 0
+	}
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
 	}
-	if it.ID == Deluxe && !g.grown() || it.ID == Matchmaking && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
+	if it.ID == Deluxe && !g.grown() || (it.ID == Matchmaking || it.Shoes != 0) && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
 		return false
 	}
 	var since [2]Num
@@ -144,6 +160,9 @@ func (g *Game) onSale(i int) bool {
 // owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
+	if it.Shoes != 0 {
+		return slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i })
+	}
 	return it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1) || slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i }))
 }
 
@@ -155,7 +174,11 @@ func (g *Game) addToCart(i, room int) string {
 		return "COMING SOON"
 	case it.unlock() && g.unlocked(it.ID):
 		return "ALREADY OWNED"
-	case g.owned(i):
+	case g.owned(i), it.ID == CorridorMirror && g.inCart(i) > 0: // the next one's price fixes it: one at a time
+		return "ALREADY IN THE CART"
+	case it.ID == rowRetain && g.fatherIn(false):
+		return "FATHER K IS ALREADY IN THE HOTEL"
+	case it.ID == rowRetain && g.inCart(i) > 0:
 		return "ALREADY IN THE CART"
 	case !g.affords(i):
 		return "CAN'T AFFORD"
@@ -184,7 +207,11 @@ func (g *Game) addToCart(i, room int) string {
 		g.cart[k].n++
 		return ""
 	}
-	g.cart = append(g.cart, cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)})
+	l := cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)}
+	if it.ID == CorridorMirror {
+		l.room = g.nextCovered() // the Mirror the courier uncovers (not remapped by a growth: not a Room action)
+	}
+	g.cart = append(g.cart, l)
 	return ""
 }
 
@@ -208,7 +235,9 @@ func (g *Game) affords(i int) bool {
 // sameKind: both Priests (one per Room), both changes to a Room (its type, its Mirror), or the same Service.
 func sameKind(a, b int) bool {
 	priest := func(i int) bool { return shop[i].ID == rowFatherK || shop[i].ID == rowFatherM }
-	change := func(i int) bool { return shop[i].ID == rowChange || shop[i].ID == RoomMirror }
+	change := func(i int) bool {
+		return shop[i].ID == rowChange || shop[i].ID == RoomMirror || shop[i].ID == rowAddMirror
+	}
 	return a == b || priest(a) && priest(b) || change(a) && change(b)
 }
 
@@ -261,11 +290,19 @@ func (g *Game) ship(order []cartLine) {
 			for range l.n {
 				g.hire()
 			}
+		case it.Shoes != 0: // no courier: the staff lace up at once
+			g.own(it.ID)
+		case it.ID == rowRetain: // no courier: he walks in himself, on his retainer
+			g.retainK()
 		case it.Grow != 0: // no courier: the hotel grows as the Terminal closes (grow.go)
 			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
-		case it.ID == rowKey || it.ID == RoomMirror: // walked to the Room's own door
+		case it.ID == CorridorMirror: // uncovered where it hangs, from the Corridor cell below it
+			c.drops = append(c.drops, drop{at: g.spotDrop(l.room), lines: []cartLine{l}})
+		case it.ID == RoomMirror || it.ID == rowAddMirror: // walked into the Room, to where the Mirror hangs
+			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
+		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
 		case !it.room():
 			stock.lines = append(stock.lines, l)
@@ -278,7 +315,7 @@ func (g *Game) ship(order []cartLine) {
 	}
 	c.drops = append(stops, c.drops...)
 	if len(c.drops) > 0 {
-		c.SetPath(g.hotel.Path(g.hotel.Spawn, c.drops[0].at, -1))
+		c.pathTo(g, c.drops[0])
 		g.couriers = append(g.couriers, c)
 	}
 }
@@ -294,6 +331,8 @@ func (g *Game) receive(l cartLine) {
 			g.stock = map[Unlock]int{}
 		}
 		g.stock[it.ID] += it.Pack * l.n
+	case it.ID == CorridorMirror:
+		g.hotel.Corridors[l.room].Open = true
 	default:
 		g.own(it.ID)
 	}

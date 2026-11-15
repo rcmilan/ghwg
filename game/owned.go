@@ -161,3 +161,33 @@ func (g *Game) DevKey(room int) {
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 }
+
+// Room mirrors (08 B1): the one-time unlock (shop.go's RoomMirror) hangs the first; "Add mirror" is each next
+// Room's, on the lower-right slot of its ring once the unlock is owned. Both cost Money and Ectoplasm (the
+// unlock's Ectoplasm is roomtype_change.go's); every amount is a placeholder for W2's sim.
+const (
+	rowAddMirror    Unlock = "add-mirror"
+	roomMirrorMoney        = 75 // $: with roomMirrorEcto, the one-time unlock
+	addMirrorMoney         = 75 // $: a Room's Add mirror
+	addMirrorEcto          = 60 // Ectoplasm: the same
+)
+
+// noAddMirror: why the Room can't take a mirror now, "" if it can. A Room with one, boarded up or about to
+// change (it gets its mirror with the change) never offers it.
+func noAddMirror(g *Game, room int) string {
+	r := g.hotel.Rooms[room]
+	switch {
+	case !g.isOwned(room):
+		return "ROOM " + r.Number + " IS BOARDED UP"
+	case g.hasMirror(room):
+		return "ROOM " + r.Number + " ALREADY HAS A MIRROR"
+	case g.changing(room):
+		return "ROOM " + r.Number + " IS CHANGING"
+	}
+	return ""
+}
+
+// buyAddMirror: the courier reached the Room's door with the mirror: it is hung where the prop on that wall was.
+func (g *Game) buyAddMirror(l cartLine) {
+	g.setRoom(l.room, g.hotel.Rooms[l.room].Type, true)
+}

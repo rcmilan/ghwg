@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 
 	"ghosthotel/world"
 )
@@ -84,7 +85,7 @@ func (s smart) Act(v View, p *Pilot) {
 		return
 	}
 	for i, r := range v.Rooms {
-		if !s.save && r.Closed && !r.Priest && v.Money >= priestWeak {
+		if !s.save && r.Closed && !r.Priest && v.Ecto >= priestWeak && callable(v, rowFatherK) {
 			p.CallPriest(i, false)
 			return
 		}
@@ -111,4 +112,9 @@ func (s smart) Act(v View, p *Pilot) {
 	if v.Hotel.Map.Cell(v.Concierge) != v.Hotel.Map.Cell(v.Hotel.Mirror) {
 		p.GoTo(v.Hotel.Mirror)
 	}
+}
+
+// callable: the Room action id is in the store now (a Father's call needs its STAFF unlock, 08 B1).
+func callable(v View, id Unlock) bool {
+	return slices.ContainsFunc(v.Shop, func(i int) bool { return shop[i].ID == id })
 }

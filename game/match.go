@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -237,7 +238,10 @@ func (g *Game) DevMatch(step int) {
 	g.unlock(Mirror)
 	g.roomOwned = nil
 	g.arrivals, g.ghostArrivals = make([]arrival, len(g.hotel.Rooms)), make([]arrival, len(g.hotel.Rooms))
-	g.wallet[Money] = 600
+	// Rooms 101 and 102 are this start's: Parties another start put there give way (the later start wins what
+	// they both set), and the wallet is raised to the swap's price, never lowered under another start's.
+	g.parties = slices.DeleteFunc(g.parties, func(p *Party) bool { return p.Room < 2 })
+	g.wallet[Money] = max(g.wallet[Money], 600)
 	for room, c := range [][2]int{{2, 9}, {9, 2}} {
 		h := g.arrive(room)
 		h.Guests, h.Routine, h.Nights = h.Guests[:1], homebody, 3
