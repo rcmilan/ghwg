@@ -143,11 +143,11 @@ func (g *Game) termView() TerminalView {
 	return t
 }
 
-// forSale: the items on sale that aren't owned unlocks (bought, on their way or in the cart).
+// forSale: the items on sale that aren't owned unlocks (bought, on their way or in the cart), nor gone (terminal.go).
 func (g *Game) forSale() []int {
 	var rows []int
 	for i := range shop {
-		if g.onSale(i) && !g.owned(i) {
+		if g.onSale(i) && !g.owned(i) && !g.gone(i) {
 			rows = append(rows, i)
 		}
 	}

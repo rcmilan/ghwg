@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 	"testing"
 
 	"ghosthotel/entities"
@@ -154,11 +155,8 @@ func TestGrowBuy(t *testing.T) {
 		}
 	}
 	g.wallet[Ecto] = 1e6
-	if why := buy(GrowFloor); why != "THE HOTEL IS AS TALL AS IT GETS" {
-		t.Errorf("a fourth floor: %q", why)
-	}
-	if why := buy(GrowCol); why != "THE HOTEL IS AS WIDE AS IT GETS" {
-		t.Errorf("a fourth column: %q", why)
+	if l := g.listed(tabHotel); slices.ContainsFunc(l, func(k int) bool { return shop[tabItems(tabHotel)[k]].Grow != 0 }) { // 08 F0-T: not listed
+		t.Errorf("at 3x3 the store still lists a growth: %v", l)
 	}
 	if g.startRun(); len(g.hotel.Rooms) != 2 || len(g.mood) != 2 {
 		t.Errorf("a new Run starts with %d Rooms, want the 2 it opened with", len(g.hotel.Rooms))

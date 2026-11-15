@@ -179,7 +179,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 	}
 	for r, c := range g.hud {
 		y := int(c.y)
-		if c.in == 0 {
+		if c.in == 0 || g.state == StateTerminal { // the Terminal's own bar shows the wallet (08 F0-T)
 			continue
 		}
 		ease := c.in * c.in * (3 - 2*c.in)

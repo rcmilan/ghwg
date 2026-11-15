@@ -63,33 +63,33 @@ func noFatherM(g *Game, room int) string { return g.noFather(room, true) }
 // shop is the catalog, in its order: a tab lists its rows as they stand here, so a new row goes next to its
 // kind (the keys, then the Priests), not at the end. Prices, packs and thresholds are placeholders.
 var shop = []Item{
-	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Icon: "icon_water", Cost: Cost{Money: 50}, Pack: 5},
-	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Icon: "food_4", Cost: Cost{Money: 100}, Pack: 5},
-	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Icon: "icon_towel", Cost: Cost{Money: 75}, Pack: 5},
+	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Hint: "Buy a Room to unlock.", Icon: "icon_water", Cost: Cost{Money: 50}, Pack: 5},
+	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Hint: "Buy a Room to unlock.", Icon: "food_4", Cost: Cost{Money: 100}, Pack: 5},
+	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Hint: "Buy a Room to unlock.", Icon: "icon_towel", Cost: Cost{Money: 75}, Pack: 5},
 
-	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Icon: "icon_mirror", Cost: Cost{Money: mirrorPrice}},
-	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Icon: "icon_bed_twin", Cost: Cost{Money: twinPrice},
+	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Hint: "Buy a Room to unlock.", Icon: "icon_mirror", Cost: Cost{Money: mirrorPrice}},
+	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Hint: "Earn $50 after the Mirror to unlock.", Icon: "icon_bed_twin", Cost: Cost{Money: twinPrice},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 50}},
-	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Icon: "icon_bed_double", Cost: Cost{Money: 2 * twinPrice},
+	{ID: BedsDouble, Tab: tabHotel, Name: "Double bed", Blurb: "One bed. Whose side is whose is their problem.", Hint: "Earn $200 after Twin beds to unlock.", Icon: "icon_bed_double", Cost: Cost{Money: 2 * twinPrice},
 		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 200}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Hint: "Earn 100 Ectoplasm after the Mirror to unlock.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
 		Needs: []Unlock{Mirror}, Earned: Cost{Ecto: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Icon: "painting_scary_b", Cost: Cost{Money: 500, Ecto: 50},
+	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Hint: "Earn 200 Ectoplasm after the Room lock to unlock.", Icon: "painting_scary_b", Cost: Cost{Money: 500, Ecto: 50},
 		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
+	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Hint: "Earn $5000 and 1000 Ectoplasm after the Mirror to unlock.", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
 		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
-	{ID: Deluxe, Tab: tabHotel, Name: "Deluxe rooms", Blurb: "Finer rooms. Guests pay the difference.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeEcto},
+	{ID: Deluxe, Tab: tabHotel, Name: "Deluxe rooms", Blurb: "Finer rooms. Guests pay the difference.", Hint: "Grow the hotel to unlock.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeEcto},
 		Needs: []Unlock{Mirror}},
-	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Icon: "icon_grow_col",
+	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_col",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
-	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Icon: "icon_grow_floor",
+	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
-	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Icon: keeperName, Head: true,
+	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
-	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Icon: keeperName, Head: true,
+	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Hint: "Earn $" + fmtNum(keeperEarned) + " to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
