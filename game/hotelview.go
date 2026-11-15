@@ -77,8 +77,8 @@ func (g *Game) buyNow(i, room int) string {
 }
 
 // ringSlot: each Room action's fixed place on its ring (2026-11-15), clockwise from the top: Change type (a
-// boarded Room's key), Deluxe on the right, the Room mirror lower right, Father M lower left, Father K on the left.
-var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowFatherM: 3, rowFatherK: 4}
+// boarded Room's key), Deluxe on the right, the Room mirror (Add mirror once it is bought) lower right, Father M lower left, Father K on the left.
+var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowAddMirror: 2, rowFatherM: 3, rowFatherK: 4}
 
 const ringSlots = 5
 

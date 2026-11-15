@@ -148,6 +148,7 @@ type Game struct {
 	recent        []earning                      // the last game hour's earnings: the Terminal's rates (wallet.go)
 	viewIn        float64                        // the hotel view's camera from the whole hotel (0) to the picked Room (1), eased (hotelview.go)
 	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
+	mirrorSlots   []arrival                      // per Room with a mirror: its second ghost's arrival (ghostguest.go, 08 B1)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

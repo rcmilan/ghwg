@@ -274,7 +274,7 @@ func TestRoomMirrorCourier(t *testing.T) {
 	p := g.arrive(0)
 	g.settleIn(p)
 	p.Rate = 0
-	g.wallet = [2]Num{bedKinds[1].Fee, 2 * roomMirrorEcto}
+	g.wallet = [2]Num{bedKinds[1].Fee + roomMirrorMoney, 2 * roomMirrorEcto}
 	if why := order(t, g, 0, "Twin"); why != "" {
 		t.Fatal(why)
 	}

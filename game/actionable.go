@@ -16,6 +16,7 @@ const (
 	actTerminal
 	actMirror
 	actRoomMirror
+	actUncover // a covered Corridor Mirror, with the Ectoplasm to uncover it (08 B1)
 	actSupply
 	actDeliver
 	actTalk
@@ -35,6 +36,15 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		t := g.hotel.Terminal
 		return actTerminal, image.Rect(t.Min.X, t.Min.Y+ts, t.Max.X, t.Max.Y-ts)
 	}
+	if k := g.atCorridorMirror(); k >= 0 { // a Corridor Mirror: uncovered by SPACE, then it shifts like the Lobby's
+		switch m := g.hotel.Corridors[k]; {
+		case m.Open:
+			return actMirror, m.Glass
+		case g.afford(uncoverCost(g)):
+			return actUncover, m.Glass
+		}
+		return actNone, image.Rectangle{}
+	}
 	if g.atMirror() {
 		if !g.unlocked(Mirror) { // covered until the courier installs it
 			return actNone, image.Rectangle{}
@@ -44,7 +54,7 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	}
 	for _, r := range g.hotel.Rooms { // a Room's own Mirror shifts too (K1)
 		if feet.In(r.Mirror) {
-			return actRoomMirror, image.Rect(r.Mirror.Min.X+ts, r.Mirror.Min.Y-2*ts, r.Mirror.Min.X+2*ts, r.Mirror.Min.Y)
+			return actRoomMirror, image.Rect(r.Mirror.Min.X, r.Mirror.Min.Y-2*ts, r.Mirror.Max.X, r.Mirror.Min.Y)
 		}
 	}
 	if k := g.atSupply(); k >= 0 {
@@ -89,6 +99,8 @@ func (g *Game) space() {
 		g.openTerminal()
 	case actMirror, actRoomMirror:
 		g.startShift()
+	case actUncover:
+		g.uncover(g.atCorridorMirror())
 	case actSupply:
 		g.fetch(g.atSupply())
 	case actDeliver:
@@ -100,7 +112,7 @@ func (g *Game) space() {
 	case actView:
 		g.openView()
 	default:
-		if g.shifting == nil && g.atMirror() {
+		if g.shifting == nil && (g.atMirror() || g.atCorridorMirror() >= 0) {
 			g.refuse("THE MIRROR IS COVERED")
 		}
 	}

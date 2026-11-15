@@ -11,7 +11,7 @@ func (shopper) Act(v View, p *Pilot) {
 	for _, i := range v.Shop {
 		it := shop[i]
 		if v.Terminal.Open || it.Tab == tabSupplies || it.ID == rowKey || v.Money < it.Cost[Money] || v.Ecto < it.Cost[Ecto] ||
-			it.ID == rowChange || it.ID == RoomMirror { // K1's Room changes are the opener's to play
+			it.ID == rowChange || it.ID == RoomMirror || it.ID == rowAddMirror { // K1's Room changes are the opener's to play
 			continue
 		}
 		if it.Tab == tabHotel {
