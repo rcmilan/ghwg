@@ -337,7 +337,7 @@ The Strategy that opens Rooms, keeps the Stock up, hires one Housekeeper as soon
 A stress Run (`-busy`, `TestBusyHotel`): the hotel at 3 by 3, every Room open with Twin beds, Parties and ghosts arriving minutes apart and replaced minutes after they leave, three Housekeepers, a Courier restocking for free. It shows everyone walking at once and counts how often a walker is stopped by someone ahead.
 
 **Notice**:
-The HUD's place for words to the player: a feed on the right, under the Ectoplasm counter and TALK's cue, of brief lines (about 4 s) in green or purple, at most three, the oldest leaving early. It fires when a Room reaches Mood -100 (ghost-only Rooms too) and when a human Party flees; staff leaving unpaid only say so. Code says it with `g.notice(text, ink)`. What a buy did shows in the world and on the counters; the store's own page keeps its words short. The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a text outside `g.notice`.
+The HUD's place for words to the player: a feed on the right, under the Ectoplasm counter and TALK's cue, of one-line notices (about 4 s) drawn exactly like the Ectoplasm counter (its font, size and ink, no outline), in one left-aligned column, at most three, the oldest leaving early; the left side's next-guest note is drawn like the Money counter. All hide while the Terminal is open. A notice fires when a Room reaches Mood -100 ("101 CLOSED", ghost-only Rooms too) and when a human Party flees ("GUESTS FLED 102"); staff leaving unpaid only say so. Code says it with `g.notice(text)`. The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a text outside `g.notice`.
 _Avoid_: message, message line, status bar, toast
 
 **Room-only line**:
@@ -398,8 +398,8 @@ Father K's daily wage in Ectoplasm, a STAFF row once his call is unlocked. Retai
 **Running shoes**:
 Three STAFF tiers in Ectoplasm, each +15% walking speed (added) for every Housekeeper, Priest and the Courier, later hires included; never the Concierge. Only the next tier is listed.
 
-**Wall-walking**:
-A HOTEL upgrade in Ectoplasm, on sale once the hotel is 3 by 3: in the ghost Dimension the Concierge passes through Room walls; outer walls, the Hall Wall and props stay solid. Shifting back inside a wall puts him on the nearest open floor. In ghost he is a benevolent ghost: he hears only ghost lines, and never bothers guests by lingering.
+**Benevolent ghost**:
+The Concierge in the ghost Dimension: he hears only ghost lines (never the living's or the staff's), triggers no Shadow or haunt, and never bothers guests by lingering.
 
 **Corridor mirror**:
 A Mirror on a Corridor made by a New floor, one per such Corridor, at a random Room's front-wall corner each Run, covered at first. Uncovered for Ectoplasm (doubling per Mirror) by SPACE on the cell below it or the HOTEL row; then it Shifts like the Lobby's.
