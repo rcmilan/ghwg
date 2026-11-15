@@ -48,6 +48,10 @@ func (g *Game) notify(text string) {
 	g.note.text, g.note.on, g.note.age = text, true, 0
 }
 
+// notice (08 B1 seam): a brief timed notice in the right-side feed, in ink (green or purple). Any file may call
+// it; B1-N builds the feed. Until then it is the HUD's one notice.
+func (g *Game) notice(text string, ink color.Color) { g.notify(text) }
+
 // said: what the HUD's notice says, "" once dropped.
 func (g *Game) said() string {
 	if g.note.on {

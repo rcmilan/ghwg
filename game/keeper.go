@@ -228,7 +228,7 @@ func (g *Game) updateKeepers() {
 		if k.job == resting {
 			speed = keeperStroll
 		}
-		arrived := g.walk(&k.Guest, speed)
+		arrived := g.walk(&k.Guest, speed*g.staffSpeed())
 		if !g.headless {
 			k.Anim.Update(k.X, k.Y, g.dt)
 		}

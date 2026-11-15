@@ -104,7 +104,7 @@ func (g *Game) workSpot(room int) image.Point {
 func (g *Game) updatePriests() {
 	kept := g.priests[:0]
 	for _, pr := range g.priests {
-		arrived := g.walk(&pr.Guest, priestSpeed)
+		arrived := g.walk(&pr.Guest, priestSpeed*g.staffSpeed())
 		g.comeNear(&pr.Guest, &pr.voice, func() []string {
 			if pr.done {
 				return g.sometimes(priestOut)

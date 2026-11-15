@@ -51,7 +51,7 @@ func (g *Game) updateCouriers() {
 	kept := g.couriers[:0]
 	for _, c := range g.couriers {
 		c.out = true
-		arrived := g.walk(&c.Guest, courierSpeed)
+		arrived := g.walk(&c.Guest, courierSpeed*g.staffSpeed())
 		if !g.headless {
 			c.Anim.Update(c.X, c.Y, g.dt)
 		}
