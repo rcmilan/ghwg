@@ -16,52 +16,60 @@ import (
 // side is a column of notices, centered vertically on what it shows (2026-11-08): a notice coming in or
 // going makes the others ease to their new places. Placeholders.
 const (
-	rollShare   = 0.1     // of the gap a counter closes per frame, at least 1
-	holdFrames  = 3 * tps // a counter stays after the last change,
-	slideFrames = tps / 3 // then slides out over this; it slides in over the same
-	inkPeriod   = 4 * tps // a currency's color cycle (resInk)
-	hudScale    = 3       // as big as the request balloon's "!!" (balloonScale)
-	hudMargin   = 12      // screen px between a counter and its edge
-	noteScale   = 2       // a text notice's size
-	slotGap     = 12      // screen px between notices in a column
-	slotEase    = 0.15    // of the way to its new place a notice moves per frame
-	noticeWrap  = 18      // a text notice's line, in letters: it stays in the screen's side margin
+	rollShare    = 0.1     // of the gap a counter closes per frame, at least 1
+	holdFrames   = 3 * tps // a counter stays after the last change,
+	slideFrames  = tps / 3 // then slides out over this; it slides in over the same
+	inkPeriod    = 4 * tps // a currency's color cycle (resInk)
+	hudScale     = 3       // as big as the request balloon's "!!" (balloonScale)
+	hudMargin    = 12      // screen px between a counter and its edge
+	noteScale    = 2       // a text notice's size
+	slotGap      = 12      // screen px between notices in a column
+	slotEase     = 0.15    // of the way to its new place a notice moves per frame
+	noticeWrap   = 18      // a text notice's line, in letters: it stays in the screen's side margin
+	noticeFrames = 4 * tps // a feed notice holds this long
+	noticeMax    = 3       // and at most this many show
 )
 
-// notice is the HUD's text notice (07 U2): the one place for words to the player. The game says none today
-// (2026-11-14: no system text, neither a confirmation nor a refusal; show, don't tell), so nothing calls notify
-// but the tests; the mechanic stays. It slides in on the left column, holds, and slides out. It is the only place for it: the game has no message
-// line, and nothing else may print one (guard_test.go).
-type notice struct {
+// notice is the HUD's feed (08 B1-N): brief timed notices on the right, stacked under the Ecto counter and TALK's
+// cue, green or purple. At most noticeMax show; a newer one sends the oldest out early. No persistent rows. The only
+// place for words to the player: the game has no message line, and nothing else may print one (guard_test.go).
+type notice struct{ items []feedItem }
+
+type feedItem struct {
 	text string
-	on   bool // said and not yet dropped: what the View reads, shown or slid out
-	age  int  // frames since it was said
+	ink  color.Color
+	age  int // frames since it was said
 	slot
 }
 
-// notify says text on the HUD; "" drops what it was saying.
-func (g *Game) notify(text string) {
+// notice says text in the feed, in ink (green or purple, the Ecto inks). Any file may call it: the one path.
+func (g *Game) notice(text string, ink color.Color) {
 	if text == "" {
-		g.note.on = false
 		return
 	}
-	g.note.text, g.note.on, g.note.age = text, true, 0
-}
-
-// notice (08 B1 seam): a brief timed notice in the right-side feed, in ink (green or purple). Any file may call
-// it; B1-N builds the feed. Until then it is the HUD's one notice.
-func (g *Game) notice(text string, ink color.Color) { g.notify(text) }
-
-// said: what the HUD's notice says, "" once dropped.
-func (g *Game) said() string {
-	if g.note.on {
-		return g.note.text
+	f := &g.note
+	f.items = append(f.items, feedItem{text: text, ink: ink})
+	for live := 0; ; {
+		live = 0
+		for _, it := range f.items {
+			if it.age < noticeFrames {
+				live++
+			}
+		}
+		if live <= noticeMax {
+			break
+		}
+		for k := range f.items {
+			if f.items[k].age < noticeFrames {
+				f.items[k].age = noticeFrames
+				break
+			}
+		}
 	}
-	return ""
 }
 
-// lines: the notice's text, wrapped at its words.
-func (n notice) lines() []string {
+// lines: the item's text, wrapped at its words.
+func (n feedItem) lines() []string {
 	var ls []string
 	for _, w := range strings.Fields(n.text) {
 		if k := len(ls) - 1; k >= 0 && len(ls[k])+1+len(w) <= noticeWrap {
@@ -141,13 +149,25 @@ func (g *Game) updateHUD() {
 		g.guestText = t
 	}
 	note := g.nextGuest() != ""
-	g.note.age++
-	say := g.note.on && g.note.age < holdFrames
-	column([]*slot{&g.hud[Money].slot, &g.guestNote, &g.note.slot}, []int{glyphH * hudScale, glyphH * noteScale, len(g.note.lines()) * glyphH * noteScale},
-		[]bool{want(Money), note, say})
-	g.note.slide(say)
+	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * noteScale}, []bool{want(Money), note})
 	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would start the talk
-	column([]*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue})
+	slots, hs, wants := []*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue}
+	items := g.note.items[:0]
+	for _, it := range g.note.items {
+		if it.age++; it.age < noticeFrames || it.in > 0 {
+			items = append(items, it)
+		}
+	}
+	g.note.items = items
+	for k := range items {
+		it := &g.note.items[k]
+		slots, hs, wants = append(slots, &it.slot), append(hs, len(it.lines())*glyphH*noteScale), append(wants, it.age < noticeFrames)
+	}
+	column(slots, hs, wants)
+	for k := range items {
+		it := &g.note.items[k]
+		it.slide(it.age < noticeFrames)
+	}
 	g.talkCue.slide(cue)
 	g.hud[Money].slide(want(Money))
 	g.hud[Ecto].slide(want(Ecto))
@@ -166,16 +186,19 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		w := len(g.guestText) * glyphW * noteScale
 		printAt(s, g.guestText, int(-float64(w)+float64(w+hudMargin)*ease), int(n.y), noteScale, resInk(Money), 1)
 	}
-	if n := g.note; n.in > 0 { // words alone, never on a background (2026-11-14): white, outlined in black
+	for _, n := range g.note.items { // words alone, never on a background (2026-11-14): outlined in black, from the right edge
+		if n.in == 0 {
+			continue
+		}
 		ease := n.in * n.in * (3 - 2*n.in)
 		ls := n.lines()
 		w := 0
 		for _, l := range ls {
 			w = max(w, len(l)*glyphW*noteScale)
 		}
-		x := int(-float64(w) + float64(w+hudMargin)*ease)
+		x := int(float64(sw) - float64(w+hudMargin)*ease)
 		for k, l := range ls {
-			outline(s, l, x, int(n.y)+k*glyphH*noteScale, noteScale, color.White, 1)
+			outline(s, l, x, int(n.y)+k*glyphH*noteScale, noteScale, n.ink, 1)
 		}
 	}
 	if c := g.talkCue; c.in > 0 { // TALK, from off the right edge, in the Ectoplasm counter's own style (live test 1)
@@ -320,4 +343,11 @@ func (g *Game) tinted(s *ebiten.Image, v string, x, y int, c color.Color, a floa
 // tintedAt is tinted at a scale.
 func (g *Game) tintedAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
 	printAt(s, v, x, y, scale, c, a)
+}
+
+// DevNotices (dev flag -notices): three notices in the feed, to print the stack.
+func (g *Game) DevNotices() {
+	g.notice("ROOM 101 IS AT ITS WORST", purple)
+	g.notice("GUESTS FLED ROOM 102", green)
+	g.notice("ROOM 103 IS AT ITS WORST", purple)
 }

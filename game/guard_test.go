@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-// U2: the game has no message line. All it has to say to the player goes through notify and shows on the HUD
+// U2: the game has no message line. All it has to say to the player goes through g.notice and shows on the HUD
 // (hud.go); nothing else may hold or print a notification. This reads the package's sources, so a change that
 // brings one back fails here, whoever writes it:
 //   - Game has no message field, and nothing reads or writes one;
-//   - the notice is touched only in hud.go, through notify and said everywhere else;
+//   - the notice is touched only in hud.go, through g.notice, the one call any file may make;
 //   - drawFrame prints no text of its own: what it draws last is the HUD;
 //   - the debug font is printed by printAt alone, and the white-only text() is gone;
-//   - the HUD's words stand alone, on no background, and the game calls notify nowhere: no system text, neither a
+//   - the HUD's words stand alone, on no background, and the feed carries events (a Room at -100, a Party fleeing), no system text, neither a
 //     confirmation nor a refusal (show, don't tell); why a SPACE did nothing is kept for the View alone.
 func TestNoMessageLine(t *testing.T) {
 	files, _ := filepath.Glob("*.go")
@@ -31,7 +31,7 @@ func TestNoMessageLine(t *testing.T) {
 		src := string(b)
 		all.WriteString(src)
 		for _, bad := range []struct{ re, why string }{
-			{`\bg\.message\b|^\s*message\s+string`, "a message field: say it with g.notify"},
+			{`\bg\.message\b|^\s*message\s+string`, "a message field: say it with g.notice"},
 			{`(?m)^func text\(|\btext\(s(creen)?,`, "text(): print through the HUD's notice, or printAt in a screen of its own"},
 		} {
 			if m := regexp.MustCompile("(?m)" + bad.re).FindString(src); m != "" {
@@ -39,13 +39,13 @@ func TestNoMessageLine(t *testing.T) {
 			}
 		}
 		if f != "hud.go" && regexp.MustCompile(`\bg\.note\.`).MatchString(src) {
-			t.Errorf("%s touches g.note: only hud.go does; say it with g.notify, read it with g.said", f)
+			t.Errorf("%s touches g.note: only hud.go does; say it with g.notice, read it with g.said", f)
 		}
 		if f == "hud.go" && strings.Contains(src, "rect(") {
 			t.Errorf("hud.go draws a rectangle: the HUD's words stand alone, never on a background")
 		}
-		if f != "hud.go" && strings.Contains(src, "g.notify(") {
-			t.Errorf("%s says something in words: the game has no system text; show it in the world, on the counters or in the store's own page", f)
+		if strings.Contains(src, "g.notify(") || strings.Contains(src, "g.said(") {
+			t.Errorf("%s: notify and said are gone: the one path is g.notice(text, ink), the HUD's right-side feed", f)
 		}
 		if f != "view.go" && strings.Contains(src, "g.refused") {
 			t.Errorf("%s reads g.refused: it is the View's, set by g.refuse and never drawn", f)
@@ -69,29 +69,44 @@ func TestNoMessageLine(t *testing.T) {
 	}
 }
 
-// U2: a notice slides in when said, wraps inside the side margin, and goes when dropped or after its hold.
+// B1-N: the feed holds a notice ~4 s in its ink, shows at most 3 (the oldest leaves early), and empties.
 func TestNotice(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.notify("CAN'T AFFORD")
+	for _, w := range []string{"ONE", "TWO", "THREE", "FOUR"} {
+		g.notice(w, green)
+	}
+	live := func() (n int) {
+		for _, it := range g.note.items {
+			if it.age < noticeFrames {
+				n++
+			}
+		}
+		return
+	}
+	if live() != noticeMax {
+		t.Fatalf("%d live after four notices, want %d", live(), noticeMax)
+	}
+	if g.note.items[0].age < noticeFrames || g.note.items[3].age != 0 {
+		t.Fatalf("the oldest should leave early, the newest stay")
+	}
 	for range slideFrames {
 		g.updateHUD()
 	}
-	if g.said() == "" || g.note.in != 1 {
-		t.Fatalf("said %q, slid in %.2f; want the notice in", g.said(), g.note.in)
+	if g.note.items[len(g.note.items)-1].in != 1 {
+		t.Fatalf("the newest slid in %.2f, want 1", g.note.items[len(g.note.items)-1].in)
 	}
-	for _, l := range g.note.lines() {
-		if len(l) > noticeWrap {
-			t.Errorf("the line %q is over %d letters", l, noticeWrap)
+	for _, it := range g.note.items {
+		for _, l := range it.lines() {
+			if len(l) > noticeWrap {
+				t.Errorf("the line %q is over %d letters", l, noticeWrap)
+			}
 		}
 	}
-	for range holdFrames + slideFrames {
+	for range noticeFrames + 2*slideFrames {
 		g.updateHUD()
 	}
-	if g.note.in != 0 || g.said() == "" {
-		t.Fatalf("after its hold: slid in %.2f, said %q; want it out of sight, still what was last said", g.note.in, g.said())
-	}
-	if g.notify(""); g.said() != "" {
-		t.Fatalf("dropped, it still says %q", g.said())
+	if len(g.note.items) != 0 {
+		t.Fatalf("%d notices left after their hold", len(g.note.items))
 	}
 }

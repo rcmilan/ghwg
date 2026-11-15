@@ -74,12 +74,8 @@ var shop = []Item{
 		Needs: []Unlock{BedsTwin}, Earned: Cost{Money: 200}},
 	// Housekeeping (Money 50 + Ecto 20, "Cleans empty Rooms. Asks no questions.") returns with auto-clean:
 	// manual cleaning is free from the start (E6 close-out, 2026-11-08).
-	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "Checkout is whenever we say it is.", Hint: "Earn 100 Ectoplasm after the Mirror to unlock.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
+	{ID: RoomLock, Tab: tabHotel, Name: "Room lock", Blurb: "A plate by each door: who is in, at a glance.", Hint: "Earn 100 Ectoplasm after the Mirror to unlock.", Icon: "lock_red", Cost: Cost{Money: 300, Ecto: 40},
 		Needs: []Unlock{Mirror}, Earned: Cost{Ecto: 100}},
-	{ID: Consume, Tab: tabHotel, Name: "Consume", Blurb: "Guests go in. Something else comes out.", Hint: "Earn 200 Ectoplasm after the Room lock to unlock.", Icon: "painting_scary_b", Cost: Cost{Money: 500, Ecto: 50},
-		Needs: []Unlock{RoomLock}, Earned: Cost{Ecto: 200}},
-	{ID: ShiftAnywhere, Tab: tabHotel, Name: "Shift anywhere", Blurb: "My husband shifted to another dimension. 5/5", Hint: "Earn $5000 and 1000 Ectoplasm after the Mirror to unlock.", Icon: "vanity", Cost: Cost{Money: 2500, Ecto: 500},
-		Needs: []Unlock{Mirror}, Earned: Cost{Money: 5000, Ecto: 1000}},
 	{ID: Deluxe, Tab: tabHotel, Name: "Deluxe rooms", Blurb: "Finer rooms. Guests pay the difference.", Hint: "Grow the hotel to unlock.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeEcto},
 		Needs: []Unlock{Mirror}},
 	{ID: GrowCol, Tab: tabHotel, Grow: growCol, Name: "New column", Blurb: "One more Room a floor. Keys sold separately.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_col",

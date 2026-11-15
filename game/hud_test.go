@@ -98,3 +98,34 @@ func TestCountersAtTerminal(t *testing.T) {
 		t.Fatal("counters stay after the Terminal closes")
 	}
 }
+
+// B1-N: a Room reaching -100 says so once, not every frame or on later knocks at the floor.
+func TestNoticeMoodFloor(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.notice("", green) // an empty text is nothing
+	g.addMood(0, -50)
+	if len(g.note.items) != 0 {
+		t.Fatalf("a notice at Mood %d", g.roomMood(0))
+	}
+	g.addMood(0, -100)
+	g.addMood(0, -5)
+	g.updateHUD()
+	if len(g.note.items) != 1 {
+		t.Fatalf("%d notices at the floor, want 1", len(g.note.items))
+	}
+}
+
+// B1-N: a human Party fleeing says so; a ghost Party leaving does not.
+func TestNoticeFlee(t *testing.T) {
+	g, _, p := settled(t)
+	g.flee(p)
+	if len(g.note.items) != 1 {
+		t.Fatalf("%d notices after a flight, want 1", len(g.note.items))
+	}
+	p.Realm = Ghost
+	g.flee(p)
+	if len(g.note.items) != 1 {
+		t.Fatalf("a ghost Party's flight added a notice")
+	}
+}
