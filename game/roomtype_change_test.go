@@ -50,8 +50,8 @@ func TestRoomsOpenSingle(t *testing.T) {
 	if g.onSale(twin) || g.onSale(double) || shop[twin].Tab != tabHotel || shop[double].Tab != tabHotel {
 		t.Fatal("Twin or Double is on sale before the Mirror, or not a HOTEL unlock")
 	}
-	if g.pickBeds(1); g.termBeds != 0 {
-		t.Errorf("picked %s with only Single unlocked", bedKinds[g.termBeds].Beds)
+	if beds := g.changeBeds(0); len(beds) != 0 {
+		t.Errorf("a Single Room can change to %v with only Single unlocked", beds)
 	}
 	if why := order(t, g, 0, "Twin"); why != "TWIN IS NOT UNLOCKED" || g.changing(0) {
 		t.Errorf("a change to locked Twin: %q", why)
@@ -66,12 +66,8 @@ func TestRoomsOpenSingle(t *testing.T) {
 	if !g.onSale(double) {
 		t.Error("Double is not on sale after Twin and its earnings")
 	}
-	g.termBeds = 0
-	if g.pickBeds(1); bedKinds[g.termBeds].Beds != "Twin" {
-		t.Errorf("W/S picked %s, want Twin", bedKinds[g.termBeds].Beds)
-	}
-	if g.pickBeds(1); bedKinds[g.termBeds].Beds != "Single" {
-		t.Errorf("W/S went on to %s past locked Double, want Single", bedKinds[g.termBeds].Beds)
+	if beds := g.changeBeds(0); !slices.Equal(beds, []int{1}) {
+		t.Errorf("a Single Room with Twin unlocked can change to %v, want Twin alone: not Single, not locked Double", beds)
 	}
 }
 

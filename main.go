@@ -38,7 +38,7 @@ func main() {
 	change := flag.String("change", "", "dev: start a Run with Room 101 changing to this bed layout (single, twin, double), mirrored, and Room 102's change waiting on its guests; you in the Corridor (with -shot -at; -term 2,1,1 shows Room 102's actions)")
 	term := flag.String("term", "", "dev, with -change or -shop: open the Terminal on tab,row (from 0), a third number 1 pressing SPACE on it (e.g. 1,0: the HOTEL tab's first row); see -view for a Room's actions")
 	key := flag.Int("key", -1, "dev: start a Run that has ordered the key of this Room (0 is the first), you in the Corridor by its door")
-	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first), a second number 1 opening its actions (e.g. 1,1), with -shot -at")
+	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first) picked; a second number -1 picks none, 1 opens its ring, 2 its Change type's beds, a third focusing that action (clockwise from the top) or bed (e.g. 1,1,2), with -shot -at")
 	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
 	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
@@ -118,9 +118,9 @@ func main() {
 		g.ShopPrint(money, ecto)
 	}
 	if *hotelView != "" {
-		var room, open int
-		fmt.Sscanf(*hotelView, "%d,%d", &room, &open)
-		g.DevView(room, open == 1)
+		var room, open, pick int
+		fmt.Sscanf(*hotelView, "%d,%d,%d", &room, &open, &pick)
+		g.DevView(room, open, pick)
 	}
 	if *term != "" {
 		var tab, row, place int

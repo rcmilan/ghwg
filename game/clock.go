@@ -9,6 +9,7 @@ const (
 	hourFrames   = 60 * minuteFrames
 	dayFrames    = 24 * hourFrames
 	runStart     = 8 * hourFrames // a Run starts on Day 1 at 08:00 (D72)
+	viewSlow     = 0.25           // the world's time scale while the hotel view is open (08 F0): slow motion, no pause
 	fastScale    = 4              // holding T runs the world ×4: a dev aid (T014, D1; it was ×10 until a live test froze the computer, cause not found)
 )
 

@@ -85,13 +85,16 @@ type change struct {
 // bedOpen: bed layout k is unlocked.
 func (g *Game) bedOpen(k int) bool { return bedKinds[k].Needs == "" || g.unlocked(bedKinds[k].Needs) }
 
-// pickBeds moves the Terminal's picked layout d steps among the unlocked ones.
-func (g *Game) pickBeds(d int) {
-	for range bedKinds {
-		if g.termBeds = (g.termBeds + d + len(bedKinds)) % len(bedKinds); g.bedOpen(g.termBeds) {
-			return
+// changeBeds: the layouts the Room can change to, indexes into bedKinds: the unlocked ones but the beds it has
+// (2026-11-15: never the current type).
+func (g *Game) changeBeds(room int) []int {
+	var ks []int
+	for k, b := range bedKinds {
+		if g.bedOpen(k) && b.Beds != g.hotel.Rooms[room].Type.Beds {
+			ks = append(ks, k)
 		}
 	}
+	return ks
 }
 
 // bedFee: a change to layout k: its fee, plus Ectoplasm once the in-Room Mirror is in.
