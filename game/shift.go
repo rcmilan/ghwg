@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 
+	"ghosthotel/entities"
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -37,6 +38,9 @@ func (g *Game) updateShift() {
 	e := g.tick - s.start
 	if e >= flipFrames/2 && g.ghost != s.toGhost {
 		g.flip()
+		if !g.ghost {
+			g.unstick()
+		}
 	}
 	if e >= flipFrames {
 		g.shifting = nil
@@ -236,3 +240,40 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	return card(at, size)
 }
 `
+
+// Wall-walking (08 B1-W, HOTEL upgrade): in ghost the Concierge passes through Room walls (world's WallBlocked);
+// the outer walls, the Hall Wall and props stay solid, real is unchanged.
+const (
+	WallWalk     Unlock = "wall-walk"
+	wallWalkEcto        = 300 // placeholder, tuned with the sim
+)
+
+// wallWalking: he is in ghost and owns it.
+func (g *Game) wallWalking() bool { return g.ghost && g.unlocked(WallWalk) }
+
+// fullyGrown: the hotel is at its largest grid, the earliest wall-walking is on sale.
+func (g *Game) fullyGrown() bool {
+	c, r := g.hotel.Grid()
+	return c >= maxCols && r >= maxRows
+}
+
+// unstick runs as he comes back to real: standing in a wall (or a prop) he is moved to the nearest open cell's
+// center, ring by ring, so he never shifts back trapped. ponytail: cell centers only, 6 cells out; a miss leaves him.
+func (g *Game) unstick() {
+	if !g.conciergeBlocked(entities.FootBox(g.player.X, g.player.Y)) {
+		return
+	}
+	m, at := g.hotel.Map, g.hotel.Map.Cell(g.feet())
+	best, bd := image.Point{}, -1
+	for dy := -6; dy <= 6; dy++ {
+		for dx := -6; dx <= 6; dx++ {
+			c := m.Center(at.X+dx, at.Y+dy)
+			if d := dx*dx + dy*dy; (bd < 0 || d < bd) && !g.conciergeBlocked(entities.FootBox(float64(c.X), float64(c.Y))) {
+				best, bd = c, d
+			}
+		}
+	}
+	if bd >= 0 {
+		g.player.X, g.player.Y = float64(best.X), float64(best.Y)
+	}
+}

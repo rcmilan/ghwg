@@ -127,10 +127,9 @@ var (
 	splat *ebiten.Image             // the dirt complaint's, white (splatRows)
 )
 
-// drawRequests lights what SPACE would act on, then draws a pill by each asking or complaining Party's leader, in
+// drawRequests draws a pill by each asking or complaining Party's leader, in
 // both dimensions and over the Fog and the dark.
 func (g *Game) drawRequests(s *ebiten.Image, ox, oy int) {
-	g.drawActGlow(s, ox, oy)
 	if splat == nil {
 		splat = bitmap(splatRows)
 	}

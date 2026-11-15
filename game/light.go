@@ -92,11 +92,56 @@ func lightCone(radius int) *ebiten.Image {
 }
 
 type light struct {
-	at   image.Point
-	img  *ebiten.Image
-	rgb  [3]float32
-	cut  float32
-	turn float64 // radians: a lantern's facing (its beam points right unturned)
+	at    image.Point
+	img   *ebiten.Image
+	rgb   [3]float32
+	cut   float32
+	turn  float64   // radians: a lantern's facing (its beam points right unturned)
+	reach []float64 // a lantern's: how far each of its beamRays rays goes before a wall tile, world px; nil: the whole image
+}
+
+const beamRays = 17 // rays across the beam, from -lanternHalf to +lanternHalf
+
+// beamReach casts the beam's rays from at, facing turn (radians, as light.turn): each runs lanternR px or up to
+// the first wall tile, not counting the one it starts in. ponytail: 2 px steps, a ray can graze a wall corner.
+func (g *Game) beamReach(at image.Point, turn float64) []float64 {
+	m := g.hotel.Map
+	start, out := m.Cell(at), make([]float64, beamRays)
+	for i := range out {
+		a := turn + lanternHalf*(2*float64(i)/(beamRays-1)-1)
+		out[i] = lanternR
+		for d := 2.0; d < lanternR; d += 2 {
+			c := m.Cell(at.Add(image.Pt(int(math.Round(d*math.Cos(a))), int(math.Round(d*math.Sin(a))))))
+			if c != start && m.Wall(c.X, c.Y) {
+				out[i] = d - 2
+				break
+			}
+		}
+	}
+	return out
+}
+
+// fan is the beam as a triangle fan out to each ray's reach, sampling the cone image where it would lie
+// unclipped, so a wall just cuts it short.
+func (l light) fan(ox, oy int, c [4]float32) ([]ebiten.Vertex, []uint16) {
+	vs := []ebiten.Vertex{}
+	tx := func(a, d float64) ebiten.Vertex {
+		x, y := d*math.Cos(a), d*math.Sin(a)
+		u, v := float32(lanternR+x), float32(lanternR+y)
+		a2 := l.turn
+		sx := float32(float64(l.at.X*zoom-ox) + zoom*(x*math.Cos(a2)-y*math.Sin(a2)))
+		sy := float32(float64(l.at.Y*zoom-oy) + zoom*(x*math.Sin(a2)+y*math.Cos(a2)))
+		return ebiten.Vertex{DstX: sx, DstY: sy, SrcX: u, SrcY: v, ColorR: c[0], ColorG: c[1], ColorB: c[2], ColorA: c[3]}
+	}
+	vs = append(vs, tx(0, 0))
+	var is []uint16
+	for i, d := range l.reach {
+		vs = append(vs, tx(lanternHalf*(2*float64(i)/(beamRays-1)-1), d))
+		if i > 0 {
+			is = append(is, 0, uint16(i), uint16(i+1))
+		}
+	}
+	return vs, is
 }
 
 // lights: the Terminal's glow, the Corridor lamps, the windows, the kitchen's own lights, and a lantern ahead
@@ -114,6 +159,9 @@ func (g *Game) lights() []light {
 		}
 		ls = append(ls, l)
 	}
+	if _, r := g.actionable(); !r.Empty() && g.state == StatePlay { // the action glow now sits under the dark: keep it seen at night
+		ls = append(ls, light{at: r.Min.Add(r.Max).Div(2), img: g.glow, rgb: coolLight, cut: lampCut})
+	}
 	k := h.Kitchen
 	for _, f := range [...]int{1, 3} { // over its two halves, just in front of the stock: on after the Lobby's go off
 		ls = append(ls, light{at: image.Pt(k.Min.X+k.Dx()*f/4, h.Stock.Max.Y+world.TileSize), img: g.pool, rgb: warmLight, cut: lampCut})
@@ -126,7 +174,8 @@ func (g *Game) lights() []light {
 		if a.Facing == entities.FaceUp { // the darkness lies over the body too: a beam from the feet would light its back
 			at.Y -= lanternLift
 		}
-		ls = append(ls, light{at: at, img: lanternImg, rgb: warmLight, cut: lanternCut, turn: -float64(a.Facing) * math.Pi / 2})
+		turn := -float64(a.Facing) * math.Pi / 2
+		ls = append(ls, light{at: at, img: lanternImg, rgb: warmLight, cut: lanternCut, turn: turn, reach: g.beamReach(at, turn)})
 	}
 	lantern(g.player.X, g.player.Y, g.player.Anim)
 	for _, k := range g.keepers {
@@ -207,6 +256,11 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 		return op
 	}
 	for _, l := range lights { // the pools: holes in the darkness
+		if l.reach != nil {
+			vs, is := l.fan(ox, oy, [4]float32{1, 1, 1, l.cut})
+			g.dark.DrawTriangles(vs, is, l.img, &ebiten.DrawTrianglesOptions{Blend: ebiten.BlendDestinationOut, Filter: ebiten.FilterLinear})
+			continue
+		}
 		op := place(l)
 		op.ColorScale.ScaleAlpha(l.cut)
 		op.Blend = ebiten.BlendDestinationOut
@@ -214,8 +268,13 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	}
 	dst.DrawImage(g.dark, nil)
 	for _, l := range lights { // and their own color, stronger the darker the hour
-		op := place(l)
 		k := float32(lightGlow * t[3])
+		if l.reach != nil {
+			vs, is := l.fan(ox, oy, [4]float32{l.rgb[0] * k, l.rgb[1] * k, l.rgb[2] * k, 0})
+			dst.DrawTriangles(vs, is, l.img, &ebiten.DrawTrianglesOptions{Blend: ebiten.BlendLighter, Filter: ebiten.FilterLinear})
+			continue
+		}
+		op := place(l)
 		op.ColorScale.Scale(l.rgb[0]*k, l.rgb[1]*k, l.rgb[2]*k, 0)
 		op.Blend = ebiten.BlendLighter
 		dst.DrawImage(l.img, op)

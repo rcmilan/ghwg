@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 	"math"
+	"slices"
 	"testing"
 
 	"ghosthotel/world"
@@ -112,5 +113,21 @@ func TestSpill(t *testing.T) {
 	}
 	if spillLevel(22*hourFrames) != 1 {
 		t.Error("22:00: no spill with the Lobby lit")
+	}
+}
+
+// F0 W1 leftovers: a lantern's beam stops at the first wall tile, never showing through into a neighbouring Room.
+func TestLanternStopsAtWall(t *testing.T) {
+	g, _ := headless(t, 2, 2, 1)
+	r := g.hotel.Rooms[0]
+	const ts = world.TileSize
+	at := image.Pt((r.Origin.X+6)*ts+ts/2, (r.Origin.Y+world.RoomH)*ts+ts/2) // the corridor cell below the front wall
+	for _, reach := range g.beamReach(at, -math.Pi/2) {                      // facing up, into the wall
+		if reach > ts {
+			t.Fatalf("a ray facing the wall reaches %.0f px, want at most a tile", reach)
+		}
+	}
+	if reach := g.beamReach(at, 0); slices.Max(reach) != lanternR { // along the corridor: its middle ray runs free
+		t.Fatalf("down the open corridor the longest ray reaches %.0f px, want %d", slices.Max(reach), lanternR)
 	}
 }
