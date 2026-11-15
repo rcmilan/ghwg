@@ -48,7 +48,7 @@ func (g *Game) addMood(room, d int) {
 		was := g.mood[room]
 		g.mood[room] = max(moodMin, min(moodMax, was+d))
 		if was > moodMin && g.mood[room] == moodMin { // once, as it reaches -100 (08 B1-N)
-			g.notice("ROOM "+g.hotel.Rooms[room].Number+" IS AT ITS WORST", purple)
+			g.notice(g.hotel.Rooms[room].Number + " CLOSED")
 		}
 	}
 }
