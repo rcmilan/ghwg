@@ -3,7 +3,7 @@ package game
 // 08 W2 (B1) seams: the shared names its sub-slices call each other through (context/08-quests/plan.md).
 
 // staffSpeed: every staff member's walking speed multiplier (running shoes); not the Concierge's. B1-S fills it.
-func (g *Game) staffSpeed() float64 { return 1 }
+func (g *Game) staffSpeed() float64 { return 1 + shoeBoost*float64(g.shoeTier()) }
 
 // sendOver: Father M's ritual sends every ghost in the Room over now (W2 gaps grill), each paying the Ecto its
 // remaining haunts would have earned. B1-P calls it; B1-M fills it (the mirror's second ghost, the reward).

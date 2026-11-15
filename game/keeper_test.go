@@ -81,9 +81,9 @@ func TestKeeperCleans(t *testing.T) {
 	g.dirt, g.dirtN = [][]spot{spots, nil}, []int{len(spots), 0}
 	g.setDirtLevel(0, len(spots)*spotUnit)
 	g.wallet[Money] = keeperWage
-	g.hire()
 	p := g.arrive(0)
-	until(t, g, "the Party complains", func() bool { return p.state == complaining })
+	until(t, g, "the Party complains", func() bool { return p.state == complaining }) // no one on the payroll yet: it sweeps first
+	g.hire()
 	until(t, g, "the Room is cleaned", func() bool { return g.normalDirt(0) == 0 })
 	until(t, g, "the Party is back in", func() bool { return p.state == staying })
 	k := g.keepers[0]
@@ -283,6 +283,81 @@ func TestKeepersPass(t *testing.T) {
 					}
 				}
 			}
+		}
+	}
+}
+
+// 08 B1 (Housekeepers): an idle housekeeper sweeps the Room with the most regular dirt; spiritual dirt stays
+// the player's and the Priests'.
+func TestKeeperSweeps(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.roomOwned, g.arrivals = nil, make([]arrival, len(g.hotel.Rooms)) // Rooms open, no Guests booked
+	dirty := func(room, n int, spirit bool) []spot {
+		free := g.floorCells(room)
+		var ss []spot
+		for i := range n {
+			ss = append(ss, spot{free[i], spirit, spotUnit})
+		}
+		return ss
+	}
+	a, b := dirty(0, 1, false), dirty(1, 2, false)
+	g.dirt, g.dirtN = [][]spot{a, b}, []int{1, 2}
+	g.setDirtLevel(0, spotUnit)
+	g.setDirtLevel(1, 2*spotUnit)
+	g.wallet[Money] = 10 * keeperWage
+	g.hire()
+	until(t, g, "the dirtier Room is swept", func() bool { return g.normalDirt(1) == 0 })
+	if g.normalDirt(0) == 0 {
+		t.Error("the lighter Room was swept first")
+	}
+	until(t, g, "the other Room is swept", func() bool { return g.normalDirt(0) == 0 })
+	g.dirt[0] = dirty(0, 1, true)
+	g.setDirtLevel(0, spotUnit)
+	for range 3 * minuteFrames * 60 {
+		g.step(0, 0)
+	}
+	if n := len(g.spots(0)); n != 1 {
+		t.Errorf("a housekeeper touched the spiritual dirt: %d spots left, want 1", n)
+	}
+}
+
+// 08 B1 (Running shoes): +15% walking speed a tier, three tiers, for the staff; the row shows the next tier.
+func TestRunningShoes(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.wallet = [2]Num{0, 1000}
+	if g.staffSpeed() != 1 {
+		t.Fatalf("no shoes: speed %v, want 1", g.staffSpeed())
+	}
+	row := func(tier int) int {
+		return slices.IndexFunc(shop, func(it Item) bool { return it.Shoes == tier })
+	}
+	for tier := 1; tier <= 3; tier++ {
+		for _, i := range tabItems(tabStaff) {
+			if shop[i].Shoes != 0 && !g.gone(i) && shop[i].Shoes != tier {
+				t.Fatalf("tier %d: the row of tier %d is listed", tier, shop[i].Shoes)
+			}
+		}
+		i := row(tier)
+		if g.gone(i) {
+			t.Fatalf("tier %d row is not listed", tier)
+		}
+		g.hire() // someone to put shoes on
+		g.earned[Ecto] = 1000
+		if why := g.addToCart(i, -1); why != "" {
+			t.Fatalf("tier %d: %s", tier, why)
+		}
+		if why := g.placeOrder(); why != "" {
+			t.Fatal(why)
+		}
+		if want := 1 + 0.15*float64(tier); math.Abs(g.staffSpeed()-want) > 1e-9 {
+			t.Errorf("tier %d: speed %v, want %v", tier, g.staffSpeed(), want)
+		}
+	}
+	for _, i := range tabItems(tabStaff) {
+		if shop[i].Shoes != 0 && !g.gone(i) {
+			t.Errorf("all tiers bought, row %q still listed", shop[i].Name)
 		}
 	}
 }
