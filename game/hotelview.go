@@ -21,6 +21,7 @@ const (
 	viewPad    = 28 // screen px kept free around the whole hotel
 	screenW    = viewW * zoom
 	screenH    = viewH * zoom
+	selectW    = 3 // screen px: the highlight's frame on the picked Room's edge
 )
 
 func (g *Game) openView() {
@@ -210,8 +211,10 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 			n := assets.Night
 			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * g.viewT)})
 		}
-		if c, ok := g.pairInk(i); ok { // the fit (07 X2): red a bad pair, the Ectoplasm ink a good one
-			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{c.R, c.G, c.B, uint8(80 * g.viewT)})
+		if c, ok := g.pairInk(i); ok { // the fit (07 X2): a thin frame, red a bad pair, the Ectoplasm ink a good one
+			for _, e := range pairFrame(r, k) {
+				rect(screen, e.Min.X, e.Min.Y, e.Dx(), e.Dy(), color.NRGBA{c.R, c.G, c.B, uint8(255 * g.viewT)})
+			}
 		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
@@ -221,8 +224,7 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
 	}
 	r := on(g.hotel.Rooms[g.termCursor].Shell())
-	const b = 3
-	for _, e := range [...]image.Rectangle{{r.Min, image.Pt(r.Max.X, r.Min.Y+b)}, {image.Pt(r.Min.X, r.Max.Y-b), r.Max}, {r.Min, image.Pt(r.Min.X+b, r.Max.Y)}, {image.Pt(r.Max.X-b, r.Min.Y), r.Max}} {
+	for _, e := range edges(r, selectW) { // on the Room's edge; a pair's frame runs inside it (match.go)
 		rect(screen, e.Min.X, e.Min.Y, e.Dx(), e.Dy(), storeAccent)
 	}
 	if g.termDepth >= 2 {

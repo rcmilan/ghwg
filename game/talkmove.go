@@ -14,17 +14,25 @@ import (
 
 // The talk (07 X2): in a Room with its human Party in, and some other Room it fits, TALK shows on the HUD's
 // right. SPACE stages it: the camera closes in on the Concierge and the guest, the rest blurs into the ghost
-// purple, and the world slows down (D1's g.scale, talkSlow). A/D picks the Room to offer, W/S the offer, SPACE makes it, ESC leaves. Each
+// purple, and the world slows down (D1's g.scale): how much, and how heavy the blur, by how bad the pair is (its
+// depth, fixed as the talk starts). A/D picks the Room to offer, W/S the offer, SPACE makes it, ESC leaves. Each
 // target Room has three offers: a plain ask, free, that may be refused; a discount, some Money, likely; and the
-// night on the house, a night's Rate, sure. A scared guest or a nicer target Room makes them likelier. A refusal
-// costs the guest's Room some Mood and the talk goes on. Taken, both Parties walk over by themselves (match.go's
-// relocate) and the Concierge is free at once. Ghosts can't be talked to. Placeholders.
+// night on the house, a night's Rate, sure. Only those the wallet can pay show. A scared guest or a nicer target
+// Room makes them likelier. A refusal costs the guest's Room some Mood and ends the talk, and the guest won't hear
+// another offer for snubFrames. Taken, both Parties walk over by themselves (match.go's relocate) and the
+// Concierge is free at once. Ghosts can't be talked to. Placeholders.
 const (
-	talkIn      = 24   // frames the camera takes to close in; the guest speaks half way, the offers show at the end
-	talkZoomMax = 1.8  // how close it gets, of the play camera
-	talkSlow    = 0.25 // of the world's time scale while the talk is on
-	refuseMood  = 40   // Mood a refusal costs the Room
-	offerLean   = 0.3  // of what an offer's odds lack, the most a scared guest and a cozy target Room make up
+	talkIn      = 24         // frames the camera takes to close in; the guest speaks half way, the offers show at the end
+	talkZoomMax = 1.8        // how close it gets, of the play camera
+	refuseMood  = 40         // Mood a refusal costs the Room
+	offerLean   = 0.3        // of what an offer's odds lack, the most a scared guest and a cozy target Room make up
+	snubFrames  = hourFrames // how long a guest that refused won't be talked to (live test 1)
+)
+
+// By the talk's depth, 0 (the guest fits, or a pair just off) .. 1 (the worst pair there is): live test 1.
+var (
+	talkSlow = [2]float64{0.25, 0.08} // of the world's time scale while the talk is on
+	talkBlur = [2]float64{2, 8}       // the blur's reach, image px, at the edge of the sharp middle
 )
 
 const (
@@ -48,6 +56,16 @@ type parley struct {
 	line    string  // what the guest says now
 	lineAt  int     // the t it began saying it
 	scale   float64 // the world's time scale as the talk found it, given back as it ends
+	depth   float64 // how bad the pair is, 0..1, as it began (talkDepth)
+}
+
+// at: v's value at the talk's depth, from its mildest to its worst.
+func (t *parley) at(v [2]float64) float64 { return v[0]*(1-t.depth) + v[1]*t.depth }
+
+// talkDepth: how far the Room's ghost's Phantasm is beyond the Party's Nerve, 0 if within it, 1 at the most a
+// human's Nerve can lack.
+func (g *Game) talkDepth(p *Party) float64 {
+	return min(1, max(0, float64(g.roomPhantasm(p.Room)-partyNerve(p))/(phantasmMax-nerveMin)))
 }
 
 var (
@@ -90,7 +108,8 @@ func (g *Game) targets(p *Party) []int {
 }
 
 // talker: the human Party SPACE talks to: the Concierge stands in its Room, in the real Dimension, the whole Party
-// in, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits. nil if none.
+// in and not snubbed, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits.
+// nil if none.
 func (g *Game) talker() *Party {
 	if g.ghost || g.atRoomMirror() {
 		return nil
@@ -99,7 +118,7 @@ func (g *Game) talker() *Party {
 		if !g.feet().In(r.Shell()) {
 			continue
 		}
-		if p := g.humanIn(i); p != nil && g.inRoom(p) && len(g.targets(p)) > 0 {
+		if p := g.humanIn(i); p != nil && g.inRoom(p) && g.clock >= p.snubbed && len(g.targets(p)) > 0 {
 			if room, _ := g.cleanable(); room < 0 {
 				return p
 			}
@@ -124,6 +143,16 @@ func (g *Game) offerOdds(p *Party, to, offer int) float64 {
 	up := float64(g.roomMood(to)-moodMin) / (moodMax - moodMin)
 	b := offerBase[offer]
 	return min(1, b+(1-b)*offerLean*(fright(p)+up)/2)
+}
+
+// offers: the offers for Room to the wallet can pay, in order; the plain ask, free, always.
+func (g *Game) offers(p *Party, to int) (os []int) {
+	for o := range offerShare {
+		if g.afford(Cost{Money: g.offerCost(p, to, o)}) {
+			os = append(os, o)
+		}
+	}
+	return os
 }
 
 // sureOffer: the cheapest offer the Party is sure to take, and its Room. ok false if there is none.
@@ -162,8 +191,9 @@ func (g *Game) startTalk(p *Party) {
 	case g.pairing(p.Room) == badPair:
 		set = talkUneasy
 	}
-	g.state, g.parley = StateTalk, &parley{p: p, targets: g.targets(p), line: g.pickLine(set), lineAt: talkIn / 2, scale: g.scale}
-	g.scale *= talkSlow
+	t := &parley{p: p, targets: g.targets(p), line: g.pickLine(set), lineAt: talkIn / 2, scale: g.scale, depth: g.talkDepth(p)}
+	g.state, g.parley = StateTalk, t
+	g.scale *= t.at(talkSlow)
 	lead := p.Guests[0]
 	g.player.Anim.Facing = entities.Toward(lead.X-g.player.X, lead.Y-g.player.Y)
 	lead.Anim.Facing = entities.Toward(g.player.X-lead.X, g.player.Y-lead.Y)
@@ -197,17 +227,24 @@ func (g *Game) updateParley() {
 		t.to = (t.to + n - 1) % n
 	case key(ebiten.KeyD):
 		t.to = (t.to + 1) % n
+	}
+	os := g.offers(t.p, t.targets[t.to]) // W/S walk the offers shown; one gone out of reach falls back to the first
+	k := max(0, slices.Index(os, t.pick))
+	switch {
 	case key(ebiten.KeyW):
-		t.pick = (t.pick + len(offerShare) - 1) % len(offerShare)
+		k = (k + len(os) - 1) % len(os)
 	case key(ebiten.KeyS):
-		t.pick = (t.pick + 1) % len(offerShare)
-	case key(ebiten.KeySpace):
+		k = (k + 1) % len(os)
+	}
+	t.pick = os[k]
+	if key(ebiten.KeySpace) {
 		g.makeOffer()
 	}
 }
 
 // makeOffer makes the picked offer for the picked Room. One the wallet can't pay does nothing. Refused, the Room
-// takes refuseMood and the talk goes on; taken, it is paid, both Parties are on their way and the talk is over.
+// takes refuseMood, the guest says no and is snubbed for snubFrames; taken, it is paid and both Parties are on
+// their way. Either way the talk is over.
 func (g *Game) makeOffer() {
 	t := g.parley
 	p, to := t.p, t.targets[t.to]
@@ -217,7 +254,8 @@ func (g *Game) makeOffer() {
 	}
 	if g.rng.Float64() >= g.offerOdds(p, to, t.pick) {
 		g.addMood(p.Room, -refuseMood)
-		t.line, t.lineAt = g.pickLine(talkNo), t.t
+		p.talk, p.snubbed = []line{{0, g.pickLine(talkNo), g.tick}}, g.clock+snubFrames
+		g.endTalk()
 		return
 	}
 	g.payOffer(c)
@@ -263,8 +301,9 @@ func (g *Game) talkView() TalkView {
 }
 
 // drawParley draws the talk: the world at the play camera, closed in on the two and blurred around them by the
-// focus shader, cinema bars, the guest's line over its head and the Concierge's three offers below, each with its
-// price. Words stand alone, outlined; the picked offer in the Ectoplasm ink.
+// focus shader (its reach by the talk's depth), cinema bars, the guest's line over its head and, below, the
+// Concierge's offers the wallet can pay, each with its price. Words stand alone, outlined; the picked offer in the
+// Ectoplasm ink.
 func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	if g.focus == nil {
 		var err error
@@ -284,7 +323,7 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	k, e := g.talkZoom(), g.talkEase()
 	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},
-		Uniforms: map[string]any{"Focus": []float32{float32(fx), float32(fy)}, "K": float32(k), "T": float32(e), "Sharp": float32(sharp)}})
+		Uniforms: map[string]any{"Focus": []float32{float32(fx), float32(fy)}, "K": float32(k), "T": float32(e), "Sharp": float32(sharp), "Blur": float32(t.at(talkBlur))}})
 	bar := int(float64(h) * 0.08 * e)
 	rect(screen, 0, 0, w, bar, color.Black)
 	rect(screen, 0, h-bar, w, bar, color.Black)
@@ -304,33 +343,33 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	if fright(t.p) >= 0.5 {
 		scared = 1
 	}
-	y0 := h - bar - 12 - len(offerShare)*(glyphH*scale+8)
-	for o := range offerShare {
+	os, lh := g.offers(t.p, to), glyphH*scale+8
+	y0 := h - bar - 12 - len(os)*lh
+	for i, o := range os {
 		s := fmt.Sprintf(offerLines[o][scared], g.hotel.Rooms[to].Number)
 		c := g.offerCost(t.p, to, o)
 		ink, a := color.Color(color.White), float32(0.6)
 		if o == t.pick {
 			ink, a = resInk(Ecto), 1
 		}
-		if !g.afford(Cost{Money: c}) {
-			a = 0.3
-		}
 		price := ""
 		if c > 0 {
 			price = "  $" + fmtNum(c)
 		}
-		x, y := w/2-(len(s)+len(price))*glyphW*scale/2, y0+o*(glyphH*scale+8)
+		x, y := w/2-(len(s)+len(price))*glyphW*scale/2, y0+i*lh
 		outline(screen, s, x, y, scale, ink, a)
 		outline(screen, price, x+len(s)*glyphW*scale, y, scale, resInk(Money), a)
 	}
 	if len(t.targets) > 1 { // more Rooms to offer: A and D
-		outline(screen, "<", w/2-300, y0+glyphH*scale+8, scale, color.White, 0.8)
-		outline(screen, ">", w/2+300-glyphW*scale, y0+glyphH*scale+8, scale, color.White, 0.8)
+		y := y0 + (len(os)-1)*lh/2
+		outline(screen, "<", w/2-300, y, scale, color.White, 0.8)
+		outline(screen, ">", w/2+300-glyphW*scale, y, scale, color.White, 0.8)
 	}
 }
 
 // focusSrc: image 0 is the world at the play camera. Each screen px shows it closed in K times on Focus (image
-// px), sharp within Sharp screen px of the middle, blurred and sunk into the ghost purple beyond, by T (0..1).
+// px), sharp within Sharp screen px of the middle, blurred (Blur image px at the edge, twice that further out) and
+// sunk into the ghost purple beyond, by T (0..1).
 const focusSrc = `//kage:unit pixels
 package main
 
@@ -338,6 +377,7 @@ var Focus vec2
 var K float
 var T float
 var Sharp float
+var Blur float
 
 func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	size := imageDstSize()
@@ -346,7 +386,7 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 	o := imageSrc0Origin()
 	p := Focus + (at-mid)/K + o
 	b := T * smoothstep(Sharp, Sharp*2.2, distance(at, mid))
-	r := 1 + 5*b
+	r := 1 + Blur*b
 	sum := imageSrc0At(p)
 	for i := 0; i < 12; i++ {
 		a := float(i) * 0.5236

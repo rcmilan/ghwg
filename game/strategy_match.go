@@ -8,8 +8,8 @@ func init() {
 }
 
 // matcher plays goals and talks every bad pair it sees into a Room its human Party fits (07 X2), with one offer: the
-// night on the house (sure, the Pilot picks the Room where it costs least), or the asker's free plain ask, again and
-// again. It talks only to a Party in its Room, with somewhere to go and, on the house, the price in the wallet. It
+// night on the house (sure, the Pilot picks the Room where it costs least), or the asker's free plain ask, whenever the
+// guest is not snubbed. It talks only to a Party in its Room, with somewhere to go and, on the house, the price in the wallet. It
 // buys Matchmaking as soon as it can and leaves the bad pairs to the housekeepers from then on.
 type matcher struct{ offer int }
 

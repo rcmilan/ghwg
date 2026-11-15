@@ -196,7 +196,7 @@ _Avoid_: game, session
 The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, Routines and the lighting, and it pauses only for the Terminal. The player can read it only on the Terminal.
 
 **Time scale**:
-How fast the world runs against real time, 1 normal. Every walk, animation, fade and timer, and the Clock, run by it together. Under 1 is slow motion (dev `-scale 0.25`); holding T runs it ×4. The Terminal, the hotel view, the HUD and the intro keep real time. A talk multiplies it by 0.25 while it is on and gives it back as it ends. The sim runs at 1 outside a talk.
+How fast the world runs against real time, 1 normal. Every walk, animation, fade and timer, and the Clock, run by it together. Under 1 is slow motion (dev `-scale 0.25`); holding T runs it ×4. The Terminal, the hotel view, the HUD and the intro keep real time. A talk multiplies it by 0.25 to 0.08, by its depth, while it is on and gives it back as it ends. The sim runs at 1 outside a talk.
 _Avoid_: fast clock, game speed
 
 **Day**:
@@ -326,21 +326,21 @@ How much fright a human takes before it flees, rolled per Party as it books (6 t
 _Avoid_: courage, bravery, tolerance
 
 **Fit**, **good pair**, **bad pair**:
-A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: a bad pair's Room is tinted red, a good pair's in the Ectoplasm green and purple.
+A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing, the Party pays half its hourly rent (a placeholder), and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: a thin frame just inside the Room (inside the picked Room's highlight), red for a bad pair, the Ectoplasm green and purple for a good one.
 _Avoid_: match (for the pair), compatible, preference
 
 **Auto-book by fit**:
 How a human Party picks its Room as it arrives: of the Vacant, owned, open Rooms with beds enough, the one with the strongest ghost within its Nerve; with none, the one with the weakest ghost beyond it (the closest bad fit). The Room it leaves empty takes over the booking of the Room it took. Ghost booking is unchanged: each Room books its own.
 
 **Talk** (the talk), **TALK**:
-The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm ink, while the Concierge stands in a Room, in the real Dimension, with its whole human Party in and at least one target Room; SPACE there starts the talk (after a stain to clean, before the hotel view). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left. Ghosts cannot be talked to or moved.
+The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands in a Room, in the real Dimension, with its whole human Party in, not snubbed, and at least one target Room; SPACE there starts the talk (after a stain to clean, before the hotel view). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
 _Avoid_: dialogue, chat (a pair's chat is an activity), move menu
 
 **Target Room**:
 A Room a talk can offer: another owned, open Room with beds enough whose ghost the Party fits, Vacant or held by a human Party that could swap (it is in or away, fits this Room's beds and fits this Room's ghost). Listed best fit first.
 
 **Offer**:
-One of the three lines the Concierge can say for a target Room. The **plain ask** is free and usually refused. The **discount** costs a fifth of a night's Rate and is likely taken. **On the house** costs a night's Rate and is always taken. A scared guest and a target Room of higher Mood make the first two likelier. A **refusal** costs the guest's own Room 40 Mood and the talk stays open. A taken offer is paid at once. All numbers are placeholders.
+One of the three lines the Concierge can say for a target Room. The **plain ask** is free and usually refused. The **discount** costs a fifth of a night's Rate and is likely taken. **On the house** costs a night's Rate and is always taken. Only the offers the wallet can pay show; the plain ask always does. A scared guest and a target Room of higher Mood make the first two likelier. A **refusal** costs the guest's own Room 40 Mood and ends the talk, and the guest is **snubbed**: no TALK for it for a game hour. A taken offer is paid at once. All numbers are placeholders.
 _Avoid_: bribe, deal, option
 
 **Swap**:
@@ -353,4 +353,4 @@ An offer whose odds are 1. Today only on the house is.
 The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a placeholder): an idle Housekeeper walks to a bad pair's door and makes the cheapest sure offer the wallet covers, with no talk staged.
 
 **Matcher**, **asker** (`matcher`, `asker`):
-Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, again and again. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.
+Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, whenever the guest is not snubbed. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.

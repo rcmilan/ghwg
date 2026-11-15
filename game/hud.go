@@ -172,10 +172,10 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 			outline(s, l, x, int(n.y)+k*glyphH*noteScale, noteScale, color.White, 1)
 		}
 	}
-	if c := g.talkCue; c.in > 0 { // TALK, in the Ectoplasm ink, from off the right edge
+	if c := g.talkCue; c.in > 0 { // TALK, from off the right edge, in the Ectoplasm counter's own style (live test 1)
 		ease := c.in * c.in * (3 - 2*c.in)
 		w := 4 * glyphW * hudScale
-		outline(s, "TALK", int(float64(sw)-float64(w+hudMargin)*ease), int(c.y), hudScale, resInk(Ecto), 1)
+		g.tintedAt(s, "TALK", int(float64(sw)-float64(w+hudMargin)*ease), int(c.y), hudScale, resInk(Ecto), 1)
 	}
 	for r, c := range g.hud {
 		y := int(c.y)

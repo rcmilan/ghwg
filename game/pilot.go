@@ -414,8 +414,8 @@ func (p *Pilot) Close() {
 }
 
 // Talk walks into the Room in the real Dimension, opens the talk with its Party (SPACE), picks the target Room
-// where the offer costs least (A/D) and the offer (W/S), and makes it (SPACE). It gives up, with ESC, on a refusal,
-// a talk that won't open, or an offer the wallet can't pay (07 X2).
+// where the offer costs least (A/D) and the offer (W/S), and makes it (SPACE); a refusal ends the talk by itself. It
+// gives up, with ESC, on a talk that won't open or an offer the wallet can't pay (07 X2).
 func (p *Pilot) Talk(room, offer int) {
 	p.Flip(false)
 	d := p.hotel.Rooms[room].Door

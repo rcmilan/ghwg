@@ -1,6 +1,8 @@
 package game
 
 import (
+	"image"
+	"math"
 	"slices"
 	"testing"
 
@@ -150,11 +152,92 @@ func TestPairing(t *testing.T) {
 	if c, ok := g.pairInk(1); !ok || c.R < 200 || c.G > 80 {
 		t.Errorf("a bad pair's tint %v, want red", c)
 	}
+	// live test 1: a thin frame, not a fill, inside the selection's frame and clear of it
+	r := image.Rect(100, 50, 300, 200)
+	inner := r.Inset(selectW)
+	for _, e := range pairFrame(r, 1) {
+		if min(e.Dx(), e.Dy()) != 1 || !e.In(inner) || e.Overlaps(image.Rect(150, 100, 250, 150)) {
+			t.Errorf("pair frame edge %v: want 1 px thick, inside %v (the selection's frame outside it), the Room's middle clear", e, inner)
+		}
+	}
+}
+
+// Live test 1: a human Party in a bad pair pays badRent of its hourly rent; a good pair the whole.
+func TestBadPairRent(t *testing.T) {
+	g, _ := matchRun(t, 2)
+	bad, good := settledHuman(t, g, 0, 2), settledHuman(t, g, 1, 12)
+	ghostOf(g, 0, 9).Guests[0].Haunt = 100 * ghostHaunt // one scare as it comes in, not enough to flee
+	ghostOf(g, 1, 9).Guests[0].Haunt = 100 * ghostHaunt
+	for range 6 * hourFrames {
+		g.step(0, 0)
+	}
+	if want := good.rent * badRent; good.rent == 0 || math.Abs(float64(bad.rent-want)) > 2 {
+		t.Errorf("6 hours: the bad pair paid $%v, the good one $%v; want about $%v", bad.rent, good.rent, want)
+	}
+}
+
+// Live test 1: how far the talk slows the world and how heavy its blur grow with how far the ghost's Phantasm
+// is beyond the guest's Nerve, fixed as it starts: a guest that fits gets the mildest.
+func TestTalkDepth(t *testing.T) {
+	var last float64
+	for i, c := range []struct{ nerve, phantasm int }{{8, 4}, {nerveMin, nerveMin + 1}, {nerveMin, nerveMin + 3}, {nerveMin, phantasmMax}, {2, phantasmMax}} {
+		g, _ := matchRun(t, 2)
+		settledHuman(t, g, 0, c.nerve)
+		ghostOf(g, 0, c.phantasm)
+		standIn(g, 0)
+		g.scale = 0.5
+		g.startTalk(g.talker())
+		if g.parley == nil {
+			t.Fatalf("Nerve %d, Phantasm %d: no talk", c.nerve, c.phantasm)
+		}
+		d := g.parley.depth
+		switch {
+		case i == 0 && (d != 0 || g.scale != 0.5*talkSlow[0]):
+			t.Errorf("a guest that fits: depth %v, scale %v; want 0, %v", d, g.scale, 0.5*talkSlow[0])
+		case i >= 3 && (d != 1 || g.scale != 0.5*talkSlow[1]):
+			t.Errorf("Nerve %d, Phantasm %d: depth %v, scale %v; want the worst, %v", c.nerve, c.phantasm, d, g.scale, 0.5*talkSlow[1])
+		case i > 0 && i < 3 && !(d > last && d < 1):
+			t.Errorf("Nerve %d, Phantasm %d: depth %v after %v; want deeper, short of the worst", c.nerve, c.phantasm, d, last)
+		}
+		last = d
+		g.scale = 0.1 // whatever happened since, it ends at the scale it found
+		for range talkIn {
+			g.updateParley()
+		}
+		g.endTalk()
+		if g.scale != 0.5 {
+			t.Errorf("after the talk: scale %v, want 0.5", g.scale)
+		}
+	}
+}
+
+// Live test 1: the talk shows only the offers the wallet can pay (menus show only what applies), and W/S
+// walks those alone; the plain ask is free, always there.
+func TestOffersShown(t *testing.T) {
+	g, s := matchRun(t, 2)
+	p := settledHuman(t, g, 0, 2)
+	ghostOf(g, 0, 9)
+	standIn(g, 0)
+	disc := g.offerCost(p, 1, discount)
+	for _, c := range []struct {
+		money Num
+		want  []int
+	}{{0, []int{plainAsk}}, {disc, []int{plainAsk, discount}}, {1000, []int{plainAsk, discount, onTheHouse}}} {
+		g.wallet[Money] = c.money
+		if got := g.offers(p, 1); !slices.Equal(got, c.want) {
+			t.Errorf("$%v: offers %v, want %v", c.money, got, c.want)
+		}
+	}
+	g.wallet[Money] = 0
+	keys(g, s, ebiten.KeySpace, ebiten.KeyS, ebiten.KeyW, ebiten.KeyS)
+	if g.state != StateTalk || g.parley.pick != plainAsk {
+		t.Fatalf("broke, W/S: state %d, pick %d; want the talk on the plain ask, the only one", g.state, g.parley.pick)
+	}
 }
 
 // T322: TALK. In a Room with its human Party in, and some Room it fits, TALK shows on the HUD's right; SPACE
-// starts the talk: the world slows to talkSlow of its time scale, the camera closes in on the two on real frames,
-// and leaving gives the world the scale it had.
+// starts the talk: the world slows by talkSlow (the worst pair here: Nerve 2 against Phantasm 9), the camera
+// closes in on the two on real frames, and leaving gives the world the scale it had.
 func TestTalkCue(t *testing.T) {
 	g, s := matchRun(t, 2)
 	p := settledHuman(t, g, 0, 2)
@@ -179,14 +262,15 @@ func TestTalkCue(t *testing.T) {
 	if g.state != StateTalk || g.parley.p != p || !slices.Equal(g.parley.targets, []int{1}) {
 		t.Fatalf("SPACE: state %d, want the talk with Room 101's Party about Room 102", g.state)
 	}
-	clock, x := g.clock, p.Guests[0].X
+	clock, x, slow := g.clock, p.Guests[0].X, 0.5*talkSlow[1]
 	p.Guests[0].SetPath(g.route(p.Guests[0], g.hotel.Rooms[0].Spot().Min)) // on its way somewhere: it stops to listen
-	for range talkIn {
+	const frames = 4 * talkIn
+	for range frames {
 		s.hold()
 		g.Update()
 	}
-	if want := int(talkIn * 0.5 * talkSlow); g.clock != clock+want || g.scale != 0.5*talkSlow {
-		t.Errorf("%d frames of talk ran the Clock %d at scale %v, want %d at %v", talkIn, g.clock-clock, g.scale, want, 0.5*talkSlow)
+	if want := int(frames * slow); g.clock != clock+want || g.scale != slow {
+		t.Errorf("%d frames of talk ran the Clock %d at scale %v, want %d at %v", frames, g.clock-clock, g.scale, want, slow)
 	}
 	if p.Guests[0].X != x {
 		t.Error("the guest walked off while spoken to")
@@ -210,8 +294,8 @@ func TestTalkCue(t *testing.T) {
 }
 
 // T323: offers. Per target Room: a plain ask (free), a discount (Money), on the house (a night's Rate, sure);
-// the odds rise with the guest's Fear and the target's Mood. A refusal costs the Room Mood and the talk stays
-// open. An occupied target swaps the two Parties, priced for both. A yes: both walk to their new Rooms, the
+// the odds rise with the guest's Fear and the target's Mood. A refusal costs the Room Mood and ends the talk, and
+// TALK hides for that guest for snubFrames (live test 1). An occupied target swaps the two Parties, priced for both. A yes: both walk to their new Rooms, the
 // rent runs on at the new Rate, Mood stays with the Room. Two SPACE presses make an offer.
 func TestOffers(t *testing.T) {
 	g, s := matchRun(t, 3)
@@ -244,9 +328,19 @@ func TestOffers(t *testing.T) {
 	keys(g, s, ebiten.KeySpace) // the talk
 	mood := g.mood[0]
 	keys(g, s, ebiten.KeySpace) // the plain ask, picked first, for Room 102
-	if g.state != StateTalk || g.mood[0] != mood-refuseMood || p.Room != 0 {
-		t.Fatalf("a plain ask at odds %.2f: state %d, Mood %d→%d, Room %d; want it refused (another seed if not), -%d Mood, the talk open", g.offerOdds(p, 1, plainAsk), g.state, mood, g.mood[0], p.Room, refuseMood)
+	if g.state != StatePlay || g.mood[0] != mood-refuseMood || p.Room != 0 {
+		t.Fatalf("a plain ask at odds %.2f: state %d, Mood %d→%d, Room %d; want it refused (another seed if not), -%d Mood, the talk over", g.offerOdds(p, 1, plainAsk), g.state, mood, g.mood[0], p.Room, refuseMood)
 	}
+	refusedAt := g.clock
+	g.clock = p.snubbed - 1 // live test 1: no TALK for that guest for about a game hour
+	if g.talker() != nil || p.snubbed-refusedAt < snubFrames-tps {
+		t.Fatalf("just refused: TALK %v, snubbed until %d; want none for %d frames", g.talker() != nil, p.snubbed, snubFrames)
+	}
+	g.clock, g.mood[0] = p.snubbed, mood // the Mood back up: the refusal's low Mood shows stains, which SPACE cleans first
+	if g.talker() != p {
+		t.Fatal("TALK not back an hour after the refusal")
+	}
+	keys(g, s, ebiten.KeySpace) // the talk again
 	for g.parley.targets[g.parley.to] != 2 {
 		keys(g, s, ebiten.KeyD)
 	}

@@ -1,7 +1,9 @@
 package game
 
 import (
+	"image"
 	"image/color"
+	"math"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -17,6 +19,7 @@ const (
 	nerveMin  = 6 // a human Party's Nerve is rolled nerveMin..nerveMax
 	nerveMax  = phantasmMax
 	nerveFear = shadowSeen // FleeAt per point of Nerve: one sighting a haunt of a ghost within it never reaches it
+	badRent   = 0.5        // of its hourly rent a human Party pays while in a bad pair (party.go's charge; live test 1)
 )
 
 // Matchmaking: the X2 upgrade (HOTEL, Ectoplasm, on sale once a housekeeper is hired): idle housekeepers fix
@@ -136,10 +139,22 @@ func (g *Game) pairing(room int) pairing {
 	return goodPair
 }
 
-// badRed: a bad pair's tint in the hotel view; a good pair's is the Ectoplasm ink.
+// badRed: a bad pair's frame in the hotel view; a good pair's is the Ectoplasm ink.
 var badRed = color.RGBA{230, 40, 50, 255}
 
-// pairInk: the Room's tint in the hotel view, false for none.
+// pairFrame: the edges of a Room's pair frame in the hotel view (live test 1: a thin frame, not a fill), one
+// art px thick at the view's scale k (screen px per art px), just inside the selection's frame (hotelview.go)
+// with a px between them, so the two never touch. r: the Room's shell, screen px.
+func pairFrame(r image.Rectangle, k float64) [4]image.Rectangle {
+	return edges(r.Inset(selectW+1), max(1, int(math.Round(k))))
+}
+
+// edges: the four sides of a frame w px thick just inside r.
+func edges(r image.Rectangle, w int) [4]image.Rectangle {
+	return [...]image.Rectangle{{r.Min, image.Pt(r.Max.X, r.Min.Y+w)}, {image.Pt(r.Min.X, r.Max.Y-w), r.Max}, {r.Min, image.Pt(r.Min.X+w, r.Max.Y)}, {image.Pt(r.Max.X-w, r.Min.Y), r.Max}}
+}
+
+// pairInk: the Room's pair frame's colour in the hotel view, false for none.
 func (g *Game) pairInk(room int) (color.RGBA, bool) {
 	switch g.pairing(room) {
 	case badPair:

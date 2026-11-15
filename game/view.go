@@ -54,7 +54,7 @@ type RoomView struct {
 	// Seen only in the ghost dimension: its Guests glow with Fear.
 	Fear int  // its most frightened Guest in sight
 	Bad  bool // a bad pair, red in the hotel view (07 X2)
-	Fix  Num  // a bad pair: the cheapest sure offer to move its Party, as its talk shows it (0: none to make)
+	Fix  Num  // a bad pair: the cheapest sure offer to move its Party, as its talk shows it (0: none to make, or its guest snubbed)
 }
 
 type TerminalView struct {
@@ -118,7 +118,7 @@ func (g *Game) view() View {
 				}
 			}
 		}
-		if p := g.humanIn(i); rv.Bad && p != nil {
+		if p := g.humanIn(i); rv.Bad && p != nil && g.clock >= p.snubbed { // snubbed: no talk to make (X2)
 			_, _, rv.Fix, _ = g.sureOffer(p)
 		}
 		v.Rooms = append(v.Rooms, rv)

@@ -92,7 +92,7 @@ func (p *Party) Payout(pay Num) int { return int(Num(p.Rate) * pay) }
 
 // charge runs each frame of a stay (Z1, 2026-11-13): rent is paid up front, per Guest, on the Guest's own
 // clock. The moment a Guest steps into its Room it pays its share of the hour (Rate/rentHours, split between
-// the Party, times the Room's Mood pay factor as it stands) as a "+$N" at the door, then again every game
+// the Party, times the Room's Mood pay factor as it stands, and badRent in a bad pair) as a "+$N" at the door, then again every game
 // hour from that entry, in the Room or out of it. Whole dollars; a Guest's cents carry to its next hour.
 // The loop pays every hour the Clock passed, so T held skips none.
 func (g *Game) charge(p *Party) {
@@ -108,7 +108,11 @@ func (g *Game) charge(p *Party) {
 			p.due[i] = g.clock
 		}
 		for ; g.clock >= p.due[i]; p.due[i] += hourFrames {
-			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * g.moodPay(p.Room)
+			pay := g.moodPay(p.Room)
+			if g.pairing(p.Room) == badPair { // a bad pair pays less (X2, live test 1)
+				pay *= badRent
+			}
+			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * pay
 			if n := Num(int(p.cents[i])); n > 0 {
 				p.cents[i] -= n
 				p.rent += n
@@ -159,6 +163,7 @@ type Party struct {
 	greet      greeting      // owed once the Concierge hears it (D165)
 	welcomed   bool          // a housekeeper has welcomed it
 	talk       []line        // its lines showing or about to (D165)
+	snubbed    int           // the clock until which, having refused an offer, it won't be talked to (X2, talkmove.go)
 	arrived    int           // the clock it walked in
 	mess       int           // dirt its Guests leave a night (dirt.go)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
