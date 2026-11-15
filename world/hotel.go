@@ -93,6 +93,15 @@ type Hotel struct {
 	Stock          image.Rectangle // the kitchen's prop row, flush against its back wall: solid, its props fetched from the row below (E8, K1, F1)
 	Kitchen        image.Rectangle // the kitchen (F1): the Lobby's part east of the Archway, walled off, its back wall's face included
 	HallY          int             // the Hall Wall's top, world px: the hall, the street included, is all that lies below (H1)
+	Windows        []image.Point   // where each window's light falls at night, on the floor below it (F0 Lighting)
+	Plants         []Plant         // potted plants (F0 Decor)
+}
+
+// Plant is a potted plant at a hand-placed spot nobody walks through, solid: its cell's bottom middle, world
+// px, and its sprite.
+type Plant struct {
+	At     image.Point
+	Sprite string
 }
 
 // cellCenter is the world-px center of cell (x,y).
@@ -322,6 +331,34 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	for x := kx + 1; x <= kx+KitchenW; x++ { // nobody walks over the props (K1, 2026-11-11)
 		m.Block[image.Pt(x, l.hall+2)] = true
 	}
+	// nor over a Room's back face (corner vanish, F0): its top row would be a third Corridor lane, inside the
+	// Room's Shell and under its wall, so whoever walked it faded with the fog and lost its legs
+	for _, r := range h.Rooms {
+		for x := range RoomW {
+			m.Block[r.Origin.Add(image.Pt(x, 0))] = true
+		}
+	}
+	plant := func(x, y int, sprite string) {
+		m.Block[image.Pt(x, y)] = true
+		h.Plants = append(h.Plants, Plant{m.Origin(x, y).Add(image.Pt(TileSize/2, TileSize)), sprite})
+	}
+	plant(l.hx+1, l.hall+2, "plant_big") // the Lobby's west corners
+	plant(l.hx+1, l.front-1, "plant_palm")
+	for r := range rows { // each Corridor's dead ends, past the outer Rooms' doormats
+		y := l.origin(0, r).Y + RoomH
+		plant(2, y, "plant_medium")
+		plant(l.w-3, y, "plant_medium")
+	}
+	for y := range l.h { // every Room shares its type's windows (D45 keeps the walls)
+		for x := range l.w {
+			switch ts.Tiles[m.At(LayerDecor, x, y)].Name {
+			case "window_curtain_r1c1":
+				h.Windows = append(h.Windows, m.Center(x, y+1))
+			case "prop_window_front_r1c0":
+				h.Windows = append(h.Windows, m.Origin(x+1, y+1).Add(image.Pt(0, TileSize/2)))
+			}
+		}
+	}
 	return h, nil
 }
 
@@ -385,6 +422,25 @@ func (h *Hotel) Land(i int, t RoomType, mirror bool) {
 		return
 	}
 	at := r.Origin.Add(glass)
+	// it replaces whatever hangs there, whole (a television), and takes over its spot (F0, 2026-11-15)
+	stem := func(name string) string { return name[:max(0, strings.LastIndex(name, "_r"))] }
+	var gone []string
+	for dy := range 2 {
+		if n := ts.Tiles[h.Map.At(LayerProps, at.X, at.Y-dy)].Name; n != "" {
+			gone = append(gone, stem(n))
+		}
+	}
+	for c := range 2 * RoomW { // the back wall's two rows, where props hang
+		x, y := r.Origin.X+c%RoomW, r.Origin.Y+c/RoomW
+		if slices.Contains(gone, stem(ts.Tiles[h.Map.At(LayerProps, x, y)].Name)) {
+			h.Map.Set(LayerProps, x, y, 0)
+			for i, s := range r.Spots {
+				if h.Map.Cell(s.Prop) == image.Pt(x, y) {
+					r.Spots[i].Verb = "look in"
+				}
+			}
+		}
+	}
 	for dy, name := range [...]string{mirrorTile + "r1c0", mirrorTile + "r0c0"} {
 		id, _ := ts.ID(name)
 		h.Map.Set(LayerProps, at.X, at.Y-dy, id)
