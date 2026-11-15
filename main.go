@@ -49,7 +49,7 @@ func main() {
 	father := flag.String("father", "", "dev: start a Run with Rooms 101 and 102 open and guests in, Money for both Fathers, Father k (or m) already walking to Room 101, you in the Lobby Archway: SPACE, then Room 102's ring has no call for him until he walks out")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	mirror := flag.Bool("mirror", false, "dev: Room 101 has a Room mirror and two ghosts (the second came through it), Room 102 none: its ring offers Add mirror (-view 1,1,0); you in 101; use with -ghost")
-	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell with the Ectoplasm to uncover it; this many (0, 1) are uncovered already")
+	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)

@@ -203,65 +203,70 @@ func TestCorridorMirrorsOnGrowth(t *testing.T) {
 	}
 }
 
-// 08 B1 (Corridor mirrors, Glow): SPACE on the Corridor cell under a covered Mirror uncovers it for Ectoplasm, the
-// price doubling; the glow shows only with the Ectoplasm and on that cell; uncovered, SPACE shifts there.
-func TestCorridorMirrorUncover(t *testing.T) {
+// 08 B1 (Corridor mirrors): covered, SPACE on its cell only refuses (no glow); the HOTEL row at the Terminal sends a
+// courier to that cell, who uncovers it on arrival, for Money and Ectoplasm; the price doubles; then SPACE shifts there.
+func TestCorridorMirrorCourier(t *testing.T) {
 	g := growFloors(t, 2)
 	s := g.in.(*script)
-	m0, m1 := g.hotel.Corridors[0], g.hotel.Corridors[1]
+	m0 := g.hotel.Corridors[0]
 	spot := center(m0.Spot)
 	g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+	g.wallet = [2]Num{10 * uncoverMoney, 10 * uncoverEcto}
 	if act, r := g.actionable(); act != actNone || !r.Empty() {
-		t.Fatalf("no Ectoplasm: actionable %d glow %v; want nothing", act, r)
+		t.Fatalf("covered: actionable %d glow %v; want nothing", act, r)
 	}
 	if press(g, s, spot); g.hotel.Corridors[0].Open || g.shifting != nil {
-		t.Fatal("uncovered with no Ectoplasm")
+		t.Fatal("SPACE uncovered or shifted a covered Mirror")
 	}
-	g.wallet[Ecto] = 3 * uncoverEcto
-	if act, r := g.actionable(); act != actUncover || r != m0.Glass {
-		t.Fatalf("with Ectoplasm: actionable %d glow %v, want uncover over %v", act, r, m0.Glass)
-	}
-	beside := spot.Add(image.Pt(world.TileSize, 0))
-	if g.player.X, g.player.Y = float64(beside.X), float64(beside.Y); g.atCorridorMirror() >= 0 {
-		t.Fatal("the next cell is on the Mirror's activation tile")
-	}
-	s.hold()
-	g.Update()
-	press(g, s, spot)
-	if !g.hotel.Corridors[0].Open || g.wallet[Ecto] != 2*uncoverEcto {
-		t.Fatalf("uncovered: open %v, Ectoplasm %v; want open and %d left", g.hotel.Corridors[0].Open, g.wallet[Ecto], 2*uncoverEcto)
-	}
-	if c := uncoverCost(g); c[Ecto] != 2*uncoverEcto {
-		t.Errorf("the next costs %v, want double", c)
-	}
-	s.hold()
-	g.Update()
-	press(g, s, spot)
-	if g.shifting == nil {
-		t.Error("SPACE on an uncovered Corridor Mirror didn't shift")
-	}
-	if g.coveredCorridor(prop{cx: m0.Cell.X, cy: m0.Cell.Y}) || !g.coveredCorridor(prop{cx: m1.Cell.X, cy: m1.Cell.Y}) {
-		t.Error("covered flags: the first still covered or the second uncovered")
-	}
-}
-
-// 08 B1 (Corridor mirrors): the HOTEL row uncovers the next covered Mirror for the same price, at checkout, and
-// is gone once none is left.
-func TestCorridorMirrorRow(t *testing.T) {
-	g := growFloors(t, 1)
 	i := row(t, CorridorMirror)
-	if !g.onSale(i) || g.priceOf(i) != (Cost{Ecto: uncoverEcto}) {
-		t.Fatalf("on sale %v at %v; want on sale for %d Ectoplasm", g.onSale(i), g.priceOf(i), uncoverEcto)
+	if g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
+		t.Fatalf("first price %v", g.priceOf(i))
 	}
-	g.wallet[Ecto] = 2 * uncoverEcto
+	g.openTerminal()
 	if why := g.addToCart(i, -1); why != "" {
 		t.Fatal(why)
 	}
-	if why := g.placeOrder(); why != "" || !g.hotel.Corridors[0].Open || g.wallet[Ecto] != uncoverEcto {
-		t.Fatalf("bought: %q, open %v, Ectoplasm %v; want it open and paid once", why, g.hotel.Corridors[0].Open, g.wallet[Ecto])
+	if why := g.addToCart(i, -1); why == "" {
+		t.Error("two in the cart")
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	g.state = StatePlay
+	if g.wallet != [2]Num{9 * uncoverMoney, 9 * uncoverEcto} || g.hotel.Corridors[0].Open || len(g.couriers) != 1 {
+		t.Fatalf("after checkout: wallet %v, open %v, couriers %d; want paid once, still covered, a courier on his way", g.wallet, g.hotel.Corridors[0].Open, len(g.couriers))
+	}
+	if k := g.nextCovered(); k != 1 || g.priceOf(i) != (Cost{Money: 2 * uncoverMoney, Ecto: 2 * uncoverEcto}) {
+		t.Errorf("while he walks: next %d at %v; want the second, doubled", k, g.priceOf(i))
+	}
+	for f := 0; !g.hotel.Corridors[0].Open; f++ {
+		if f > 3*60*tps {
+			t.Fatal("the courier never uncovered it")
+		}
+		g.step(0, 0)
+	}
+	if g.hotel.Corridors[1].Open {
+		t.Error("the second was uncovered too")
+	}
+	g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+	if act, r := g.actionable(); act != actMirror || r != m0.Glass {
+		t.Errorf("uncovered: actionable %d glow %v; want a shift over %v", act, r, m0.Glass)
+	}
+}
+
+// 08 B1 (Corridor mirrors): the HOTEL row's price, and it is gone once every Mirror is uncovered or on its way.
+func TestCorridorMirrorRow(t *testing.T) {
+	g := growFloors(t, 1)
+	i := row(t, CorridorMirror)
+	if !g.onSale(i) || g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
+		t.Fatalf("on sale %v at %v; want on sale for $%d and %d Ectoplasm", g.onSale(i), g.priceOf(i), uncoverMoney, uncoverEcto)
+	}
+	g.wallet = [2]Num{2 * uncoverMoney, 2 * uncoverEcto}
+	if why := g.buyNow(i, -1); why != "" {
+		t.Fatal(why)
 	}
 	if g.onSale(i) || !g.gone(i) {
-		t.Error("the row stays after the last Mirror is uncovered")
+		t.Error("the row stays while the last Mirror is on its way")
 	}
 }
 
