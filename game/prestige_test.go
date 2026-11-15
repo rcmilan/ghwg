@@ -86,7 +86,7 @@ func TestPrestigeReset(t *testing.T) {
 	g.runEcto, g.wallet = 1000, [2]Num{9000, 7}
 	g.clock += 5000
 	gain := g.prestigeGain() // 1000 + 9000/10 donated = 1900
-	if want := 1.378; gain < want || gain > want+.001 {
+	if want := 0.5627; gain < want || gain > want+.001 {
 		t.Fatalf("gain %v for 1900, want about %v", gain, want)
 	}
 	g.startPrestige()

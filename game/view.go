@@ -32,6 +32,7 @@ type View struct {
 	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 	Talk         TalkView       // the talk, open or not (07 X2)
 	Matchmaking  bool           // owned: the housekeepers fix bad pairs (07 X2)
+	Level        int            // prestige level: the grid's limit is maxGrid(Level)
 }
 
 type RoomView struct {
@@ -85,6 +86,7 @@ func (g *Game) view() View {
 		RoomMirror:   g.unlocked(RoomMirror),
 		Talk:         g.talkView(),
 		Matchmaking:  g.unlocked(Matchmaking),
+		Level:        g.level,
 	}
 	for k, b := range bedKinds {
 		if g.bedOpen(k) {

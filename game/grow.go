@@ -19,7 +19,7 @@ import (
 const (
 	growCol    = 1  // Item.Grow: a Room column,
 	growFloor  = 2  // a floor
-	growEcto   = 60 // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
+	growEcto   = 60 // Ectoplasm: the first expansion; each next one adds as much again, times the Rooms owned (growPrice)
 	growFrames = 60 // the new part's slide in, between the pull-back out and back in
 )
 
@@ -55,11 +55,7 @@ func growCost(g *Game) Cost {
 // growPrice: the next expansion's Ectoplasm for a cols x rows hotel with n Rooms owned: it doubles with each
 // step and rises with the Rooms owned (roomPrice).
 func growPrice(cols, rows, n int) Num {
-	p := growEcto
-	for range cols - 2 + rows - 1 {
-		p *= 2
-	}
-	return roomPrice(Num(p), n)
+	return roomPrice(Num(growEcto*(cols-2+rows)), n) // a step dearer each growth, and per Room owned (08 W3 sim: doubling walled level 2 at ~70 min)
 }
 
 // growRefuse: why the hotel can't grow that way now, "" if it can.

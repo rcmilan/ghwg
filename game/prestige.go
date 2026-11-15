@@ -19,7 +19,7 @@ const (
 	rowFatherP     Unlock = "father-p" // the Service's ID only names it
 	prestigeEcto          = 300        // Ectoplasm: Father P's fee
 	prestigeDonate        = 10         // Money that counts as 1 Ectoplasm in the bonus: $1000 is 100 Ecto
-	prestigeUnit          = 1000       // Ectoplasm (donated Money included) that gives +1 of bonus
+	prestigeUnit          = 6000       // Ectoplasm (donated Money included) that gives +1 of bonus (08 W3 sim: keeps a Run near 30 min)
 )
 
 // prestigeReady: the hotel is at its largest and every Room is owned.

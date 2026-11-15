@@ -132,8 +132,8 @@ func TestGrowBuy(t *testing.T) {
 	want := [][2]int{{3, 1}, {3, 2}, {3, 3}}
 	for k, id := range []Unlock{GrowCol, GrowFloor, GrowFloor} {
 		price := growCost(g)[Ecto]
-		if price != roomPrice(Num(int(growEcto)<<k), g.ownedCount()) || g.priceOf(row(t, id)) != (Cost{Ecto: price}) {
-			t.Fatalf("expansion %d costs %v (the row says %v), want %d Ectoplasm", k+1, price, g.priceOf(row(t, id)), int(growEcto)<<k)
+		if price != roomPrice(Num(int(growEcto)*(k+1)), g.ownedCount()) || g.priceOf(row(t, id)) != (Cost{Ecto: price}) { // a step dearer each growth
+			t.Fatalf("expansion %d costs %v (the row says %v), want %d Ectoplasm before the Rooms owned", k+1, price, g.priceOf(row(t, id)), int(growEcto)*(k+1))
 		}
 		g.wallet[Ecto] = price
 		if why := buy(id); why != "" || g.wallet[Ecto] != 0 || len(g.couriers) != 0 {

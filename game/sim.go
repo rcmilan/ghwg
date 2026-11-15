@@ -65,11 +65,13 @@ type Config struct {
 	Seed          uint64
 	Name          string // the Strategy's name, for the report
 	Strategy      Strategy
-	React, KeyGap int    // the Pilot's pace (D104); 0, 0 is frame-perfect
-	NoCheck       bool   // skip the invariants (D108)
-	Mirror        bool   // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
-	Open          bool   // start the Run with every Room owned (a normal Run starts with them boarded up, 07 B1)
-	Beds          string // start the Run with every Room of this bed layout (a normal Run starts all Single, 07 K1): Twin brings pairs
+	React, KeyGap int     // the Pilot's pace (D104); 0, 0 is frame-perfect
+	NoCheck       bool    // skip the invariants (D108)
+	Mirror        bool    // start the Run with the Mirror unlocked, so ghosts come (a normal Run starts locked)
+	Open          bool    // start the Run with every Room owned (a normal Run starts with them boarded up, 07 B1)
+	Beds          string  // start the Run with every Room of this bed layout (a normal Run starts all Single, 07 K1): Twin brings pairs
+	Level         int     // prestige level (08 P1): the grid's limit is maxGrid(Level)
+	Bonus         float64 // the income bonus; under 1 means 1
 }
 
 type Failure struct{ Clock, Reason string }
@@ -112,6 +114,10 @@ type Result struct {
 	Waits      [3]float64 // real seconds: the longest the Strategy stood with nothing to do, in each of those three stretches
 	EctoEarned int        // over the Run, spent or not
 	Offered    int        // $ paid for offers to move a Party (07 X2)
+	// Prestige (08 P1): a Run targets ~30 real minutes to Father P, the bonus keeping later Runs as long.
+	PrestigeAt float64 // game hours until Father P was on sale and affordable; -1 if never
+	Gain       float64 // what a prestige then would add to the bonus
+	LongWait   float64 // real seconds: the longest the Strategy stood with nothing to do, anywhere in the Run
 	Failures   []Failure
 }
 
@@ -161,7 +167,8 @@ func newSim(cfg Config) (*sim, error) {
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
-		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1}}
+		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
+	g.level, g.bonus = cfg.Level, max(1, cfg.Bonus)
 	g.mirrorAtStart, g.openAtStart, g.bedsAtStart = cfg.Mirror, cfg.Open, cfg.Beds
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
 	return s, nil
@@ -218,6 +225,10 @@ func (s *sim) frame() bool {
 	}
 	if s.wait++; !s.a.idle || g.state != StatePlay {
 		s.wait = 0
+	}
+	s.res.LongWait = max(s.res.LongWait, float64(s.wait)/tps)
+	if s.res.PrestigeAt < 0 && g.prestigeReady() && g.wallet[Ecto] >= prestigeEcto {
+		s.res.PrestigeAt, s.res.Gain = float64(g.clock-runStart)/hourFrames, g.prestigeGain()
 	}
 	if k := s.stretch(); k < len(s.res.Waits) {
 		s.res.Waits[k] = max(s.res.Waits[k], float64(s.wait)/tps)
@@ -331,8 +342,8 @@ func (s *sim) frame() bool {
 func (s *sim) check(money Num, banked Num, spent int) {
 	const legBudget = 60 * tps // the longest walk, Street to the farthest Stay Spot on 3×3, is ~25 s
 	g := s.g
-	if d := g.wallet[Money] - money - banked + Num(spent); d > 1e-6 || d < -1e-6 {
-		s.fail("money went up %s, but Guests paid %s and Priests cost %d", fmtNum(g.wallet[Money]-money), fmtNum(banked), spent)
+	if d := g.wallet[Money] - money - banked*Num(g.bonus) + Num(spent); d > 1e-4 || d < -1e-4 { // earn multiplies by the bonus (08 P1)
+		s.fail("money went up %s, but Guests paid %s (x%.2f) and Priests cost %d", fmtNum(g.wallet[Money]-money), fmtNum(banked), g.bonus, spent)
 	}
 	home := g.hotel.Map.Cell(image.Pt(int(g.player.X), int(g.player.Y))) == g.hotel.Map.Cell(g.hotel.ConciergeStart)
 	for _, guest := range g.guests() {

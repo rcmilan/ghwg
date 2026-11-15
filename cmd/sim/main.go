@@ -35,6 +35,8 @@ func main() {
 	beds := flag.String("beds", "", "start each Run with every Room of this bed layout: Single, Twin or Double (a normal Run starts all Single; Twin and Double bring pairs)")
 	noCheck := flag.Bool("nocheck", false, "skip the invariant checks")
 	csvPath := flag.String("csv", "", "write one row per Run to this file")
+	level := flag.Int("level", 0, "prestige level: the grid's limit is (3+level) a side (08 P1)")
+	bonus := flag.Float64("bonus", 1, "the income bonus a prestige left (08 P1)")
 	ectoRate := flag.Float64("ectorate", 0.5, "$ one Ectoplasm is worth in the score column: an assumed shop price (T112)")
 	flag.Parse()
 	debug.SetGCPercent(400) // ponytail: Runs allocate per frame and the GC is what stops them scaling across cores
@@ -62,7 +64,7 @@ func main() {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 				results[s][i] = game.RunSim(game.Config{Cols: cols, Rows: rows, Days: *days, Seed: *seed + uint64(i),
-					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror, Open: *open, Beds: *beds})
+					Name: name, Strategy: game.Strategies[name], React: *react, KeyGap: *keyGap, NoCheck: *noCheck, Mirror: *mirror, Open: *open, Beds: *beds, Level: *level, Bonus: *bonus})
 			}()
 		}
 	}
@@ -72,7 +74,7 @@ func main() {
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
-	var failures, growth, staff, pacing []string
+	var failures, growth, staff, pacing, prestige []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
@@ -85,8 +87,13 @@ func main() {
 		var grown [][]float64 // per expansion, first to last: the game hour of each Run that made it (H1)
 		rooms := 0
 		hired, quit, staffSpend := 0, 0, 0
+		var ready, gains []float64
+		longWait := 0.0
 		for _, r := range results[s] {
 			hired, quit, staffSpend = hired+r.Hired, quit+r.Quit, staffSpend+r.StaffSpend
+			if longWait = max(longWait, r.LongWait); r.PrestigeAt >= 0 {
+				ready, gains = append(ready, r.PrestigeAt/6), append(gains, r.Gain)
+			}
 			first := -1.0
 			if len(r.Grown) > 0 {
 				first = r.Grown[0]
@@ -151,6 +158,11 @@ func main() {
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
 			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
 			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
+		g := "-"
+		if len(gains) > 0 {
+			g = fmt.Sprintf("%.2f", mean(gains))
+		}
+		prestige = append(prestige, fmt.Sprintf("  %s: Father P ready at %s real min; gain %s; longest idle %.0f s", name, spread(ready, *runs), g, longWait))
 		if hired > 0 {
 			staff = append(staff, fmt.Sprintf("  %s hired %.1f a Run, %d walked out unpaid in %d Runs, $%.0f a day on fees and wages", name, float64(hired)/n, quit, *runs, float64(staffSpend)/n/float64(*days)))
 		}
@@ -171,6 +183,7 @@ func main() {
 		fmt.Println("\npacing, real minutes from the Run start (median, min..max; the goal: Growth 4, Room mirror 6, housekeeper 7, Deluxe 9.5; waits 30, 60, 90 s):")
 		fmt.Println(strings.Join(pacing, "\n"))
 	}
+	fmt.Printf("\nprestige (level %d, bonus x%.2f; the goal: ~30 real min to Father P):\n%s\n", *level, max(1, *bonus), strings.Join(prestige, "\n"))
 	if len(staff) > 0 {
 		fmt.Println("\nstaff:")
 		fmt.Println(strings.Join(staff, "\n"))
