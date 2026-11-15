@@ -50,8 +50,8 @@ func TestRoomsOpenSingle(t *testing.T) {
 	if g.onSale(twin) || g.onSale(double) || shop[twin].Tab != tabHotel || shop[double].Tab != tabHotel {
 		t.Fatal("Twin or Double is on sale before the Mirror, or not a HOTEL unlock")
 	}
-	if g.pickBeds(1); g.termBeds != 0 {
-		t.Errorf("picked %s with only Single unlocked", bedKinds[g.termBeds].Beds)
+	if beds := g.changeBeds(0); len(beds) != 0 {
+		t.Errorf("a Single Room can change to %v with only Single unlocked", beds)
 	}
 	if why := order(t, g, 0, "Twin"); why != "TWIN IS NOT UNLOCKED" || g.changing(0) {
 		t.Errorf("a change to locked Twin: %q", why)
@@ -66,12 +66,8 @@ func TestRoomsOpenSingle(t *testing.T) {
 	if !g.onSale(double) {
 		t.Error("Double is not on sale after Twin and its earnings")
 	}
-	g.termBeds = 0
-	if g.pickBeds(1); bedKinds[g.termBeds].Beds != "Twin" {
-		t.Errorf("W/S picked %s, want Twin", bedKinds[g.termBeds].Beds)
-	}
-	if g.pickBeds(1); bedKinds[g.termBeds].Beds != "Single" {
-		t.Errorf("W/S went on to %s past locked Double, want Single", bedKinds[g.termBeds].Beds)
+	if beds := g.changeBeds(0); !slices.Equal(beds, []int{1}) {
+		t.Errorf("a Single Room with Twin unlocked can change to %v, want Twin alone: not Single, not locked Double", beds)
 	}
 }
 
@@ -394,5 +390,28 @@ func TestDeluxe(t *testing.T) {
 	}
 	if g.step(0, 0); g.hotel.Rooms[0].Type.Name != deluxeTier || g.hotel.Rooms[0].Type.Beds != "Twin" {
 		t.Fatalf("a Deluxe Room changed to Twin is %s %s, want Deluxe Twin", g.hotel.Rooms[0].Type.Name, g.hotel.Rooms[0].Type.Beds)
+	}
+}
+
+// 08 F0 (Dirt only in Deluxe): a change of type spots the Room's dirt on the new floor, each spot keeping its
+// kind: a ghost's dirt stays spiritual, the rest stays normal.
+func TestChangeKeepsSpiritDirt(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	free := g.floorCells(0)
+	g.dirt, g.dirtN = [][]spot{{{free[0], true, spotUnit}, {free[1], false, spotUnit}, {free[2], true, spotUnit}}, nil}, []int{3, 0}
+	g.setDirtLevel(0, 3*spotUnit)
+	twin, _ := world.TypeOf(g.types, "Twin")
+	g.setRoom(0, twin, false)
+	kinds := map[bool]int{}
+	floor := g.floorCells(0)
+	for _, s := range g.spots(0) {
+		kinds[s.spirit] += s.size
+		if !slices.Contains(floor, s.cell) {
+			t.Errorf("a dirt spot at %v is off the new floor", s.cell)
+		}
+	}
+	if kinds[true] != 2*spotUnit || kinds[false] != spotUnit {
+		t.Fatalf("after the change: %d spiritual dirt, %d normal; want %d and %d", kinds[true], kinds[false], 2*spotUnit, spotUnit)
 	}
 }

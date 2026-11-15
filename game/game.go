@@ -148,6 +148,8 @@ type Game struct {
 	acc           float64                        // world time since the last whole frame, 0..1
 	ticked        bool                           // a whole frame of world time ended this step: its per-frame logic runs
 	recent        []earning                      // the last game hour's earnings: the Terminal's rates (wallet.go)
+	viewIn        float64                        // the hotel view's camera from the whole hotel (0) to the picked Room (1), eased (hotelview.go)
+	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -270,6 +272,9 @@ func (g *Game) Update() error {
 		case g.state == StateGrow: // it plays out
 		case g.state == StateTalk: // the world gets its pace back (talkmove.go, X2)
 			g.endTalk()
+		case g.state == StateView && g.termDepth > 1: // the hotel view steps back one level (08 F0)
+			g.termDepth--
+			g.refuse("")
 		case g.state != StatePlay:
 			g.state = StatePlay
 			g.refuse("")

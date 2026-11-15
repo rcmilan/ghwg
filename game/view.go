@@ -63,10 +63,10 @@ type TerminalView struct {
 	Message string
 	Cursor  int    // the Room a Service is for
 	Tab     Tab    // the store's open tab
-	Pick    int    // the picked row in the tab; in the cart, len(cart) is the checkout
-	Depth   int    // how far into the hotel view: 1 the Rooms, 2 a Room's actions, 3 its beds
+	Pick    int    // the picked row in the tab; in the cart, len(cart) is the checkout; on a Room's ring, the focused one of Rows
+	Depth   int    // how far into the hotel view: 1 the hotel, 2 a Room picked, 3 its ring of actions, 4 its change's beds
 	Beds    string // the bed layout picked for a change of type
-	Rows    []int  // in the hotel view: the Room's actions, shop indexes in order (hotelview.go's roomRows)
+	Rows    []int  // in the hotel view: the picked Room's actions, shop indexes clockwise from the ring's top (hotelview.go's roomRows)
 	Cart    int    // units in the cart
 	Lines   int    // lines in the cart: the checkout row's Pick
 }
@@ -135,6 +135,9 @@ func (g *Game) termView() TerminalView {
 	t := TerminalView{Open: g.state == StateTerminal, View: g.state == StateView, Message: g.refused, Cursor: g.termCursor, Tab: g.termTab, Pick: g.termPick, Depth: g.termDepth, Beds: bedKinds[g.termBeds].Beds}
 	if t.View && g.termCursor < len(g.hotel.Rooms) {
 		t.Rows = g.roomRows(g.termCursor)
+		if g.termDepth >= 3 {
+			t.Pick = slices.Index(t.Rows, g.ring(g.termCursor)[g.termPick])
+		}
 	}
 	for _, l := range g.cart {
 		t.Cart += l.n

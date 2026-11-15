@@ -1,45 +1,56 @@
 package game
 
 import (
+	"fmt"
 	"ghosthotel/assets"
 	"ghosthotel/world"
 	"image"
 	"image/color"
+	"math"
 	"slices"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// The hotel view (07 U1, replacing T1's ROOMS tab): SPACE, wherever it has nothing else to do (U2), stops the world and pulls the camera
-// back to the whole hotel. The Rooms themselves are the overview; WASD moves a highlight Room to Room and
-// SPACE opens that Room's actions, each paid at once, no cart (a change of type takes a third SPACE for its
-// beds). g.termDepth is how far in: 1 the Rooms, 2 a Room's actions, 3 the beds of its change. A/D steps
-// back one level; ESC closes it, in one press from any depth.
+// The hotel view (07 U1, 08 F0): SPACE, wherever it has nothing else to do (U2), pulls the camera back to the
+// whole hotel while the world runs on in slow motion (viewSlow). g.termDepth is how far in: 1 the hotel, no Room
+// picked; 2 a Room picked (WASD), the camera part way toward it; 3 its ring of actions (SPACE), the camera all the
+// way in; 4 the inner ring of the beds a change of type can take. Each action is paid at once, no cart. ESC
+// steps back one level, out of the view from 1 (game.go).
 
 const (
-	viewFrames = 20 // the pull-back, each way
-	viewPad    = 28 // screen px kept free around the whole hotel
-	screenW    = viewW * zoom
-	screenH    = viewH * zoom
+	viewFrames  = 20 // the pull-back, each way
+	viewPad     = 28 // screen px kept free around the whole hotel
+	screenW     = viewW * zoom
+	screenH     = viewH * zoom
+	ringZoom    = 1.8  // screen px per world px with a Room's ring open: the Room and its ring fit the screen
+	viewLerp    = 0.15 // the camera's ease toward a picked Room, each frame
+	shakeFrames = 12   // the "no" shake of an action SPACE can't buy (2026-11-15, grill 3)
 )
 
 func (g *Game) openView() {
 	g.state, g.termDepth = StateView, 1
 	g.refuse("")
 	g.termCursor = min(g.termCursor, len(g.hotel.Rooms)-1)
-	for i, r := range g.hotel.Rooms { // the highlight starts on the Room you stand in
+	for i, r := range g.hotel.Rooms { // the Room WASD picks first is the one you stand in
 		if g.feet().In(r.Shell()) {
 			g.termCursor = i
 		}
 	}
 }
 
-// DevView is main's -view: the hotel view fully pulled back on a Room, its actions open if open.
-func (g *Game) DevView(room int, open bool) {
+// DevView is main's -view: the hotel view pulled back, no Room picked (depth -1), the Room picked (0), its ring
+// open on its pick-th action clockwise from the top (1), or its Change type's beds on the pick-th (2).
+func (g *Game) DevView(room, depth, pick int) {
 	g.openView()
-	if g.termCursor, g.viewT = room, 1; open {
-		g.termDepth, g.termPick = 2, 0
+	g.termCursor, g.viewT, g.termDepth = room, 1, min(2+max(depth, -1), 4)
+	g.viewIn, g.termPick = viewIns[g.termDepth], 0
+	if rows := g.roomRows(room); g.termDepth > 2 && len(rows) > 0 {
+		g.termPick = ringSlot[shop[rows[min(pick, len(rows)-1)]].ID]
+		if beds := g.changeBeds(room); g.termDepth == 4 && len(beds) > 0 {
+			g.termPick, g.termBeds = 0, beds[min(pick, len(beds)-1)]
+		}
 	}
 }
 
@@ -65,38 +76,104 @@ func (g *Game) buyNow(i, room int) string {
 	return why
 }
 
-// roomRows: the Room's actions in the hotel view, shop indexes in the catalog's order: the key alone for a Room
-// not bought, and never the key for one that is (2026-11-14). "Change type" is left
-// out while there is nothing to change to (2026-11-14): one bed layout unlocked, no change waiting to call off,
-// and no in-Room Mirror the Room could get by changing to the beds it has.
+// ringSlot: each Room action's fixed place on its ring (2026-11-15), clockwise from the top: Change type (a
+// boarded Room's key), Deluxe on the right, the Room mirror lower right, Father M lower left, Father K on the left.
+var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowFatherM: 3, rowFatherK: 4}
+
+const ringSlots = 5
+
+// roomRows: the Room's actions, shop indexes clockwise from the top, only the ones it can take now (2026-11-15):
+// a boarded Room's key alone, never a bought one's; Change type while it has a layout to change to, or a change
+// waiting to call off; a Father's call only while he is nowhere in the hotel. One the wallet can't pay stays.
 func (g *Game) roomRows(room int) []int {
-	open := 0
-	for k := range bedKinds {
-		if g.bedOpen(k) {
-			open++
-		}
-	}
-	mirror := g.unlocked(RoomMirror) && g.hotel.Rooms[room].Mirror.Empty()
-	return slices.DeleteFunc(tabItems(tabRooms), func(i int) bool {
-		switch key := shop[i].ID == rowKey; {
-		case !g.isOwned(room): // boarded up: its key, nothing else
-			return !key
-		case key: // bought: no key to buy
+	rows := slices.DeleteFunc(tabItems(tabRooms), func(i int) bool {
+		it := shop[i]
+		switch {
+		case (it.ID == rowKey) == g.isOwned(room):
+			return true
+		case it.ID == rowChange:
+			return g.changeFor(room) == nil && (g.changing(room) || len(g.changeBeds(room)) == 0)
+		case (it.ID == rowFatherK || it.ID == rowFatherM) && g.fatherIn(it.ID == rowFatherM):
 			return true
 		}
-		return shop[i].ID == rowChange && open < 2 && !mirror && g.changeFor(room) == nil
+		return !g.onSale(i) || g.owned(i) || it.Refuse != nil && it.Refuse(g, room) != "" || g.coming(it.ID, room)
 	})
+	slices.SortFunc(rows, func(a, b int) int { return ringSlot[shop[a].ID] - ringSlot[shop[b].ID] })
+	return rows
 }
 
-// updateView is the hotel view's keys.
+// ring: the Room's actions by slot, -1 in an empty one.
+func (g *Game) ring(room int) [ringSlots]int {
+	r := [ringSlots]int{-1, -1, -1, -1, -1}
+	for _, i := range g.roomRows(room) {
+		r[ringSlot[shop[i].ID]] = i
+	}
+	return r
+}
+
+// turnRing: the next action from slot s, clockwise (d 1) or back (-1), past the empty slots; d 0 stays on s if it
+// holds one. -1 for an empty ring.
+func turnRing(r [ringSlots]int, s, d int) int {
+	if d == 0 {
+		if r[s] >= 0 {
+			return s
+		}
+		d = 1
+	}
+	for range ringSlots {
+		if s = (s + d + ringSlots) % ringSlots; r[s] >= 0 {
+			return s
+		}
+	}
+	return -1
+}
+
+// ringStart: where the Room's ring opens: its top, or the next action clockwise; past calling a change off, which
+// comes last (2026-11-14, stray cancel), unless it is alone.
+func (g *Game) ringStart(room int) int {
+	r := g.ring(room)
+	if r[0] >= 0 && shop[r[0]].ID == rowChange && g.changeFor(room) != nil {
+		return turnRing(r, 0, 1)
+	}
+	return turnRing(r, 0, 0)
+}
+
+// viewIns: the camera's way in from the whole hotel to the picked Room, by g.termDepth.
+var viewIns = [...]float64{0, 0, 0.5, 1, 1}
+
+// updateView runs the world on, slowed, and reads the hotel view's keys.
 func (g *Game) updateView() {
+	for left := g.scale * viewSlow; left > 0; left-- {
+		g.advance(0, 0, min(left, 1))
+	}
+	g.viewIn += (viewIns[g.termDepth] - g.viewIn) * viewLerp
+	g.shake = max(0, g.shake-1)
 	key := g.in.JustPressed
 	n, room := len(g.hotel.Rooms), g.termCursor
 	cols, _ := g.hotel.Grid()
-	rows := g.roomRows(room)
-	back := key(ebiten.KeyA) || key(ebiten.KeyD)
+	r := g.ring(room)
+	if g.termDepth >= 3 { // the world ran on: the focus moves on clockwise from an action gone, out of a ring left empty
+		if g.termPick = turnRing(r, g.termPick, 0); g.termPick < 0 {
+			g.termDepth = 2
+		}
+	}
+	beds := g.changeBeds(room)
+	if g.termDepth == 4 && (g.termPick != 0 || shop[r[0]].ID != rowChange || g.changeFor(room) != nil || len(beds) == 0) {
+		g.termDepth = 3
+	}
+	turn := 0 // the rings turn: D or S clockwise, A or W back
+	switch {
+	case key(ebiten.KeyD) || key(ebiten.KeyS):
+		turn = 1
+	case key(ebiten.KeyA) || key(ebiten.KeyW):
+		turn = -1
+	}
 	switch g.termDepth {
 	case 1:
+		if turn != 0 { // WASD picks a Room: the last one picked, or the one you stand in
+			g.termDepth = 2
+		}
+	case 2:
 		switch {
 		case key(ebiten.KeyA):
 			g.termCursor = (room + n - 1) % n
@@ -106,77 +183,67 @@ func (g *Game) updateView() {
 			g.termCursor -= cols
 		case key(ebiten.KeyS) && room+cols < n:
 			g.termCursor += cols
-		case key(ebiten.KeySpace):
-			g.termDepth, g.termPick = 2, 0
-		default:
-			return
+		case key(ebiten.KeySpace) && g.ringStart(room) >= 0:
+			g.termDepth, g.termPick = 3, g.ringStart(room)
 		}
 		g.refuse("")
-	case 2:
-		switch {
-		case back:
-			g.termDepth = 1
-			g.refuse("")
-		case key(ebiten.KeyW):
-			g.termPick = (g.termPick + len(rows) - 1) % len(rows)
-			g.refuse("")
-		case key(ebiten.KeyS):
-			g.termPick = (g.termPick + 1) % len(rows)
-			g.refuse("")
-		case key(ebiten.KeySpace):
-			i := rows[g.termPick]
-			c := g.changeFor(room)
-			switch {
-			case shop[i].ID == rowChange && c != nil: // the same row calls a waiting change off
-				g.cancelChange(c)
-				g.termDepth = 1
-				g.refuse("") // the fee coming back shows on the Money counter
-			case shop[i].ID == rowChange && g.isOwned(room) && !g.changing(room): // its beds next, each with its fee
-				g.refuse("")
-				if g.termDepth = 3; !g.bedOpen(g.termBeds) {
-					g.termBeds = 0
-				}
-			default:
-				g.pay1(i, room)
-			}
-		}
 	case 3:
-		switch {
-		case back:
+		g.termPick = turnRing(r, g.termPick, turn)
+		if !key(ebiten.KeySpace) {
+			break
+		}
+		switch i, c := r[g.termPick], g.changeFor(room); {
+		case shop[i].ID == rowChange && c != nil:
+			g.cancelChange(c) // the fee coming back shows on the Money counter
 			g.termDepth = 2
 			g.refuse("")
-		case key(ebiten.KeyW):
-			g.pickBeds(-1)
-		case key(ebiten.KeyS):
-			g.pickBeds(1)
-		case key(ebiten.KeySpace):
-			g.pay1(rows[g.termPick], room)
+		case shop[i].ID == rowChange:
+			g.termDepth, g.termBeds = 4, beds[0]
+		default:
+			g.pay1(i, room)
+		}
+	case 4:
+		k := max(0, slices.Index(beds, g.termBeds))
+		g.termBeds = beds[(k+turn+len(beds))%len(beds)]
+		if key(ebiten.KeySpace) {
+			g.pay1(r[0], room)
 		}
 	}
 }
 
-// pay1 buys the action for the Room, or says why not; bought, the highlight is back on the Rooms.
+// pay1 buys the action for the Room, or shakes no; bought, the view is back on the Room.
 func (g *Game) pay1(i, room int) {
 	why := g.buyNow(i, room)
 	if why == "" { // no confirmation: the counter rolls and the courier walks in (show, don't tell)
-		g.termDepth = 1
+		g.termDepth = 2
+	} else {
+		g.shake = shakeFrames
 	}
 	g.refuse(why)
 }
 
 // viewAt: the pulled-back camera at g.viewT. A world px p shows at p*k + (tx,ty) screen px; at viewT 0 that is
-// the play camera, at 1 the whole hotel centered.
+// the play camera, at 1 the hotel view's: the whole hotel centered, eased (g.viewIn) toward the picked Room
+// centered at ringZoom.
 func (g *Game) viewAt() (k, tx, ty float64) {
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	fit := min(1, float64(screenW-2*viewPad)/float64(mw*zoom), float64(screenH-2*viewPad)/float64(mh*zoom))
+	in := g.viewIn
+	if g.growing != nil {
+		in = 0
+	}
+	c := g.hotel.Rooms[min(g.termCursor, len(g.hotel.Rooms)-1)].Shell()
+	kv := zoom*fit + (ringZoom-zoom*fit)*in
+	px := float64(mw)/2 + (float64(c.Min.X+c.Max.X)/2-float64(mw)/2)*in
+	py := float64(mh)/2 + (float64(c.Min.Y+c.Max.Y)/2-float64(mh)/2)*in
 	t := g.viewT * g.viewT * (3 - 2*g.viewT)
-	k = zoom * (1 + (fit-1)*t)
-	return k, -float64(ox)*(1-t) + (screenW-float64(mw*zoom)*fit)/2*t, -float64(oy)*(1-t) + (screenH-float64(mh*zoom)*fit)/2*t
+	k = zoom + (kv-zoom)*t
+	return k, -float64(ox)*(1-t) + (screenW/2-px*kv)*t, -float64(oy)*(1-t) + (screenH/2-py*kv)*t
 }
 
-// drawView draws the world pulled back by g.viewT and, once the view is open, the Rooms' labels, the
-// highlight and the picked Room's actions.
+// drawView draws the world pulled back by g.viewT and, once the view is open, the Rooms' labels and the picked
+// Room's ring.
 func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	mw, mh := g.mapSize()
 	if g.wide == nil || g.wide.Bounds().Size() != image.Pt(mw*zoom, mh*zoom) {
@@ -221,82 +288,71 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		rect(screen, r.Min.X, r.Min.Y-glyphH-2, len(label)*glyphW+8, glyphH+2, storeInk)
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
 	}
-	r := on(g.hotel.Rooms[g.termCursor].Shell())
-	if g.termDepth >= 2 {
-		g.drawActions(screen, r)
+	if g.termDepth >= 3 {
+		g.drawRing(screen, on(g.hotel.Rooms[g.termCursor].Shell()))
 	}
-	help := [...]string{"", "WASD ROOM   SPACE OPEN   ESC CLOSE", "W/S ACTION   SPACE BUY NOW   A/D BACK   ESC CLOSE", "W/S BEDS   SPACE BUY NOW   A/D BACK   ESC CLOSE"}[g.termDepth]
+	help := [...]string{"", "WASD PICK A ROOM   ESC CLOSE", "WASD ROOM   SPACE ACTIONS   ESC BACK", "WASD TURN   SPACE BUY   ESC BACK", "WASD BEDS   SPACE BUY   ESC BACK"}[g.termDepth]
 	x := screenW - 16 - len(help)*glyphW
 	rect(screen, x-6, screenH-22, len(help)*glyphW+12, glyphH+2, storeInk)
 	g.tinted(screen, help, x, screenH-21, storeBarInk, 1)
 }
 
-// drawActions draws the picked Room's actions, or the beds of its change, as store rows on a card beside the
-// Room's screen box r.
-func (g *Game) drawActions(screen *ebiten.Image, r image.Rectangle) {
-	if g.panel == nil {
-		g.panel = ebiten.NewImage(screenW, screenH) // the rows draw at the store's own list spot; the card is moved
+// drawRing draws the picked Room's ring around its screen box r (2026-11-15): an icon in each action's slot, the
+// focused one framed, and in the middle its name, price (red when the wallet can't pay it) and effect; with
+// Change type open, its beds on a smaller ring inside.
+func (g *Game) drawRing(screen *ebiten.Image, r image.Rectangle) {
+	room, ring := g.termCursor, g.ring(g.termCursor)
+	cx, cy := (r.Min.X+r.Max.X)/2, (r.Min.Y+r.Max.Y)/2
+	at := func(rad float64, k, n int) (int, int) { // the k-th of n places clockwise from the top
+		a := 2 * math.Pi * float64(k) / float64(n)
+		return cx + int(rad*math.Sin(a)), cy - int(rad*math.Cos(a))
 	}
-	room := g.termCursor
-	type line struct {
-		picked bool
-		it     Item
-		name   string
-		c      Cost
-		word   string
-		a      float32
-	}
-	var lines []line
-	if g.termDepth == 3 { // the beds to change to, each with its fee
-		for k, bed := range bedKinds {
-			if g.bedOpen(k) {
-				a := float32(1)
-				if !g.afford(g.bedFee(k)) {
-					a = 0.5
-				}
-				lines = append(lines, line{k == g.termBeds, Item{Icon: "icon_bed_" + strings.ToLower(bed.Beds)}, strings.ToUpper(bed.Beds), g.bedFee(k), "", a})
-			}
+	slot := func(it Item, x, y int, focused bool, a float32) {
+		h := 26
+		if focused {
+			h = 32
+			rect(screen, x-h-3, y-h-3, 2*h+6, 2*h+6, storeAccent)
 		}
-	} else {
-		for k, i := range g.roomRows(room) {
-			it, name, c, word, a := shop[i], strings.ToUpper(shop[i].Name), g.priceOf(i), "", float32(1)
-			w := g.changeFor(room)
-			switch {
-			case !g.onSale(i):
-				a, word = 0.35, "SOON"
-			case it.unlock() && g.unlocked(it.ID):
-				a, word = 0.5, "OWNED"
-			case it.ID == rowChange && w != nil:
-				name, c = "CANCEL > "+typeLabel(w.to), w.paid
-			case it.ID == rowChange:
-				if c = (Cost{}); !g.isOwned(room) || g.changing(room) { // its fee comes with the beds
-					a = 0.5
-				}
-			case it.Refuse != nil && it.Refuse(g, room) != "" || g.coming(it.ID, room) || !g.afford(c):
-				a = 0.5
+		rect(screen, x-h, y-h, 2*h, 2*h, storeInk)
+		rect(screen, x-h+2, y-h+2, 2*h-4, 2*h-4, storeCard)
+		g.drawIcon(screen, it, x, y, 2*h-12, a)
+	}
+	inner := g.termDepth == 4
+	for s, i := range ring {
+		if i >= 0 {
+			a := float32(1)
+			if inner {
+				a = 0.4
 			}
-			lines = append(lines, line{k == g.termPick, it, name, c, word, a})
+			x, y := at(0.72*float64(r.Dx()), s, ringSlots)
+			slot(shop[i], x, y, !inner && s == g.termPick, a)
 		}
 	}
-	const head = 34
-	box := image.Rect(listX-8, bodyY-head-8, listX+listW+8, bodyY+len(lines)*rowH+4)
-	g.panel.Clear()
-	rect(g.panel, box.Min.X, box.Min.Y, box.Dx(), box.Dy(), storeInk)
-	rect(g.panel, box.Min.X+3, box.Min.Y+3, box.Dx()-6, box.Dy()-6, storePage)
-	rect(g.panel, box.Min.X+3, box.Min.Y+3, box.Dx()-6, head, storeBar)
-	title := "ROOM " + g.hotel.Rooms[room].Number + "  " + typeLabel(g.hotel.Rooms[room].Type)
-	g.tintedAt(g.panel, title, listX, box.Min.Y+4, 2, storeBarInk, 1)
-	for k, l := range lines {
-		g.drawRowAt(g.panel, k, l.picked, l.it, l.name, l.c, l.word, l.a)
+	i := ring[g.termPick]
+	it, name, c, effect := shop[i], strings.ToUpper(shop[i].Name), g.priceOf(i), shop[i].Blurb
+	switch w := g.changeFor(room); {
+	case inner:
+		beds := g.changeBeds(room)
+		for k, b := range beds {
+			x, y := at(0.36*float64(r.Dx()), k, len(beds))
+			slot(Item{Icon: "icon_bed_" + strings.ToLower(bedKinds[b].Beds)}, x, y, b == g.termBeds, 1)
+		}
+		t, _ := world.TypeIn(g.types, g.hotel.Rooms[room].Type.Name, bedKinds[g.termBeds].Beds)
+		name, c = strings.ToUpper(bedKinds[g.termBeds].Beds), g.bedFee(g.termBeds)
+		effect = fmt.Sprintf("Sleeps %d. $%d a night, once it's empty.", len(t.Stays), t.Rate)
+	case it.ID == rowChange && w != nil:
+		name, c, effect = "CANCEL > "+typeLabel(w.to), w.paid, "Calls the change off. Full refund."
+	case it.ID == rowChange: // its fee comes with the beds
+		c = Cost{}
 	}
-	x := r.Max.X + 10 // beside the Room, on the side with space
-	if x+box.Dx() > screenW-4 {
-		x = max(4, r.Min.X-10-box.Dx())
-	}
-	y := min(max(r.Min.Y, 44), screenH-28-box.Dy())
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(x), float64(y)) // a SubImage draws from its own corner
-	screen.DrawImage(g.panel.SubImage(box).(*ebiten.Image), op)
+	red := !g.afford(c) && (inner || it.ID != rowChange)
+	w := max(len(name)*glyphW*2, len(effect)*glyphW, priceW(c, 2)) + 24
+	x := cx - w/2 + int(math.Sin(float64(g.shake))*float64(g.shake)/2)
+	rect(screen, x, cy-44, w, 88, storeInk)
+	rect(screen, x+2, cy-42, w-4, 84, storePage)
+	g.tintedAt(screen, name, x+w/2-len(name)*glyphW, cy-38, 2, storeInk, 1)
+	g.drawPrice(screen, c, x+w/2-priceW(c, 2)/2, cy-8, 2, red) // red: the Terminal's red (2026-11-15, grill 3)
+	g.tinted(screen, effect, x+w/2-len(effect)*glyphW/2, cy+22, storeInk, 1)
 }
 
 // The pause (07 U1): ESC with nothing open stops the world on Resume / Quit to title. ESC or SPACE on Resume
@@ -346,7 +402,7 @@ var glowLayer *ebiten.Image // the floor's size, world px
 
 // drawRoomGlow: op is the floor's (drawWorld).
 func (g *Game) drawRoomGlow(s *ebiten.Image, op *ebiten.DrawImageOptions) {
-	if g.state != StateView {
+	if g.state != StateView || g.termDepth < 2 { // no Room picked, none glows
 		return
 	}
 	if glowLayer == nil || glowLayer.Bounds() != g.floorImg.Bounds() {

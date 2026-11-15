@@ -327,23 +327,23 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 				return false, false
 			}
 			opened = true
-			paid = paid || pressed && t.Depth == 1 // bought: the store is back on the grid
-			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds) || t.Depth == 2 && !slices.Contains(t.Rows, i)
+			paid = paid || pressed && t.Depth == 2 // bought: the view is back on the Room
+			leave = leave || paid || t.Message != "" || !slices.Contains(v.Shop, i) || spins > len(bedKinds) || t.Depth >= 2 && t.Cursor == room && !slices.Contains(t.Rows, i)
 			k, last := ebiten.KeySpace, false
 			switch {
-			case leave:
+			case leave: // ESC until the view is closed, a level a press
 				k = ebiten.KeyEscape
-			case t.Depth == 1 && t.Cursor != room:
+			case t.Depth == 1 || t.Depth == 2 && t.Cursor != room: // WASD picks a Room, then walks the Rooms
 				k = ebiten.KeyD
-			case t.Depth == 2 && t.Pick != slices.Index(t.Rows, i):
-				k = ebiten.KeyS
-			case t.Depth == 3 && t.Beds != beds:
-				k = ebiten.KeyS
+			case t.Depth == 3 && t.Pick != slices.Index(t.Rows, i): // the ring turns
+				k = ebiten.KeyD
+			case t.Depth == 4 && t.Beds != beds:
+				k = ebiten.KeyD
 				spins++
 			default:
-				last = t.Depth == 3 || t.Depth == 2 && beds == ""
+				last = t.Depth == 4 || t.Depth == 3 && beds == ""
 			}
-			if !p.tap(k) && k == ebiten.KeyS && t.Depth == 3 {
+			if !p.tap(k) && k == ebiten.KeyD && t.Depth == 4 {
 				spins--
 			}
 			pressed = pressed || last && p.lastTap == p.frame
