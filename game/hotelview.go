@@ -266,7 +266,11 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	} else {
 		screen.DrawImage(g.wide, op)
 	}
+	pills := func() { g.drawRequests(screen, -int(math.Round(tx)), -int(math.Round(ty)), k) } // at the size they have in play
 	if g.state != StateView {
+		if g.state != StateGrow {
+			pills()
+		}
 		return
 	}
 	on := func(r image.Rectangle) image.Rectangle { // world px to screen px
@@ -288,6 +292,7 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		rect(screen, r.Min.X, r.Min.Y-glyphH-2, len(label)*glyphW+8, glyphH+2, storeInk)
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
 	}
+	pills() // over the veils and labels: a pill is never cut by a Room beside it
 	if g.termDepth >= 3 {
 		g.drawRing(screen, on(g.hotel.Rooms[g.termCursor].Shell()))
 	}

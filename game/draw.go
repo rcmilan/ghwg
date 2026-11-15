@@ -382,7 +382,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
-	g.drawRequests(screen, ox, oy)
+	if screen != g.wide { // the hotel view draws them on the screen, over its veils (hotelview.go)
+		g.drawRequests(screen, ox, oy, zoom)
+	}
 	g.drawTalk(screen, ox, oy)
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
