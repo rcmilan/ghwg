@@ -236,7 +236,7 @@ The darkness layer over the hotel. Its tint follows the Clock, and Light Sources
 A lamp, ceiling light, street lamp, window, the kitchen's night lights, a Lantern or the Terminal screen: it cuts a glow out of the Lightmap at night.
 
 **Lantern**:
-The beam of light ahead of the Concierge and every staff member at night.
+The beam of light ahead of the Concierge and every staff member at night, on only in the dark: off where an area light already lights their spot (the Lobby while its lights are on, the kitchen, the Room the Concierge is in).
 
 **Glow**:
 The Ectoplasm-ink light on the prop SPACE would act on, shown only while the Concierge stands in its range.
