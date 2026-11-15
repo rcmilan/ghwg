@@ -123,7 +123,7 @@ Room Mood made visible: no spots from Mood +50 up, then one spot per about 3.75 
 One of the hotel's two independent layers, Human and Ghost. A Party lives in one; actors of different realms never bump, yield, push or queue for each other, and a Room is Occupied per realm. The Concierge is in Ghost while he is in the ghost Dimension. Every Party is Human until the Mirror is unlocked: then each Room also books a Ghost Party.
 
 **Guest stats**:
-Sensitivity (how hard a fright lands), Flee At (the Fear at which its Party steps out, then flees), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Sensitivity is read by V1; Phantasm sets a ghost's kind and strength; Haunt sets how often it haunts.
+Flee At (the Fear at which its Party steps out, then flees; a human's is its Nerve), Phantasm (how ghostly it is: sight, and the Mood damage of each haunt) and Haunt (x); Phantasm sets a ghost's kind and strength; Haunt sets how often it haunts.
 
 **Ghost guest** (Ghost Party):
 A Party of the Ghost realm. Once the Mirror is bought and delivered (a Run starts without it) each Room books one beside its human Party, independent of it: it walks in from the Street on the ghost layer, as one of the 4 characters in its ghost kind's flat arcade color, and a Room holds both at once. It pays no Money (no hourly rent, no tip), ignores dirt (no complaints, never flees over mess), asks for nothing, and earns only through encounters (V1). It is drawn in the ghost Dimension (at about 90% opacity) and never in real, where only its Area Shadows show. In the ghost Dimension humans draw as flat white silhouettes with a small white glow.

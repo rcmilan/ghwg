@@ -173,8 +173,8 @@ func TestFleeAt(t *testing.T) {
 	if g.scare(); p.scares != 1 || p.state != cooling {
 		t.Fatalf("at Fear 50 with FleeAt 50: scares %d, state %d; want 1 and cooling", p.scares, p.state)
 	}
-	if p.Guests[0].Sensitivity != 0 || p.Guests[0].Phantasm != 0 {
-		t.Fatal("Sensitivity and Phantasm start at 0")
+	if p.Guests[0].Phantasm != 0 {
+		t.Fatal("Phantasm starts at 0")
 	}
 	if p.Guests[0].Haunt != entities.DefaultHaunt {
 		t.Fatal("Haunt starts at its default")
