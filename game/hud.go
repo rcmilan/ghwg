@@ -131,10 +131,16 @@ func (g *Game) updateHUD() {
 	want := func(r Res) bool {
 		return g.state == StateTerminal || g.state == StateView || g.hud[r].seen && g.hud[r].age < holdFrames
 	}
-	if t := g.nextGuest(); t != "" {
-		g.guestText = t
+	t := g.nextGuest()
+	switch {
+	case t == "":
+		g.guestAge = 0
+	case t != g.guestText: // a new line, or one back after it went: it holds again
+		g.guestText, g.guestAge = t, 0
+	default:
+		g.guestAge++
 	}
-	note := g.nextGuest() != ""
+	note := t != "" && g.guestAge < noticeFrames
 	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Money), note})
 	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would start the talk
 	slots, hs, wants := []*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue}

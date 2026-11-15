@@ -149,6 +149,7 @@ type Game struct {
 	viewIn        float64                        // the hotel view's camera from the whole hotel (0) to the picked Room (1), eased (hotelview.go)
 	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
 	mirrorSlots   []arrival                      // per Room with a mirror: its second ghost's arrival (ghostguest.go, 08 B1)
+	guestAge      int                            // frames the next-guest notice has shown its text: it holds noticeFrames, like the feed (08 B1 live test 5)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

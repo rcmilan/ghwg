@@ -201,7 +201,6 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
 	g.drawReels(screen, ox, oy)
-	g.drawRituals(screen, ox, oy, true) // on the floor, under everyone
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
 		x, y float64 // foot box center; y sorts (T039)
@@ -313,6 +312,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	propsUpTo(0) // the rugs, under the stains; furniture goes over them (Live test 7, 2026-11-08)
 	g.drawDirt(screen, ox, oy)
+	g.drawRituals(screen, ox, oy, true) // on the floor, over the rugs and stains, under everyone (08 B1 live test 5)
 	stockY, stocked := float64(g.hotel.Stock.Max.Y), false
 	stock := func() { // the stock props: over the wall they stand against, under whoever stands in front
 		if !stocked {

@@ -135,3 +135,24 @@ func TestNoticeFlee(t *testing.T) {
 		t.Fatalf("a ghost Party's flight added a notice")
 	}
 }
+
+// 08 B1 live test 5: the next-guest note holds as long as a feed notice, then slides out, its guest still booked.
+func TestNextGuestNoteHolds(t *testing.T) {
+	g, _, p := settled(t)
+	g.flee(p)
+	if g.nextGuest() == "" {
+		t.Fatal("setup: no guest booked after the flight")
+	}
+	for range noticeFrames / 2 {
+		g.updateHUD()
+	}
+	if g.guestNote.in == 0 {
+		t.Fatal("the next-guest note isn't in")
+	}
+	for range noticeFrames + 2*slideFrames {
+		g.updateHUD()
+	}
+	if g.guestNote.in != 0 || g.nextGuest() == "" {
+		t.Fatalf("after %d frames: note in %.2f, booked %q; want out, still booked", 3*noticeFrames/2+2*slideFrames, g.guestNote.in, g.nextGuest())
+	}
+}
