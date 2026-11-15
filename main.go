@@ -169,7 +169,9 @@ func main() {
 		run = s
 	}
 	if *play == "" && !*skipIntro && !dev { // a person starting from the title: the opening
-		g.Persist() // the only start that reads and writes the save
+		if *shotPath == "" { // prints never touch the save
+			g.Persist() // the only start that reads and writes the save
+		}
 		g.PlayIntro()
 	}
 	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
