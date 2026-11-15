@@ -104,11 +104,11 @@ func main() {
 		g.DevHaunt(*haunt)
 		g.DevDirt(*dirt)
 		g.DevGhosts(*ghosts)
-		g.DevMatch(*match)
 		if *mood != noMood {
 			g.DevMood(*mood)
 		}
 		g.DevGrow(*grow)
+		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 	}
 	if *shop != "" {
 		var money, ecto float64

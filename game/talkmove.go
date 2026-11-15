@@ -14,16 +14,17 @@ import (
 
 // The talk (07 X2): in a Room with its human Party in, and some other Room it fits, TALK shows on the HUD's
 // right. SPACE stages it: the camera closes in on the Concierge and the guest, the rest blurs into the ghost
-// purple, and the world waits. A/D picks the Room to offer, W/S the offer, SPACE makes it, ESC leaves. Each
+// purple, and the world slows down (D1's g.scale, talkSlow). A/D picks the Room to offer, W/S the offer, SPACE makes it, ESC leaves. Each
 // target Room has three offers: a plain ask, free, that may be refused; a discount, some Money, likely; and the
 // night on the house, a night's Rate, sure. A scared guest or a nicer target Room makes them likelier. A refusal
 // costs the guest's Room some Mood and the talk goes on. Taken, both Parties walk over by themselves (match.go's
 // relocate) and the Concierge is free at once. Ghosts can't be talked to. Placeholders.
 const (
-	talkIn      = 24  // frames the camera takes to close in; the guest speaks half way, the offers show at the end
-	talkZoomMax = 1.8 // how close it gets, of the play camera
-	refuseMood  = 25  // Mood a refusal costs the Room
-	offerLean   = 0.5 // of what an offer's odds lack, the most a scared guest and a cozy target Room make up
+	talkIn      = 24   // frames the camera takes to close in; the guest speaks half way, the offers show at the end
+	talkZoomMax = 1.8  // how close it gets, of the play camera
+	talkSlow    = 0.25 // of the world's time scale while the talk is on
+	refuseMood  = 40   // Mood a refusal costs the Room
+	offerLean   = 0.3  // of what an offer's odds lack, the most a scared guest and a cozy target Room make up
 )
 
 const (
@@ -33,19 +34,20 @@ const (
 )
 
 var (
-	offerShare = [3]float64{0, 0.2, 0.5} // of a night's Rate, for each Party that moves
-	offerBase  = [3]float64{0.1, 0.6, 1} // the odds with a calm guest and a Room at Mood -100
+	offerShare = [3]float64{0, 0.2, 1}    // of a night's Rate, for each Party that moves: on the house is the whole night
+	offerBase  = [3]float64{0.05, 0.6, 1} // the odds with a calm guest and a Room at Mood -100
 )
 
 // parley: the talk under way.
 type parley struct {
 	p       *Party
-	targets []int  // the Rooms it fits, best fit first
-	to      int    // the one picked, an index into targets
-	pick    int    // the offer picked
-	t       int    // frames since it began
-	line    string // what the guest says now
-	lineAt  int    // the t it began saying it
+	targets []int   // the Rooms it fits, best fit first
+	to      int     // the one picked, an index into targets
+	pick    int     // the offer picked
+	t       int     // real frames since it began: the zoom, the blur and the lines don't slow down
+	line    string  // what the guest says now
+	lineAt  int     // the t it began saying it
+	scale   float64 // the world's time scale as the talk found it, given back as it ends
 }
 
 var (
@@ -160,16 +162,35 @@ func (g *Game) startTalk(p *Party) {
 	case g.pairing(p.Room) == badPair:
 		set = talkUneasy
 	}
-	g.state, g.parley = StateTalk, &parley{p: p, targets: g.targets(p), line: g.pickLine(set), lineAt: talkIn / 2}
+	g.state, g.parley = StateTalk, &parley{p: p, targets: g.targets(p), line: g.pickLine(set), lineAt: talkIn / 2, scale: g.scale}
+	g.scale *= talkSlow
 	lead := p.Guests[0]
 	g.player.Anim.Facing = entities.Toward(lead.X-g.player.X, lead.Y-g.player.Y)
 	lead.Anim.Facing = entities.Toward(g.player.X-lead.X, g.player.Y-lead.Y)
 }
 
-// updateParley is the talk's keys.
+// endTalk leaves the talk: back to play, the world at the pace the talk found it.
+func (g *Game) endTalk() {
+	if g.parley != nil {
+		g.scale = g.parley.scale
+	}
+	g.state, g.parley = StatePlay, nil
+}
+
+// updateParley runs the world on, slowed, and reads the talk's keys. The talk ends by itself if the guest leaves
+// the Room or no Room is left to offer meanwhile.
 func (g *Game) updateParley() {
 	t := g.parley
 	t.t++
+	for left := g.scale; left > 0; left-- {
+		g.advance(0, 0, min(left, 1))
+	}
+	to := t.targets[t.to]
+	if t.targets = g.targets(t.p); !g.inRoom(t.p) || len(t.targets) == 0 {
+		g.endTalk()
+		return
+	}
+	t.to = max(0, slices.Index(t.targets, to))
 	key, n := g.in.JustPressed, len(t.targets)
 	switch {
 	case key(ebiten.KeyA):
@@ -202,7 +223,7 @@ func (g *Game) makeOffer() {
 	g.payOffer(c)
 	g.relocate(p, to)
 	p.talk = []line{{0, g.pickLine(talkYes), g.tick}}
-	g.state, g.parley = StatePlay, nil
+	g.endTalk()
 }
 
 // talkZoom: the talk's camera, 1 the play camera .. talkZoomMax.

@@ -153,7 +153,8 @@ func TestPairing(t *testing.T) {
 }
 
 // T322: TALK. In a Room with its human Party in, and some Room it fits, TALK shows on the HUD's right; SPACE
-// starts the talk: the world waits (D1's slow-mo will replace the wait) and the camera closes in on the two.
+// starts the talk: the world slows to talkSlow of its time scale, the camera closes in on the two on real frames,
+// and leaving gives the world the scale it had.
 func TestTalkCue(t *testing.T) {
 	g, s := matchRun(t, 2)
 	p := settledHuman(t, g, 0, 2)
@@ -173,25 +174,31 @@ func TestTalkCue(t *testing.T) {
 		t.Error("TALK in the ghost Dimension: the Concierge can't talk to humans from there")
 	}
 	g.ghost = false
+	g.scale = 0.5 // whatever it was, the talk gives it back
 	keys(g, s, ebiten.KeySpace)
 	if g.state != StateTalk || g.parley.p != p || !slices.Equal(g.parley.targets, []int{1}) {
 		t.Fatalf("SPACE: state %d, want the talk with Room 101's Party about Room 102", g.state)
 	}
 	clock, x := g.clock, p.Guests[0].X
+	p.Guests[0].SetPath(g.route(p.Guests[0], g.hotel.Rooms[0].Spot().Min)) // on its way somewhere: it stops to listen
 	for range talkIn {
 		s.hold()
 		g.Update()
 	}
-	if g.clock != clock || p.Guests[0].X != x {
-		t.Error("the world went on during the talk")
+	if want := int(talkIn * 0.5 * talkSlow); g.clock != clock+want || g.scale != 0.5*talkSlow {
+		t.Errorf("%d frames of talk ran the Clock %d at scale %v, want %d at %v", talkIn, g.clock-clock, g.scale, want, 0.5*talkSlow)
+	}
+	if p.Guests[0].X != x {
+		t.Error("the guest walked off while spoken to")
 	}
 	if g.talkZoom() <= 1 {
 		t.Errorf("zoom %.2f once in, want closer than play", g.talkZoom())
 	}
 	keys(g, s, ebiten.KeyEscape)
-	if g.state != StatePlay {
-		t.Fatalf("ESC: state %d, want play", g.state)
+	if g.state != StatePlay || g.scale != 0.5 {
+		t.Fatalf("ESC: state %d at scale %v, want play at 0.5", g.state, g.scale)
 	}
+	g.scale = 1
 	ghostOf(g, 1, 5) // now no Room fits a Nerve of 2
 	if g.talker() != nil {
 		t.Fatal("TALK with no Room to offer")

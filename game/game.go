@@ -267,6 +267,8 @@ func (g *Game) Update() error {
 		case g.state == StateTitle:
 			return ebiten.Termination
 		case g.state == StateGrow: // it plays out
+		case g.state == StateTalk: // the world gets its pace back (talkmove.go, X2)
+			g.endTalk()
 		case g.state != StatePlay:
 			g.state = StatePlay
 			g.refuse("")
@@ -297,7 +299,7 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	case g.state == StatePause:
 		g.updatePause()
-	case g.state == StateTalk: // ponytail: the world waits, as at the Terminal; D1's g.scale slows it down instead
+	case g.state == StateTalk: // the world runs on in slow motion, stepped by updateParley (X2, D1)
 		g.updateParley()
 		g.updateHUD()
 	default:

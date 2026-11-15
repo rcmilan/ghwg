@@ -14,7 +14,7 @@ import (
 // human stays and pays as usual. A ghost beyond it is a bad pair: Fear piles up and the Party flees unpaid.
 // Placeholders, for the sim.
 const (
-	nerveMin  = 4 // a human Party's Nerve is rolled nerveMin..nerveMax
+	nerveMin  = 6 // a human Party's Nerve is rolled nerveMin..nerveMax
 	nerveMax  = phantasmMax
 	nerveFear = shadowSeen // FleeAt per point of Nerve: one sighting a haunt of a ghost within it never reaches it
 )
@@ -23,7 +23,7 @@ const (
 // bad pairs with the cheapest sure offer (keeper.go).
 const (
 	Matchmaking Unlock = "matchmaking"
-	matchEcto          = 80 // placeholder
+	matchEcto          = 40 // placeholder
 )
 
 // nerve: the human's Nerve, read off its FleeAt.
@@ -206,7 +206,7 @@ func (g *Game) DevMatch(step int) {
 		gh.Guests[0].Phantasm = c[1]
 		g.settleIn(h)
 		g.settleIn(gh)
-		h.Guests[0].X += 2 * world.TileSize // clear of its ghost, and of the Concierge at the door
+		h.Guests[0].X += 4 * world.TileSize // clear of its ghost, and of the Concierge at the door
 		h.Guests[0].Y += world.TileSize
 	}
 	d := g.hotel.Rooms[0].Door

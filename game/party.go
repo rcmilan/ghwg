@@ -447,6 +447,7 @@ func (g *Game) updateParty(p *Party) bool {
 		case p.Out(g.clock): // a Tourist's day out (D88)
 			p.state, p.greet = goingOut, greetOut
 			g.sendParty(p, exit...)
+		case g.parley != nil && g.parley.p == p: // spoken to (X2, talkmove.go): it stands and listens
 		default:
 			g.bedtime(p)
 			g.intrude(p)
