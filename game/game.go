@@ -158,6 +158,8 @@ type Game struct {
 	runEcto       Num                            // Ectoplasm earned this Run, before the bonus: grows the bonus at a prestige
 	prestigeAsk   bool                           // the Terminal's Father P confirm card is open (prestige.go)
 	persist       bool                           // this Game reads and writes the save (save.go): only main's plain start sets it; dev starts, prints, tests and the sim never do
+	baked         map[bakeKey]*ebiten.Image      // each sprite's ghost-dimension look, painted once (ghost.go)
+	coverHalves   [2]*ebiten.Image               // coverHalf's two tiles, kept for blit's bake
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

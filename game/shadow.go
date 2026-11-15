@@ -426,8 +426,7 @@ func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 		if !g.ghost {
 			op.ColorScale.Scale(0, 0, 0, 1)
 		}
-		frame := g.sheet(sh.name)[1].SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image)
-		g.blit(s.SubImage(clip).(*ebiten.Image), frame, op, modeActor, 0, shadowTint, 0)
+		g.blitPart(s.SubImage(clip).(*ebiten.Image), g.sheet(sh.name)[1], image.Rect(f*charW, 0, (f+1)*charW, charH), op, modeActor, 0, shadowTint, 0)
 	}
 }
 

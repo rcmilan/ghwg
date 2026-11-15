@@ -195,12 +195,12 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 // screen-px precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if g.floorImg == nil { // only the floor is pre-drawn; everything above it is y-sorted with the actors (D11)
-		g.floorImg, g.props = g.paintFloor(), g.sortedProps()
+		g.floorImg, g.props, g.baked = g.paintFloor(), g.sortedProps(), nil // the props' band images are new: their looks too
 	}
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
-	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
+	g.shade(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
 	g.drawRoomGlow(screen, op)
 	g.drawMoodFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
@@ -465,7 +465,7 @@ func (g *Game) drawDoors(screen *ebiten.Image, ox, oy int) {
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Scale(zoom, zoom)
 				op.GeoM.Translate(float64((m.Origin(x, y).X+dx)*zoom-ox), float64(y*ts*zoom-oy))
-				g.blit(screen, g.tiles[id].SubImage(src).(*ebiten.Image), op, modeProp, 0, nil, g.roomShift(d.Room))
+				g.blitPart(screen, g.tiles[id], src, op, modeProp, 0, nil, g.roomShift(d.Room))
 			}
 		}
 	}
@@ -545,5 +545,5 @@ func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entitie
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1-fog) * alpha)
-	g.blit(s, sheet.SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image), op, mode, 0, tint, 0)
+	g.blitPart(s, sheet, image.Rect(f*charW, 0, (f+1)*charW, charH), op, mode, 0, tint, 0)
 }
