@@ -52,8 +52,14 @@ func TestFatherPGate(t *testing.T) {
 	}
 	keys(g, s, ebiten.KeySpace)
 	g.runEcto = 4000
-	if keys(g, s, ebiten.KeySpace); g.level != 1 || g.bonus <= 1 || g.state != StatePlay {
-		t.Fatalf("second SPACE: level %d, bonus %v, state %d; want a prestige", g.level, g.bonus, g.state)
+	if keys(g, s, ebiten.KeySpace); g.reel == nil || g.wallet[Ecto] != 0 {
+		t.Fatalf("second SPACE: cutscene %v, Ecto %v; want it paid and playing", g.reel != nil, g.wallet[Ecto])
+	}
+	for n := 0; g.reel != nil && n < 5000; n++ { // P1-X's cutscene ends in the prestige
+		g.updateReel()
+	}
+	if g.level != 1 || g.bonus <= 1 || g.state != StatePlay {
+		t.Fatalf("after the cutscene: level %d, bonus %v, state %d; want a prestige", g.level, g.bonus, g.state)
 	}
 }
 
