@@ -61,6 +61,7 @@ type Game struct {
 	walkIns       int      // Walk-ins this Run
 	floaters      []floater
 	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
+	pantryStock   []map[Unlock]int // per pantry, its Supplies (pantry.go)
 	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
 	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	rng           *rand.Rand
@@ -255,6 +256,7 @@ func (g *Game) startRun() {
 	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
 	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
 	g.locked[unlockK], g.locked[unlockM] = true, true         // 08 B1-P: the Fathers' calls
+	g.locked[Pantry] = true                                   // 08 P1-U
 	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()

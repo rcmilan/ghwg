@@ -60,6 +60,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		r := supplySpot(g.hotel, k) // the prop, two cells tall, over its front row
 		return actSupply, image.Rect(r.Min.X, r.Min.Y-ts, r.Max.X, r.Max.Y-ts)
 	}
+	if p := g.atPantry(); p >= 0 && !g.ghost && g.pantryPick(p) >= 0 { // the same, from a pantry (08 P1-U); nothing for it there falls through
+		return actSupply, g.pantryRect(p)
+	}
 	if i := g.atMat(); i >= 0 {
 		r := g.hotel.Rooms[i]
 		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
@@ -96,7 +99,11 @@ func (g *Game) space() {
 	case actMirror, actRoomMirror:
 		g.startShift()
 	case actSupply:
-		g.fetch(g.atSupply())
+		if p := g.atPantry(); p >= 0 {
+			g.fetchPantry(p, g.pantryPick(p))
+		} else {
+			g.fetch(g.atSupply())
+		}
 	case actDeliver:
 		g.deliver(g.atMat(), g.hands)
 	case actTalk:

@@ -87,6 +87,7 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: CorridorMirror, Tab: tabHotel, Name: "Corridor mirror", Blurb: "A courier uncovers a Corridor's Mirror. Shift from there.", Hint: "Grow a floor to unlock.", Icon: "icon_mirror", Cost: Cost{Money: uncoverMoney, Ecto: uncoverEcto}, Price: uncoverCost,
 		Needs: []Unlock{Mirror}},
+	{ID: Pantry, Tab: tabHotel, Name: "Pantry", Blurb: "A shelf on each new Corridor. Staff stock it.", Hint: levelHint(Pantry), Icon: "shelf_b", Cost: Cost{Money: pantryMoney, Ecto: pantryEcto}},
 	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
@@ -139,6 +140,9 @@ func (g *Game) onSale(i int) bool {
 	it := shop[i]
 	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
 		return g.nextCovered() >= 0
+	}
+	if g.level < unlockLevel(it.ID) { // a prestige level opens it (pantry.go)
+		return false
 	}
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
@@ -333,6 +337,8 @@ func (g *Game) receive(l cartLine) {
 		g.stock[it.ID] += it.Pack * l.n
 	case it.ID == CorridorMirror:
 		g.hotel.Corridors[l.room].Open = true
+	case it.ID == Pantry:
+		g.boughtPantry()
 	default:
 		g.own(it.ID)
 	}
