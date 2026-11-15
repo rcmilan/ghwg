@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghost Hotel</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #loading { position: absolute; inset: 0; display: grid; place-items: center; color: #aaa; font: 16px monospace; }
+</style>
+</head>
+<body>
+<div id="loading">Loading Ghost Hotel...</div>
+<script src="wasm_exec.js"></script>
+<script>
+// Ebitengine makes its own canvas (filling this page, letterboxed) and focuses it on click, so keys work inside the itch.io iframe.
+const go = new Go();
+fetch("game.wasm")
+  .then(r => r.arrayBuffer()) // not instantiateStreaming: works whatever MIME type the host serves .wasm with
+  .then(b => WebAssembly.instantiate(b, go.importObject))
+  .then(({ instance }) => { document.getElementById("loading").remove(); go.run(instance); })
+  .catch(e => { document.getElementById("loading").textContent = "Could not load the game: " + e; });
+</script>
+</body>
+</html>

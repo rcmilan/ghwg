@@ -495,6 +495,7 @@ func TestGhostPassesOn(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
 	g.locked = nil
+	settledHuman(t, g, 0, phantasmMax) // 08 F0: a haunt counts toward passing on only with a human in
 	p := g.arriveGhost(0)
 	p.Guests = p.Guests[:1]
 	ghost := p.Guests[0]
@@ -504,7 +505,7 @@ func TestGhostPassesOn(t *testing.T) {
 			break
 		}
 	}
-	if !p.settled || ghost.Haunted != 1 || g.roomMood(0) != moodStart-ghostHauntDamage(ghost) {
+	if !p.settled || ghost.Haunted != 1 || g.roomMood(0) > moodStart-ghostHauntDamage(ghost) { // the human's mess on top
 		t.Fatalf("the weakest ghost settling in: settled %v, haunts %d, Mood %d", p.settled, ghost.Haunted, g.roomMood(0))
 	}
 	if !g.shaded(0) {

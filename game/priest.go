@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"slices"
+	"strings"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -47,8 +48,8 @@ func (g *Game) callPriest(room int, strong bool) string {
 	if strong {
 		price = priestStrong
 	}
-	if g.priestOn(room) {
-		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
+	if why := g.noFather(room, strong); why != "" {
+		return why
 	}
 	if !g.pay(Cost{Money: Num(price)}) {
 		return fmt.Sprintf("NOT ENOUGH MONEY: $%d", price)
@@ -59,19 +60,40 @@ func (g *Game) callPriest(room int, strong bool) string {
 
 // sendPriest: a paid-for Priest walks in from the Entrance to the Room.
 func (g *Game) sendPriest(room int, strong bool) {
-	name := fatherK.name
-	if strong {
-		name = fatherM.name
-	}
-	pr := &priest{Guest: entities.NewGuest(g.hotel.Spawn, name), strong: strong}
+	pr := &priest{Guest: entities.NewGuest(g.hotel.Spawn, fatherName(strong)), strong: strong}
 	pr.RoomIndex = room
 	pr.SetPath(g.hotel.Path(g.hotel.Spawn, g.workSpot(room), room))
 	g.priests = append(g.priests, pr)
 }
 
+func fatherName(strong bool) string {
+	if strong {
+		return fatherM.name
+	}
+	return fatherK.name
+}
+
 // priestOn: a Priest is on his way to the Room or in it.
 func (g *Game) priestOn(room int) bool {
 	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.RoomIndex == room && !pr.done })
+}
+
+// fatherIn: that Father (K, or M if strong) is anywhere in the hotel, walking in, working or leaving. One of each at
+// a time (08 F0): noFather refuses the call with it, F0-R hides the call in the ring with it.
+func (g *Game) fatherIn(strong bool) bool {
+	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong })
+}
+
+// noFather: why that Father can't be called to the Room, "" if he can: one Priest a Room, and each Father is one
+// person, so not while he is anywhere in the hotel (08 F0).
+func (g *Game) noFather(room int, strong bool) string {
+	switch {
+	case g.fatherIn(strong):
+		return strings.ToUpper(fatherName(strong)) + " IS ALREADY IN THE HOTEL"
+	case g.priestOn(room):
+		return "A PRIEST IS ALREADY ON ROOM " + g.hotel.Rooms[room].Number
+	}
+	return ""
 }
 
 // workSpot: the Room's cell just inside its door.
@@ -152,4 +174,26 @@ func (g *Game) drawMoodFloor(screen *ebiten.Image, ox, oy int) {
 			g.blit(screen, sub, op, modeMaze, floorBlue, nil, s)
 		}
 	}
+}
+
+// DevFather is main's -father: Rooms 101 and 102 open with a Party settled in each, both Fathers on sale and Money
+// for both calls, Father K (M if strong) already called to Room 101 and walking in, the Concierge in the Lobby
+// Archway, where SPACE opens the hotel view: Room 102's ring hides that Father's call until he has walked out.
+func (g *Game) DevFather(strong bool) {
+	a := slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return r.Number == "101" })
+	g.unlock(Mirror)
+	m := shop[slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowFatherM })]
+	g.earned[Money] = max(g.earned[Money], g.boughtAt[Mirror][Money]+m.Earned[Money]) // K needs less
+	for _, room := range []int{a, (a + 1) % len(g.hotel.Rooms)} {
+		g.openRoom(room)
+		p := g.arrive(room)
+		p.Routine = homebody
+		p.schedule(g.clock)
+		g.settleIn(p)
+	}
+	g.wallet[Money] = max(g.wallet[Money], priestWeak+priestStrong)
+	g.callPriest(a, strong)
+	g.player.X, g.player.Y = float64(g.hotel.Archway.X), float64(g.hotel.Archway.Y)
+	w, h := g.mapSize()
+	g.cam.Snap(g.player.X, g.player.Y, w, h)
 }

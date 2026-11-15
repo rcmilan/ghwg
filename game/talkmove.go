@@ -69,11 +69,11 @@ func (g *Game) talkDepth(p *Party) float64 {
 }
 
 var (
-	talkCalm   = []string{"Yes?", "Can I help you?", "Everything all right?"}
-	talkUneasy = []string{"It's cold in here, isn't it?", "Did you hear that too?", "Something feels off..."}
-	talkScared = []string{"I can't stay in here!", "Something is in this room!", "Did you SEE that?!"}
-	talkNo     = []string{"I'm fine here.", "No, thank you.", "We just unpacked!", "Not for that."}
-	talkYes    = []string{"Deal!", "Oh, gladly!", "I'll head over now."}
+	talkCalm   = []string{"Yes?", "Can I help you?", "Everything all right?", odd("Is this about the goat?")}
+	talkUneasy = []string{"It's cold in here, isn't it?", "Did you hear that too?", "Something feels off...", odd("The lamp keeps humming at me.")}
+	talkScared = []string{"I can't stay in here!", "Something is in this room!", "Did you SEE that?!", odd("The towels are whispering my name!")}
+	talkNo     = []string{"I'm fine here.", "No, thank you.", "We just unpacked!", "Not for that.", odd("No. The bed and I are engaged.")}
+	talkYes    = []string{"Deal!", "Oh, gladly!", "I'll head over now.", odd("Deal! I'll bring the goat.")}
 	// the Concierge's offers, [calm][scared]: by the guest's state
 	offerLines = [3][2]string{
 		{"Could you switch to Room %s?", "I think you'd be better in Room %s."},
@@ -108,7 +108,7 @@ func (g *Game) targets(p *Party) []int {
 }
 
 // talker: the human Party SPACE talks to: the Concierge stands in its Room, in the real Dimension, the whole Party
-// in and not snubbed, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits.
+// in, awake (08 F0) and not snubbed, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits.
 // nil if none.
 func (g *Game) talker() *Party {
 	if g.ghost || g.atRoomMirror() {
@@ -118,7 +118,7 @@ func (g *Game) talker() *Party {
 		if !g.feet().In(r.Shell()) {
 			continue
 		}
-		if p := g.humanIn(i); p != nil && g.inRoom(p) && g.clock >= p.snubbed && len(g.targets(p)) > 0 {
+		if p := g.humanIn(i); p != nil && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0 {
 			if room, _ := g.cleanable(); room < 0 {
 				return p
 			}
@@ -176,8 +176,8 @@ func (g *Game) payOffer(c Num) bool {
 	return true
 }
 
-// pickLine: one of the lines, from the talk's own stream.
-func (g *Game) pickLine(set []string) string { return set[g.words.IntN(len(set))] }
+// pickLine: one of the lines, a nonsense one more rarely (voice.go's pick).
+func (g *Game) pickLine(set []string) string { return pick(g, set, func(l string) string { return l }) }
 
 // startTalk stages the talk with the Party: they face each other and the guest speaks by its state.
 func (g *Game) startTalk(p *Party) {

@@ -18,7 +18,7 @@ const (
 	StateTitle = iota
 	StatePlay
 	StateTerminal
-	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
+	StateView  // the hotel view: the world in slow motion, the camera pulled back (hotelview.go)
 	StatePause // ESC with nothing open: Resume / Quit to title
 	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
 	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
@@ -95,6 +95,7 @@ type Game struct {
 	stock         map[Unlock]int                 // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
 	earned        [2]Num                         // lifetime earnings this Run (wallet.go): open store items
 	boughtAt      map[Unlock][2]Num              // per unlock: earned when it arrived (shop.go onSale)
+	seen          map[Unlock]bool                // per Run: store items the open Terminal showed fresh (the "!", hud.go)
 	icons         map[string]*ebiten.Image       // assets/sprites, loaded on first use (terminal.go)
 	couriers      []*courier                     // on their way with an order (courier.go)
 	walls         []wallRun                      // the wall graph Shadows travel (D185, wall.go)
@@ -106,12 +107,10 @@ type Game struct {
 	wiped         []wipe                         // cleaned spots, fading
 	arrivals      []arrival                      // per Room: its next Party's arrival (dirt.go)
 	stains        map[image.Point]*ebiten.Image  // dirt spots' stains, by cell (dirt.go)
-	dirtBox       *ebiten.Image                  // the dirt complaint balloon (dirt.go)
 	guestNote     slot                           // the next-guest notice in the left column (hud.go)
 	guestText     string                         // its text, kept while it slides out
 	hands         Unlock                         // the supply the Concierge carries, "" for none (supply.go)
 	delivered     Num                            // Money deliveries paid this Run (supply.go; the sim's money check)
-	askBox        *ebiten.Image                  // the request balloon, its item drawn in it (serve.go)
 	hushed        map[int]bool                   // Rooms whose ghost Shadow Father M banished, until its ghost leaves (shadow.go)
 	cover         *ebiten.Image                  // the covered Mirror's sprite (ghostguest.go)
 	mirrorAtStart bool                           // the sim's -mirror: a Run starts with the Mirror unlocked (startRun)
@@ -125,9 +124,8 @@ type Game struct {
 	changes       []*change                      // Rooms' changes of type, waiting or rolling (roomtype_change.go, 07 K1)
 	termBeds      int                            // the bed layout picked for a change at the Terminal, an index into bedKinds
 	bedsAtStart   string                         // the sim's Beds: a Run starts with every Room of this bed layout; "" is Single
-	termDepth     int                            // how far into the hotel view: 1 the Rooms, 2 a Room's actions, 3 its beds (hotelview.go)
+	termDepth     int                            // how far into the hotel view: 1 the hotel, 2 a Room picked, 3 its ring, 4 its beds (hotelview.go)
 	viewT         float64                        // the hotel view's pull-back, 0 the play camera .. 1 the whole hotel
-	panel         *ebiten.Image                  // the hotel view's action card (its whole-map frame is the intro's g.wide)
 	pausePick     int                            // the pause's picked row
 	growNext      int                            // the expansion paid for, played once the Terminal is closed: growCol or growFloor (grow.go, 07 H1)
 	growing       *growth                        // its cinematic under way, nil if none
@@ -147,6 +145,9 @@ type Game struct {
 	dt            float64                        // this step's frames of world time, at most 1; a whole frame (and ticked) outside a step, for the tests
 	acc           float64                        // world time since the last whole frame, 0..1
 	ticked        bool                           // a whole frame of world time ended this step: its per-frame logic runs
+	recent        []earning                      // the last game hour's earnings: the Terminal's rates (wallet.go)
+	viewIn        float64                        // the hotel view's camera from the whole hotel (0) to the picked Room (1), eased (hotelview.go)
+	shake         int                            // frames left of the Room ring's "no" shake (hotelview.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -218,6 +219,7 @@ func (g *Game) startRun() {
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
+	g.seen = nil
 	g.state = StatePlay
 	first, ok := world.TypeOf(g.types, g.bedsAtStart)
 	if !ok {
@@ -269,6 +271,9 @@ func (g *Game) Update() error {
 		case g.state == StateGrow: // it plays out
 		case g.state == StateTalk: // the world gets its pace back (talkmove.go, X2)
 			g.endTalk()
+		case g.state == StateView && g.termDepth > 1: // the hotel view steps back one level (08 F0)
+			g.termDepth--
+			g.refuse("")
 		case g.state != StatePlay:
 			g.state = StatePlay
 			g.refuse("")
@@ -306,28 +311,8 @@ func (g *Game) Update() error {
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
 		g.updateShift()
-		switch {
-		case !g.in.JustPressed(ebiten.KeySpace):
-		case g.shifting != nil: // SPACE waits for the transition (D170)
-		case g.atTerminal():
-			g.openTerminal()
-		case g.atMirror() && g.unlocked(Mirror):
-			g.startShift()
-		case g.atMirror(): // covered until the courier installs it
-			g.refuse("THE MIRROR IS COVERED")
-		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
-			g.startShift()
-		case !g.ghost && g.atSupply() >= 0:
-			g.fetch(g.atSupply())
-		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
-		case g.talker() != nil: // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
-			g.startTalk(g.talker())
-		default:
-			if room, cell := g.cleanable(); room >= 0 {
-				g.clean(room, cell)
-			} else if g.atSupply() < 0 && g.atDoor() < 0 { // SPACE where nothing else is its to do: the hotel view (U2); not at a door or a supply that had nothing for it
-				g.openView()
-			}
+		if g.in.JustPressed(ebiten.KeySpace) {
+			g.space() // what actionable says (actionable.go)
 		}
 	}
 	return nil
@@ -676,4 +661,14 @@ func (g *Game) Start(ghost bool) {
 func (g *Game) Layout(_, _ int) (int, int) {
 	g.sizeFx(viewW*zoom, viewH*zoom)
 	return viewW * zoom, viewH * zoom
+}
+
+// NewGrid is NewSeed on a cols x rows hotel: main's -grid without -play.
+func NewGrid(cols, rows int, seed uint64) (*Game, error) {
+	g, err := newWorld(cols, rows, seed)
+	if err != nil {
+		return nil, err
+	}
+	g.in, g.headless = keyboard{}, false
+	return g, g.loadImages()
 }

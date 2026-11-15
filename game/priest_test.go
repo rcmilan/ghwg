@@ -1,6 +1,7 @@
 package game
 
 import (
+	"slices"
 	"testing"
 )
 
@@ -88,5 +89,41 @@ func TestRoomShift(t *testing.T) {
 	}
 	if lo > 0.65 || hi < 0.99 || g.roomShift(0) != 0.5 {
 		t.Fatalf("ghost: Closed Room pulses %.2f..%.2f, want 0.6..1", lo, hi)
+	}
+}
+
+// 08 F0: main's -father: Rooms 101 and 102 open with guests in, Money for both calls, Father K walking to Room
+// 101, the Concierge in the hall where SPACE opens the hotel view. Room 102's ring offers M, not K, until K is gone.
+func TestDevFather(t *testing.T) {
+	for _, grid := range [][2]int{{2, 1}, {3, 3}} {
+		g, _ := headless(t, grid[0], grid[1], 1)
+		g.openAtStart = false
+		g.startRun()
+		g.DevFather(false)
+		at := map[string]int{}
+		for i, r := range g.hotel.Rooms {
+			at[r.Number] = i
+		}
+		a, b := at["101"], at["102"]
+		in := func(room int) bool {
+			return slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Room == room && p.settled })
+		}
+		if !g.isOwned(a) || !g.isOwned(b) || !in(a) || !in(b) {
+			t.Fatalf("%v: Rooms 101 and 102 owned %v %v, guests in %v %v; want both open with guests in", grid, g.isOwned(a), g.isOwned(b), in(a), in(b))
+		}
+		if len(g.priests) != 1 || g.priests[0].strong || g.priests[0].RoomIndex != a || g.wallet[Money] < priestStrong {
+			t.Fatalf("%v: priests %v, money %v; want Father K on Room 101 and $%d left", grid, g.priests, g.wallet[Money], priestStrong)
+		}
+		if act, _ := g.actionable(); act != actView || g.feet().Y < g.hotel.HallY {
+			t.Fatalf("%v: SPACE does %v at %v; want the hotel view, in the hall", grid, act, g.feet())
+		}
+		has := func(id Unlock) bool { return slices.Contains(g.roomRows(b), row(t, id)) }
+		if has(rowFatherK) || !has(rowFatherM) {
+			t.Fatalf("%v: Room 102's ring: K %v, M %v; want M only", grid, has(rowFatherK), has(rowFatherM))
+		}
+		g.priests = nil // K walked out
+		if !has(rowFatherK) {
+			t.Fatalf("%v: Room 102's ring has no Father K once he is gone", grid)
+		}
 	}
 }

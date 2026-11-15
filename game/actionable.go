@@ -1,0 +1,129 @@
+package game
+
+import (
+	"image"
+
+	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// spaceAct: what SPACE would do right now at the Concierge's spot (08 F0).
+type spaceAct int
+
+const (
+	actNone spaceAct = iota
+	actTerminal
+	actMirror
+	actRoomMirror
+	actSupply
+	actDeliver
+	actTalk
+	actClean
+	actView
+)
+
+// actionable: what SPACE would do now and the world rect of the prop it acts on (for the glow; empty when there is
+// no prop: a talk, the hotel view, nothing). space() acts on it, so the glow and SPACE never disagree.
+func (g *Game) actionable() (spaceAct, image.Rectangle) {
+	const ts = world.TileSize
+	feet := g.feet()
+	if g.shifting != nil { // SPACE waits for the transition (D170)
+		return actNone, image.Rectangle{}
+	}
+	if g.atTerminal() { // the computer: its screen over the counter
+		t := g.hotel.Terminal
+		return actTerminal, image.Rect(t.Min.X, t.Min.Y+ts, t.Max.X, t.Max.Y-ts)
+	}
+	if g.atMirror() {
+		if !g.unlocked(Mirror) { // covered until the courier installs it
+			return actNone, image.Rectangle{}
+		}
+		m := g.hotel.Mirror // the spot below it; the glass is the two cells over that
+		return actMirror, image.Rect(m.X-ts/2, m.Y-ts/2-2*ts, m.X+ts/2, m.Y-ts/2)
+	}
+	for _, r := range g.hotel.Rooms { // a Room's own Mirror shifts too (K1)
+		if feet.In(r.Mirror) {
+			return actRoomMirror, image.Rect(r.Mirror.Min.X+ts, r.Mirror.Min.Y-2*ts, r.Mirror.Min.X+2*ts, r.Mirror.Min.Y)
+		}
+	}
+	if k := g.atSupply(); k >= 0 {
+		if id := supplies[k].ID; g.ghost || g.stock[id] == 0 && g.hands != id { // nothing for it here, and no hotel view either
+			return actNone, image.Rectangle{}
+		}
+		r := supplySpot(g.hotel, k) // the prop, two cells tall, over its front row
+		return actSupply, image.Rect(r.Min.X, r.Min.Y-ts, r.Max.X, r.Max.Y-ts)
+	}
+	if i := g.atMat(); i >= 0 {
+		r := g.hotel.Rooms[i]
+		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
+			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
+		}
+		if feet.In(r.Plate()) { // the guest card's, G2
+			return actNone, image.Rectangle{}
+		}
+	}
+	if g.talker() != nil { // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
+		return actTalk, image.Rectangle{}
+	}
+	if room, cell := g.cleanable(); room >= 0 {
+		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
+	}
+	return actView, image.Rectangle{} // SPACE where nothing else is its to do: the hotel view (U2)
+}
+
+// atMat: the Room whose doormat the Concierge stands on, or -1.
+func (g *Game) atMat() int {
+	for i, r := range g.hotel.Rooms {
+		if g.feet().In(r.Mat()) {
+			return i
+		}
+	}
+	return -1
+}
+
+// space: SPACE in play does what actionable says.
+func (g *Game) space() {
+	switch act, _ := g.actionable(); act {
+	case actTerminal:
+		g.openTerminal()
+	case actMirror, actRoomMirror:
+		g.startShift()
+	case actSupply:
+		g.fetch(g.atSupply())
+	case actDeliver:
+		g.deliver(g.atMat(), g.hands)
+	case actTalk:
+		g.startTalk(g.talker())
+	case actClean:
+		g.clean(g.cleanable())
+	case actView:
+		g.openView()
+	default:
+		if g.shifting == nil && g.atMirror() {
+			g.refuse("THE MIRROR IS COVERED")
+		}
+	}
+}
+
+const actGlow = 0.45 // the lit prop's glow at its centre (placeholder)
+
+// drawActGlow lights the prop SPACE would act on, in the Ectoplasm ink, over the dark (08 F0 "Glow"): only in its
+// range and only while SPACE there does something.
+func (g *Game) drawActGlow(s *ebiten.Image, ox, oy int) {
+	if g.state != StatePlay || g.intro != nil {
+		return
+	}
+	_, r := g.actionable()
+	if r.Empty() {
+		return
+	}
+	r = r.Inset(-world.TileSize / 2)
+	d := float64(g.glow.Bounds().Dx())
+	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear, Blend: ebiten.BlendLighter}
+	op.GeoM.Scale(float64(r.Dx()*zoom)/d, float64(r.Dy()*zoom)/d)
+	op.GeoM.Translate(float64(r.Min.X*zoom-ox), float64(r.Min.Y*zoom-oy))
+	op.ColorScale.ScaleWithColor(resInk(Ecto))
+	op.ColorScale.ScaleAlpha(actGlow)
+	s.DrawImage(g.glow, op)
+}

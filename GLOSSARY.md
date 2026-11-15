@@ -65,11 +65,24 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. The world pauses while it is open; ESC closes it in one press.
+The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. It covers the whole screen; the world pauses while it is open; ESC closes it in one press. Its zone is the computer's own column. Its bar shows the Income rates.
+
+**Teaser**:
+A store item not on sale yet, listed with SOON; its detail shows its Hint, what unlocks it.
+
+**Income rate**:
+Money or Ectoplasm earned per real minute, averaged over the last game hour; shown only in the Terminal's bar.
+
+**Badge**:
+The steady `!` by the Terminal's screen: something on sale and affordable that the open Terminal hasn't shown yet this Run.
 
 **Hotel view**:
-The whole hotel seen from afar: SPACE, wherever it has nothing else to do (away from the Terminal, a Mirror, a supply, a Room door and a dirt stain), pauses the world and pulls the camera back until every Room shows, each under its number and a Room Change on its way. The Rooms themselves are the overview. WASD moves a glow Room to Room (radial, from the picked Room, in the Ectoplasm ink, on the floors around it only); SPACE opens that Room's actions on a card beside it. Everything bought for one Room is bought there and paid at once, with no cart: the Room key, a Room Change or its cancelling, a Priest, the In-Room Mirror. A/D steps back one level; ESC closes it in one press. A Room not bought yet lies under a dark veil there, so the ones to buy stand out.
+The whole hotel seen from afar: SPACE, wherever it has nothing else to do, pulls the camera back until every Room shows, each under its number and a Room Change on its way, while the world runs on in slow motion (a quarter speed). WASD picks a Room (the camera moves half way in); SPACE opens its Room ring. Everything bought for one Room is bought there and paid at once, with no cart. ESC steps back one level: beds, ring, Room, hotel, play. A Room not bought yet lies under a dark veil there.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
+
+**Room ring**:
+The radial menu of a Room's actions in the Hotel view, one fixed slot each: Change type on top (a boarded Room's key, alone), Father K left, Deluxe right, Father M lower left, the Room mirror lower right. Only the actions that apply show; it opens on the top slot, or the next clockwise. Change type opens an inner ring of the other unlocked beds.
+_Avoid_: action card, context menu
 
 **Pause**:
 ESC with nothing open: the world waits on Resume / Quit to title. ESC again, or SPACE on Resume, goes on; only SPACE on Quit ends the Run.
@@ -163,8 +176,17 @@ _Avoid_: comfort bonus
 A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minutes between its haunts. Each haunt lowers its Room's Mood by an amount that grows with the ghost's Phantasm. A ghost haunts only while in its Room: once as it settles in, then every x, until it is spent.
 _Avoid_: Restlessness (a candidate name)
 
+**Doormat**:
+The 3×2 mat below a Room's door. SPACE on it delivers the asked item; elsewhere on it, with nothing to deliver, it opens the Hotel view. Its cell west of the door is the guest-card plate's (G2).
+
+**Pill**:
+The balloon over a Party with a Request or a dirt complaint: the Room number, then the item's icon or a dirt splat; the same size on screen at any zoom.
+
+**Nonsense line**:
+A line of nonsense humour in a line group (`odd(...)`), rarer than the others.
+
 **Request**:
-A Party in its Room asking to be served, once or twice an awake day: a "!!" balloon by its leader's head, always on screen. It ends when served, when the Party leaves the Room, or after three game hours unanswered, when it expires and its Room loses 10 Mood.
+A Party in its Room asking to be served, once or twice an awake day: its Pill by its leader's head, always on screen. It ends when served, when the Party leaves the Room, or after 45 s (four and a half game hours) unanswered, when it expires and its Room loses 10 Mood.
 _Avoid_: call, order
 
 ## People
@@ -211,7 +233,19 @@ A Party leaving its Room for good on its final Day. It pays one night's Rate × 
 The darkness layer over the hotel. Its tint follows the Clock, and Light Sources cut through it.
 
 **Light Source**:
-A lamp, ceiling light, street lamp or Terminal screen that cuts a glow out of the Lightmap at night.
+A lamp, ceiling light, street lamp, window, the kitchen's night lights, a Lantern or the Terminal screen: it cuts a glow out of the Lightmap at night.
+
+**Lantern**:
+The beam of light ahead of the Concierge and every staff member at night, on only in the dark: off where an area light already lights their spot (the Lobby while its lights are on, the kitchen, the Room the Concierge is in).
+
+**Glow**:
+The Ectoplasm-ink light on the prop SPACE would act on, shown only while the Concierge stands in its range.
+
+**Feet shadow**:
+The dim patch under a living character; ghosts cast none and Levitate.
+
+**Levitation**:
+Ghosts, and the Concierge in the ghost Dimension, are drawn about 3 px off the floor with a slow bob.
 
 ## Development
 

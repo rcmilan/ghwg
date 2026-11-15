@@ -36,12 +36,12 @@ var keeperLook = look{hair: 0x2b2630, skin: 0xffe6d6, top: 0x24202a, bottom: 0xf
 
 var (
 	keeperChats = []string{"All in order.", "Busy day!", "Mind the wet floor.", "Fresh towels smell nice.", "Room service never sleeps.", "Who keeps moving the lamp?",
-		"Sheets, sheets, sheets.", "Dust never rests.", "Lovely guests today.", "I found a sock. Just one.", "The kettle's on."}
-	keeperWelcome = []string{"Welcome!", "Welcome to the hotel!", "Enjoy your stay!", "So glad you came!"}
+		"Sheets, sheets, sheets.", "Dust never rests.", "Lovely guests today.", "I found a sock. Just one.", "The kettle's on.", odd("The mop and I are not speaking.")}
+	keeperWelcome = []string{"Welcome!", "Welcome to the hotel!", "Enjoy your stay!", "So glad you came!", odd("Welcome! Mind the soup.")}
 	keeperWorry   = []string{"Payday is close. Can we afford it?", "The till looks thin for payday."}
 	keeperOwed    = []string{"No pay, no work.", "I wasn't paid today."}
 	keeperQuit    = []string{"I quit. No pay, no stay."}
-	keeperMoved   = []string{"Your new room is ready!", "This way, please!", "A better room, on us!"}
+	keeperMoved   = []string{"Your new room is ready!", "This way, please!", "A better room, on us!", odd("Your new room has more corners!")}
 )
 
 func init() { ghostTints[keeperName] = []float32{.4, 1, 1} }
@@ -248,9 +248,11 @@ func (g *Game) updateKeepers() {
 			if arrived && (in || g.clock >= k.rest) {
 				g.goRest(k)
 			}
+		case (k.job == fetching || k.job == serving) && !g.wants(k.room, k.item): // the ask is gone: turn back at once (08 F0)
+			g.goRest(k)
 		case !arrived:
 		case k.job == fetching:
-			if g.stock[k.item] == 0 || !g.wants(k.room, k.item) {
+			if g.stock[k.item] == 0 {
 				g.goRest(k)
 				break
 			}
@@ -293,7 +295,7 @@ func (g *Game) keeperTalk(k *housekeeper) {
 		if lead := p.Guests[0]; p.Realm == Human && p.state == checkingIn && !p.welcomed && g.shown(lead) &&
 			math.Hypot(lead.X-k.X, lead.Y-k.Y) <= keeperNear*world.TileSize {
 			p.welcomed = true
-			k.said = line{0, keeperWelcome[g.words.IntN(len(keeperWelcome))], g.tick}
+			k.said = line{0, g.pickLine(keeperWelcome), g.tick}
 			return
 		}
 	}

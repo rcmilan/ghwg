@@ -234,15 +234,15 @@ func TestFrontWindows(t *testing.T) {
 	})
 }
 
-// D66: a side line on a face's top row is walkable too: from behind a Room's back face an actor walks on
-// into the column Corridor. On the south face's top row it still blocks, or it would be a way out of the Room.
+// D66: a side line on the south face's top row blocks, or it would be a way out of the Room. Behind a
+// Room's back face the whole top row blocks since the corner vanish (F0, 2026-11-15).
 func TestBehindSideLine(t *testing.T) {
 	h := buildHotel(t)
 	o := h.Rooms[2].Origin // 101: below the back Room row, its back face open to the Corridor above
 	x := o.X + RoomW - 1   // its east side line
 	foot := func(y int) image.Rectangle { return image.Rect((x+1)*TileSize-5, y-6, (x+1)*TileSize+5, y) }
-	if h.Map.BlockedBox(foot((o.Y + 1) * TileSize)) {
-		t.Errorf("behind the back face, the side line at (%d,%d) blocks", x, o.Y)
+	if !h.Map.BlockedBox(foot((o.Y + 1) * TileSize)) {
+		t.Errorf("behind the back face, the side line at (%d,%d) lets actors in", x, o.Y)
 	}
 	if !h.Map.BlockedBox(foot((o.Y + doorRow + 1) * TileSize)) {
 		t.Errorf("behind the south face, the side line at (%d,%d) lets actors out of the Room", x, o.Y+doorRow)

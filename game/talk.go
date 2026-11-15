@@ -34,32 +34,32 @@ type line struct {
 }
 
 var (
-	helloLines = []string{"Hello!", "Hi there!", "Good to be here!", "What a lovely place!", "Long trip!"}
+	helloLines = []string{"Hello!", "Hi there!", "Good to be here!", "What a lovely place!", "Long trip!", odd("I brought my own spoon.")}
 	outLines   = [][2]string{{"The park?", "Then the museum!"}, {"Museum first?", "Yes! Then the park!"}, {"Let's walk!", "To the park!"},
-		{"Coffee first?", "Always coffee!"}, {"Got the map?", "Got the camera!"}, {"Shopping today?", "And ice cream!"}}
+		{"Coffee first?", "Always coffee!"}, {"Got the map?", "Got the camera!"}, {"Shopping today?", "And ice cream!"}, {odd("Is the moon open today?"), "Only on weekdays!"}}
 	backLines = [][2]string{{"What a day!", "My feet hurt!"}, {"Loved the museum!", "The park was better!"}, {"I'm starving!", "Room service!"},
-		{"So many stairs!", "Worth the view!"}, {"I bought too much.", "You always do!"}, {"Bed. Now.", "Dinner first!"}}
-	soloOut  = []string{"Off to see the town!", "A walk will do me good.", "Back by dinner!"}
-	soloBack = []string{"What a day!", "My feet hurt!", "Good to be back."}
+		{"So many stairs!", "Worth the view!"}, {"I bought too much.", "You always do!"}, {"Bed. Now.", "Dinner first!"}, {odd("A pigeon sold me a hat."), "It suits you!"}}
+	soloOut  = []string{"Off to see the town!", "A walk will do me good.", "Back by dinner!", odd("Off to count the clouds.")}
+	soloBack = []string{"What a day!", "My feet hurt!", "Good to be back.", odd("The river was wet again.")}
 	// In the Room, in thirds of a limit: [0] anyone says, [1] only a pair, said to the other.
 	calmLines = [3][2][]string{ // by Room dirt
-		{{"Nice room!", "So comfy!", "Lovely view.", "Ahh, quiet.", "Soft pillows!", "Great price.", "This bed is perfect.", "I could live here.", "Five stars."},
-			{"Isn't this nice?", "Best trip ever!", "Let's stay longer!", "Shall we order in?", "Pass the pillow?"}},
-		{{"It's cold in here.", "Smells odd...", "Hm. Drafty.", "Was that a creak?", "My ears are ringing.", "The tap is dripping.", "Is the window open?"},
-			{"Did you move my bag?", "Chilly, isn't it?", "Did you hum just now?", "Did you hear that?", "Was that you?"}},
-		{{"I don't like this room.", "Did the lamp move?", "Can't relax here...", "The mirror blinked.", "Stop whispering.", "Something's under the bed.", "The walls are breathing."},
-			{"Let's not stay long.", "You feel watched too?", "Who knocked?", "Hold my hand.", "Leave the light on."}},
+		{{"Nice room!", "So comfy!", "Lovely view.", "Ahh, quiet.", "Soft pillows!", "Great price.", "This bed is perfect.", "I could live here.", "Five stars.", odd("The pillow knows my name.")},
+			{"Isn't this nice?", "Best trip ever!", "Let's stay longer!", "Shall we order in?", "Pass the pillow?", odd("Did you pack the moose?")}},
+		{{"It's cold in here.", "Smells odd...", "Hm. Drafty.", "Was that a creak?", "My ears are ringing.", "The tap is dripping.", "Is the window open?", odd("The tap is humming jazz.")},
+			{"Did you move my bag?", "Chilly, isn't it?", "Did you hum just now?", "Did you hear that?", "Was that you?", odd("Was that you or the toast?")}},
+		{{"I don't like this room.", "Did the lamp move?", "Can't relax here...", "The mirror blinked.", "Stop whispering.", "Something's under the bed.", "The walls are breathing.", odd("The carpet owes me money.")},
+			{"Let's not stay long.", "You feel watched too?", "Who knocked?", "Hold my hand.", "Leave the light on.", odd("Why is the lamp wearing my hat?")}},
 	}
 )
 
 // A ghost's lines (2026-11-14): heard only in the ghost dimension. Walking in, going out, coming back, and in
 // its Room.
 var (
-	ghostHellos = []string{"Boo.", "Oooooh...", "Is it haunted? Good.", "I'll take the cold room.", "No mirrors, please.", "Checking in. Forever.", "Room with a boo, please.", "Don't mind the chill."}
-	ghostByes   = []string{"Off to haunt the town.", "Back by midnight.", "Don't wait up. Ever."}
-	ghostBacks  = []string{"Home, sweet tomb.", "Miss me?", "The town screamed nicely."}
+	ghostHellos = []string{"Boo.", "Oooooh...", "Is it haunted? Good.", "I'll take the cold room.", "No mirrors, please.", "Checking in. Forever.", "Room with a boo, please.", "Don't mind the chill.", odd("I'm here for the soup.")}
+	ghostByes   = []string{"Off to haunt the town.", "Back by midnight.", "Don't wait up. Ever.", odd("Off to frighten a goose.")}
+	ghostBacks  = []string{"Home, sweet tomb.", "Miss me?", "The town screamed nicely.", odd("I lost a sock in 1842.")}
 	ghostCalm   = []string{"Lovely draft.", "So nicely gloomy.", "I miss my bones.", "Who left the light on?", "The living are so loud.", "Creak... creak...", "I never sleep.",
-		"Rattle, rattle.", "This wallpaper died too.", "Who's haunting who?", "Cold spots, just right."}
+		"Rattle, rattle.", "This wallpaper died too.", "Who's haunting who?", "Cold spots, just right.", odd("I am mostly elbows now.")}
 )
 
 // roomOnly: the lines that make sense only in a Room (2026-11-14: "GET ME OUT!" was heard in the hall). One is
@@ -111,9 +111,9 @@ func (g *Game) updateTalk() {
 			case p.greet != greetHello:
 				set = ghostBacks
 			}
-			p.talk = append(p.talk, line{0, set[g.words.IntN(len(set))], g.tick})
+			p.talk = append(p.talk, line{0, g.pickLine(set), g.tick})
 		case p.greet == greetHello:
-			p.talk = append(p.talk, line{0, helloLines[g.words.IntN(len(helloLines))], g.tick})
+			p.talk = append(p.talk, line{0, g.pickLine(helloLines), g.tick})
 		case p.greet == greetClean:
 			p.talk = append(p.talk, line{0, "Clean at last!", g.tick})
 			if len(p.Guests) > 1 {
@@ -124,13 +124,13 @@ func (g *Game) updateTalk() {
 			if p.greet == greetBack {
 				set = soloBack
 			}
-			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, set[g.words.IntN(len(set))], g.tick + answerFrames})
+			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, g.pickLine(set), g.tick + answerFrames})
 		default:
 			pairs := outLines
 			if p.greet == greetBack {
 				pairs = backLines
 			}
-			x := pairs[g.words.IntN(len(pairs))]
+			x := pick(g, pairs, func(x [2]string) string { return x[0] })
 			p.talk = append(p.talk, line{0, hi, g.tick}, line{0, x[0], g.tick + answerFrames}, line{1, x[1], g.tick + 2*answerFrames})
 		}
 		p.greet = noGreeting
@@ -148,7 +148,7 @@ func (g *Game) updateRoomTalk() {
 		}
 		who := g.words.IntN(len(p.Guests))
 		if p.Realm == Ghost {
-			p.talk = append(p.talk, line{who, ghostCalm[g.words.IntN(len(ghostCalm))], g.tick})
+			p.talk = append(p.talk, line{who, g.pickLine(ghostCalm), g.tick})
 			continue
 		}
 		tier := min(2, int(3*g.dread(p.Room)))
@@ -160,7 +160,7 @@ func (g *Game) updateRoomTalk() {
 		case len(p.Guests) > 1:
 			lines = slices.Concat(set[0], set[1])
 		}
-		p.talk = append(p.talk, line{who, lines[g.words.IntN(len(lines))], g.tick})
+		p.talk = append(p.talk, line{who, g.pickLine(lines), g.tick})
 	}
 }
 

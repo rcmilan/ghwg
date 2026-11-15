@@ -2,6 +2,7 @@ package game
 
 import (
 	"image/color"
+	"math"
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
@@ -12,7 +13,7 @@ import (
 // Serving (D149) and Guests asking for it (D163): a serve raises the Room's Mood, an expired ask lowers it
 // (moodServe, moodExpire). Placeholders, retuned at T112.
 const (
-	askMinutes = 180 // game minutes a request waits before it expires: a fetch and a walk (E5, was 60)
+	askMinutes = 270 // game minutes a request waits before it expires: 45 s, the worst 3x3 trip and detours (08 F0, was 180)
 	askPerDay  = 1.5 // requests a Party makes per awake day, on average
 	askGap     = 180 // game minutes at least from one request's end to the next
 	wakeHour   = 7   // Guests ask only from wakeHour
@@ -61,8 +62,8 @@ func (g *Game) serve(room int) bool {
 	return false
 }
 
-// The request balloon, in pixels drawn balloonScale times: a white rounded box with a bold "!!" (3-px
-// strokes) inside, and a tail on the side facing its Guest.
+// The balloons, in pixels drawn balloonScale times: a white rounded box balloonH tall (the ask pill's, as wide as
+// it needs; a speech balloon's sayH) and a tail on the side facing its Guest.
 const balloonW, balloonH, balloonR, balloonTail, balloonScale = 22, 18, 4, 4, 3
 
 // paint builds a w×h bitmap of the shape in: white inside, Night on its edge, black where ink.
@@ -92,84 +93,109 @@ func rounded(w, h, r int) func(x, y int) bool {
 	}
 }
 
-// balloonImages: the box, and its tail pointing down, whose row 0 lies over the box's edge to open it.
-func balloonImages() (box, tail *ebiten.Image) {
-	box = paint(balloonW, balloonH, rounded(balloonW, balloonH, balloonR), func(x, y int) bool { // two "!": a bar over rows 3..10, a dot on rows 12..14
-		return (x >= 6 && x <= 8 || x >= 13 && x <= 15) && (y >= 3 && y <= 10 || y >= 12 && y <= 14)
-	})
+// tailImage: the balloon's tail pointing down, whose row 0 lies over the box's edge to open it.
+func tailImage() *ebiten.Image {
 	const c = balloonTail - 1 // the tip's column
-	tail = paint(2*c+1, balloonTail+1, func(x, y int) bool { return y <= 0 || max(x-c, c-x) <= balloonTail-y },
+	return paint(2*c+1, balloonTail+1, func(x, y int) bool { return y <= 0 || max(x-c, c-x) <= balloonTail-y },
 		func(int, int) bool { return false })
-	return box, tail
 }
 
-// tailGeoM places the tail under the w×h box (balloon px) at (x,y), or over it when the head at (hx,hy),
-// screen px, is higher than the box's middle; slid along that edge toward the head. Never on a side.
-func tailGeoM(x, y, w, h, hx, hy int) ebiten.GeoM {
-	const c, s = balloonTail - 1, balloonScale
+// tailGeoM places the tail under the w×h box (balloon px, sc screen px each) at (x,y), or over it when the head at
+// (hx,hy), screen px, is higher than the box's middle; slid along that edge toward the head. Never on a side.
+func tailGeoM(x, y, w, h, hx, hy int, sc float64) ebiten.GeoM {
+	const c = balloonTail - 1
 	along := func(v, from, n int) float64 { // the tail's first column, kept off the round corners
-		return float64(min(max((v-from)/s, balloonR+c), n-1-balloonR-c) - c)
+		return float64(min(max(int(float64(v-from)/sc), balloonR+c), n-1-balloonR-c) - c)
 	}
 	var m ebiten.GeoM
-	if hy < y+h*s/2 { // above
+	if float64(hy) < float64(y)+float64(h)*sc/2 { // above
 		m.Scale(1, -1)
 		m.Translate(along(hx, x, w), 1)
 	} else {
 		m.Translate(along(hx, x, w), float64(h-1))
 	}
-	m.Scale(s, s)
+	m.Scale(sc, sc)
 	m.Translate(float64(x), float64(y))
 	return m
 }
 
-// drawRequests draws a balloon with the wanted item by each asking Party's leader, in both dimensions and over the Fog
-// and the dark.
+// The ask pill (08 F0 "Pills"), in balloon px: the Room's number, then the item asked for or the dirt splat.
+const pillPad, pillGap = 4, 3
+
+var (
+	pills = map[int]*ebiten.Image{} // the pill's box, by width in balloon px
+	splat *ebiten.Image             // the dirt complaint's, white (splatRows)
+)
+
+// drawRequests lights what SPACE would act on, then draws a pill by each asking or complaining Party's leader, in
+// both dimensions and over the Fog and the dark.
 func (g *Game) drawRequests(s *ebiten.Image, ox, oy int) {
-	if g.balloon == nil {
-		g.balloon, g.tail = balloonImages()
+	g.drawActGlow(s, ox, oy)
+	if splat == nil {
+		splat = bitmap(splatRows)
 	}
+	sc := g.pillScale(s)
 	for _, p := range g.parties {
-		if p.asking() { // its item in the balloon (show, don't tell)
-			if g.askBox == nil {
-				g.askBox = paint(balloonW, balloonH, rounded(balloonW, balloonH, balloonR), func(int, int) bool { return false })
-			}
-			x, y := g.drawBalloon(s, g.askBox, p.Guests[0], ox, oy)
-			if icon := g.supplyIcon(p.want); icon != nil {
-				w, h := icon.Bounds().Dx(), icon.Bounds().Dy()
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Scale(balloonScale, balloonScale)
-				op.GeoM.Translate(float64(x+(balloonW-w)*balloonScale/2), float64(y+(balloonH-h)*balloonScale/2))
-				s.DrawImage(icon, op)
-			}
-		}
-		if p.state == complaining { // a splat for "!!": the Room is dirty (dirt.go)
-			if g.dirtBox == nil {
-				g.dirtBox = dirtBalloonImage()
-			}
-			g.drawBalloon(s, g.dirtBox, p.Guests[0], ox, oy)
+		switch icon := g.supplyIcon(p.want); {
+		case p.state == complaining: // the Room is dirty (dirt.go)
+			g.drawPill(s, p, splat, 2*sc, sc, ox, oy)
+		case p.asking() && icon != nil: // its item (show, don't tell)
+			g.drawPill(s, p, icon, sc, sc, ox, oy)
 		}
 	}
 }
 
-// drawBalloon draws box (balloon px) right of the guest's head, its tail pointing at the head. Kept on
-// screen: off screen, it waits at the nearest edge, its tail still pointing at the Guest. Returns the box's
-// top left, screen px.
-func (g *Game) drawBalloon(s, box *ebiten.Image, guest *entities.Guest, ox, oy int) (int, int) {
-	if g.tail == nil {
-		g.balloon, g.tail = balloonImages()
+// pillScale: screen px a balloon px. The hotel view draws the world into g.wide and shrinks it by k/zoom; the pill
+// grows by as much there, so it keeps its size on screen whatever the zoom.
+func (g *Game) pillScale(s *ebiten.Image) float64 {
+	if s != g.wide {
+		return balloonScale
 	}
-	const edge = balloonTail*balloonScale + 4 // room for the tail
+	k, _, _ := g.viewAt()
+	return balloonScale * zoom / k
+}
+
+// drawPill draws the Party's pill: its Room's number in black, then icon at iconK screen px a pixel (the splat in
+// black); the box as wide as they need, sc screen px a balloon px.
+func (g *Game) drawPill(s *ebiten.Image, p *Party, icon *ebiten.Image, iconK, sc float64, ox, oy int) {
+	num := g.hotel.Rooms[p.Room].Number
+	text := sc * 2 / 3 // the debug font at 2× beside a 3× icon
+	tw, iw, ih := float64(len(num)*glyphW)*text, float64(icon.Bounds().Dx())*iconK, float64(icon.Bounds().Dy())*iconK
+	w := int(math.Ceil((tw+iw)/sc)) + 2*pillPad + pillGap
+	if pills[w] == nil {
+		pills[w] = paint(w, balloonH, rounded(w, balloonH, balloonR), func(int, int) bool { return false })
+	}
+	x, y := g.drawBalloon(s, pills[w], p.Guests[0], ox, oy, sc)
+	left, mid := float64(x)+pillPad*sc, float64(y)+balloonH*sc/2
+	printAt(s, num, int(left), int(mid-7.5*text), text, color.Black, 1) // the digits sit on rows 3..12 of the 16
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(iconK, iconK)
+	op.GeoM.Translate(math.Round(left+tw+pillGap*sc), math.Round(mid-ih/2))
+	if icon == splat {
+		op.ColorScale.Scale(0, 0, 0, 1)
+	}
+	s.DrawImage(icon, op)
+}
+
+// drawBalloon draws box (balloon px, sc screen px each) right of the guest's head, its tail pointing at the head.
+// Kept on screen: off screen, it waits at the nearest edge, its tail still pointing at the Guest. Returns the box's
+// top left, screen px.
+func (g *Game) drawBalloon(s, box *ebiten.Image, guest *entities.Guest, ox, oy int, sc float64) (int, int) {
+	if g.tail == nil {
+		g.tail = tailImage()
+	}
+	edge := int(balloonTail*sc) + 4 // room for the tail
 	bw, bh := box.Bounds().Dx(), box.Bounds().Dy()
 	w, h := s.Bounds().Dx(), s.Bounds().Dy()
 	top := int((guest.Y-g.lift(guest))*zoom) - oy + (entities.FootH/2-charH)*zoom // the sprite's top, screen px
 	hx, hy := int(guest.X*zoom)-ox, top+4*zoom                                    // the head
-	x := min(max(hx+5*zoom, edge), w-bw*balloonScale-edge)                        // right of the head, the tail's tip just over it
-	y := min(max(top+6*zoom-(bh+balloonTail)*balloonScale, edge), h-bh*balloonScale-edge)
+	x := min(max(hx+5*zoom, edge), w-int(float64(bw)*sc)-edge)                    // right of the head, the tail's tip just over it
+	y := min(max(top+6*zoom-int(float64(bh+balloonTail)*sc), edge), h-int(float64(bh)*sc)-edge)
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(balloonScale, balloonScale)
+	op.GeoM.Scale(sc, sc)
 	op.GeoM.Translate(float64(x), float64(y))
 	s.DrawImage(box, op)
-	op.GeoM = tailGeoM(x, y, bw, bh, hx, hy)
+	op.GeoM = tailGeoM(x, y, bw, bh, hx, hy, sc)
 	s.DrawImage(g.tail, op)
 	return x, y
 }
@@ -187,6 +213,6 @@ func (g *Game) say(s *ebiten.Image, line string, guest *entities.Guest, ox, oy i
 	if g.boxes[w] == nil {
 		g.boxes[w] = paint(w, sayH, rounded(w, sayH, 3), func(int, int) bool { return false })
 	}
-	x, y := g.drawBalloon(s, g.boxes[w], guest, ox, oy)
+	x, y := g.drawBalloon(s, g.boxes[w], guest, ox, oy, balloonScale)
 	g.inked(s, line, x+(w*balloonScale-6*len(line))/2, y+(sayH*balloonScale-16)/2, 0, 0, 0)
 }

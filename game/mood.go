@@ -104,11 +104,13 @@ func ghostHauntDamage(ghost *entities.Guest) int { return hauntBase + hauntPerPh
 // A spent ghost passes on (updateGhost), and its Room books the next (2026-11-14).
 func spent(ghost *entities.Guest) bool { return ghost.Haunted >= max(1, ghost.Phantasm) }
 
-// haunt: the ghost haunts its Room, one haunt nearer to spent.
+// haunt: the ghost haunts its Room; with a human in it, one haunt nearer to spent.
 func (g *Game) haunt(room int, ghost *entities.Guest) {
 	g.haunts(room, ghostHauntDamage(ghost))
 	g.terrify(room, ghost)
-	ghost.Haunted++
+	if _, in := g.inside(room); len(in) > 0 { // 08 F0: only a haunt with a human in counts toward passing on
+		ghost.Haunted++
+	}
 }
 
 // hauntTick runs each frame for a ghost in its Room: every ghost.Haunt game minutes it haunts, until it is

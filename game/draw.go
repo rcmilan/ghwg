@@ -213,15 +213,17 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		a    float32   // opacity; 0 is 1
 		mode int       // the palette shader's mode; 0 is modeActor
 		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
+		up   bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
+		pot  bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
 	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
-		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim})
+		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim, up: g.ghost})
 	}
 	if g.intro != nil && g.ghost { // and has ghosts strolling the street
 		for _, gh := range g.intro.ghosts {
 			h := kindHue(kindOf(gh.Phantasm))
-			actors = append(actors, actor{x: gh.X, y: gh.Y, name: gh.Character, anim: gh.Anim, tint: h[:], a: ghostAlpha, mode: modeFlat})
+			actors = append(actors, actor{x: gh.X, y: gh.Y, name: gh.Character, anim: gh.Anim, tint: h[:], a: ghostAlpha, mode: modeFlat, up: true})
 		}
 	}
 	for _, realm := range [...]Realm{Human, Ghost} {
@@ -235,7 +237,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			case realm == Ghost: // hued by its kind
 				var up float64
 				a.tint, a.a, up = g.ghostLook(guest)
-				a.lift, a.mode = a.lift+up, modeFlat
+				a.lift, a.mode, a.up = a.lift+up, modeFlat, true
 			case g.ghost: // a human in the ghost dimension: a silhouette
 				a.tint, a.a, a.mode, a.sil = silhouetteTint, silhouetteAlpha, modeFlat, true
 			}
@@ -257,6 +259,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	for _, k := range g.keepers {
 		actors = append(actors, actor{x: k.X, y: k.Y, name: keeperName, anim: k.Anim, fog: g.fogAt(image.Pt(int(k.X), int(k.Y)))})
+	}
+	for _, p := range g.hotel.Plants {
+		actors = append(actors, actor{x: float64(p.At.X), y: float64(p.At.Y), name: p.Sprite, pot: true})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -320,6 +325,16 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			stock()
 		}
 		propsUpTo(z(a))
+		fx, fy := at(a.x, a.y)
+		if a.pot {
+			g.drawPlant(screen, a.name, fx, fy)
+			continue
+		}
+		if a.up {
+			a.lift += hover(g.tick, a.name)
+		} else {
+			drawFeetShadow(screen, fx, fy, a.fog)
+		}
 		x, y := at(a.x, a.y-a.lift)
 		if g.ghost && a.fear >= fearWarn { // near fleeing: it trembles (2026-11-08)
 			x += []int{-1, 0, 1, 0}[g.tick/3%4] * zoom
@@ -343,6 +358,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	stock()
 	propsUpTo(math.Inf(1))
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
+		if g.ghost { // floating with him
+			_, hy = at(g.player.X, g.player.Y-hover(g.tick, "Bob"))
+		}
 		g.drawHands(screen, hx, hy)
 	}
 	if !g.ghost { // the palette replaces the day and night (D160)
@@ -360,6 +378,38 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		}
 	}
+}
+
+// feetShadow: the dim patch at a living character's feet (F0 Shadows), 14x5 world px.
+var feetShadow = func() *ebiten.Image {
+	img := image.NewNRGBA(image.Rect(0, 0, 14, 5))
+	for y := range 5 {
+		for x := range 14 {
+			if d := math.Hypot((float64(x)+.5-7)/7, (float64(y)+.5-2.5)/2.5); d < 1 {
+				img.SetNRGBA(x, y, color.NRGBA{0, 0, 0, uint8(130 * min(1, 2*(1-d)))})
+			}
+		}
+	}
+	return ebiten.NewImageFromImage(img)
+}()
+
+// drawFeetShadow lays feetShadow under the feet whose box center is at (x,y), screen px; fading with the fog
+// as its character does.
+func drawFeetShadow(screen *ebiten.Image, x, y int, fog float64) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(x-7*zoom), float64(y-zoom)) // centered on the soles
+	op.ColorScale.ScaleAlpha(float32(1 - fog))
+	screen.DrawImage(feetShadow, op)
+}
+
+// drawPlant draws the plant sprite standing on (x,y), screen px.
+func (g *Game) drawPlant(screen *ebiten.Image, sprite string, x, y int) {
+	img := g.sprite(sprite)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(x-img.Bounds().Dx()*zoom/2), float64(y-img.Bounds().Dy()*zoom))
+	g.blit(screen, img, op, modeProp, 0, nil, 0)
 }
 
 // drawDoors draws each door's leaves slid by its Open amount, clipped to their own cells: a Room door

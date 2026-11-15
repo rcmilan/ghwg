@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 
+	"ghosthotel/entities"
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -13,7 +14,7 @@ import (
 type tintKey struct{ h, r, g, b, a float64 }
 
 // nightKey is the darkness at full night: deep blue.
-var nightKey = tintKey{0, .04, .06, .22, .72}
+var nightKey = tintKey{0, .04, .06, .22, .8}
 
 // night is nightKey at hour h.
 func night(h float64) tintKey { k := nightKey; k.h = h; return k }
@@ -61,12 +62,103 @@ const (
 	lightCut    = 0.85 // how much of the darkness the Terminal's glow removes at its center
 	lampCut     = 0.55 // and a Corridor lamp's: dim but readable (T171, placeholder)
 	lightGlow   = 0.18 // a light's own tint, added at its center at full night
+	windowCut   = 0.4  // a window's light on the floor below it (F0 Lighting, placeholder)
+	lanternCut  = 0.6  // a lantern's beam
+	lanternR    = 48   // world px: how far it reaches
+	lanternHalf = 0.6  // radians: half its beam's width
+	lanternLift = 20   // world px from the feet to the top of the head: facing up, the beam starts there
 )
 
 var (
-	warmLight = [3]float32{1, .78, .45}
-	coolLight = [3]float32{.45, .85, 1}
+	warmLight  = [3]float32{1, .78, .45}
+	coolLight  = [3]float32{.45, .85, 1}
+	moonLight  = [3]float32{.6, .7, 1}
+	lanternImg = lightCone(lanternR)
 )
+
+// lightCone is lightPool's beam: pointing right from its center, lanternHalf to each side.
+func lightCone(radius int) *ebiten.Image {
+	img := image.NewNRGBA(image.Rect(0, 0, 2*radius, 2*radius))
+	for y := range 2 * radius {
+		for x := range 2 * radius {
+			dx, dy := float64(x-radius)+.5, float64(y-radius)+.5
+			d, side := math.Hypot(dx, dy)/float64(radius), 1-math.Abs(math.Atan2(dy, dx))/lanternHalf
+			if d < 1 && side > 0 {
+				img.SetNRGBA(x, y, color.NRGBA{255, 255, 255, uint8(255 * (1 - d) * min(1, 2*side))})
+			}
+		}
+	}
+	return ebiten.NewImageFromImage(img)
+}
+
+type light struct {
+	at   image.Point
+	img  *ebiten.Image
+	rgb  [3]float32
+	cut  float32
+	turn float64 // radians: a lantern's facing (its beam points right unturned)
+}
+
+// lights: the Terminal's glow, the Corridor lamps, the windows, the kitchen's own lights, and a lantern ahead
+// of the Concierge and each staff member (F0 Lighting).
+func (g *Game) lights() []light {
+	h := g.hotel
+	ls := []light{{at: h.Terminal.Min.Add(h.Terminal.Max).Div(2), img: g.glow, rgb: coolLight, cut: lightCut}}
+	for _, p := range h.Lights {
+		ls = append(ls, light{at: p, img: g.pool, rgb: warmLight, cut: lampCut})
+	}
+	for _, p := range h.Windows {
+		l := light{at: p, img: g.pool, rgb: moonLight, cut: windowCut}
+		if p.Y >= h.HallY { // the front's: the hall's light, out on the street
+			l.rgb = warmLight
+		}
+		ls = append(ls, l)
+	}
+	k := h.Kitchen
+	for _, f := range [...]int{1, 3} { // over its two halves, just in front of the stock: on after the Lobby's go off
+		ls = append(ls, light{at: image.Pt(k.Min.X+k.Dx()*f/4, h.Stock.Max.Y+world.TileSize), img: g.pool, rgb: warmLight, cut: lampCut})
+	}
+	lantern := func(x, y float64, a entities.Anim) {
+		at := image.Pt(int(x), int(y))
+		if g.lit(at) {
+			return
+		}
+		if a.Facing == entities.FaceUp { // the darkness lies over the body too: a beam from the feet would light its back
+			at.Y -= lanternLift
+		}
+		ls = append(ls, light{at: at, img: lanternImg, rgb: warmLight, cut: lanternCut, turn: -float64(a.Facing) * math.Pi / 2})
+	}
+	lantern(g.player.X, g.player.Y, g.player.Anim)
+	for _, k := range g.keepers {
+		lantern(k.X, k.Y, k.Anim)
+	}
+	for _, p := range g.priests {
+		lantern(p.X, p.Y, p.Anim)
+	}
+	for _, c := range g.couriers {
+		if c.out {
+			lantern(c.X, c.Y, c.Anim)
+		}
+	}
+	return ls
+}
+
+// litRoom is the Room the Concierge is in, lit while he is, its front wall left out (seen from the Corridor,
+// Live test 4, 2026-11-08); empty if he is in none.
+func (g *Game) litRoom() image.Rectangle {
+	for _, r := range g.hotel.Rooms {
+		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
+			return image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize)
+		}
+	}
+	return image.Rectangle{}
+}
+
+// lit reports whether an area light lights p, world px: the kitchen (its own lights), the rest of the Lobby
+// while its lights are on, the Room the Concierge is in. Lanterns are lit only where none does.
+func (g *Game) lit(p image.Point) bool {
+	return p.In(g.hotel.Kitchen) || p.In(g.hotel.Lobby) && lobbyLit(g.clock) > .5 || p.In(g.litRoom())
+}
 
 // lightPool is a soft radial sprite, alpha 1 at the center fading to 0 at the rim (D94).
 func lightPool(radius int) *ebiten.Image {
@@ -103,25 +195,13 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	}
 	fill(g.hotel.Lobby, lobbyLit(g.clock))
 	g.drawSpill(ox, oy)
-	for _, r := range g.hotel.Rooms {
-		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
-			fill(image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize), 1) // not its front wall, seen from the Corridor (Live test 4, 2026-11-08)
-		}
-	}
-	type light struct {
-		at  image.Point
-		img *ebiten.Image
-		rgb [3]float32
-		cut float32
-	}
-	lights := []light{{g.hotel.Terminal.Min.Add(g.hotel.Terminal.Max).Div(2), g.glow, coolLight, lightCut}}
-	for _, p := range g.hotel.Lights {
-		lights = append(lights, light{p, g.pool, warmLight, lampCut})
-	}
+	fill(g.litRoom(), 1)
+	lights := g.lights()
 	place := func(l light) *ebiten.DrawImageOptions {
 		r := l.img.Bounds().Dx() / 2
 		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 		op.GeoM.Translate(float64(-r), float64(-r))
+		op.GeoM.Rotate(l.turn)
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate(float64(l.at.X*zoom-ox), float64(l.at.Y*zoom-oy))
 		return op
