@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
@@ -279,5 +280,83 @@ func TestDevStartsCombine(t *testing.T) {
 	}
 	if g.wallet[Money] != 5000 {
 		t.Errorf("Money %v after -match, want the 5000 another start set kept", g.wallet[Money])
+	}
+}
+
+// reachable: a Concierge's foot box centered on px is clear of walls and props, and a path leads there from the Entrance.
+func reachable(g *Game, p image.Point) bool {
+	return !g.blocked(entities.FootBox(float64(p.X), float64(p.Y))) && len(g.hotel.Path(g.hotel.Spawn, p, -1)) > 0
+}
+
+// 08 B1 live test 2: every Corridor Mirror's activation cell, on any hotel, is open floor with a way to it; the
+// -corridors start puts the Concierge on an open, reachable cell beside it.
+func TestCorridorMirrorReachable(t *testing.T) {
+	for seed := uint64(1); seed <= 40; seed++ {
+		for _, cols := range []int{2, 3, 4} {
+			g, _ := headless(t, cols, 1, seed)
+			g.startRun()
+			g.own(Mirror)
+			g.growNext = growFloor
+			g.beginGrow()
+			g.growing, g.state, g.viewT = nil, StatePlay, 0
+			for _, m := range g.hotel.Corridors {
+				if !reachable(g, center(m.Spot)) {
+					t.Fatalf("seed %d cols %d: Mirror %+v: its activation cell is blocked or unreachable", seed, cols, m)
+				}
+			}
+			g.DevCorridors(0)
+			if !reachable(g, image.Pt(int(g.player.X), int(g.player.Y))) {
+				t.Fatalf("seed %d cols %d: -corridors 0 puts the Concierge at (%.0f,%.0f), blocked or cut off", seed, cols, g.player.X, g.player.Y)
+			}
+		}
+	}
+}
+
+// 08 B1 live test 3: the -grow floor -corridors 0 start, the Mirror not bought, still shows the HOTEL row, on sale.
+func TestCorridorMirrorRowDevStart(t *testing.T) {
+	g, _ := headless(t, 2, 1, 7)
+	g.startRun()
+	g.DevGrow("floor")
+	g.DevCorridors(0)
+	i := row(t, CorridorMirror)
+	if !g.onSale(i) || g.gone(i) {
+		t.Fatalf("on sale %v, gone %v; want listed and on sale while one is covered", g.onSale(i), g.gone(i))
+	}
+}
+
+// 08 B1 live test 1: the courier carries the mirror into the Room, to the cell in front of where it hangs, and it
+// appears when he gets there; then he walks out (the Room mirror unlock and Add mirror alike).
+func TestCourierHangsMirrorInRoom(t *testing.T) {
+	for _, unlock := range []bool{true, false} {
+		g, _ := headless(t, 2, 1, 1)
+		g.startRun()
+		g.own(Mirror)
+		id, room := rowAddMirror, 1
+		if unlock {
+			id = RoomMirror
+		} else {
+			g.own(RoomMirror)
+			g.setRoom(0, g.hotel.Rooms[0].Type, true)
+		}
+		g.wallet = [2]Num{1000, 1000}
+		if why := g.buyNow(row(t, id), room); why != "" {
+			t.Fatal(why)
+		}
+		g.state = StatePlay
+		c, spot := g.couriers[0], g.hotel.RoomMirrorSpot(room)
+		for f := 0; g.hotel.Rooms[room].Mirror.Empty(); f++ {
+			if f > 3*60*tps {
+				t.Fatalf("unlock %v: never hung; courier at %.0f,%.0f", unlock, c.X, c.Y)
+			}
+			g.step(0, 0)
+		}
+		at := image.Pt(int(c.X), int(c.Y))
+		if !at.In(g.hotel.Rooms[room].Shell()) || math.Hypot(c.X-float64(spot.X), c.Y-float64(spot.Y)) > world.TileSize/2 {
+			t.Errorf("unlock %v: hung with the courier at %v, want inside the Room at %v", unlock, at, spot)
+		}
+		if !g.hotel.Rooms[room].Mirror.Max.In(image.Rect(spot.X, spot.Y, spot.X+world.TileSize, spot.Y+world.TileSize).Add(image.Pt(-world.TileSize/2, -world.TileSize/2)).Inset(-1)) {
+			t.Errorf("unlock %v: the glass spot %v is not where the courier stood (%v)", unlock, g.hotel.Rooms[room].Mirror, spot)
+		}
+		deliver(t, g)
 	}
 }

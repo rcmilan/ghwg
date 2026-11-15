@@ -34,6 +34,24 @@ type courier struct {
 type drop struct {
 	at    image.Point
 	lines []cartLine
+	own   int // 1 + the Room whose door opens for the walk there (inside it, or out of it); 0 none
+}
+
+// carrying: some of the order is still in his hands (a stop with nothing to hand over is only a waypoint).
+func (c *courier) carrying() bool {
+	return slices.ContainsFunc(c.drops, func(d drop) bool { return len(d.lines) > 0 })
+}
+
+// intoRoom: the stops that take the courier inside Room room to the cell at, hand the lines over there and
+// bring him back out to the Corridor in front of its door.
+func (g *Game) intoRoom(room int, at image.Point, l cartLine) []drop {
+	door := g.doorDrop(room)
+	return []drop{{at: door}, {at: at, lines: []cartLine{l}, own: room + 1}, {at: door, own: room + 1}}
+}
+
+// pathTo: his walk to stop d from where he stands.
+func (c *courier) pathTo(g *Game, d drop) {
+	c.SetPath(g.hotel.Path(image.Pt(int(c.X), int(c.Y)), d.at, d.own-1))
 }
 
 // stockDrop: where the courier drops the unlocks, the cell below the middle of the kitchen's prop row.
@@ -56,7 +74,7 @@ func (g *Game) updateCouriers() {
 			c.Anim.Update(c.X, c.Y, g.dt)
 		}
 		g.comeNear(&c.Guest, &c.voice, func() []string {
-			if len(c.drops) > 0 {
+			if c.carrying() {
 				return g.sometimes(courierIn)
 			}
 			return g.sometimes(courierOut)
@@ -72,11 +90,11 @@ func (g *Game) updateCouriers() {
 			g.receive(l)
 		}
 		c.drops = c.drops[1:]
-		to := g.hotel.Exit
+		next := drop{at: g.hotel.Exit}
 		if len(c.drops) > 0 {
-			to = c.drops[0].at
+			next = c.drops[0]
 		}
-		c.SetPath(g.hotel.Path(image.Pt(int(c.X), int(c.Y)), to, -1))
+		c.pathTo(g, next)
 		kept = append(kept, c)
 	}
 	clear(g.couriers[len(kept):])

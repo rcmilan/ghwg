@@ -1,6 +1,11 @@
 package game
 
-import "ghosthotel/world"
+import (
+	"image"
+
+	"ghosthotel/entities"
+	"ghosthotel/world"
+)
 
 // Corridor mirrors (08 B1): each Corridor a New floor made has a Mirror on a random Room's front wall, near
 // a corner, chosen per Run (the seeded rng) and covered at first. Uncovered, it shifts like the Lobby Mirror,
@@ -90,6 +95,13 @@ func (g *Game) DevCorridors(n int) {
 	g.wallet[Ecto] = max(g.wallet[Ecto], 2*uncoverEcto)
 	s := g.hotel.Corridors[max(0, g.nextCovered())].Spot
 	g.player.X, g.player.Y = float64(s.Max.X+world.TileSize/2), float64(s.Min.Y+world.TileSize/2) // a step east: its glow shows once he stands on it
+	for _, dx := range [...]int{world.TileSize, -world.TileSize, 0} {                             // east, west, else on it: the first open cell with a way in (a Corridor plant may stand beside it)
+		p := s.Min.Add(image.Pt(world.TileSize/2+dx, world.TileSize/2))
+		if !g.blocked(entities.FootBox(float64(p.X), float64(p.Y))) && len(g.hotel.Path(g.hotel.Spawn, p, -1)) > 0 {
+			g.player.X, g.player.Y = float64(p.X), float64(p.Y)
+			break
+		}
+	}
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 }
