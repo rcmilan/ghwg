@@ -21,6 +21,7 @@ const (
 	StateView  // the hotel view: the world waits, the camera pulled back (hotelview.go)
 	StatePause // ESC with nothing open: Resume / Quit to title
 	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
+	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -138,6 +139,10 @@ type Game struct {
 	busy          bool                           // the busy hotel, a stress Run (busy.go)
 	bumps, paces  int                            // frames a walker was stopped by someone ahead, and frames walked, this Run (busy.go)
 	refused       string                         // why the last SPACE did nothing, "" when it did: the View's, never drawn (view.go refuse)
+	parley        *parley                        // the talk under way (talkmove.go, 07 X2)
+	talkCue       slot                           // TALK on the HUD's right (hud.go)
+	offered       Num                            // Money paid for offers this Run (the sim's money check)
+	focus         *ebiten.Shader                 // the talk's close-in and blur (talkmove.go)
 	scale         float64                        // the world time scale (D1, clock.go): 1 normal, under 1 slow motion
 	dt            float64                        // this step's frames of world time, at most 1; a whole frame (and ticked) outside a step, for the tests
 	acc           float64                        // world time since the last whole frame, 0..1
@@ -240,7 +245,8 @@ func (g *Game) startRun() {
 	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
 	// T272); and with K1's bed layouts and in-Room Mirror to buy
 	g.locked = map[Unlock]bool{Mirror: !g.mirrorAtStart, BedsTwin: true, BedsDouble: true, RoomMirror: true, Deluxe: true}
-	g.roomOwned = nil // 07 B1: a normal Run starts with every Room closed and Money for one key
+	g.locked[Matchmaking], g.parley, g.offered = true, nil, 0 // 07 X2
+	g.roomOwned = nil                                         // 07 B1: a normal Run starts with every Room closed and Money for one key
 	if !g.openAtStart {
 		g.closeRooms()
 	}
@@ -261,6 +267,8 @@ func (g *Game) Update() error {
 		case g.state == StateTitle:
 			return ebiten.Termination
 		case g.state == StateGrow: // it plays out
+		case g.state == StateTalk: // the world gets its pace back (talkmove.go, X2)
+			g.endTalk()
 		case g.state != StatePlay:
 			g.state = StatePlay
 			g.refuse("")
@@ -291,6 +299,9 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	case g.state == StatePause:
 		g.updatePause()
+	case g.state == StateTalk: // the world runs on in slow motion, stepped by updateParley (X2, D1)
+		g.updateParley()
+		g.updateHUD()
 	default:
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
@@ -309,6 +320,8 @@ func (g *Game) Update() error {
 		case !g.ghost && g.atSupply() >= 0:
 			g.fetch(g.atSupply())
 		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
+		case g.talker() != nil: // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
+			g.startTalk(g.talker())
 		default:
 			if room, cell := g.cleanable(); room >= 0 {
 				g.clean(room, cell)

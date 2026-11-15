@@ -160,7 +160,9 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	}
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	if g.viewT > 0 || g.state == StateGrow {
+	if g.state == StateTalk {
+		g.drawParley(screen, bg)
+	} else if g.viewT > 0 || g.state == StateGrow {
 		g.drawView(screen, bg)
 	} else {
 		g.drawWorld(screen, ox, oy)
@@ -194,6 +196,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(-ox), float64(-oy))
 	g.blit(screen, g.floorImg, op, modeMaze, floorBlue, nil, 0)
+	g.drawRoomGlow(screen, op)
 	g.drawMoodFloor(screen, ox, oy)
 	g.drawFogFloor(screen, ox, oy)
 	g.drawDoors(screen, ox, oy)
@@ -352,6 +355,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for _, f := range g.floaters { // "+$X" rising over the door (D87); "+N" Ecto in ghost only
 		x, y := at(f.x, f.y-(g.now()-float64(f.at))*floaterRisePerFr)
 		switch {
+		case g.state == StateTalk: // none behind the talk's lines (X2)
 		case f.kind == floatMoney || f.kind == floatEcto && g.ghost: // a currency's kind is its Res (wallet.go)
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		}

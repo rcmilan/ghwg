@@ -89,6 +89,8 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
+	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Icon: keeperName, Head: true,
+		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
 	{ID: rowKeeper, Tab: tabStaff, Hire: true, Name: "Housekeeper", Blurb: "Serves, cleans, roams. Paid by the day, or gone.", Icon: keeperName, Head: true,
 		Cost: Cost{Money: keeperFee}, Earned: Cost{Money: keeperEarned}},
@@ -128,7 +130,7 @@ func (g *Game) onSale(i int) bool {
 	if g.ownedCount() == 0 && it.ID != rowKey { // no Room open yet: only a key is on sale, so no buy can strand the Run (2026-11-11)
 		return false
 	}
-	if it.ID == Deluxe && !g.grown() { // the hotel expands first (2026-11-14)
+	if it.ID == Deluxe && !g.grown() || it.ID == Matchmaking && g.staffed() == 0 { // the hotel expands first (2026-11-14); someone to do the matching (X2)
 		return false
 	}
 	var since [2]Num

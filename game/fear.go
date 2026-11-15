@@ -36,7 +36,7 @@ func (g *Game) feet() image.Point { return image.Pt(int(g.player.X), int(g.playe
 // out the first time and flees the second (Step 2).
 func (g *Game) scare() {
 	for _, p := range g.parties {
-		if p.state == out || p.Fled || p.Paid {
+		if p.state == out || p.state == moving || p.Fled || p.Paid { // a Party on its way to another Room takes fright there (X2)
 			continue
 		}
 		r := g.hotel.Rooms[p.Room]

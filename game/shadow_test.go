@@ -106,6 +106,7 @@ func TestShadowRuns(t *testing.T) {
 // hidden steady Fear).
 func TestShadowFear(t *testing.T) {
 	g, _, p := settled(t)
+	setNerve(p, fearLimit/nerveFear) // its Nerve rolled at random (X2): the default's
 	room, r := p.Room, g.hotel.Rooms[p.Room]
 	run := func(clock int, face entities.Facing, at func(i int) image.Point, fear int) int {
 		t.Helper()

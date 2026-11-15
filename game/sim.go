@@ -38,7 +38,7 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold()
 		return
 	}
-	if g.state == StateView && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2): out of it
+	if (g.state == StateView || g.state == StateTalk) && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2), or a talk (X2): out of it
 		a.pilot.Close()
 	}
 	if a.pilot.Idle() && a.idle && g.clock/minuteFrames == a.minute { // nothing to do: skip the View
@@ -111,6 +111,7 @@ type Result struct {
 	DeluxeAt   float64    // the same, until the first Room's upgrade to Deluxe was ordered
 	Waits      [3]float64 // real seconds: the longest the Strategy stood with nothing to do, in each of those three stretches
 	EctoEarned int        // over the Run, spent or not
+	Offered    int        // $ paid for offers to move a Party (07 X2)
 	Failures   []Failure
 }
 
@@ -186,7 +187,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered, serves, staffPaid := g.delivered, g.serves, g.staffPaid
+	delivered, serves, staffPaid, offered := g.delivered, g.serves, g.staffPaid, g.offered
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -247,8 +248,8 @@ func (s *sim) frame() bool {
 		}
 	}
 	s.res.PriestSpend += spent
-	spent += int(g.staffPaid - staffPaid) // a housekeeper's fee or wage
-	for _, c := range g.couriers {        // the rest of a checkout: what the courier carries (D200)
+	spent += int(g.staffPaid - staffPaid + g.offered - offered) // a housekeeper's fee or wage, an offer to move (X2)
+	for _, c := range g.couriers {                              // the rest of a checkout: what the courier carries (D200)
 		if !s.shipped[c] {
 			s.shipped[c], spent = true, spent+int(c.paid()[Money])
 		}
@@ -382,7 +383,7 @@ func (s *sim) scaring() bool {
 // finish: a Booking past its checkout by 2 h that never paid nor fled fails the Run.
 func (s *sim) finish() Result {
 	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
-	s.res.Rooms, s.res.EctoEarned = len(s.g.hotel.Rooms), int(s.g.earned[Ecto])
+	s.res.Rooms, s.res.EctoEarned, s.res.Offered = len(s.g.hotel.Rooms), int(s.g.earned[Ecto]), int(s.g.offered)
 	s.res.Hired, s.res.Quit, s.res.StaffSpend = s.g.hired, s.g.quits, int(s.g.staffPaid)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {

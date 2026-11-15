@@ -36,6 +36,7 @@ const (
 	leaving                       // walking out of the Entrance for good, paid
 	complaining                   // waiting in the hall for its dirty Room to be cleaned (dirt.go)
 	cooling                       // out in the Corridor at its door to calm down, the first time Fear hits the limit (Step 2)
+	moving                        // talked into another Room (X2, match.go): out of its old Room's door, then checkingIn to the new one
 )
 
 // Step 2 (Live test 5 grill, 2026-11-08): a Party pays by the hour while in its Room, nothing out of it,
@@ -91,7 +92,7 @@ func (p *Party) Payout(pay Num) int { return int(Num(p.Rate) * pay) }
 
 // charge runs each frame of a stay (Z1, 2026-11-13): rent is paid up front, per Guest, on the Guest's own
 // clock. The moment a Guest steps into its Room it pays its share of the hour (Rate/rentHours, split between
-// the Party, times the Room's Mood pay factor as it stands) as a "+$N" at the door, then again every game
+// the Party, times the Room's Mood pay factor as it stands, and badRent in a bad pair) as a "+$N" at the door, then again every game
 // hour from that entry, in the Room or out of it. Whole dollars; a Guest's cents carry to its next hour.
 // The loop pays every hour the Clock passed, so T held skips none.
 func (g *Game) charge(p *Party) {
@@ -107,7 +108,11 @@ func (g *Game) charge(p *Party) {
 			p.due[i] = g.clock
 		}
 		for ; g.clock >= p.due[i]; p.due[i] += hourFrames {
-			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * g.moodPay(p.Room)
+			pay := g.moodPay(p.Room)
+			if g.pairing(p.Room) == badPair { // a bad pair pays less (X2, live test 1)
+				pay *= badRent
+			}
+			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * pay
 			if n := Num(int(p.cents[i])); n > 0 {
 				p.cents[i] -= n
 				p.rent += n
@@ -158,6 +163,7 @@ type Party struct {
 	greet      greeting      // owed once the Concierge hears it (D165)
 	welcomed   bool          // a housekeeper has welcomed it
 	talk       []line        // its lines showing or about to (D165)
+	snubbed    int           // the clock until which, having refused an offer, it won't be talked to (X2, talkmove.go)
 	arrived    int           // the clock it walked in
 	mess       int           // dirt its Guests leave a night (dirt.go)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
@@ -222,8 +228,9 @@ func (g *Game) demand() int {
 	return min(n, max(2, n*day(g.clock)/rampDays))
 }
 
-// maybeWalkIn lets in each Room's booked Party once its arrival is due (dirt.go, 2026-11-08: bookings
+// maybeWalkIn lets in a Party each time a Room's booked arrival is due (dirt.go, 2026-11-08: bookings
 // replace D77's random Walk-ins), unless the Day's demand is met or the Room isn't Vacant and open (D140).
+// The Party takes the Room it fits best (X2, fitRoom); the Room left takes over that one's booking.
 func (g *Game) maybeWalkIn() {
 	booked := 0
 	for i := range g.hotel.Rooms {
@@ -233,8 +240,9 @@ func (g *Game) maybeWalkIn() {
 	}
 	for i, a := range g.arrivals {
 		if a.at > 0 && g.clock >= a.at && booked < g.demand() && g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && g.spawnClear() {
-			g.arrivals[i] = arrival{}
-			g.arrive(i)
+			if p := g.arrive(-1); p != nil {
+				g.arrivals[i], g.arrivals[p.Room] = g.arrivals[p.Room], arrival{}
+			}
 			booked++
 		}
 	}
@@ -261,20 +269,18 @@ func (g *Game) freeRoom(size int) int {
 	return -1
 }
 
-// walkIn puts a new Party on the Street, already booked (D139) into the first Room that fits it, and sends
-// it straight to its Stay Spots. A pair with no 2-person Room free comes solo. nil if no Room is Vacant.
+// walkIn puts a new Party on the Street, already booked (D139) into the Room it fits best (X2, fitRoom), and
+// sends it straight to its Stay Spots. A pair with no 2-person Room free comes solo. nil if no Room is Vacant.
 func (g *Game) walkIn() *Party { return g.arrive(-1) }
 
-// arrive: walkIn into the given Room (its booking, dirt.go), or into the first free one (-1). A pair only
-// fits a given Room with 2 Stay Spots.
+// arrive: walkIn into the given Room (tests and dev starts), or into the one it fits best (-1). A pair only
+// fits a given Room with 2 Stay Spots. Each Party rolls its Nerve (X2).
 func (g *Game) arrive(room int) *Party {
 	given := room >= 0
-	if !given {
-		room = g.freeRoom(1)
-	}
-	if room < 0 {
+	if !given && g.freeRoom(1) < 0 {
 		return nil
 	}
+	n := nerveMin + g.rng.IntN(nerveMax-nerveMin+1)
 	guest := entities.NewGuest(g.hotel.Spawn, g.dressed(guestCast[g.rng.IntN(len(guestCast))]))
 	p := &Party{Guests: []*entities.Guest{&guest},
 		Booking: Booking{Nights: 1 + g.rng.IntN(maxNights), Routine: routine(g.rng.IntN(2)),
@@ -282,7 +288,7 @@ func (g *Game) arrive(room int) *Party {
 			backAt:     backHour*hourFrames + g.rng.IntN(backJitter),
 			checkoutAt: checkoutHour*hourFrames + g.rng.IntN(checkoutJitter)}}
 	if g.rng.Float64() < pairOdds {
-		r := g.freeRoom(2)
+		r := g.fitRoom(n, 2)
 		if given {
 			r = -1
 			if len(g.hotel.Rooms[room].Stays) >= 2 {
@@ -295,6 +301,10 @@ func (g *Game) arrive(room int) *Party {
 			p.Guests, room = append(p.Guests, &mate), r
 		}
 	}
+	if room < 0 {
+		room = g.fitRoom(n, 1)
+	}
+	setNerve(p, n)
 	g.walkIns++
 	p.Room, p.Rate, p.arrived = room, g.hotel.Rooms[room].Type.Rate, g.clock
 	for range p.Guests {
@@ -442,6 +452,7 @@ func (g *Game) updateParty(p *Party) bool {
 		case p.Out(g.clock): // a Tourist's day out (D88)
 			p.state, p.greet = goingOut, greetOut
 			g.sendParty(p, exit...)
+		case g.parley != nil && g.parley.p == p: // spoken to (X2, talkmove.go): it stands and listens
 		default:
 			g.bedtime(p)
 			g.intrude(p)
@@ -464,6 +475,14 @@ func (g *Game) updateParty(p *Party) bool {
 		}
 	case complaining:
 		g.complain(p)
+	case moving: // out of the old Room's door, its own until then; then in to the new one
+		if g.walkParty(p, arriveSpeed) {
+			for _, guest := range p.Guests {
+				guest.RoomIndex = p.Room
+			}
+			g.checkIn(p)
+			p.greet = noGreeting
+		}
 	case cooling: // each on its own, then back to its day or its bed (bedtime)
 		for _, guest := range p.Guests {
 			if len(guest.Path) > 0 {

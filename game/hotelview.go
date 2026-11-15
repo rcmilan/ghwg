@@ -2,6 +2,7 @@ package game
 
 import (
 	"ghosthotel/assets"
+	"ghosthotel/world"
 	"image"
 	"image/color"
 	"slices"
@@ -210,6 +211,9 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 			n := assets.Night
 			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * g.viewT)})
 		}
+		if c, ok := g.pairInk(i); ok { // the fit (07 X2): red a bad pair, the Ectoplasm ink a good one (match.go)
+			g.drawPair(screen, i, c, k, tx, ty)
+		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
 			label += " > " + typeLabel(c.to)
@@ -218,10 +222,6 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
 	}
 	r := on(g.hotel.Rooms[g.termCursor].Shell())
-	const b = 3
-	for _, e := range [...]image.Rectangle{{r.Min, image.Pt(r.Max.X, r.Min.Y+b)}, {image.Pt(r.Min.X, r.Max.Y-b), r.Max}, {r.Min, image.Pt(r.Min.X+b, r.Max.Y)}, {image.Pt(r.Max.X-b, r.Min.Y), r.Max}} {
-		rect(screen, e.Min.X, e.Min.Y, e.Dx(), e.Dy(), storeAccent)
-	}
 	if g.termDepth >= 2 {
 		g.drawActions(screen, r)
 	}
@@ -330,4 +330,49 @@ func (g *Game) drawPause(s *ebiten.Image) {
 		}
 		g.tintedAt(s, name, x+w/2-len(name)*glyphW, ry+2, 2, storeInk, 1)
 	}
+}
+
+// The picked Room's glow (live tests 3, 4): a radial glow from its centre in the Ectoplasm ink, breathing green
+// to purple, on the floors around it only: drawn right after the floor (drawWorld), so every wall, prop and
+// actor stands in front of it, and nothing outside the hotel takes it. The Room itself is cut out of it. It
+// cues what the cursor is on; later, anything actionable. Placeholders: glowReach (radius, in Room widths) and
+// glowAlpha (at the centre).
+const (
+	glowReach = 1.2
+	glowAlpha = 1.0
+)
+
+var glowLayer *ebiten.Image // the floor's size, world px
+
+// drawRoomGlow: op is the floor's (drawWorld).
+func (g *Game) drawRoomGlow(s *ebiten.Image, op *ebiten.DrawImageOptions) {
+	if g.state != StateView {
+		return
+	}
+	if glowLayer == nil || glowLayer.Bounds() != g.floorImg.Bounds() {
+		glowLayer = ebiten.NewImage(g.floorImg.Bounds().Dx(), g.floorImg.Bounds().Dy())
+	}
+	glowLayer.Clear()
+	r := g.hotel.Rooms[g.termCursor].Shell()
+	rad := glowReach * float64(r.Dx())
+	k := 2 * rad / float64(g.glow.Bounds().Dx()) // the Terminal's glow sprite (light.go)
+	o := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+	o.GeoM.Scale(k, k)
+	c := r.Min.Add(r.Max).Div(2)
+	o.GeoM.Translate(float64(c.X)-rad, float64(c.Y)-rad)
+	o.ColorScale.ScaleWithColor(resInk(Ecto))
+	o.ColorScale.ScaleAlpha(glowAlpha * float32(g.viewT))
+	glowLayer.DrawImage(g.glow, o)
+	glowLayer.DrawImage(g.floorImg, &ebiten.DrawImageOptions{Blend: ebiten.BlendDestinationIn}) // floors only
+	m := g.hotel.Map
+	for y := range m.H { // nor the void around the hotel, a floor tile too
+		for x := range m.W {
+			if m.TS.Tiles[m.At(world.LayerFloor, x, y)].Name == "void" {
+				o := m.Origin(x, y)
+				glowLayer.SubImage(image.Rectangle{o, o.Add(image.Pt(world.TileSize, world.TileSize))}).(*ebiten.Image).Clear()
+			}
+		}
+	}
+	glowLayer.SubImage(r).(*ebiten.Image).Clear() // not the Room itself
+	s.DrawImage(glowLayer, &ebiten.DrawImageOptions{GeoM: op.GeoM, Blend: ebiten.BlendLighter})
 }

@@ -337,7 +337,9 @@ func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 		}
 		if _, ok := sh.seen[guest]; !ok && g.sees(guest, sh.x, y) {
 			sh.seen[guest] = g.tick
-			g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
+			if ph := g.areaPhantasm(sh.run); !g.indoors(guest) || ph <= nerve(guest) { // a ghost beyond its Nerve pays nothing: its haunts terrify instead (X2, match.go)
+				g.frighten(p, guest, shadowSeen, guest.FleeAt-1)
+			}
 			who := slices.Index(p.Guests, guest)
 			p.talk = append(slices.DeleteFunc(p.talk, func(l line) bool { return l.who == who }), line{who, lines[g.words.IntN(len(lines))], g.tick})
 		}
