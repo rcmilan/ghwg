@@ -14,10 +14,13 @@ func (shopper) Act(v View, p *Pilot) {
 			it.ID == rowChange || it.ID == RoomMirror || it.ID == rowAddMirror { // K1's Room changes are the opener's to play
 			continue
 		}
-		if it.Tab == tabHotel {
+		if it.Tab == tabHotel || it.Tab == tabStaff { // unlocks, hires, shoes, the retainer: bought outright
 			id := it.ID
 			p.Buy(id, 0, func(v View) bool { return true })
 			return
+		}
+		if it.ID != rowFatherK && it.ID != rowFatherM {
+			continue
 		}
 		for r, rv := range v.Rooms {
 			if !rv.Priest {
