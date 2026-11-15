@@ -326,7 +326,7 @@ How much fright a human takes before it flees, rolled per Party as it books (6 t
 _Avoid_: courage, bravery, tolerance
 
 **Fit**, **good pair**, **bad pair**:
-A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing, the Party pays half its hourly rent (a placeholder), and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: a thin frame just inside the Room (inside the picked Room's highlight), red for a bad pair, the Ectoplasm green and purple for a good one.
+A human fits a ghost whose Phantasm is within its Nerve. A Room holding a human Party and a ghost is a good pair when the Party fits the Room's strongest ghost, a bad pair when it does not. In a good pair the Shadow's sightings frighten and pay Ectoplasm as ever and never make the Party flee. In a bad pair the Shadow pays nothing, the Party pays half its hourly rent (a placeholder), and each haunt terrifies everyone in the Room by half their Flee At: the Party steps out on the second haunt and flees on the third. A Room with no human Party or no ghost is unpaired. The fit reads in the hotel view only: the top band of the Room's walls takes its colour, and small motes of it rise in the Room, red for a bad pair, the Ectoplasm green and purple for a good one.
 _Avoid_: match (for the pair), compatible, preference
 
 **Auto-book by fit**:

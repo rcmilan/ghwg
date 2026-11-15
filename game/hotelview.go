@@ -211,10 +211,8 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 			n := assets.Night
 			rect(screen, r.Min.X, r.Min.Y, r.Dx(), r.Dy(), color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * g.viewT)})
 		}
-		if c, ok := g.pairInk(i); ok { // the fit (07 X2): a thin frame, red a bad pair, the Ectoplasm ink a good one
-			for _, e := range pairFrame(r, k) {
-				rect(screen, e.Min.X, e.Min.Y, e.Dx(), e.Dy(), color.NRGBA{c.R, c.G, c.B, uint8(255 * g.viewT)})
-			}
+		if c, ok := g.pairInk(i); ok { // the fit (07 X2): red a bad pair, the Ectoplasm ink a good one (match.go)
+			g.drawPair(screen, i, c, k, tx, ty)
 		}
 		label := room.Number
 		if c := g.changeFor(i); c != nil {
@@ -224,7 +222,7 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 		g.tinted(screen, label, r.Min.X+4, r.Min.Y-glyphH-1, storeBarInk, 1)
 	}
 	r := on(g.hotel.Rooms[g.termCursor].Shell())
-	for _, e := range edges(r, selectW) { // on the Room's edge; a pair's frame runs inside it (match.go)
+	for _, e := range edges(r, selectW) { // on the Room's edge
 		rect(screen, e.Min.X, e.Min.Y, e.Dx(), e.Dy(), storeAccent)
 	}
 	if g.termDepth >= 2 {

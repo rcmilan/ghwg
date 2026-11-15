@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"math/rand/v2"
+	"slices"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -139,14 +141,64 @@ func (g *Game) pairing(room int) pairing {
 	return goodPair
 }
 
-// badRed: a bad pair's frame in the hotel view; a good pair's is the Ectoplasm ink.
+// badRed: a bad pair's ink in the hotel view; a good pair's is the Ectoplasm ink.
 var badRed = color.RGBA{230, 40, 50, 255}
 
-// pairFrame: the edges of a Room's pair frame in the hotel view (live test 1: a thin frame, not a fill), one
-// art px thick at the view's scale k (screen px per art px), just inside the selection's frame (hotelview.go)
-// with a px between them, so the two never touch. r: the Room's shell, screen px.
-func pairFrame(r image.Rectangle, k float64) [4]image.Rectangle {
-	return edges(r.Inset(selectW+1), max(1, int(math.Round(k))))
+// The pair in the hotel view (live test 2: diffuse, not a frame): the Room's walls' top band in its ink, and
+// moteN motes of it rising in the Room, each moteRise world px over moteLoop real frames, fading in and out.
+const (
+	moteN    = 8
+	moteRise = 24
+	moteLoop = 180
+)
+
+// pairCaps: the props whose part of the walls' top band (world/band.go) lies in the Room's shell.
+func (g *Game) pairCaps(room int) []prop {
+	shell := g.hotel.Rooms[room].Shell()
+	return slices.DeleteFunc(slices.Clone(g.props), func(p prop) bool {
+		return p.band == nil || !world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy)).In(shell)
+	})
+}
+
+type mote struct {
+	at   image.Point // world px, its top-left
+	size int         // art px
+	a    float32
+}
+
+// motes: the Room's motes t real frames in, each in the shell at a spot drawn afresh each loop from a generator
+// of its own, seeded by the Room, the mote and the loop: the sim's streams are never touched.
+func motes(shell image.Rectangle, room int, t int64) (ms [moteN]mote) {
+	for j := range ms {
+		u := t + int64(j*moteLoop/moteN) // staggered
+		r := rand.New(rand.NewPCG(uint64(room*moteN+j), uint64(u/moteLoop)))
+		f := float64(u%moteLoop) / moteLoop
+		size := 2 + r.IntN(2) // the whole hotel shows at about 1 screen px per art px: smaller is lost
+		x := shell.Min.X + r.IntN(shell.Dx()-size+1)
+		y := shell.Min.Y + moteRise + r.IntN(shell.Dy()-moteRise-size+1) - int(f*moteRise)
+		ms[j] = mote{image.Pt(x, y), size, float32(math.Sin(math.Pi * f))}
+	}
+	return ms
+}
+
+// drawPair draws the Room's pair in ink c over the hotel view at scale k (screen px per world px), offset
+// (tx,ty) (viewAt): the band's wood takes c exactly, its outline a darker shade of it.
+func (g *Game) drawPair(s *ebiten.Image, room int, c color.RGBA, k, tx, ty float64) {
+	a, b := float32(g.viewT), world.BandColor
+	for _, p := range g.pairCaps(room) {
+		at := g.hotel.Map.Origin(p.cx, p.cy).Add(image.Pt(p.bx, p.by))
+		op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
+		op.GeoM.Scale(k, k)
+		op.GeoM.Translate(float64(at.X)*k+tx, float64(at.Y)*k+ty)
+		op.ColorScale.ScaleWithColor(c)
+		op.ColorScale.Scale(255/float32(b.R), 255/float32(b.G), 255/float32(b.B), 1)
+		op.ColorScale.ScaleAlpha(a)
+		s.DrawImage(p.band, op)
+	}
+	for _, m := range motes(g.hotel.Rooms[room].Shell(), room, ebiten.Tick()) {
+		w := max(1, int(math.Round(float64(m.size)*k)))
+		rect(s, int(float64(m.at.X)*k+tx), int(float64(m.at.Y)*k+ty), w, w, color.NRGBA{c.R, c.G, c.B, uint8(200 * m.a * a)})
+	}
 }
 
 // edges: the four sides of a frame w px thick just inside r.
@@ -154,7 +206,7 @@ func edges(r image.Rectangle, w int) [4]image.Rectangle {
 	return [...]image.Rectangle{{r.Min, image.Pt(r.Max.X, r.Min.Y+w)}, {image.Pt(r.Min.X, r.Max.Y-w), r.Max}, {r.Min, image.Pt(r.Min.X+w, r.Max.Y)}, {image.Pt(r.Max.X-w, r.Min.Y), r.Max}}
 }
 
-// pairInk: the Room's pair frame's colour in the hotel view, false for none.
+// pairInk: the Room's pair's ink in the hotel view, false for none.
 func (g *Game) pairInk(room int) (color.RGBA, bool) {
 	switch g.pairing(room) {
 	case badPair:

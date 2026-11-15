@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	"ghosthotel/world"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -152,13 +154,31 @@ func TestPairing(t *testing.T) {
 	if c, ok := g.pairInk(1); !ok || c.R < 200 || c.G > 80 {
 		t.Errorf("a bad pair's tint %v, want red", c)
 	}
-	// live test 1: a thin frame, not a fill, inside the selection's frame and clear of it
-	r := image.Rect(100, 50, 300, 200)
-	inner := r.Inset(selectW)
-	for _, e := range pairFrame(r, 1) {
-		if min(e.Dx(), e.Dy()) != 1 || !e.In(inner) || e.Overlaps(image.Rect(150, 100, 250, 150)) {
-			t.Errorf("pair frame edge %v: want 1 px thick, inside %v (the selection's frame outside it), the Room's middle clear", e, inner)
+	// live test 2: the ink takes the Room's walls' top band, top and bottom, and never the Room's middle
+	g.props = g.sortedProps()
+	shell := g.hotel.Rooms[1].Shell()
+	mid := shell.Inset(shell.Dy() / 3)
+	var top, bottom bool
+	for _, p := range g.pairCaps(1) {
+		r := world.BandRect(g.ts.Tiles[p.id].Name).Add(g.hotel.Map.Origin(p.cx, p.cy))
+		top, bottom = top || r.Max.Y <= mid.Min.Y, bottom || r.Min.Y >= mid.Max.Y
+		if !r.In(shell) || r.Overlaps(mid) {
+			t.Errorf("tinted band %v: want it in the shell %v, clear of its middle %v", r, shell, mid)
 		}
+	}
+	if !top || !bottom {
+		t.Errorf("tinted band on the top wall %v, on the bottom wall %v; want both", top, bottom)
+	}
+	// its motes stay in the shell and rise
+	for tick := range int64(3 * moteLoop) {
+		for _, m := range motes(shell, 1, tick) {
+			if !(image.Rectangle{m.at, m.at.Add(image.Pt(m.size, m.size))}).In(shell) {
+				t.Fatalf("frame %d: a mote at %v, out of the shell %v", tick, m.at, shell)
+			}
+		}
+	}
+	if a, b := motes(shell, 1, 0)[0], motes(shell, 1, moteLoop/2)[0]; b.at.Y >= a.at.Y || b.at.X != a.at.X {
+		t.Errorf("a mote from %v to %v in half a loop, want straight up", a.at, b.at)
 	}
 }
 

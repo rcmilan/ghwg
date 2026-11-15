@@ -73,7 +73,7 @@ var (
 	talkUneasy = []string{"It's cold in here, isn't it?", "Did you hear that too?", "Something feels off..."}
 	talkScared = []string{"I can't stay in here!", "Something is in this room!", "Did you SEE that?!"}
 	talkNo     = []string{"I'm fine here.", "No, thank you.", "We just unpacked!", "Not for that."}
-	talkYes    = []string{"Deal!", "Oh, gladly!", "Lead the way!"}
+	talkYes    = []string{"Deal!", "Oh, gladly!", "I'll head over now."}
 	// the Concierge's offers, [calm][scared]: by the guest's state
 	offerLines = [3][2]string{
 		{"Could you switch to Room %s?", "I think you'd be better in Room %s."},
