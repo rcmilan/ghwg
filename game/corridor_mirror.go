@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"slices"
 
 	"ghosthotel/entities"
 	"ghosthotel/world"
@@ -9,11 +10,12 @@ import (
 
 // Corridor mirrors (08 B1): each Corridor a New floor made has a Mirror on a random Room's front wall, near
 // a corner, chosen per Run (the seeded rng) and covered at first. Uncovered, it shifts like the Lobby Mirror,
-// from the Corridor cell below it. Ectoplasm uncovers it, by SPACE on that cell or the HOTEL row, each one
-// costing twice the last. The state lives on the Hotel (world.CorridorMirror), which a Run's start rebuilds.
+// from the Corridor cell below it. The HOTEL row uncovers it for Money and Ectoplasm, a courier walking to its
+// cell to do it (as for the Lobby Mirror), each one costing twice the last. The state lives on the Hotel (world.CorridorMirror), which a Run's start rebuilds.
 const (
 	CorridorMirror Unlock = "corridor-mirror" // the HOTEL row that uncovers the next one; not an unlock, its ID only names it
-	uncoverEcto           = 40                // Ectoplasm: the first uncovered (placeholder); each next one costs twice the last
+	uncoverMoney          = 100               // $: the first uncovered (placeholder); each next one costs twice the last
+	uncoverEcto           = 60                // Ectoplasm: likewise
 )
 
 // corridorMirrors: the Mirrors the rebuilt hotel h hangs: one for each floor a growth made, the old ones kept
@@ -43,34 +45,37 @@ func (g *Game) atCorridorMirror() int {
 	return -1
 }
 
-// uncoverCost: Ectoplasm to uncover the next: uncoverEcto, doubled for each already uncovered.
+// uncoverCost: the next's price: uncoverMoney and uncoverEcto, doubled for each already uncovered or on its way.
 func uncoverCost(g *Game) Cost {
-	n := Num(uncoverEcto)
-	for _, m := range g.hotel.Corridors {
-		if m.Open {
+	n := Num(1)
+	for k, m := range g.hotel.Corridors {
+		if m.Open || g.uncovering(k) {
 			n *= 2
 		}
 	}
-	return Cost{Ecto: n}
+	return Cost{Money: uncoverMoney * n, Ecto: uncoverEcto * n}
 }
 
-// nextCovered: the covered Mirror the HOTEL row uncovers, the lowest floor's; -1 if none.
+// spotDrop: where the courier stands to uncover Corridor Mirror k: the center of its Spot.
+func (g *Game) spotDrop(k int) image.Point {
+	return g.hotel.Corridors[k].Spot.Min.Add(image.Pt(world.TileSize/2, world.TileSize/2))
+}
+
+// uncovering: a courier is on his way to uncover Corridor Mirror k (not through coming: shop depends on this price).
+func (g *Game) uncovering(k int) bool {
+	return slices.ContainsFunc(g.couriers, func(c *courier) bool {
+		return slices.ContainsFunc(c.drops, func(d drop) bool { return len(d.lines) > 0 && d.at == g.spotDrop(k) })
+	})
+}
+
+// nextCovered: the covered Mirror the HOTEL row sends a courier to, the lowest floor's not already on its way; -1 if none.
 func (g *Game) nextCovered() int {
 	for k, m := range g.hotel.Corridors {
-		if !m.Open {
+		if !m.Open && !g.uncovering(k) {
 			return k
 		}
 	}
 	return -1
-}
-
-// uncover opens Corridor Mirror k, paying for it; false if the wallet can't.
-func (g *Game) uncover(k int) bool {
-	if g.hotel.Corridors[k].Open || !g.pay(uncoverCost(g)) {
-		return false
-	}
-	g.hotel.Corridors[k].Open = true
-	return true
 }
 
 // coveredCorridor: the prop is a tile of a Corridor Mirror still covered.
@@ -84,7 +89,7 @@ func (g *Game) coveredCorridor(p prop) bool {
 }
 
 // DevCorridors is main's -corridors: the first n Corridor Mirrors are uncovered, and the Concierge stands on
-// the cell beside the first covered one's (the first's if all are), with the Ectoplasm to uncover it (use with -grow floor).
+// the cell beside the first covered one's (the first's if all are), with the Money and Ectoplasm to buy one (use with -grow floor).
 func (g *Game) DevCorridors(n int) {
 	for k := range g.hotel.Corridors {
 		g.hotel.Corridors[k].Open = k < n
@@ -92,7 +97,7 @@ func (g *Game) DevCorridors(n int) {
 	if len(g.hotel.Corridors) == 0 {
 		return
 	}
-	g.wallet[Ecto] = max(g.wallet[Ecto], 2*uncoverEcto)
+	g.wallet[Money], g.wallet[Ecto] = max(g.wallet[Money], 2*uncoverMoney), max(g.wallet[Ecto], 2*uncoverEcto)
 	s := g.hotel.Corridors[max(0, g.nextCovered())].Spot
 	g.player.X, g.player.Y = float64(s.Max.X+world.TileSize/2), float64(s.Min.Y+world.TileSize/2) // a step east: its glow shows once he stands on it
 	for _, dx := range [...]int{world.TileSize, -world.TileSize, 0} {                             // east, west, else on it: the first open cell with a way in (a Corridor plant may stand beside it)

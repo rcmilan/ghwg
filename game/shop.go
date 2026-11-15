@@ -85,7 +85,7 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: GrowFloor, Tab: tabHotel, Grow: growFloor, Name: "New floor", Blurb: "Built overnight. Do not ask by whom.", Hint: "Buy the Mirror to unlock.", Icon: "icon_grow_floor",
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
-	{ID: CorridorMirror, Tab: tabHotel, Name: "Corridor mirror", Blurb: "Uncover a Corridor's Mirror. Shift from there.", Hint: "Grow a floor to unlock.", Icon: "icon_mirror", Cost: Cost{Ecto: uncoverEcto}, Price: uncoverCost,
+	{ID: CorridorMirror, Tab: tabHotel, Name: "Corridor mirror", Blurb: "A courier uncovers a Corridor's Mirror. Shift from there.", Hint: "Grow a floor to unlock.", Icon: "icon_mirror", Cost: Cost{Money: uncoverMoney, Ecto: uncoverEcto}, Price: uncoverCost,
 		Needs: []Unlock{Mirror}},
 	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
@@ -207,7 +207,11 @@ func (g *Game) addToCart(i, room int) string {
 		g.cart[k].n++
 		return ""
 	}
-	g.cart = append(g.cart, cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)})
+	l := cartLine{item: i, room: -1, n: 1, each: g.priceOf(i)}
+	if it.ID == CorridorMirror {
+		l.room = g.nextCovered() // the Mirror the courier uncovers (not remapped by a growth: not a Room action)
+	}
+	g.cart = append(g.cart, l)
 	return ""
 }
 
@@ -294,10 +298,8 @@ func (g *Game) ship(order []cartLine) {
 			g.growNext = it.Grow
 		case it.ID == Mirror: // installed at its own wall spot, not at the stock
 			c.drops = append(c.drops, drop{at: g.hotel.Mirror, lines: []cartLine{l}})
-		case it.ID == CorridorMirror: // no courier: the Mirror is uncovered at once (corridor_mirror.go)
-			if k := g.nextCovered(); k >= 0 { // paid at checkout
-				g.hotel.Corridors[k].Open = true
-			}
+		case it.ID == CorridorMirror: // uncovered where it hangs, from the Corridor cell below it
+			c.drops = append(c.drops, drop{at: g.spotDrop(l.room), lines: []cartLine{l}})
 		case it.ID == RoomMirror || it.ID == rowAddMirror: // walked into the Room, to where the Mirror hangs
 			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
 		case it.ID == rowKey: // walked to the Room's own door
@@ -329,6 +331,8 @@ func (g *Game) receive(l cartLine) {
 			g.stock = map[Unlock]int{}
 		}
 		g.stock[it.ID] += it.Pack * l.n
+	case it.ID == CorridorMirror:
+		g.hotel.Corridors[l.room].Open = true
 	default:
 		g.own(it.ID)
 	}
