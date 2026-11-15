@@ -66,6 +66,7 @@ const (
 	lanternCut  = 0.6  // a lantern's beam
 	lanternR    = 48   // world px: how far it reaches
 	lanternHalf = 0.6  // radians: half its beam's width
+	lanternLift = 20   // world px from the feet to the top of the head: facing up, the beam starts there
 )
 
 var (
@@ -118,7 +119,14 @@ func (g *Game) lights() []light {
 		ls = append(ls, light{at: image.Pt(k.Min.X+k.Dx()*f/4, h.Stock.Max.Y+world.TileSize), img: g.pool, rgb: warmLight, cut: lampCut})
 	}
 	lantern := func(x, y float64, a entities.Anim) {
-		ls = append(ls, light{at: image.Pt(int(x), int(y)), img: lanternImg, rgb: warmLight, cut: lanternCut, turn: -float64(a.Facing) * math.Pi / 2})
+		at := image.Pt(int(x), int(y))
+		if g.lit(at) {
+			return
+		}
+		if a.Facing == entities.FaceUp { // the darkness lies over the body too: a beam from the feet would light its back
+			at.Y -= lanternLift
+		}
+		ls = append(ls, light{at: at, img: lanternImg, rgb: warmLight, cut: lanternCut, turn: -float64(a.Facing) * math.Pi / 2})
 	}
 	lantern(g.player.X, g.player.Y, g.player.Anim)
 	for _, k := range g.keepers {
@@ -133,6 +141,23 @@ func (g *Game) lights() []light {
 		}
 	}
 	return ls
+}
+
+// litRoom is the Room the Concierge is in, lit while he is, its front wall left out (seen from the Corridor,
+// Live test 4, 2026-11-08); empty if he is in none.
+func (g *Game) litRoom() image.Rectangle {
+	for _, r := range g.hotel.Rooms {
+		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
+			return image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize)
+		}
+	}
+	return image.Rectangle{}
+}
+
+// lit reports whether an area light lights p, world px: the kitchen (its own lights), the rest of the Lobby
+// while its lights are on, the Room the Concierge is in. Lanterns are lit only where none does.
+func (g *Game) lit(p image.Point) bool {
+	return p.In(g.hotel.Kitchen) || p.In(g.hotel.Lobby) && lobbyLit(g.clock) > .5 || p.In(g.litRoom())
 }
 
 // lightPool is a soft radial sprite, alpha 1 at the center fading to 0 at the rim (D94).
@@ -170,11 +195,7 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 	}
 	fill(g.hotel.Lobby, lobbyLit(g.clock))
 	g.drawSpill(ox, oy)
-	for _, r := range g.hotel.Rooms {
-		if sh := r.Shell(); image.Pt(int(g.player.X), int(g.player.Y)).In(sh) {
-			fill(image.Rect(sh.Min.X, sh.Min.Y, sh.Max.X, sh.Max.Y-2*world.TileSize), 1) // not its front wall, seen from the Corridor (Live test 4, 2026-11-08)
-		}
-	}
+	fill(g.litRoom(), 1)
 	lights := g.lights()
 	place := func(l light) *ebiten.DrawImageOptions {
 		r := l.img.Bounds().Dx() / 2
