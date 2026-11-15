@@ -61,7 +61,8 @@ func TestFetch(t *testing.T) {
 }
 
 // T197: the right item at the door pays at once, less with Room Ecto, and still serves, clears
-// the ask, counts a serve tap and empties the hands. The wrong item, or no ask, does nothing.
+// the ask, counts a serve tap and empties the hands. The wrong item, or no ask, takes nothing: SPACE opens the
+// hotel view there instead (08 F0).
 func TestDeliver(t *testing.T) {
 	g, s, p := settled(t)
 	door := center(g.hotel.Rooms[p.Room].Spot())
@@ -71,7 +72,7 @@ func TestDeliver(t *testing.T) {
 	if !p.asking() || g.hands != SupplyWater || g.wallet[Money] != 0 {
 		t.Fatal("the wrong item was taken")
 	}
-	g.hands = SupplyFood
+	g.state, g.hands = StatePlay, SupplyFood
 	press(g, s, door)
 	pay := supplies[supplyOf(SupplyFood)].Pay
 	if p.asking() || g.hands != "" || g.wallet[Money] != pay || g.taps[p.Room][TaskServe] != 1 {

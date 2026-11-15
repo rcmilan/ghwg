@@ -95,6 +95,7 @@ type Game struct {
 	stock         map[Unlock]int                 // Supplies in the hotel, by ID (shop.go; E8 delivers, E5 fetches)
 	earned        [2]Num                         // lifetime earnings this Run (wallet.go): open store items
 	boughtAt      map[Unlock][2]Num              // per unlock: earned when it arrived (shop.go onSale)
+	bought        map[Unlock]bool                // per Run: every store item ever ordered (the Terminal's "!", hud.go)
 	icons         map[string]*ebiten.Image       // assets/sprites, loaded on first use (terminal.go)
 	couriers      []*courier                     // on their way with an order (courier.go)
 	walls         []wallRun                      // the wall graph Shadows travel (D185, wall.go)
@@ -218,6 +219,7 @@ func (g *Game) startRun() {
 	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
+	g.bought = nil
 	g.state = StatePlay
 	first, ok := world.TypeOf(g.types, g.bedsAtStart)
 	if !ok {
@@ -306,28 +308,8 @@ func (g *Game) Update() error {
 		g.fast = g.in.Pressed(ebiten.KeyT)
 		g.step(move(g.in))
 		g.updateShift()
-		switch {
-		case !g.in.JustPressed(ebiten.KeySpace):
-		case g.shifting != nil: // SPACE waits for the transition (D170)
-		case g.atTerminal():
-			g.openTerminal()
-		case g.atMirror() && g.unlocked(Mirror):
-			g.startShift()
-		case g.atMirror(): // covered until the courier installs it
-			g.refuse("THE MIRROR IS COVERED")
-		case g.atRoomMirror(): // a Room's own Mirror shifts too (K1)
-			g.startShift()
-		case !g.ghost && g.atSupply() >= 0:
-			g.fetch(g.atSupply())
-		case !g.ghost && g.atDoor() >= 0 && g.deliver(g.atDoor(), g.hands):
-		case g.talker() != nil: // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
-			g.startTalk(g.talker())
-		default:
-			if room, cell := g.cleanable(); room >= 0 {
-				g.clean(room, cell)
-			} else if g.atSupply() < 0 && g.atDoor() < 0 { // SPACE where nothing else is its to do: the hotel view (U2); not at a door or a supply that had nothing for it
-				g.openView()
-			}
+		if g.in.JustPressed(ebiten.KeySpace) {
+			g.space() // what actionable says (actionable.go)
 		}
 	}
 	return nil

@@ -76,3 +76,16 @@ func (r Room) Spot() image.Rectangle {
 	c := r.Door.Add(image.Pt(0, 2)).Mul(TileSize)
 	return image.Rectangle{c, c.Add(image.Pt(TileSize, 2*TileSize))}
 }
+
+// Mat: the doormat, the 3×2 Corridor cells below the door: SPACE on it delivers to the Room (08 F0).
+func (r Room) Mat() image.Rectangle {
+	c := r.Door.Add(image.Pt(-1, 2)).Mul(TileSize)
+	return image.Rectangle{c, c.Add(image.Pt(3*TileSize, 2*TileSize))}
+}
+
+// Plate: the mat's cell below the guest-card plate, one tile west of the door, where SPACE will show the guest
+// card (G2); until then it does nothing there.
+func (r Room) Plate() image.Rectangle {
+	c := r.Door.Add(image.Pt(-1, 2)).Mul(TileSize)
+	return image.Rectangle{c, c.Add(image.Pt(TileSize, TileSize))}
+}

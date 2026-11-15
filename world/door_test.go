@@ -2,6 +2,7 @@ package world
 
 import (
 	"image"
+	"strings"
 	"testing"
 )
 
@@ -112,4 +113,23 @@ func TestUpdateDoors(t *testing.T) {
 	if run(DoorSlideFrames, false); d.Open() != 0 {
 		t.Errorf("still open %.2f with nobody near", d.Open())
 	}
+}
+
+// 08 F0: a Room's Mat is its doormat, the door's Spot inside it; the Plate is the mat's cell west of the door.
+func TestMat(t *testing.T) {
+	forGrids(t, func(t *testing.T, h *Hotel, l layout) {
+		for _, r := range h.Rooms {
+			m := r.Mat()
+			if !r.Spot().In(m) || !r.Plate().In(m) || r.Plate().Overlaps(r.Spot()) {
+				t.Errorf("room %s: mat %v, spot %v, plate %v", r.Number, m, r.Spot(), r.Plate())
+			}
+			for y := m.Min.Y / TileSize; y < m.Max.Y/TileSize; y++ {
+				for x := m.Min.X / TileSize; x < m.Max.X/TileSize; x++ {
+					if n := h.Map.TS.Tiles[h.Map.At(LayerDecor, x, y)].Name; !strings.HasPrefix(n, "prop_doormat") {
+						t.Errorf("room %s: %q at (%d,%d), want the doormat", r.Number, n, x, y)
+					}
+				}
+			}
+		}
+	})
 }
