@@ -22,3 +22,12 @@ func TestFollowPathPastWaypoint(t *testing.T) {
 		t.Errorf("off to the side: path %v; want the waypoint kept", g.Path)
 	}
 }
+
+// A pair's mate and a Room mirror's ghost both trail the pair's leader (08 B1): they never bump either.
+func TestMateSiblings(t *testing.T) {
+	lead := &Guest{}
+	mate, through, stranger := &Guest{Leader: lead}, &Guest{Leader: lead}, &Guest{}
+	if !mate.Mate(through) || !through.Mate(mate) || !mate.Mate(lead) || stranger.Mate(mate) || stranger.Mate(&Guest{}) {
+		t.Fatal("siblings of one leader must be mates, strangers not")
+	}
+}
