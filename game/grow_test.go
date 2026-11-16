@@ -35,8 +35,14 @@ func TestGrowRemap(t *testing.T) {
 				owned      bool
 			}
 			before := map[string]was{}
+			stains := map[string][]*ebiten.Image{} // each spot's stain picture, kept and moved with it (08 W3)
+			g.stains = map[image.Point]*ebiten.Image{}
 			for i, r := range g.hotel.Rooms {
 				before[r.Number] = was{g.mood[i], len(g.spots(i)), r.Type.Beds, g.isOwned(i)}
+				for _, s := range g.spots(i) {
+					g.stains[s.cell] = ebiten.NewImage(1, 1)
+					stains[r.Number] = append(stains[r.Number], g.stains[s.cell])
+				}
 			}
 			rooms := map[*Party]string{}
 			for _, p := range g.parties {
@@ -68,9 +74,12 @@ func TestGrowRemap(t *testing.T) {
 					t.Errorf("col %v: Room %s: owned %v, Mood %d, %d dirt spots, %s; want it as it was: Mood %d, %d spots, %s",
 						col, r.Number, g.isOwned(i), g.mood[i], len(g.spots(i)), r.Type.Beds, b.mood, b.dirt, b.beds)
 				}
-				for _, s := range g.spots(i) {
+				for k, s := range g.spots(i) {
 					if !h.Map.Center(s.cell.X, s.cell.Y).In(r.Shell()) {
 						t.Errorf("col %v: Room %s: a dirt spot at cell %v is outside it", col, r.Number, s.cell)
+					}
+					if g.stains[s.cell] != stains[r.Number][k] {
+						t.Errorf("col %v: Room %s: the dirt spot at cell %v lost its stain picture", col, r.Number, s.cell)
 					}
 				}
 			}

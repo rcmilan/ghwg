@@ -116,8 +116,6 @@ func (g *Game) packProps() {
 	for k, name := range [2]string{"prop_mirror_r0", "prop_mirror_r1"} {
 		ps.cover[k] = put(g.coverHalf(name))
 	}
-	defer func() {
-	}()
 	if len(parts) == 0 {
 		return
 	}

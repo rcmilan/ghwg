@@ -235,6 +235,11 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		g.wiped[i].cell = g.wiped[i].cell.Add(cell)
 	}
 	g.dirt = regrid(g.dirt, n, room, nil)
+	stains := make(map[image.Point]*ebiten.Image, len(g.stains)) // they move with their Rooms, kept: drawn again, every one shows in ghost at once (08 W3)
+	for c, im := range g.stains {
+		stains[c.Add(cell)] = im
+	}
+	g.stains = stains
 	hushed := map[int]bool{}
 	for i, v := range g.hushed {
 		hushed[room(i)] = v
@@ -321,7 +326,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 			g.reroute(a, at(a.Path[len(a.Path)-1]))
 		}
 	}
-	g.floorImg, g.stains, g.spill = nil, nil, nil                 // re-rendered on the next Draw
+	g.floorImg, g.spill = nil, nil                                // re-rendered on the next Draw
 	g.cam.X, g.cam.Y = g.cam.X+float64(d.X), g.cam.Y+float64(d.Y) // the hall stays where it shows; the camera eases on from there
 	g.repilot()
 	return d, nil

@@ -255,8 +255,6 @@ func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 			g.fog[i] = f * (1 - g.viewT)
 		}
 		g.drawWorld(g.wide, 0, 0)
-		if g.growing != nil {
-		}
 		g.fog = fog
 		if gr != nil && g.viewT == 1 { // pulled back: the veils are lifted
 			gr.drawn = dimName(g.ghost)
