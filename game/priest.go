@@ -358,7 +358,7 @@ func (g *Game) drawMoodFloor(screen *ebiten.Image, ox, oy int) {
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64(-ox), float64(-oy))
 			sub := g.floorImg.SubImage(image.Rectangle{o, o.Add(image.Pt(world.RoomW*ts, world.RoomH*ts))}).(*ebiten.Image)
-			g.blit(screen, sub, op, modeMaze, floorBlue, nil, s)
+			g.shade(screen, sub, op, modeMaze, floorBlue, nil, s)
 		}
 	}
 }

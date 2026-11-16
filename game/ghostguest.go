@@ -319,7 +319,7 @@ func (g *Game) visible() []*entities.Guest {
 	if g.ghost {
 		return g.guests()
 	}
-	return g.guestsIn(Human)
+	return slices.Collect(g.guestsIn(Human))
 }
 
 // A human seen from the ghost dimension: a flat white silhouette with a small white glow (placeholders).
@@ -425,5 +425,8 @@ func (g *Game) coverHalf(tile string) *ebiten.Image {
 	if strings.HasPrefix(tile, "prop_mirror_r1") {
 		y = world.TileSize
 	}
-	return g.cover.SubImage(image.Rect(0, y, world.TileSize, y+world.TileSize)).(*ebiten.Image)
+	if g.coverHalves[y/world.TileSize] == nil { // kept: blit bakes each half's ghost look once
+		g.coverHalves[y/world.TileSize] = g.cover.SubImage(image.Rect(0, y, world.TileSize, y+world.TileSize)).(*ebiten.Image)
+	}
+	return g.coverHalves[y/world.TileSize]
 }

@@ -251,7 +251,7 @@ const areaGap = 20
 // switches on its Room's only. A flag on the area, not a figure bound to the ghost.
 func (g *Game) updateAreaShades() {
 	on := map[int]bool{}
-	for _, guest := range g.guestsIn(Ghost) {
+	for guest := range g.guestsIn(Ghost) {
 		if k := g.areaRun(guest.X, guest.Y); k >= 0 && (strong(guest) || g.roomOfRun(k) >= 0) { // any ghost in a Room, a strong one anywhere
 			on[k] = true
 		}
@@ -317,7 +317,7 @@ func (g *Game) updateAreaShades() {
 
 // areaPhantasm: the Phantasm of the strongest ghost in the area named by the run, 0 with none.
 func (g *Game) areaPhantasm(run int) (most int) {
-	for _, ghost := range g.guestsIn(Ghost) {
+	for ghost := range g.guestsIn(Ghost) {
 		if g.areaRun(ghost.X, ghost.Y) == run {
 			most = max(most, ghost.Phantasm)
 		}
@@ -404,6 +404,12 @@ func (g *Game) bucketShadows() {
 // drawShadow draws the Shadows of wall tile p's run over it, clipped to the cell and the run, at their
 // alpha. Not over a lintel: it passes behind doors, as the windows and props drawn after cover it, and
 // the side lines are off its run. Fogged with the wall in real.
+// shadowOnWall: a Shadow walks the wall run of wall prop p this frame.
+func (g *Game) shadowOnWall(p prop) bool {
+	k := g.wallCell[p.cy*g.hotel.Map.W+p.cx]
+	return k >= 0 && len(g.onRun[k]) > 0
+}
+
 func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 	const ts = world.TileSize
 	k := g.wallCell[p.cy*g.hotel.Map.W+p.cx]
@@ -426,8 +432,7 @@ func (g *Game) drawShadow(s *ebiten.Image, p prop, ox, oy int) {
 		if !g.ghost {
 			op.ColorScale.Scale(0, 0, 0, 1)
 		}
-		frame := g.sheet(sh.name)[1].SubImage(image.Rect(f*charW, 0, (f+1)*charW, charH)).(*ebiten.Image)
-		g.blit(s.SubImage(clip).(*ebiten.Image), frame, op, modeActor, 0, shadowTint, 0)
+		g.blitPart(s.SubImage(clip).(*ebiten.Image), g.sheet(sh.name)[1], image.Rect(f*charW, 0, (f+1)*charW, charH), op, modeActor, 0, shadowTint, 0)
 	}
 }
 

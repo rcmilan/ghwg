@@ -53,7 +53,7 @@ func TestTerminalHides(t *testing.T) {
 	if g.termPick != l[0] {
 		t.Fatalf("S from the last listed row picked %d, want the first listed, %d", g.termPick, l[0])
 	}
-	for range keeperMax {
+	for range keeperCap(g.ownedCount()) {
 		g.hire()
 	}
 	g.own(unlockK) // the Fathers: both calls bought, K on his retainer
@@ -62,8 +62,8 @@ func TestTerminalHides(t *testing.T) {
 	if h := slices.Index(tabItems(tabStaff), row(t, rowKeeper)); slices.Contains(g.listed(tabStaff), h) || slices.Contains(g.forSale(), row(t, rowKeeper)) {
 		t.Fatalf("staff full: listed %v, for sale %v", g.listed(tabStaff), g.forSale())
 	}
-	if len(g.listed(tabStaff)) != 1 { // only the first running shoes
-		t.Fatalf("staff full: listed %v, want just the next running shoes", g.listed(tabStaff))
+	if len(g.listed(tabStaff)) != 2 { // the first running shoes, and Father P's teaser
+		t.Fatalf("staff full: listed %v, want the next running shoes and Father P", g.listed(tabStaff))
 	}
 }
 

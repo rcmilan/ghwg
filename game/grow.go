@@ -17,11 +17,10 @@ import (
 // built again one bigger and everything follows its place: a Room keeps its type, its state and its guests,
 // and the hall, which never grows, stays centered under the Rooms with all that goes on in it.
 const (
-	maxCols, maxRows = 3, 3 // the grid's limit (placeholder: the layout takes any)
-	growCol          = 1    // Item.Grow: a Room column,
-	growFloor        = 2    // a floor
-	growEcto         = 60   // Ectoplasm: the first expansion; each one costs twice the last (placeholder, tuned with the sim)
-	growFrames       = 60   // the new part's slide in, between the pull-back out and back in
+	growCol    = 1  // Item.Grow: a Room column,
+	growFloor  = 2  // a floor
+	growEcto   = 60 // Ectoplasm: the first expansion; each next one adds as much again, times the Rooms owned (growPrice)
+	growFrames = 60 // the new part's slide in, between the pull-back out and back in
 )
 
 // The store's rows for it. Not unlocks: their IDs only name them.
@@ -33,10 +32,11 @@ const (
 // growth is the cinematic under way: the camera pulls back on the hotel as it stood, the new part slides in
 // from off screen, the camera comes back. The world waits; the map is already the new one.
 type growth struct {
-	col bool
-	t   float64     // the slide, 0..1
-	d   image.Point // how far the hall moved, world px
-	cut int         // world px: the new part lies east of this x (a column) or north of this y (a floor)
+	col   bool
+	t     float64     // the slide, 0..1
+	d     image.Point // how far the hall moved, world px
+	cut   int         // world px: the new part lies east of this x (a column) or north of this y (a floor)
+	drawn string      // the hotel view's picture (g.wide) holds the hotel, pulled all the way back, in this dimension ("real", "ghost")
 }
 
 // grown: the hotel is larger than the Run began with.
@@ -45,24 +45,27 @@ func (g *Game) grown() bool {
 	return g.grid0 != [2]int{} && [2]int{c, r} != g.grid0
 }
 
-func growCost(g *Game) Cost { return Cost{Ecto: growPrice(g.hotel.Grid())} }
+// maxGrid: the hotel's limit at a prestige level, in Rooms a side (08 P1: each prestige lifts it by one).
+func maxGrid(level int) int { return 3 + level }
 
-// growPrice: the next expansion's Ectoplasm for a cols x rows hotel.
-func growPrice(cols, rows int) Num {
-	n := growEcto
-	for range cols - 2 + rows - 1 {
-		n *= 2
-	}
-	return Num(n)
+func growCost(g *Game) Cost {
+	c, r := g.hotel.Grid()
+	return Cost{Ecto: growPrice(c, r, g.ownedCount())}
+}
+
+// growPrice: the next expansion's Ectoplasm for a cols x rows hotel with n Rooms owned: it doubles with each
+// step and rises with the Rooms owned (roomPrice).
+func growPrice(cols, rows, n int) Num {
+	return roomPrice(Num(growEcto*(cols-2+rows)), n) // a step dearer each growth, and per Room owned (08 W3 sim: doubling walled level 2 at ~70 min)
 }
 
 // growRefuse: why the hotel can't grow that way now, "" if it can.
 func (g *Game) growRefuse(kind int) string {
 	c, r := g.hotel.Grid()
 	switch {
-	case kind == growCol && c >= maxCols:
+	case kind == growCol && c >= maxGrid(g.level):
 		return "THE HOTEL IS AS WIDE AS IT GETS"
-	case kind == growFloor && r >= maxRows:
+	case kind == growFloor && r >= maxGrid(g.level):
 		return "THE HOTEL IS AS TALL AS IT GETS"
 	case g.growNext != 0 || slices.ContainsFunc(g.cart, func(l cartLine) bool { return shop[l.item].Grow != 0 }):
 		return "ONE EXPANSION AT A TIME"
@@ -193,6 +196,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		return image.Point{}, err
 	}
 	h.SetCorridorMirrors(g.corridorMirrors(old, h)) // before the Rooms land again, which hang them back (08 B1)
+	h.SetPantries(g.hasPantry())                    // the shelves on the new Corridors (08 P1-U); their stock is in g.pantryStock
 	// The Rooms move down by a new floor's height; the hall and the street, with them and sideways, to stay centered.
 	d := image.Pt(h.Lobby.Min.X-old.Lobby.Min.X, h.HallY-old.HallY)
 	at := func(p image.Point) image.Point {
@@ -231,6 +235,11 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		g.wiped[i].cell = g.wiped[i].cell.Add(cell)
 	}
 	g.dirt = regrid(g.dirt, n, room, nil)
+	stains := make(map[image.Point]*ebiten.Image, len(g.stains)) // they move with their Rooms, kept: drawn again, every one shows in ghost at once (08 W3)
+	for c, im := range g.stains {
+		stains[c.Add(cell)] = im
+	}
+	g.stains = stains
 	hushed := map[int]bool{}
 	for i, v := range g.hushed {
 		hushed[room(i)] = v
@@ -271,6 +280,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 	}
 
 	g.hotel = h
+	g.openPantries()
 	move := func(x, y *float64) {
 		p := at(image.Pt(int(*x), int(*y)))
 		*x, *y = *x+float64(p.X-int(*x)), *y+float64(p.Y-int(*y))
@@ -316,7 +326,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 			g.reroute(a, at(a.Path[len(a.Path)-1]))
 		}
 	}
-	g.floorImg, g.stains, g.spill = nil, nil, nil                 // re-rendered on the next Draw
+	g.floorImg, g.spill = nil, nil                                // re-rendered on the next Draw
 	g.cam.X, g.cam.Y = g.cam.X+float64(d.X), g.cam.Y+float64(d.Y) // the hall stays where it shows; the camera eases on from there
 	g.repilot()
 	return d, nil

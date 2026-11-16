@@ -1,6 +1,7 @@
 package game
 
 import (
+	"math"
 	"slices"
 
 	"ghosthotel/assets"
@@ -13,11 +14,11 @@ import (
 // Buy Rooms (07 B1): a new Run starts with every Room closed and unowned (boarded door, no bookings, shut to the
 // Concierge) and Money for exactly one Room key. Keys are a Service of the Terminal's SERVICES tab, picking the
 // Room; the courier walks the key to that Room's door and on the drop the Room is owned. The price of a key rises
-// with each Room owned. All amounts are placeholders, chosen so a Run reaches the Mirror early (the user's
+// with each Room owned (roomPrice). All amounts are placeholders, chosen so a Run reaches the Mirror early (the user's
 // pacing goal): the Mirror ($10, shop.go) is about 4 game hours of one Room's rent.
 const (
 	keyBase     = 100     // $: the first Room key
-	keyStep     = 25      // $: each Room already owned adds this to the next key
+	priceStep   = 0.15    // each Room owned adds this share of the base to a key or a growth step (sim-tuned)
 	mirrorPrice = 15      // $: the Mirror
 	twinPrice   = 350     // $: Twin beds, the pacing lever (Z1); Double is twice it
 	startMoney  = keyBase // $: a Run starts with exactly one key's worth
@@ -28,7 +29,12 @@ const (
 const rowKey Unlock = "room-key"
 
 // keyPrice: the key of the next Room, with n Rooms already owned.
-func keyPrice(n int) Num { return Num(keyBase + keyStep*n) }
+func keyPrice(n int) Num { return roomPrice(keyBase, n) }
+
+// roomPrice: base x (1 + priceStep x Rooms owned), linear, whole.
+func roomPrice(base Num, owned int) Num {
+	return Num(math.Round(float64(base) * (1 + priceStep*float64(owned))))
+}
 
 // isOwned: the Room is open for business. A nil g.roomOwned owns everything (the sim's Open, most tests).
 func (g *Game) isOwned(room int) bool {

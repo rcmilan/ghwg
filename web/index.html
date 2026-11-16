@@ -14,12 +14,21 @@
 <script src="wasm_exec.js"></script>
 <script>
 // Ebitengine makes its own canvas (filling this page, letterboxed) and focuses it on click, so keys work inside the itch.io iframe.
-const go = new Go();
-fetch("game.wasm")
-  .then(r => r.arrayBuffer()) // not instantiateStreaming: works whatever MIME type the host serves .wasm with
-  .then(b => WebAssembly.instantiate(b, go.importObject))
-  .then(({ instance }) => { document.getElementById("loading").remove(); go.run(instance); })
-  .catch(e => { document.getElementById("loading").textContent = "Could not load the game: " + e; });
+const msg = document.getElementById("loading");
+if (!matchMedia("(any-pointer: fine)").matches && matchMedia("(any-pointer: coarse)").matches) { // touch only: the game needs a keyboard
+  msg.textContent = "Ghost Hotel is played with a keyboard. Please open it on a computer.";
+} else {
+  const go = new Go();
+  const args = new URLSearchParams(location.search).get("args"); // dev: main's flags, e.g. ?args=-busy -ghost
+  if (args) go.argv = ["js", ...args.trim().split(/\s+/)];
+  // itch.io serves .gz files without a Content-Encoding, so unpack it here (3.8 MB instead of 15 MB).
+  // Not instantiateStreaming: it works whatever MIME type the host serves with.
+  fetch("game.wasm.gz")
+    .then(r => { if (!r.ok) throw new Error(r.status); return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer(); })
+    .then(b => WebAssembly.instantiate(b, go.importObject))
+    .then(({ instance }) => { msg.remove(); go.run(instance); })
+    .catch(e => { msg.textContent = "Could not load the game: " + e; });
+}
 </script>
 </body>
 </html>

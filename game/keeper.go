@@ -23,7 +23,6 @@ const (
 	keeperFee           = 100           // $ to hire one
 	keeperWage          = 60            // $ each, a game day
 	keeperEarned        = 500           // $ the hotel has taken before one answers the ad: about minute 6 of a Run, after its third Room (2026-11-14, 4c)
-	keeperMax           = 3
 	keeperSpeed         = conciergeSpeed
 	keeperNear          = 3           // tiles: the Concierge this close hears what it has to say
 	keeperChat          = 0.25        // of the times he comes near with nothing wrong, it says a line; a problem is always said
@@ -31,6 +30,9 @@ const (
 	keeperRest          = 20          // game minutes it stands at a spot before walking on, about
 	keeperStroll        = arriveSpeed // its pace with no job on
 )
+
+// keeperCap: housekeepers allowed with n Rooms owned: one per three, rounded up, at least one (08 P1).
+func keeperCap(n int) int { return max(1, (n+2)/3) }
 
 // Running shoes (08 B1): three tiers in Ectoplasm, each +15% walking speed, added up (1.15, 1.30, 1.45), for every
 // staff member, later hires too; never the Concierge. Placeholder prices.
@@ -72,12 +74,14 @@ func init() { ghostTints[keeperName] = []float32{.4, 1, 1} }
 type job int
 
 const (
-	resting  job = iota // no job: roaming the hotel
-	fetching            // to the wanted Supply's prop
-	serving             // to the Room's door, the item in its hands
-	cleaning            // to a stain in the Room
-	quitting            // out the Exit
-	matching            // to a bad pair's door, to talk its human Party into another Room (07 X2, Matchmaking)
+	resting   job = iota // no job: roaming the hotel
+	fetching             // to the wanted Supply's prop
+	serving              // to the Room's door, the item in its hands
+	cleaning             // to a stain in the Room
+	quitting             // out the Exit
+	matching             // to a bad pair's door, to talk its human Party into another Room (07 X2, Matchmaking)
+	refilling            // to the kitchen's shelf for a Supply a pantry is short of (pantry.go)
+	stocking             // to that pantry, the Supply in its hands
 )
 
 type housekeeper struct {
@@ -85,6 +89,7 @@ type housekeeper struct {
 	job            job
 	room           int    // the Room its job is for
 	item           Unlock // the Supply it fetches, then carries
+	src            int    // fetching: where from (-1 the kitchen, else a pantry); refilling, stocking: the pantry to fill
 	due            int    // the clock of its next payday
 	unpaid         bool   // its last wage is owed: it does nothing until it is paid
 	rest           int    // the clock it next moves about the kitchen
@@ -148,7 +153,7 @@ func (g *Game) sendKeeper(k *housekeeper, to image.Point, room int) {
 
 // dropJob: whatever it was doing, it is resting now; a Supply in its hands goes back to the stock.
 func (g *Game) dropJob(k *housekeeper) {
-	if k.job == serving {
+	if k.job == serving || k.job == stocking {
 		g.stock[k.item]++
 	}
 	k.job, k.item = resting, ""
@@ -200,10 +205,12 @@ func (g *Game) nextJob(k *housekeeper) bool {
 				g.sendKeeper(k, g.hotel.Map.Center(c.X, c.Y), p.Room)
 				return true
 			}
-		case p.asking() && p.state == staying && g.stock[p.want] > 0 && !taken(p.Room, fetching, serving):
-			k.job, k.room, k.item = fetching, p.Room, p.want
-			g.sendKeeper(k, g.supplyDrop(supplyOf(p.want)), -1)
-			return true
+		case p.asking() && p.state == staying && !taken(p.Room, fetching, serving):
+			if src, at, ok := g.nearestStock(k, p.want); ok { // the kitchen or a pantry, whichever is nearer
+				k.job, k.room, k.item, k.src = fetching, p.Room, p.want, src
+				g.sendKeeper(k, at, -1)
+				return true
+			}
 		}
 	}
 	for i := range g.hotel.Rooms { // Matchmaking (X2): a bad pair whose Party she can afford to move
@@ -214,6 +221,9 @@ func (g *Game) nextJob(k *housekeeper) bool {
 				return true
 			}
 		}
+	}
+	if g.refillPantry(k) {
+		return true
 	}
 	return g.sweep(k) // nothing asked, nothing complained of: the Room with the most dirt
 }
@@ -303,11 +313,11 @@ func (g *Game) updateKeepers() {
 			g.goRest(k)
 		case !arrived:
 		case k.job == fetching:
-			if g.stock[k.item] == 0 {
+			if g.stockOf(k.src)[k.item] == 0 {
 				g.goRest(k)
 				break
 			}
-			g.stock[k.item]--
+			g.stockOf(k.src)[k.item]--
 			k.job = serving
 			g.sendKeeper(k, g.doorDrop(k.room), -1)
 		case k.job == serving:
@@ -318,6 +328,20 @@ func (g *Game) updateKeepers() {
 		case k.job == cleaning:
 			if g.normalDirt(k.room) > 0 {
 				g.scrub(k.room, false)
+			}
+			g.goRest(k)
+		case k.job == refilling: // at the kitchen's shelf
+			if g.stock[k.item] == 0 || k.src >= len(g.hotel.Pantries) {
+				g.goRest(k)
+				break
+			}
+			g.stock[k.item]--
+			k.job = stocking
+			g.sendKeeper(k, g.pantryDrop(k.src), -1)
+		case k.job == stocking: // at the pantry: nothing goes back to the stock
+			if m := g.stockOf(k.src); m != nil {
+				m[k.item]++
+				k.job = resting
 			}
 			g.goRest(k)
 		case k.job == matching: // at the door: the cheapest sure offer, no talk staged
@@ -377,7 +401,7 @@ func (g *Game) keeperActors() []world.Actor {
 // drawKeepers draws, over each housekeeper, the Supply it carries.
 func (g *Game) drawKeepers(s *ebiten.Image, ox, oy int) {
 	for _, k := range g.keepers {
-		if k.job == serving {
+		if k.job == serving || k.job == stocking {
 			if icon := g.supplyIcon(k.item); icon != nil {
 				g.drawHeld(s, icon, int(k.X*zoom)-ox, int(k.Y*zoom)-oy)
 			}

@@ -35,8 +35,14 @@ func TestGrowRemap(t *testing.T) {
 				owned      bool
 			}
 			before := map[string]was{}
+			stains := map[string][]*ebiten.Image{} // each spot's stain picture, kept and moved with it (08 W3)
+			g.stains = map[image.Point]*ebiten.Image{}
 			for i, r := range g.hotel.Rooms {
 				before[r.Number] = was{g.mood[i], len(g.spots(i)), r.Type.Beds, g.isOwned(i)}
+				for _, s := range g.spots(i) {
+					g.stains[s.cell] = ebiten.NewImage(1, 1)
+					stains[r.Number] = append(stains[r.Number], g.stains[s.cell])
+				}
 			}
 			rooms := map[*Party]string{}
 			for _, p := range g.parties {
@@ -68,9 +74,12 @@ func TestGrowRemap(t *testing.T) {
 					t.Errorf("col %v: Room %s: owned %v, Mood %d, %d dirt spots, %s; want it as it was: Mood %d, %d spots, %s",
 						col, r.Number, g.isOwned(i), g.mood[i], len(g.spots(i)), r.Type.Beds, b.mood, b.dirt, b.beds)
 				}
-				for _, s := range g.spots(i) {
+				for k, s := range g.spots(i) {
 					if !h.Map.Center(s.cell.X, s.cell.Y).In(r.Shell()) {
 						t.Errorf("col %v: Room %s: a dirt spot at cell %v is outside it", col, r.Number, s.cell)
+					}
+					if g.stains[s.cell] != stains[r.Number][k] {
+						t.Errorf("col %v: Room %s: the dirt spot at cell %v lost its stain picture", col, r.Number, s.cell)
 					}
 				}
 			}
@@ -131,9 +140,9 @@ func TestGrowBuy(t *testing.T) {
 	}
 	want := [][2]int{{3, 1}, {3, 2}, {3, 3}}
 	for k, id := range []Unlock{GrowCol, GrowFloor, GrowFloor} {
-		price := growPrice(g.hotel.Grid())
-		if price != Num(int(growEcto)<<k) || g.priceOf(row(t, id)) != (Cost{Ecto: price}) {
-			t.Fatalf("expansion %d costs %v (the row says %v), want %d Ectoplasm", k+1, price, g.priceOf(row(t, id)), int(growEcto)<<k)
+		price := growCost(g)[Ecto]
+		if price != roomPrice(Num(int(growEcto)*(k+1)), g.ownedCount()) || g.priceOf(row(t, id)) != (Cost{Ecto: price}) { // a step dearer each growth
+			t.Fatalf("expansion %d costs %v (the row says %v), want %d Ectoplasm before the Rooms owned", k+1, price, g.priceOf(row(t, id)), int(growEcto)*(k+1))
 		}
 		g.wallet[Ecto] = price
 		if why := buy(id); why != "" || g.wallet[Ecto] != 0 || len(g.couriers) != 0 {
@@ -171,5 +180,27 @@ func TestGrower(t *testing.T) {
 	res := RunSim(Config{Cols: 2, Rows: 1, Days: 3, Seed: 1, Name: "grower", Strategy: Strategies["grower"], React: 30, KeyGap: 6})
 	if len(res.Failures) > 0 || res.Rooms <= 2 || len(res.Grown) == 0 {
 		t.Errorf("the grower ended with %d Rooms, grew at %v, Failures %v; want a grown hotel and none", res.Rooms, res.Grown, res.Failures)
+	}
+}
+
+// 08 W3: pulled back, a growth draws the hotel once; the warm-up's ghost frame must not leave its picture in the
+// real dimension's slide (a print showed the arcade palette mid-growth).
+func TestGrowPictureFollowsDimension(t *testing.T) {
+	g, err := NewGrid(2, 1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Start(false)
+	g.DevGrow("col")
+	for g.viewT < 1 {
+		g.Update()
+	}
+	screen := ebiten.NewImage(screenW, screenH)
+	g.ghost = true
+	g.drawFrame(screen)
+	g.ghost = false
+	g.drawFrame(screen)
+	if g.growing == nil || g.growing.drawn != "real" {
+		t.Fatalf("the slide's picture is %q, want the real one", g.growing.drawn)
 	}
 }

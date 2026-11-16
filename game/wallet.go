@@ -25,8 +25,12 @@ type Cost [2]Num
 // noFloat: earn without a floater (the haunt batches its own "+N", haunt.go).
 var noFloat = image.Pt(-1, -1)
 
-// earn adds n of r and floats "+N" from at (world px).
+// earn adds n of r (times the bonus) and floats "+N" from at (world px).
 func (g *Game) earn(r Res, n Num, at image.Point) {
+	if r == Ecto {
+		g.runEcto += n // before the bonus: the prestige grows the bonus from it (prestige.go)
+	}
+	n *= Num(g.bonus)           // the prestige bonus, on every income: the one place
 	if g.earned == ([2]Num{}) { // a Run's first earning: the last Run's are no rate of this one
 		g.recent = nil
 	}

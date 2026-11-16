@@ -3,6 +3,7 @@ package game
 import (
 	"image"
 	"image/color"
+	"iter"
 	"slices"
 
 	"ghosthotel/entities"
@@ -124,17 +125,26 @@ func (c *courier) paid() Cost {
 
 // walkers: the guests and the couriers of one realm, for bumping, yielding and pushing: a courier and a
 // Party walking in met head-on and walked through each other (Live test 6, 2026-11-08).
-func (g *Game) walkers(realm Realm) []*entities.Guest {
-	gs := g.guestsIn(realm)
-	if realm == Human {
-		for _, c := range g.couriers {
-			gs = append(gs, &c.Guest)
+func (g *Game) walkers(realm Realm) iter.Seq[*entities.Guest] {
+	return func(yield func(*entities.Guest) bool) {
+		for guest := range g.guestsIn(realm) {
+			if !yield(guest) {
+				return
+			}
 		}
-		for _, k := range g.keepers {
-			gs = append(gs, &k.Guest)
+		if realm == Human {
+			for _, c := range g.couriers {
+				if !yield(&c.Guest) {
+					return
+				}
+			}
+			for _, k := range g.keepers {
+				if !yield(&k.Guest) {
+					return
+				}
+			}
 		}
 	}
-	return gs
 }
 
 // courierActors: the couriers, for the doors: the Entrance opens for them, as for anyone.

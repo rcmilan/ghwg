@@ -232,9 +232,7 @@ func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
 		return
 	}
 	b := dst.Bounds()
-	if g.dark == nil || g.dark.Bounds().Size() != b.Size() {
-		g.dark = ebiten.NewImage(b.Dx(), b.Dy())
-	}
+	g.dark = reuse(&g.darkBuf, g.dark, b.Size())
 	shade := func(lit float64) color.NRGBA { // the darkness with lit (0..1) of it taken away
 		return color.NRGBA{uint8(255 * t[0]), uint8(255 * t[1]), uint8(255 * t[2]), uint8(255 * t[3] * (1 - lit))}
 	}

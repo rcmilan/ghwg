@@ -44,39 +44,70 @@ func BandRect(name string) image.Rectangle {
 	return image.Rectangle{}
 }
 
-// Bands draws every wall's top band, the map at 1 px per world px: BandColor, and BandOutline on the px that
-// touch anything else, corners included.
-func (m *Tilemap) Bands() *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, m.W*TileSize, m.H*TileSize))
+// BandMask is the walls' top bands, the map at 1 px per world px, one byte a px: 0 none, 1 band (BandColor),
+// 2 its outline (BandOutline), on the px that touch anything else, corners included. A growth computes it in its
+// first frame (08 W3: as RGBA scanned over the whole map it took 42 ms as wasm).
+type BandMask struct {
+	W, H int
+	Pix  []uint8
+}
+
+// At is the mask's px at (x, y); 0 off the map.
+func (b *BandMask) At(x, y int) uint8 {
+	if x < 0 || y < 0 || x >= b.W || y >= b.H {
+		return 0
+	}
+	return b.Pix[y*b.W+x]
+}
+
+func (m *Tilemap) BandMask() *BandMask {
+	b := &BandMask{W: m.W * TileSize, H: m.H * TileSize}
+	b.Pix = make([]uint8, b.W*b.H)
+	var rs []image.Rectangle
 	for l := LayerFloor + 1; l < NumLayers; l++ {
 		for y := range m.H {
 			for x := range m.W {
-				r := BandRect(m.TS.Tiles[m.At(l, x, y)].Name).Add(m.Origin(x, y))
+				r := BandRect(m.TS.Tiles[m.At(l, x, y)].Name).Add(m.Origin(x, y)).Intersect(image.Rect(0, 0, b.W, b.H))
+				if r.Empty() {
+					continue
+				}
+				rs = append(rs, r)
 				for py := r.Min.Y; py < r.Max.Y; py++ {
+					row := b.Pix[py*b.W:]
 					for px := r.Min.X; px < r.Max.X; px++ {
-						img.SetRGBA(px, py, BandColor)
+						row[px] = 1
 					}
 				}
 			}
 		}
 	}
-	in := func(x, y int) bool { return image.Pt(x, y).In(img.Rect) && img.RGBAAt(x, y).A != 0 }
-	var edge []image.Point
-	for y := range img.Rect.Dy() {
-		for x := range img.Rect.Dx() {
-			if !in(x, y) {
-				continue
-			}
-			for d := range 9 {
-				if !in(x+d%3-1, y+d/3-1) {
-					edge = append(edge, image.Pt(x, y))
-					break
+	for _, r := range rs { // an outline px stays non-zero, so marking it never hides a neighbour's band
+		for y := r.Min.Y; y < r.Max.Y; y++ {
+			for x := r.Min.X; x < r.Max.X; x++ {
+				if x > r.Min.X && x < r.Max.X-1 && y > r.Min.Y && y < r.Max.Y-1 {
+					continue // inside its own band: every neighbour is band
+				}
+				for d := range 9 {
+					if b.At(x+d%3-1, y+d/3-1) == 0 {
+						b.Pix[y*b.W+x] = 2
+						break
+					}
 				}
 			}
 		}
 	}
-	for _, p := range edge {
-		img.SetRGBA(p.X, p.Y, BandOutline)
+	return b
+}
+
+// Bands is BandMask in colors.
+func (m *Tilemap) Bands() *image.RGBA {
+	b := m.BandMask()
+	img := image.NewRGBA(image.Rect(0, 0, b.W, b.H))
+	for i, v := range b.Pix {
+		if v != 0 {
+			c := [...]color.RGBA{1: BandColor, 2: BandOutline}[v]
+			copy(img.Pix[4*i:], []uint8{c.R, c.G, c.B, c.A})
+		}
 	}
 	return img
 }

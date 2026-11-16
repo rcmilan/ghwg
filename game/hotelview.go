@@ -246,17 +246,20 @@ func (g *Game) viewAt() (k, tx, ty float64) {
 // Room's ring.
 func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	mw, mh := g.mapSize()
-	if g.wide == nil || g.wide.Bounds().Size() != image.Pt(mw*zoom, mh*zoom) {
-		g.wide = ebiten.NewImage(mw*zoom, mh*zoom)
+	g.wide = reuse(&g.wideBuf, g.wide, image.Pt(mw*zoom, mh*zoom))
+	if gr := g.growing; gr == nil || gr.drawn != dimName(g.ghost) || g.viewT < 1 { // pulled back, a growth's slide only moves the hotel, which waits: drawn once (08 W3 browser profile); the warm-up draws the other dimension
+		g.wide.Fill(bg)
+		fog := g.fog // the view sees into every Room: the veils lift as it pulls back
+		g.fog = make([]float64, len(fog))
+		for i, f := range fog {
+			g.fog[i] = f * (1 - g.viewT)
+		}
+		g.drawWorld(g.wide, 0, 0)
+		g.fog = fog
+		if gr != nil && g.viewT == 1 { // pulled back: the veils are lifted
+			gr.drawn = dimName(g.ghost)
+		}
 	}
-	g.wide.Fill(bg)
-	fog := g.fog // the view sees into every Room: the veils lift as it pulls back
-	g.fog = make([]float64, len(fog))
-	for i, f := range fog {
-		g.fog[i] = f * (1 - g.viewT)
-	}
-	g.drawWorld(g.wide, 0, 0)
-	g.fog = fog
 	k, tx, ty := g.viewAt()
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
 	op.GeoM.Scale(k/zoom, k/zoom)
@@ -436,4 +439,12 @@ func (g *Game) drawRoomGlow(s *ebiten.Image, op *ebiten.DrawImageOptions) {
 	}
 	glowLayer.SubImage(r).(*ebiten.Image).Clear() // not the Room itself
 	s.DrawImage(glowLayer, &ebiten.DrawImageOptions{GeoM: op.GeoM, Blend: ebiten.BlendLighter})
+}
+
+// dimName: "ghost" or "real".
+func dimName(ghost bool) string {
+	if ghost {
+		return "ghost"
+	}
+	return "real"
 }

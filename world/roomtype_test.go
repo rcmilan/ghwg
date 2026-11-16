@@ -11,7 +11,7 @@ import (
 	"ghosthotel/assets"
 )
 
-func loadTileset(t *testing.T) *Tileset {
+func loadTileset(t testing.TB) *Tileset {
 	t.Helper()
 	ts, err := LoadTileset(assets.FS, "tiles/hotel.tsj")
 	if err != nil {

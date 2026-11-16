@@ -253,7 +253,7 @@ func TestGhostDrawn(t *testing.T) {
 func TestMirrorStartLocked(t *testing.T) {
 	g := mustNew(t)
 	g.startRun()
-	if g.unlocked(Mirror) || !g.unlocked(SupplyWater) || g.unlocked(BedsTwin) || g.unlocked(BedsDouble) || g.unlocked(RoomMirror) || g.unlocked(Deluxe) || g.unlocked(Matchmaking) || g.unlocked(unlockK) || g.unlocked(unlockM) || len(g.locked) != 8 {
+	if g.unlocked(Mirror) || !g.unlocked(SupplyWater) || g.unlocked(BedsTwin) || g.unlocked(BedsDouble) || g.unlocked(RoomMirror) || g.unlocked(Deluxe) || g.unlocked(Matchmaking) || g.unlocked(unlockK) || g.unlocked(unlockM) || g.unlocked(Pantry) || len(g.locked) != 9 {
 		t.Fatalf("a new Run's locks %v, want the Mirror, K1's beds and in-Room Mirror, Deluxe, Matchmaking and the Fathers' calls", g.locked)
 	}
 	mirror := row(t, Mirror)

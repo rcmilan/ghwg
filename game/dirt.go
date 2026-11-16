@@ -307,7 +307,7 @@ func stainWidth(size int) int {
 func stainImage(cell image.Point, w int, bare func(image.Point) bool) *ebiten.Image {
 	const ts = world.TileSize
 	r := rand.New(rand.NewPCG(uint64(cell.X)+7, uint64(cell.Y)+11))
-	img := ebiten.NewImage(w, w)
+	img := image.NewRGBA(image.Rect(0, 0, w, w))        // drawn on the CPU and uploaded once: a pixel at a time, a growth in ghost redrawing every stain stalled ~0.5 s in the browser (08 W3)
 	o := cell.Mul(ts).Add(image.Pt(ts/2-w/2, ts/2-w/2)) // the bitmap's world origin
 	k := w * w / (stainW * stainW)                      // its area in first stains
 	for range (6 + r.IntN(4)) * max(1, k) {
@@ -320,7 +320,7 @@ func stainImage(cell image.Point, w int, bare func(image.Point) bool) *ebiten.Im
 			}
 		}
 	}
-	return img
+	return ebiten.NewImageFromImage(img)
 }
 
 // drawDirt draws each Room's spots as stains on its floor, and the cleaned ones fading: in real, faint

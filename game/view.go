@@ -5,7 +5,6 @@ import (
 	"maps"
 	"slices"
 
-	"ghosthotel/entities"
 	"ghosthotel/world"
 )
 
@@ -33,6 +32,7 @@ type View struct {
 	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
 	Talk         TalkView       // the talk, open or not (07 X2)
 	Matchmaking  bool           // owned: the housekeepers fix bad pairs (07 X2)
+	Level        int            // prestige level: the grid's limit is maxGrid(Level)
 }
 
 type RoomView struct {
@@ -86,6 +86,7 @@ func (g *Game) view() View {
 		RoomMirror:   g.unlocked(RoomMirror),
 		Talk:         g.talkView(),
 		Matchmaking:  g.unlocked(Matchmaking),
+		Level:        g.level,
 	}
 	for k, b := range bedKinds {
 		if g.bedOpen(k) {
@@ -108,11 +109,15 @@ func (g *Game) view() View {
 				rv.Asking, rv.Wants = true, p.want
 			}
 		}
-		rv.Away = !rv.Vacant && !slices.ContainsFunc(g.guestsIn(Human), func(guest *entities.Guest) bool {
-			return guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell())
-		})
+		rv.Away = !rv.Vacant
+		for guest := range g.guestsIn(Human) {
+			if guest.RoomIndex == i && image.Pt(int(guest.X), int(guest.Y)).In(r.Shell()) {
+				rv.Away = false
+				break
+			}
+		}
 		if g.ghost {
-			for _, guest := range g.guestsIn(Human) {
+			for guest := range g.guestsIn(Human) {
 				if guest.RoomIndex == i {
 					rv.Fear = max(rv.Fear, guest.Fear)
 				}

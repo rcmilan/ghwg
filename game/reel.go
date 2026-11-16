@@ -100,7 +100,7 @@ func (g *Game) drawReels(screen *ebiten.Image, ox, oy int) {
 				case 1:
 					mode, shade = modeMaze, 1
 				}
-				g.blit(clip, img, op, mode, shade, nil, g.roomShift(c.room))
+				g.shade(clip, img, op, mode, shade, nil, g.roomShift(c.room))
 			}
 		}
 	}

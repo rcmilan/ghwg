@@ -10,7 +10,6 @@ import (
 	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/colorm"
 )
 
 const (
@@ -95,14 +94,4 @@ func (g *Game) drawFogFloor(screen *ebiten.Image, ox, oy int) {
 		rect(screen, s.Min.X*zoom-ox, (s.Min.Y+2*ts)*zoom-oy, s.Dx()*zoom, (s.Dy()-4*ts)*zoom,
 			color.NRGBA{n.R, n.G, n.B, uint8(255 * fogAlpha * f)})
 	}
-}
-
-// drawFogged draws src like dst.DrawImage, tinted toward the Night tone by fog (> 0): a fogged Room's
-// props and north wall.
-func drawFogged(dst, src *ebiten.Image, op *ebiten.DrawImageOptions, fog float64) {
-	a, n := fogAlpha*fog, assets.Night
-	var cm colorm.ColorM
-	cm.Scale(1-a, 1-a, 1-a, 1)
-	cm.Translate(a*float64(n.R)/255, a*float64(n.G)/255, a*float64(n.B)/255, 0)
-	colorm.DrawImage(dst, src, cm, &colorm.DrawImageOptions{GeoM: op.GeoM})
 }

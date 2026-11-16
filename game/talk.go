@@ -165,7 +165,7 @@ func (g *Game) updateRoomTalk() {
 }
 
 // shown: the guest is on the map.
-func (g *Game) shown(guest *entities.Guest) bool { return slices.Contains(g.guests(), guest) }
+func (g *Game) shown(guest *entities.Guest) bool { return g.has(guest) }
 
 // drawTalk draws, by its speaker's head, the one line each Party is saying, while the Concierge hears it:
 // the last that has started (2026-11-14: a Guest never says two at once). A Party asking or complaining

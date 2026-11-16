@@ -43,6 +43,7 @@ func main() {
 	hotelView := flag.String("view", "", "dev: open the hotel view on this Room (0 is the first) picked; a second number -1 picks none, 1 opens its ring, 2 its Change type's beds, a third focusing that action (clockwise from the top) or bed (e.g. 1,1,2), with -shot -at")
 	grow := flag.String("grow", "", "dev: start a Run whose hotel grows by each of these in turn (col, floor), the last one's cinematic playing (e.g. col,floor; with -shot -at: 10 pulled back, 50 sliding in, 120 done)")
 	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
+	ready := flag.Int("prestige-ready", -1, "dev: a full level-1 hotel, every key bought, the Terminal on Father P's row; 1 with his confirm card open")
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
 	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
@@ -50,6 +51,11 @@ func main() {
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	mirror := flag.Bool("mirror", false, "dev: Room 101 has a Room mirror and two ghosts (the second came through it), Room 102 none: its ring offers Add mirror (-view 1,1,0); you in 101; use with -ghost")
 	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
+	prestige := flag.Bool("prestige", false, "dev: start a busy Run a few hours in with Father P's prestige cutscene playing (with -shot -at: 300 gathering, 400 he appears, 600 lines, 850 flip, 1100 race, 1300 white)")
+	level := flag.Int("level", 0, "dev: the prestige level the Run starts at (before every other start; -busy fills its larger hotel)")
+	growAt := flag.Int("growat", 0, "dev: a floor is added this many frames in, to profile a growth's first frames (with ?args= on the web build)")
+	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
+	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -86,17 +92,23 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0
+	g.DevLevel(*level)
 	if dev {
 		switch {
 		case *intro >= 0:
 			g.StartIntro(*intro)
-		case *busy: // it starts its own Run: first, so nothing after it is lost
+		case *busy || *prestige: // it starts its own Run: first, so nothing after it is lost
 			g.DevBusy()
+		case *ready >= 0:
+			g.Start(false)
 		default:
 			g.Start(false)
 		}
 		g.DevGhost(*ghost)
+		if *prestige {
+			g.DevPrestige()
+		}
 		// The Room's Mood is one value, set by -dirt and -mood: the later of the two wins it. -mood also stands the
 		// Concierge in Room 101, so both go first: any start after them that places him takes him from there.
 		g.DevDirt(*dirt)
@@ -128,10 +140,16 @@ func main() {
 			g.DevNotices()
 		}
 		g.DevGrow(*grow)
+		if *pantry { // after the growth it may follow
+			g.DevPantry()
+		}
 		if *corridors >= 0 { // after the growth that makes them
 			g.DevCorridors(*corridors)
 		}
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
+	}
+	if *ready >= 0 {
+		g.DevPrestigeReady(*ready == 1)
 	}
 	if *shop != "" {
 		var money, ecto float64
@@ -155,7 +173,13 @@ func main() {
 		run = s
 	}
 	if *play == "" && !*skipIntro && !dev { // a person starting from the title: the opening
+		if *shotPath == "" { // prints never touch the save
+			g.Persist() // the only start that reads and writes the save
+		}
 		g.PlayIntro()
+	}
+	if *shifts || *growAt > 0 {
+		run = &shifter{Game: g, growAt: *growAt, shifts: *shifts}
 	}
 	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
 		w := &guard{Game: run}
@@ -165,6 +189,23 @@ func main() {
 	if err := ebiten.RunGame(run); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// shifter is -shifts (a shift every 150 frames) and -growat (a floor added at that frame).
+type shifter struct {
+	*game.Game
+	n, growAt int
+	shifts    bool
+}
+
+func (s *shifter) Update() error {
+	if s.n++; s.shifts && s.n%150 == 0 {
+		s.DevShift()
+	}
+	if s.n == s.growAt {
+		s.DevGrow("floor")
+	}
+	return s.Game.Update()
 }
 
 // shot runs the game unthrottled up to frame at, then saves one screen to path and quits: a dev print.

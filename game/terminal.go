@@ -50,7 +50,7 @@ func tabItems(t Tab) []int {
 func (g *Game) gone(i int) bool {
 	it := shop[i]
 	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
-		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperMax || it.ID == rowRetain && g.fatherIn(false) ||
+		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperCap(g.ownedCount()) || it.ID == rowRetain && g.fatherIn(false) ||
 		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() // every one uncovered (08 B1)
 }
 
@@ -95,6 +95,12 @@ func scrollTop(pos, n, rows int) int { return max(0, min(pos-rows/2, n-rows)) }
 // checks out.
 func (g *Game) updateTerminal() {
 	key := g.in.JustPressed
+	if g.prestigeAsk { // the card: SPACE pays, ESC closes (game.go)
+		if key(ebiten.KeySpace) {
+			g.confirmPrestige()
+		}
+		return
+	}
 	said := "" // a move drops the notice; SPACE says how it went
 	switch {
 	case key(ebiten.KeyA):
@@ -135,6 +141,9 @@ func (g *Game) press() string {
 		return "NOTHING TO BUY HERE"
 	}
 	i := tabItems(g.termTab)[g.termPick]
+	if shop[i].ID == rowFatherP {
+		return g.askPrestige(i)
+	}
 	if why := g.addToCart(i, -1); why != "" {
 		return why
 	}
@@ -316,16 +325,24 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		g.drawCatalog(s)
 		if len(g.listed(g.termTab)) == 0 {
 			help = "A/D TAB   ESC CLOSE"
+		} else if it := tabItems(g.termTab); g.termPick < len(it) && shop[it[g.termPick]].ID == rowFatherP {
+			help = "A/D TAB   W/S ITEM   SPACE ASK FATHER P   ESC CLOSE"
 		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)
 	g.tintedAt(s, clockText(g.clock), screenW-16-glyphW*len(clockText(g.clock)), footY, 1, storeInk, 1)
+	if g.prestigeAsk {
+		g.drawPrestigeCard(s)
+	}
 }
 
 // drawRates: the wallet and what it earns a real minute, at the bar's right (08 F0-T: the rates show only here).
 func (g *Game) drawRates(s *ebiten.Image) {
 	if g.skull == nil {
 		g.skull = bitmap(skullRows)
+	}
+	if g.level > 0 || g.bonus > 1 { // menus show only what applies
+		g.tintedAt(s, fmt.Sprintf("LV %d - x%.2f", g.level, g.bonus), 376, barH/2-8, 1, storeBarInk, 1)
 	}
 	rate, x := g.perMinute(), screenW-16
 	for _, r := range []Res{Ecto, Money} { // right to left
@@ -426,6 +443,8 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		status = "IN THE CART"
 	case it.Tab == tabSupplies:
 		status = fmt.Sprintf("%d PER CASE   IN STOCK: %d", it.Pack, g.stock[it.ID])
+	case it.ID == rowFatherP:
+		status = "SPACE OPENS HIS CARD"
 	case it.Hire:
 		status = fmt.Sprintf("$%d A DAY   HIRED: %d", keeperWage, g.staffed())
 	}
@@ -433,7 +452,11 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	switch {
 	case !g.onSale(i) || g.owned(i):
 	case g.affords(i):
-		g.drawButton(s, "ADD TO CART", paneX+16, bodyY+paneH-50, paneW-32)
+		label := "ADD TO CART"
+		if it.ID == rowFatherP {
+			label = "ASK FATHER P"
+		}
+		g.drawButton(s, label, paneX+16, bodyY+paneH-50, paneW-32)
 	default:
 		g.tintedAt(s, "CAN'T AFFORD", paneX+16, bodyY+paneH-42, 2, assets.Locked, 1)
 	}

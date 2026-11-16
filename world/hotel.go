@@ -96,6 +96,8 @@ type Hotel struct {
 	Windows        []image.Point    // where each window's light falls at night, on the floor below it (F0 Lighting)
 	Plants         []Plant          // potted plants (F0 Decor)
 	Corridors      []CorridorMirror // the Mirrors on the Corridors a New floor made (08 B1), set by SetCorridorMirrors
+	Pantries       []Pantry         // the shelves SetPantries stood (08 P1-U)
+	pf             pathBuf          // Path's reused memory
 }
 
 // Plant is a potted plant at a hand-placed spot nobody walks through, solid: its cell's bottom middle, world
@@ -455,3 +457,47 @@ func (h *Hotel) OuterLine(x int) bool { return x == 1 || x == h.l.w-2 }
 
 // Grid is the hotel's Room grid, cols × rows.
 func (h *Hotel) Grid() (cols, rows int) { return h.l.cols, h.l.rows }
+
+// Pantry (08 P1-U): a shelf standing against the south face of the Rooms above a Corridor a New floor made, apart
+// from that Corridor's Mirror. Cell is the shelf's own cell, solid; Spot the Corridor cell below it, where SPACE acts.
+type Pantry struct {
+	Cell image.Point
+	Spot image.Rectangle // world px
+}
+
+const PantrySprite = "shelf_b"
+
+// SetPantries stands the shelves, replacing any stood before: one per Corridor Mirror (so after SetCorridorMirrors),
+// on the cell nearest the middle of the hotel that is no doormat, not within 2 cells of the Mirror, not against a Room's side wall and not in a
+// column Corridor.
+func (h *Hotel) SetPantries(on bool) {
+	defer func() { h.Map.Rev++ }() // the shelves change Block: Path's solid cache must see it
+	for _, p := range h.Pantries {
+		delete(h.Map.Block, p.Cell)
+	}
+	h.Pantries = nil
+	h.Plants = slices.DeleteFunc(h.Plants, func(p Plant) bool { return p.Sprite == PantrySprite })
+	if !on {
+		return
+	}
+	door := h.Rooms[0].Door.X - h.Rooms[0].Origin.X
+	for _, m := range h.Corridors {
+		y := h.Rooms[m.Room].Origin.Y + RoomH
+		fits := func(x int) bool {
+			lx := (x - 1) % (RoomW + corridor)
+			return x >= 2 && x <= h.l.w-3 && lx >= 1 && lx < RoomW-1 && (lx < door-1 || lx > door+1) && (x <= m.Cell.X-3 || x >= m.Cell.X+3) && !h.Map.Solid(x, y)
+		}
+		for d := range h.l.w {
+			x := h.l.w/2 + d
+			if !fits(x) {
+				x = h.l.w/2 - d
+			}
+			if fits(x) {
+				h.Map.Block[image.Pt(x, y)] = true
+				h.Plants = append(h.Plants, Plant{h.Map.Origin(x, y).Add(image.Pt(TileSize/2, TileSize)), PantrySprite})
+				h.Pantries = append(h.Pantries, Pantry{image.Pt(x, y), image.Rect(x*TileSize, (y+1)*TileSize, (x+1)*TileSize, (y+2)*TileSize)})
+				break
+			}
+		}
+	}
+}
