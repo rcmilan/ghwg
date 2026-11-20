@@ -104,7 +104,7 @@ func TestBookGhostEntriesOnlyInGhost(t *testing.T) {
 	}
 }
 
-// SPACE beside the book opens the page, A/D scroll, SPACE closes.
+// SPACE beside the book opens the page, A/D turns the page, SPACE closes.
 func TestBookOpensWithSpace(t *testing.T) {
 	g, s := headless(t, 2, 1, 3)
 	g.startRun()
@@ -123,8 +123,8 @@ func TestBookOpensWithSpace(t *testing.T) {
 	}
 	s.hold(ebiten.KeyD)
 	g.Update()
-	if g.bookTop != 1 {
-		t.Errorf("S scrolled to %d, want 1", g.bookTop)
+	if n := len(bookSpread(g.shown(), 0)); g.bookTop != n {
+		t.Errorf("D turned to %d, want the next spread at %d", g.bookTop, n)
 	}
 	s.hold(ebiten.KeyEscape)
 	g.Update()
@@ -336,5 +336,41 @@ func TestNamedGhostKind(t *testing.T) {
 				t.Fatalf("%s rolled %d draws as a %s, want a %s", n.Key, ph, k, n.Kind)
 			}
 		}
+	}
+}
+
+// T381 refine 9: a full book (bookMax entries, every pool's lines, long and short) turns spread by spread: D shows
+// each entry once, on one spread, none skipped, the last spread stays put; A walks back the same spreads.
+func TestBookTurnsSpreads(t *testing.T) {
+	g, s := headless(t, 2, 1, 3)
+	pools := [][]string{notebookCozy, notebookDread, notebookFled, namedHumans[0].Visit[:], {""}}
+	for i := range bookMax {
+		p := pools[i%len(pools)]
+		g.guestBook = append(g.guestBook, bookEntry{"Guest", p[i%len(p)], 1, bookOutcome(i % 3)})
+	}
+	g.openBook()
+	var tops []int
+	for seen := 0; ; {
+		sp := bookSpread(g.shown(), g.bookTop)
+		if g.bookTop != seen || len(sp) == 0 {
+			t.Fatalf("spread at %d after %d entries seen (%d on it)", g.bookTop, seen, len(sp))
+		}
+		tops, seen = append(tops, g.bookTop), seen+len(sp)
+		keys(g, s, ebiten.KeyD)
+		if seen == bookMax {
+			if g.bookTop != tops[len(tops)-1] {
+				t.Fatalf("D past the last spread turned to %d", g.bookTop)
+			}
+			break
+		}
+	}
+	for i := len(tops) - 1; i > 0; i-- {
+		keys(g, s, ebiten.KeyA)
+		if g.bookTop != tops[i-1] {
+			t.Fatalf("A turned to %d, want %d", g.bookTop, tops[i-1])
+		}
+	}
+	if len(tops) < 3 {
+		t.Fatalf("%d spreads for %d entries, want a few", len(tops), bookMax)
 	}
 }

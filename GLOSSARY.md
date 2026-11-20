@@ -446,7 +446,7 @@ One trait a Guest may have that bends a rule of the hotel, from the hotel's firs
 One of the hand-written cast (`cast.md`: seven human entries, three ghosts) who takes a generated booking about 1 time in 6, from the first Growth on, when not in the hotel and away a game day. It keeps its own lines, quirk and (a ghost) kind, and its visits count across Runs (saved). Osvaldo comes only after Magda.
 
 **Guest book**:
-The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own. It opens as a soft-cover book: two ruled pages curving into the spine, a thin black cover bending with them. The entries are handwritten on wide ruled lines, each in its own pen and hand: some keep to the line, some tilt, some bob word by word (T381 refine 6). A/D scrolls it.
+The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own. It opens as a soft-cover book: two ruled pages curving into the spine, a thin black cover bending with them. The entries are handwritten on wide ruled lines, each in its own pen and hand: some keep to the line, some tilt, some bob word by word (T381 refine 6). A/D turns its pages, a spread at a time; a guest with no words left a scrawl.
 _Avoid_: notebook (in game text), log
 
 **Priest guest**:

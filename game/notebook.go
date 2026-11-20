@@ -29,12 +29,11 @@ const (
 )
 
 const (
-	bookMax   = 50        // entries kept
-	namedOdds = 6         // a Party's booking is a named guest's 1 time in namedOdds
-	namedAway = dayFrames // a named guest must have been out of the hotel this long to come again
-	dreadMood = rotMood   // a stay that ended at or below this Room Mood was a dread one
-	scribble  = "~ ^ ~ ~ ^ ~"
-	bookRows  = 4 // entries a spread shows at least: A/D stops with these in sight
+	bookMax   = 50                  // entries kept
+	namedOdds = 6                   // a Party's booking is a named guest's 1 time in namedOdds
+	namedAway = dayFrames           // a named guest must have been out of the hotel this long to come again
+	dreadMood = rotMood             // a stay that ended at or below this Room Mood was a dread one
+	scribble  = "mwnwm  nmwvn  wmn" // no words, a scrawl on the line: ~ and ^ float high in the debug font (T381 refine 9)
 )
 
 // bookEntry is one line of the notebook (saved in runState).
@@ -253,11 +252,54 @@ func (g *Game) updateBook() {
 	switch {
 	case key(ebiten.KeySpace):
 		g.state = StatePlay
-	case key(ebiten.KeyA):
-		g.bookTop = max(0, g.bookTop-1)
-	case key(ebiten.KeyD):
-		g.bookTop = max(0, min(g.bookTop+1, len(g.shown())-bookRows))
+	case key(ebiten.KeyA) || key(ebiten.KeyD): // turns a whole spread: scrolling by an entry reflowed the pages, one could stay put (T381 refine 9)
+		starts := bookStarts(g.shown())
+		i := slices.Index(starts, g.bookTop)
+		if key(ebiten.KeyD) {
+			i++
+		} else {
+			i--
+		}
+		g.bookTop = starts[min(max(i, 0), len(starts)-1)]
 	}
+}
+
+// bookSlot: where an entry sits on a spread: its page (0 left, 1 right), the ruled line its name is on, its words
+// wrapped.
+type bookSlot struct {
+	side, k int
+	ls      []string
+}
+
+// bookSpread lays the entries out from es[top]: down the left page under the title, then the right one, a line for
+// the name, the words on the next, a blank line between two. The ones that fit, one at least.
+func bookSpread(es []bookEntry, top int) []bookSlot {
+	var out []bookSlot
+	side, k := 0, 1
+	for _, e := range es[min(top, len(es)):] {
+		ls := wrapAt("\""+e.Line+"\"", (bookPW-60)/(2*glyphW))
+		if e.Line == "" {
+			ls = []string{scribble}
+		}
+		if k+1+len(ls) > bookLines {
+			if side == 1 && len(out) > 0 {
+				break
+			}
+			side, k = 1, 0
+		}
+		out = append(out, bookSlot{side, k, ls})
+		k += len(ls) + 2
+	}
+	return out
+}
+
+// bookStarts: the first entry of each spread, the newest's first; never empty.
+func bookStarts(es []bookEntry) []int {
+	starts := []int{0}
+	for t := len(bookSpread(es, 0)); t < len(es); t += len(bookSpread(es, t)) {
+		starts = append(starts, t)
+	}
+	return starts
 }
 
 var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED"}
@@ -342,33 +384,19 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 	if len(es) == 0 {
 		scrawl(s, "No entries yet.", lx, line(1), 0, 0, storeDim)
 	}
-	// The entries flow down the left page under the title, then the right one: a line for the name, the words on
-	// the next, a blank line between two.
-	side, k, n := 0, 1, 0
-	for _, e := range es[min(g.bookTop, len(es)):] {
-		words := e.Line
-		if words == "" {
-			words = scribble
-		}
-		ls := wrapAt("\""+words+"\"", (bookPW-60)/(2*glyphW))
-		if k+1+len(ls) > bookLines {
-			if side == 1 {
-				break
-			}
-			side, k = 1, 0
-		}
+	sp := bookSpread(es, g.bookTop)
+	for i, p := range sp {
 		px := lx
-		if side == 1 {
+		if p.side == 1 {
 			px = rx
 		}
-		g.writeEntry(s, e, ls, px, line(k), px+bookPW-52)
-		k, n = k+len(ls)+2, n+1
+		g.writeEntry(s, es[g.bookTop+i], p.ls, px, line(p.k), px+bookPW-52)
 	}
-	if len(es) > n {
+	if n := len(sp); len(es) > n {
 		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(g.bookTop+n) + " OF " + strconv.Itoa(len(es))
 		g.tintedAt(s, pos, rx+bookPW-74-len(pos)*glyphW, y+bookM+22, 1, storeDim, 1)
 	}
-	g.tintedAt(s, "A/D SCROLL   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
+	g.tintedAt(s, "A/D TURN THE PAGE   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
 }
 
 // bookInks: the pens a human writes with; a ghost writes in the Ectoplasm accent.
@@ -451,5 +479,12 @@ func (g *Game) DevBook(n int) {
 		bookEntry{"Noor Haddad", namedHumans[3].Fled, 2, outFled}, bookEntry{"Ana Costa", notebookCozy[0], 2, outCozy},
 		bookEntry{"Agatha Fogg", notebookPassed[0], 2, outPassed}, bookEntry{"Silas Wick", notebookBanished[1], 3, outBanished},
 		bookEntry{"Osvaldo Feltz", namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
+	pools := [...][]string{notebookCozy, notebookDread, notebookFled, notebookPassed, notebookBanished}
+	for i := 0; n > 2 && len(g.guestBook) < bookMax; i++ { // 3 and up: a full book, turned n-3 spreads
+		g.guestBook = append(g.guestBook, bookEntry{"Guest " + strconv.Itoa(i+1), pools[i%5][i%len(pools[i%5])], 4 + i/10, bookOutcome(i % 5)})
+	}
 	g.openBook()
+	if starts := bookStarts(g.shown()); n > 2 {
+		g.bookTop = starts[min(n-3, len(starts)-1)]
+	}
 }

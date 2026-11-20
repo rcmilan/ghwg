@@ -58,7 +58,7 @@ func main() {
 	growAt := flag.Int("growat", 0, "dev: a floor is added this many frames in, to profile a growth's first frames (with ?args= on the web build)")
 	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
-	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2); -ghost shows the ghost view")
+	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2), a full book turned n-3 spreads (3 and up); -ghost shows the ghost view")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
