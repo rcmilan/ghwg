@@ -237,31 +237,27 @@ func ghostFact(key string) string {
 	return ""
 }
 
-// cardFocus: where the card's camera closes in (drawParley's screen px at the play camera) and how wide the sharp
-// middle is: on the picked guest.
-func (g *Game) cardFocus(ox, oy int, k float64) (fx, fy, sharp float64) {
-	guest := g.parley.p.Guests[g.parley.card.who]
-	return float64(screenPx(guest.X) - ox), float64(screenPx(guest.Y)-oy) - charH/2*zoom, 1.5 * charH * zoom * k
-}
-
 // drawCard draws the card around its guest in the talk's frame (drawParley): words alone, outlined; its line over
 // its head, who it is on its left, what REVEAL read on its right, the options at the bottom over the cinema bar, and
 // < > by them for a Party of two. at is the guest's feet on screen, top its head.
 func (g *Game) drawCard(s *ebiten.Image, w, h, bar int, at, top image.Point) {
 	const scale, gap = 2, 60 // gap: screen px from the guest's middle to the side columns, clear of its sprite
 	v, lh := g.cardView(), glyphH*scale+8
+	text := func(r cardRow, x, y int) { // kept on screen: by the map's edge the guest is off the middle
+		outline(s, r.text, min(max(x, 8), w-8-len(r.text)*glyphW*scale), y, scale, r.ink, r.a)
+	}
 	mid := (at.Y+top.Y)/2 - lh/2
 	for i, r := range v.quote {
 		y := top.Y - 8 - (len(v.quote)-i)*lh
-		outline(s, r.text, at.X-len(r.text)*glyphW*scale/2, y, scale, r.ink, r.a)
+		text(r, at.X-len(r.text)*glyphW*scale/2, y)
 	}
 	y0 := mid - (len(v.who)-1)*lh/2
 	for i, r := range v.who {
-		outline(s, r.text, at.X-gap-len(r.text)*glyphW*scale, y0+i*lh, scale, r.ink, r.a)
+		text(r, at.X-gap-len(r.text)*glyphW*scale, y0+i*lh)
 	}
 	y0 = mid - (len(v.read)-1)*lh/2
 	for i, r := range v.read {
-		outline(s, r.text, at.X+gap, y0+i*lh, scale, r.ink, r.a)
+		text(r, at.X+gap, y0+i*lh)
 	}
 	y0 = h - bar - 12 - max(1, len(v.opts))*lh
 	for i, r := range v.opts {

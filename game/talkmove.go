@@ -313,25 +313,33 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	t, src := g.parley, g.fx[0]
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
 	mw, mh := g.mapSize()
-	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	lead := t.p.Guests[0]
+	k, e := g.talkZoom(), g.talkEase()
+	// The focus, world px: the guest (the card's picked one). Since T381 refine 2 the talk starts at the plate, the
+	// Concierge outside the Room: from the plate to its back row is more than a screen can frame with both.
+	guest := lead
+	if t.card != nil {
+		guest = t.p.Guests[t.card.who]
+	}
+	wx, wy, sharp := guest.X, guest.Y-charH/2, 1.5*charH*zoom*k
+	// Kept half a closed-in screen from the map's edges, so the picture never shows past them.
+	wx = min(max(wx, viewW/2/k), float64(mw)-viewW/2/k)
+	wy = min(max(wy, viewH/2/k), float64(mh)-viewH/2/k)
+	// The world is drawn round the focus, not round the Concierge (the play camera): the shader reads only this
+	// picture, and what it closes in on past it read black. The card's guest stands up to a Room's depth from the
+	// Concierge at the plate, and since T381 refine 2 the talk starts there too (T381 refine 3).
+	ox, oy := min(max(screenPx(wx)-w/2, 0), (mw-viewW)*zoom), min(max(screenPx(wy)-h/2, 0), (mh-viewH)*zoom)
+	fx, fy := float64(screenPx(wx)-ox), float64(screenPx(wy)-oy)
 	src.Fill(bg)
 	if r := t.p.Room; t.card != nil && r < len(g.fog) {
 		// The card looks at its guest: its Room's Fog lifts as the camera closes in, at the draw, as the hotel view's
 		// (hotelview.go). Faded on world time, at the card's 0.06 it took ~8 s past the door opening (T381 refine 3).
 		f := g.fog[r]
-		g.fog[r] = f * (1 - g.talkEase())
+		g.fog[r] = f * (1 - e)
 		g.drawWorld(src, ox, oy)
 		g.fog[r] = f
 	} else {
 		g.drawWorld(src, ox, oy)
-	}
-	lead := t.p.Guests[0]
-	fx := float64(screenPx(g.player.X)+screenPx(lead.X))/2 - float64(ox)
-	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
-	k, e := g.talkZoom(), g.talkEase()
-	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
-	if t.card != nil {
-		fx, fy, sharp = g.cardFocus(ox, oy, k)
 	}
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},
 		Uniforms: map[string]any{"Focus": []float32{float32(fx), float32(fy)}, "K": float32(k), "T": float32(e), "Sharp": float32(sharp), "Blur": float32(t.at(talkBlur))}})
