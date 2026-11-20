@@ -205,9 +205,22 @@ func (g *Game) rollNamedGhost(p *Party) {
 		return
 	}
 	n := namedGhosts[slices.IndexFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })]
-	guest := p.Guests[0]
-	guest.Who = entities.Identity{Name: n.Name, Died: n.Died, Job: n.Job, Card: n.Card, Quirk: n.Quirk, Key: n.Key}
+	g.nameGhost(p.Guests[0], n)
 	g.visited(p, key)
+}
+
+// nameGhost: the guest becomes n, its rolled Phantasm clamped into n's kind's band so it draws as cast.md says.
+func (g *Game) nameGhost(guest *entities.Guest, n namedGhost) {
+	guest.Who = entities.Identity{Name: n.Name, Died: n.Died, Job: n.Job, Card: n.Card, Quirk: n.Quirk, Key: n.Key}
+	k := slices.IndexFunc(ghostKinds[:], func(c ghostKind) bool { return c.Name == n.Kind })
+	lo, hi := 1, phantasmMax
+	if k > 0 {
+		lo = phantasmBands[k-1]
+	}
+	if k < len(phantasmBands) {
+		hi = phantasmBands[k] - 1
+	}
+	guest.Phantasm = min(max(guest.Phantasm, lo), hi)
 }
 
 // The book on the counter: SPACE beside it opens the page (actionable.go).

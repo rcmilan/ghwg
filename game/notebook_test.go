@@ -323,3 +323,18 @@ func TestNamedAfterGrowth(t *testing.T) {
 		t.Error("no named booking after the hotel grew")
 	}
 }
+
+// A named ghost draws as the kind cast.md gives it: its Phantasm falls in that kind's band.
+func TestNamedGhostKind(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	for _, n := range namedGhosts {
+		for ph := 1; ph <= phantasmMax; ph++ {
+			guest := entities.NewGuest(g.hotel.Spawn, "Adam")
+			guest.Phantasm = ph
+			g.nameGhost(&guest, n)
+			if k := ghostKinds[kindOf(guest.Phantasm)].Name; k != n.Kind {
+				t.Fatalf("%s rolled %d draws as a %s, want a %s", n.Key, ph, k, n.Kind)
+			}
+		}
+	}
+}
