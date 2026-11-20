@@ -43,42 +43,62 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 	for _, p := range avoid {
 		shut(m.Cell(p))
 	}
+	cell := b.cells(m)
 	open := func(x, y int) bool {
-		return m.inside(x, y) && b.shut[y*m.W+x] != gen && !m.solidFast(x, y)
+		return m.inside(x, y) && b.shut[y*m.W+x] != gen && cell[y*m.W+x]&cellOpen != 0
 	}
 	idx := func(p image.Point) int { return p.Y*m.W + p.X }
 	s, g := idx(start), idx(goal)
-	b.seen[s], b.cost[s], b.prev[s] = gen, 0, s
-	q := append(b.q[:0], cell{0, s})
+	// step: what entering cell (nx,ny) by direction d costs.
+	step := func(nx, ny int, d image.Point) int {
+		k := stepCost
+		if rx, ry := nx-d.Y, ny+d.X; open(rx, ry) && cell[ry*m.W+rx]&cellNoWall != 0 { // the right hand (y points down): floor, not a wall's rect-free top row
+			k += keepRightCost
+		}
+		if l := h.l; ny >= l.hall && ny <= l.hall+1 && (d.Y < 0 && nx == l.archway || d.Y > 0 && nx == l.archway+l.archwayW-1) {
+			k += wrongWayCost
+		}
+		return k
+	}
+	dirs := [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	// A* with the Manhattan distance (every step costs stepCost or more). It runs on past the goal until
+	// nothing is left that could lie on an equally cheap route, so every cell such a route can cross holds its
+	// exact cost, and the route is then read back below.
+	gx, gy := goal.X, goal.Y
+	est := func(at int) int {
+		dx, dy := at%m.W-gx, at/m.W-gy
+		return stepCost * (max(dx, -dx) + max(dy, -dy))
+	}
+	b.seen[s], b.cost[s] = gen, 0
+	q := append(b.q[:0], pack(est(s), s))
+	best := -1 // the goal's cost, once known
 	for len(q) > 0 {
 		c := q[0]
 		last := len(q) - 1
 		q[0] = q[last]
 		q = q[:last]
 		q.down(0)
-		if c.cost > b.cost[c.at] {
-			continue // a stale entry
-		}
-		if c.at == g {
+		f, at := int(c>>32), int(uint32(c))
+		if best >= 0 && f > best {
 			break
 		}
-		cx, cy := c.at%m.W, c.at/m.W
-		for _, d := range [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		if cost := b.cost[at]; f > cost+est(at) {
+			continue // a stale entry
+		} else if at == g {
+			best = cost
+			continue
+		}
+		cx, cy := at%m.W, at/m.W
+		for _, d := range dirs {
 			nx, ny := cx+d.X, cy+d.Y
 			if !open(nx, ny) {
 				continue
 			}
-			k := c.cost + stepCost
-			if rx, ry := nx-d.Y, ny+d.X; open(rx, ry) && m.At(LayerWalls, rx, ry) == 0 { // the right hand (y points down): floor, not a wall's rect-free top row
-				k += keepRightCost
-			}
-			if l := h.l; ny >= l.hall && ny <= l.hall+1 && (d.Y < 0 && nx == l.archway || d.Y > 0 && nx == l.archway+l.archwayW-1) {
-				k += wrongWayCost
-			}
+			k := b.cost[at] + step(nx, ny, d)
 			n := ny*m.W + nx
 			if b.seen[n] != gen || k < b.cost[n] {
-				b.seen[n], b.cost[n], b.prev[n] = gen, k, c.at
-				q = append(q, cell{k, n})
+				b.seen[n], b.cost[n] = gen, k
+				q = append(q, pack(k+est(n), n))
 				q.up(len(q) - 1)
 			}
 		}
@@ -87,15 +107,31 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 	if b.seen[g] != gen {
 		return nil
 	}
+	// Read the route back from the goal: each cell came from its cheapest-entered neighbour, ties to the lower
+	// index (the order a plain Dijkstra pops them in, which is what keeps every route the same).
+	prev := func(n int) int {
+		nx, ny, from, fromCost := n%m.W, n/m.W, -1, 0
+		for _, d := range dirs {
+			ux, uy := nx-d.X, ny-d.Y
+			if !m.inside(ux, uy) {
+				continue
+			}
+			u := uy*m.W + ux
+			if b.seen[u] == gen && b.cost[u]+step(nx, ny, d) == b.cost[n] && (from < 0 || b.cost[u] < fromCost || b.cost[u] == fromCost && u < from) {
+				from, fromCost = u, b.cost[u]
+			}
+		}
+		return from
+	}
 	n := 0
-	for i := g; i != s; i = int(b.prev[i]) {
+	for i := g; i != s; i = prev(i) {
 		n++
 	}
 	if n == 0 { // already in the goal cell
 		return []image.Point{to}
 	}
 	path := make([]image.Point, n)
-	for i := g; i != s; i = int(b.prev[i]) {
+	for i := g; i != s; i = prev(i) {
 		n--
 		path[n] = m.Center(i%m.W, i/m.W)
 	}
@@ -108,15 +144,41 @@ func (h *Hotel) Path(from, to image.Point, own int, avoid ...image.Point) []imag
 type pathBuf struct {
 	gen               uint32
 	seen, shut, known []uint32
-	cost, prev        []int
+	cost              []int
 	solid             []bool
 	q                 cells
+	flags             []uint8 // per cell: cellOpen, cellNoWall, as of flagsRev
+	flagsRev          int
+	doors             []int  // UpdateDoors' scratch: door indexes by top edge
+	want              []bool // ... and which doors an actor asks open
+}
+
+// Static facts of a cell, remembered until the next Set (like Tilemap.solidFast).
+const (
+	cellOpen   = 1 // no collision rect
+	cellNoWall = 2 // no wall tile: floor, not a wall's rect-free top row
+)
+
+func (b *pathBuf) cells(m *Tilemap) []uint8 {
+	if len(b.flags) != m.W*m.H || b.flagsRev != m.Rev+1 {
+		b.flags, b.flagsRev = make([]uint8, m.W*m.H), m.Rev+1
+		for i := range b.flags {
+			x, y := i%m.W, i/m.W
+			if !m.Solid(x, y) {
+				b.flags[i] |= cellOpen
+			}
+			if m.At(LayerWalls, x, y) == 0 {
+				b.flags[i] |= cellNoWall
+			}
+		}
+	}
+	return b.flags
 }
 
 func (h *Hotel) scratch() *pathBuf {
 	b, n := &h.pf, h.Map.W*h.Map.H
 	if len(b.seen) != n {
-		*b = pathBuf{seen: make([]uint32, n), shut: make([]uint32, n), cost: make([]int, n), prev: make([]int, n)}
+		*b = pathBuf{seen: make([]uint32, n), shut: make([]uint32, n), cost: make([]int, n)}
 	}
 	b.gen++
 	return b
@@ -126,16 +188,18 @@ func (h *Hotel) scratch() *pathBuf {
 // across one axis, like a Room doorway.
 func (h *Hotel) Choke(c image.Point) bool {
 	m := h.Map
-	return !m.Solid(c.X, c.Y) && (m.Solid(c.X-1, c.Y) && m.Solid(c.X+1, c.Y) || m.Solid(c.X, c.Y-1) && m.Solid(c.X, c.Y+1))
+	f := h.pf.cells(m)
+	solid := func(x, y int) bool { return !m.inside(x, y) || f[y*m.W+x]&cellOpen == 0 }
+	return !solid(c.X, c.Y) && (solid(c.X-1, c.Y) && solid(c.X+1, c.Y) || solid(c.X, c.Y-1) && solid(c.X, c.Y+1))
 }
 
-// cells is a min-heap of cells by path cost, ties by cell index so paths are deterministic.
-type cell struct{ cost, at int }
-type cells []cell
+// cells is a min-heap of cells packed as cost<<32 | index, so one compare orders by path cost, ties by cell
+// index (paths are deterministic).
+type cells []uint64
 
-func (q cells) less(i, j int) bool {
-	return q[i].cost < q[j].cost || q[i].cost == q[j].cost && q[i].at < q[j].at
-}
+func pack(cost, at int) uint64 { return uint64(cost)<<32 | uint64(at) }
+
+func (q cells) less(i, j int) bool { return q[i] < q[j] }
 
 func (q cells) up(j int) {
 	for j > 0 {

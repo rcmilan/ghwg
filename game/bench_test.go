@@ -10,9 +10,10 @@ import (
 )
 
 // The frame budget (P1-F): a busy 6x6 hotel updates in about 2 ms a frame as wasm, so T (x4) fits in ~8 ms
-// of the 16.7 ms a frame. 8x8 is recorded, with no budget. Run natively with
+// of the 16.7 ms a frame; 8x8 gets 4 ms (08 W3.5), 10x10 is recorded, with no budget. Run natively with
 // go test ./game -bench Update -run '^$', as wasm with tools/wasmtest.sh (its budget check is the wasm one).
-const wasmUpdateBudgetMs = 2.0 // the aim; the test fails 25% over it, since "about 2 ms" must hold on a busy machine too
+const wasmUpdateBudgetMs = 2.0    // the aim; the test fails 25% over it, since "about 2 ms" must hold on a busy machine too
+const wasmUpdateBudget8x8Ms = 4.0 // the same, for 8x8
 
 // busyGame: a cols x rows hotel in the busy state (busy.go) with everyone already walking.
 func busyGame(tb testing.TB, cols, rows int) *Game {
@@ -28,7 +29,7 @@ func busyGame(tb testing.TB, cols, rows int) *Game {
 }
 
 func BenchmarkUpdate(b *testing.B) {
-	for _, n := range [...]int{3, 6, 8} {
+	for _, n := range [...]int{3, 6, 8, 10} {
 		b.Run(fmt.Sprintf("%dx%d", n, n), func(b *testing.B) {
 			g := busyGame(b, n, n)
 			b.ReportAllocs()
@@ -46,19 +47,24 @@ func TestUpdateBudget(t *testing.T) {
 	if runtime.GOOS != "js" || testing.Short() {
 		t.Skip("the budget is for wasm")
 	}
-	g := busyGame(t, 6, 6)
-	best := time.Hour
-	for range 5 {
-		start := time.Now()
-		for range 200 {
-			g.Update()
+	for _, c := range [...]struct {
+		n      int
+		budget float64
+	}{{6, wasmUpdateBudgetMs}, {8, wasmUpdateBudget8x8Ms}} {
+		g := busyGame(t, c.n, c.n)
+		best := time.Hour
+		for range 5 {
+			start := time.Now()
+			for range 200 {
+				g.Update()
+			}
+			best = min(best, time.Since(start)/200)
 		}
-		best = min(best, time.Since(start)/200)
-	}
-	ms := float64(best) / 1e6
-	t.Logf("6x6 busy: %.2f ms an Update as wasm (budget %.1f)", ms, wasmUpdateBudgetMs)
-	if ms > 1.25*wasmUpdateBudgetMs {
-		t.Errorf("6x6 Update takes %.2f ms as wasm, budget %.1f", ms, wasmUpdateBudgetMs)
+		ms := float64(best) / 1e6
+		t.Logf("%dx%d busy: %.2f ms an Update as wasm (budget %.1f)", c.n, c.n, ms, c.budget)
+		if ms > 1.25*c.budget {
+			t.Errorf("%dx%d Update takes %.2f ms as wasm, budget %.1f", c.n, c.n, ms, c.budget)
+		}
 	}
 }
 
