@@ -60,3 +60,12 @@ func TestPrestigeReelSkip(t *testing.T) {
 		}
 	}
 }
+
+// The cutscene's balloons are drawn upright at the speaker's turned-over place: the anchor takes the flip, not the balloon.
+func TestFlipY(t *testing.T) {
+	for _, c := range []struct{ y, c, want float64 }{{100, 1, 100}, {100, -1, 440}, {100, 0, 270}, {270, -1, 270}} {
+		if got := flipY(c.y, 540, c.c); got != c.want {
+			t.Errorf("flipY(%v, 540, %v) = %v, want %v", c.y, c.c, got, c.want)
+		}
+	}
+}

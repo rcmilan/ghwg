@@ -69,6 +69,7 @@ type prestigeReel struct {
 	flip  float64     // 0 upright .. 1 turned over
 	skip  bool
 	buf   *ebiten.Image // the world, drawn once then laid on the screen turned over
+	says  []reelSay     // the speech balloons the world pass left out, drawn upright after the flip
 	hallC image.Point
 }
 
@@ -218,6 +219,7 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		r.buf = ebiten.NewImage(b.Dx(), b.Dy())
 	}
 	r.buf.Fill(assets.Night)
+	r.says = r.says[:0]
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	g.drawWorld(r.buf, ox, oy)
@@ -247,6 +249,12 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 	op.GeoM.Scale(1, math.Cos(math.Pi*e)) // turns through edge-on to upside down
 	op.GeoM.Translate(0, float64(b.Dy())/2)
 	screen.DrawImage(r.buf, op)
+	c := math.Cos(math.Pi * e)
+	for _, s := range r.says { // the speaker's flipped place, the balloon itself upright
+		at := s.guest
+		at.Y = (flipY(s.y, float64(b.Dy()), c) + float64(s.oy)) / zoom
+		g.sayAt(screen, s.line, &at, s.ox, s.oy)
+	}
 	if k := min(1, float64(r.t-reelRace)/60); k > 0 && !r.skip { // the clock, spinning
 		cx, cy := float64(b.Dx())/2, float64(b.Dy())/2
 		g.glowAt(screen, cx, cy, 3*clockRadius*zoom/2, moonLight, .3*k)
@@ -263,6 +271,18 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{255, 255, 255, uint8(255 * min(1, f))})
 	}
 }
+
+// reelSay: a balloon of the world pass, kept for after the flip: the line, a copy of its speaker and the screen y of
+// his head (lift in), in the world's own view.
+type reelSay struct {
+	line   string
+	guest  entities.Guest
+	y      float64
+	ox, oy int
+}
+
+// flipY: where screen y lands when the screen of height h is turned through scale c on its middle line.
+func flipY(y, h, c float64) float64 { return h/2 + (y-h/2)*c }
 
 // DevPrestige is main's -prestige: a busy hotel a few hours in, the cutscene running.
 func (g *Game) DevPrestige() {

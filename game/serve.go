@@ -205,6 +205,15 @@ const sayH, sayPad = 8, 8 // balloon px tall; screen px each side of the text, i
 
 // say draws line in a speech balloon by the guest's head.
 func (g *Game) say(s *ebiten.Image, line string, guest *entities.Guest, ox, oy int) {
+	if r := g.reel; r != nil && s == r.buf { // the cutscene turns the world over: its balloons are drawn after, upright
+		r.says = append(r.says, reelSay{line, *guest, (guest.Y-g.lift(guest))*zoom - float64(oy), ox, oy})
+		return
+	}
+	g.sayAt(s, line, guest, ox, oy)
+}
+
+// sayAt draws the balloon of say.
+func (g *Game) sayAt(s *ebiten.Image, line string, guest *entities.Guest, ox, oy int) {
 	w := max((6*len(line)+2*sayPad+balloonScale-1)/balloonScale, 2*(balloonR+balloonTail)-1) // room for the tail
 	if g.boxes == nil {
 		g.boxes = map[int]*ebiten.Image{}
