@@ -10,6 +10,7 @@ import (
 // who: the identities of n ghost and n human guests a Game rolls, in order.
 func who(t *testing.T, seed uint64, n int) (ids []entities.Identity) {
 	g, _ := headless(t, 2, 1, seed)
+	g.grid0 = [2]int{1, 1} // as if the hotel had grown: quirks roll only then (T376)
 	for range n {
 		h := entities.NewGuest(g.hotel.Spawn, "Adam")
 		g.rollHuman(&h)
