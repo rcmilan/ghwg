@@ -4,14 +4,12 @@ package game
 type Unlock string
 
 const (
-	Mirror        Unlock = "mirror"
-	SupplyWater   Unlock = "supply-water"
-	SupplyFood    Unlock = "supply-food"
-	SupplyTowel   Unlock = "supply-towel"
-	SupplyVeggie  Unlock = "supply-veggie"
-	SupplyGourmet Unlock = "supply-gourmet"
-	Housekeep     Unlock = "housekeep"
-	RoomLock      Unlock = "room-lock"
+	Mirror      Unlock = "mirror"
+	SupplyWater Unlock = "supply-water"
+	SupplyFood  Unlock = "supply-food"
+	SupplyTowel Unlock = "supply-towel"
+	Housekeep   Unlock = "housekeep"
+	RoomLock    Unlock = "room-lock"
 )
 
 // unlocked: g.locked's zero value locks nothing, so the game plays as before until O1 sets a start state.

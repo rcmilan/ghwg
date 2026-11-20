@@ -38,15 +38,14 @@ func TestUpgradeRowsHiddenUntilTheyApply(t *testing.T) {
 	if got := listedUp(g); !slices.Contains(got, Soundproofing) || !slices.Contains(got, SeanceTable) {
 		t.Errorf("Mirror bought: %v, want Soundproofing and the Seance table", got)
 	}
-	for _, u := range []Upgrade{CleaningKit, BiggerShelves, OfferingBox} {
+	for _, u := range []Upgrade{CleaningKit, OfferingBox} {
 		if g.upShows(u) {
 			t.Errorf("%s shows before its condition", upgrades[u].Name)
 		}
 	}
 	g.hire()
-	g.boughtPantry()
 	g.unlock(unlockK)
-	for _, u := range []Upgrade{CleaningKit, BiggerShelves, OfferingBox} {
+	for _, u := range []Upgrade{CleaningKit, OfferingBox} {
 		if !g.upShows(u) {
 			t.Errorf("%s hidden after its condition", upgrades[u].Name)
 		}
@@ -89,12 +88,14 @@ func TestUpgradeOrderedAndDelivered(t *testing.T) {
 	if !slices.ContainsFunc(g.note.items, func(n feedItem) bool { return strings.Contains(n.text, "LOBBY DECOR LV 1") }) {
 		t.Error("no notice as the level arrives")
 	}
-	// Bigger shelves stops at its cap.
-	g.up[BiggerShelves] = upgrades[BiggerShelves].Cap
-	if why := g.addToCart(upRow[BiggerShelves], -1); why == "" {
+	// a capped upgrade stops at its cap
+	upgrades[TipJar].Cap = 2
+	defer func() { upgrades[TipJar].Cap = 0 }()
+	g.up[TipJar] = 2
+	if why := g.addToCart(upRow[TipJar], -1); why == "" {
 		t.Error("a capped upgrade went in the cart")
 	}
-	if _, word := g.upLabel(BiggerShelves); word != "MAX" {
+	if _, word := g.upLabel(TipJar); word != "MAX" {
 		t.Errorf("a capped row says %q, want MAX", word)
 	}
 }

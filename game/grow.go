@@ -196,7 +196,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		return image.Point{}, err
 	}
 	h.SetCorridorMirrors(g.corridorMirrors(old, h)) // before the Rooms land again, which hang them back (08 B1)
-	h.SetPantries(g.hasPantry())                    // the shelves on the new Corridors (08 P1-U); their stock is in g.pantryStock
+	h.SetPantries(g.hasPantry())                    // the shelves on the new Corridors (08 P1-U)
 	// The Rooms move down by a new floor's height; the hall and the street, with them and sideways, to stay centered.
 	d := image.Pt(h.Lobby.Min.X-old.Lobby.Min.X, h.HallY-old.HallY)
 	at := func(p image.Point) image.Point {

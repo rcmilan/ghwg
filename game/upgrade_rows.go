@@ -18,13 +18,12 @@ var upBlurb = [upgradeCount]string{
 	SeanceTable:   "Ghosts show off for an audience. Ectoplasm per sighting.",
 	TipJar:        "A jar by the door. Guests do read it.",
 	CleaningKit:   "Better tools. Cleans end sooner.",
-	BiggerShelves: "Each Pantry holds more of each Supply.",
 	OfferingBox:   "A box for the Fathers' rituals. Ectoplasm each pays.",
 }
 
 var upIcon = [upgradeCount]string{
 	LobbyDecor: "icon_deluxe", Brochures: "icon_door", Soundproofing: "icon_bed_single", SeanceTable: "icon_mirror",
-	TipJar: "icon_key", CleaningKit: "icon_towel", BiggerShelves: "shelf_b", OfferingBox: fatherK.name,
+	TipJar: "icon_key", CleaningKit: "icon_towel", OfferingBox: fatherK.name,
 }
 
 // upRow: the shop index of each upgrade's row.
@@ -53,8 +52,6 @@ func (g *Game) upShows(u Upgrade) bool {
 		return g.unlocked(Mirror)
 	case CleaningKit:
 		return g.staffed() > 0
-	case BiggerShelves:
-		return g.hasPantry()
 	}
 	return g.unlocked(unlockK) || g.unlocked(unlockM) // OfferingBox
 }
@@ -84,8 +81,6 @@ func upEffect(u Upgrade, n int) string {
 		return fmt.Sprintf("+%d%% TIPS", pct(m-1))
 	case CleaningKit:
 		return fmt.Sprintf("-%d%% CLEAN TIME", pct(1-m))
-	case BiggerShelves:
-		return fmt.Sprintf("+%d STOCK", upStockAt(n))
 	}
 	return fmt.Sprintf("+%d%% RITUAL ECTO", pct(m-1)) // OfferingBox
 }
@@ -131,6 +126,5 @@ func (g *Game) DevUpgrades() {
 	g.unlock(Mirror)
 	g.unlock(unlockK)
 	g.hire()
-	g.boughtPantry()
-	g.up = [upgradeCount]int{3, 2, 1, 0, 2, 1, 3, 12}
+	g.up = [upgradeCount]int{3, 2, 1, 0, 2, 1, 12}
 }

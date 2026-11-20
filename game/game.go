@@ -63,7 +63,6 @@ type Game struct {
 	walkIns       int      // Walk-ins this Run
 	floaters      []floater
 	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
-	pantryStock   []map[Unlock]int // per pantry, its Supplies (pantry.go)
 	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
 	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	rng           *rand.Rand

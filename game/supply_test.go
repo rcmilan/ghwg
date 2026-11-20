@@ -28,8 +28,8 @@ func TestAskWants(t *testing.T) {
 		}
 		seen[p.want] = true
 	}
-	if len(seen) != baseSupplies {
-		t.Fatalf("asked for %d kinds of supply, want the %d base ones", len(seen), baseSupplies)
+	if len(seen) != len(supplies) {
+		t.Fatalf("asked for %d kinds of supply, want %d", len(seen), len(supplies))
 	}
 }
 
@@ -117,75 +117,5 @@ func TestStockSolid(t *testing.T) {
 		if d := g.stockDrop().Div(ts); m.Solid(d.X, d.Y) || h.Path(h.Spawn, g.stockDrop(), -1) == nil {
 			t.Errorf("%v: the courier can't reach the stock drop %v", grid, g.stockDrop())
 		}
-	}
-}
-
-// asks the Party's Room for a meal at noon, n times; the kinds it asked.
-func askKinds(g *Game, p *Party, n int) map[Unlock]int {
-	seen := map[Unlock]int{}
-	g.clock = g.clock/dayFrames*dayFrames + 12*hourFrames
-	for range n {
-		p.asked, p.askEnded, p.want = 0, 0, ""
-		for !p.asking() {
-			g.updateAsks()
-		}
-		seen[p.want]++
-	}
-	return seen
-}
-
-// T378: a Vegetarian's meal is the Veggie one, once the hotel has grown; nobody else asks for it.
-func TestVeggieAsk(t *testing.T) {
-	g, _, p := settled(t)
-	g.grid0 = [2]int{1, 1} // the 2x1 hotel counts as grown
-	p.Guests[0].Who.Vegetarian = true
-	if k := askKinds(g, p, 200); k[SupplyVeggie] == 0 || k[SupplyFood] != 0 || k[SupplyGourmet] != 0 {
-		t.Fatalf("a Vegetarian asked %v, want Veggie for Food", k)
-	}
-	p.Guests[0].Who.Vegetarian = false
-	if k := askKinds(g, p, 200); k[SupplyVeggie] != 0 || k[SupplyFood] == 0 {
-		t.Fatalf("a non-Vegetarian asked %v, want no Veggie", k)
-	}
-	g.grid0 = [2]int{}
-	p.Guests[0].Who.Vegetarian = true
-	if k := askKinds(g, p, 200); k[SupplyVeggie] != 0 {
-		t.Fatalf("an ungrown hotel's Vegetarian asked %v, want Food", k)
-	}
-}
-
-// T378: the Gourmet meal is asked only in a Deluxe Room, and pays double the Food.
-func TestGourmetAsk(t *testing.T) {
-	g, _, p := settled(t)
-	p.Guests[0].Who.Vegetarian = false
-	if k := askKinds(g, p, 200); k[SupplyGourmet] != 0 {
-		t.Fatalf("a plain Room asked %v, want no Gourmet", k)
-	}
-	d, _ := world.TypeIn(g.types, deluxeTier, g.hotel.Rooms[p.Room].Type.Beds)
-	g.hotel.Rooms[p.Room].Type = d
-	if k := askKinds(g, p, 200); k[SupplyGourmet] == 0 || k[SupplyFood] != 0 {
-		t.Fatalf("a Deluxe Room asked %v, want Gourmet for Food", k)
-	}
-	if supplies[supplyOf(SupplyGourmet)].Pay != 2*supplies[supplyOf(SupplyFood)].Pay {
-		t.Fatal("Gourmet doesn't pay double the Food")
-	}
-	g.stock, p.want, p.asked = map[Unlock]int{SupplyGourmet: 1}, SupplyGourmet, g.clock
-	g.hands = SupplyGourmet
-	before := g.delivered
-	if !g.deliver(p.Room, SupplyGourmet) || g.delivered-before <= 0 {
-		t.Fatal("the Gourmet meal wasn't paid")
-	}
-}
-
-// T378: the pick draws the same from g.rng whatever the meal it maps to.
-func TestMealDraws(t *testing.T) {
-	run := func(veg bool) uint64 {
-		g, _, p := settled(t)
-		g.grid0 = [2]int{1, 1}
-		p.Guests[0].Who.Vegetarian = veg
-		askKinds(g, p, 50)
-		return g.rng.Uint64()
-	}
-	if run(true) != run(false) {
-		t.Fatal("a meal changed the g.rng draws")
 	}
 }

@@ -106,7 +106,7 @@ func (g *Game) space() {
 		g.startShift()
 	case actSupply:
 		if p := g.atPantry(); p >= 0 {
-			g.fetchPantry(p, g.pantryPick(p))
+			g.fetch(g.pantryPick(p))
 		} else {
 			g.fetch(g.atSupply())
 		}

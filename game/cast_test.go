@@ -31,27 +31,22 @@ func TestIdentityDeterministicPerSeed(t *testing.T) {
 }
 
 func TestIdentityShape(t *testing.T) {
-	quirks, vegs, humans := 0, 0, 0
+	quirks := 0
 	for i, id := range who(t, 3, 600) {
 		if id.Name == "" || id.Card == "" || id.Key != "" {
 			t.Fatalf("guest %d: bad identity %+v", i, id)
 		}
 		if i%2 == 0 { // human
-			humans++
 			if id.Age < humanAgeMin || id.Age > humanAgeMax || id.Job == "" || id.Died != 0 || id.Quirk > NeatFreak {
 				t.Fatalf("human %d: %+v", i, id)
 			}
-			vegs += b2i(id.Vegetarian)
-		} else if id.Died < ghostDiedMin || id.Died > ghostDiedMax || id.Cause == "" || id.Age != 0 || id.Job != "" || id.Vegetarian || (id.Quirk != NoQuirk && id.Quirk < ShowOff) {
+		} else if id.Died < ghostDiedMin || id.Died > ghostDiedMax || id.Cause == "" || id.Age != 0 || id.Job != "" || (id.Quirk != NoQuirk && id.Quirk < ShowOff) {
 			t.Fatalf("ghost %d: %+v", i, id)
 		}
 		quirks += b2i(id.Quirk != NoQuirk)
 	}
 	if quirks < 300 || quirks > 500 { // about 1 in 3 of 1200
 		t.Errorf("%d quirks in 1200 guests, want about 400", quirks)
-	}
-	if vegs < 90 || vegs > 150 { // about 1 in 5 of 600
-		t.Errorf("%d vegetarians in 600 humans, want about 120", vegs)
 	}
 }
 

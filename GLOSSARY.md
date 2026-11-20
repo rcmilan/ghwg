@@ -282,7 +282,7 @@ The delivery person an order sends from the Entrance. He stops at the prop of ea
 _Avoid_: delivery guy, mailman
 
 **Stock**:
-The Supplies the hotel holds, each in its own prop on the Kitchen's back wall: Water in the fridge, Food in the oven, Towels on the shelf. The props are solid; the Concierge fetches from the cell below each, and the Courier fills each from there. A Supply's icon and count show over its prop when the Concierge is within 2 cells.
+The Supplies the hotel holds, each in its own prop on the Kitchen's back wall: Water in the fridge, Food in the oven, Towels on the shelf. A Food ask's balloon shows one of three food pictures, picked per ask (cosmetic); there is one Food. The props are solid; the Concierge fetches from the cell below each, and the Courier fills each from there. A Supply's icon and count show over its prop when the Concierge is within 2 cells.
 _Avoid_: inventory, stock strip
 
 **Kitchen**:
@@ -420,17 +420,17 @@ How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Le
 The income multiplier a Prestige leaves: every Money and Ectoplasm earning is multiplied by it, in one place. Each Prestige adds to it (it never drops) the square root of the Run's Ectoplasm earned plus its unspent Money (donated, $10 counting as 1 Ectoplasm) over 6000.
 
 **Pantry**:
-A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It holds a few of each Supply (2), shown as each Supply's icon and `xN` while the Concierge is within 2 cells; the Concierge takes from it with SPACE as at the Kitchen, a Housekeeper fetches from whichever of it and the Kitchen is nearer, and an idle Housekeeper refills it from the Kitchen. Supplies are still bought in the Kitchen.
+A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It has no stock of its own: it shows the Kitchen's, each Supply's icon and `xN` side by side while the Concierge is within 2 cells. SPACE there works only while a Room asks for a Supply the Kitchen has, and takes the one asked by the asking Room nearest to it (what is in the hands goes back to the stock); a Housekeeper fetches from whichever of it and the Kitchen is nearer. Supplies are still bought in the Kitchen.
 _Avoid_: shelf (alone), storeroom
 
 **Save**:
-What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the Pantry stock (an older save loads with empty Pantries), the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
+What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
 _Avoid_: autosave, slot
 
 ## Personalities and economy (08 W4, 2026-11-20)
 
 **Identity**:
-Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk, and for a human maybe Vegetarian.
+Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk.
 
 **Card**:
 What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), with the talk's zoom and slow motion. A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
@@ -449,12 +449,9 @@ One of the hand-written cast (`cast.md`: seven human entries, three ghosts) who 
 The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own.
 _Avoid_: notebook (in game text), log
 
-**Meal**:
-A Food a Party asks for. Veggie (asked by Vegetarians) is on sale once the hotel has grown; Gourmet, once a Room is Deluxe, is asked only there and pays double.
-
 **Priest guest**:
 Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel (a retained Father K never books). He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One of each Father hotel-wide still holds.
 
 **Upgrade**:
-A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid in Money at checkout, and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time), Bigger shelves (Pantry stock, up to +3) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
+A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid in Money at checkout, and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
 _Avoid_: perk, boost
