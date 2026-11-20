@@ -248,6 +248,7 @@ func (g *Game) complain(p *Party) {
 		p.greet = greetClean
 	case g.clock-p.complainAt >= patience*minuteFrames:
 		p.Walked, p.state = true, leaving
+		g.logStay(p, outFled)
 		g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
 		g.book(p.Room, g.bookGapNow())
 	}

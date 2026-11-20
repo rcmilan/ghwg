@@ -22,6 +22,7 @@ const (
 	StatePause // ESC with nothing open: Resume / Quit to title
 	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
 	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
+	StateBook  // the notebook on the counter is open (notebook.go, 08 W4)
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -169,6 +170,11 @@ type Game struct {
 	wideBuf       *ebiten.Image                  // g.wide's texture, kept across growths (props.go reuse)
 	darkBuf       *ebiten.Image                  // g.dark's
 	floorBuf      *ebiten.Image                  // g.floorImg's
+	guestBook     []bookEntry                    // the notebook's entries, oldest first, at most bookMax (notebook.go, 08 W4)
+	bookTop       int                            // the open notebook's first entry shown, counted from the newest
+	visits        map[string]int                 // per named guest: visits so far, saved across Runs (notebook.go)
+	met           map[string]bool                // named guests that have booked this Run: Osvaldo follows Magda
+	leftAt        map[string]int                 // per named guest: the clock its last Party left, this Run
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -336,6 +342,9 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	case g.state == StatePause:
 		g.updatePause()
+	case g.state == StateBook:
+		g.updateBook()
+		g.updateHUD()
 	case g.state == StateTalk: // the world runs on in slow motion, stepped by updateParley (X2, D1)
 		g.updateParley()
 		g.updateHUD()

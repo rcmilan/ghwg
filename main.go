@@ -57,6 +57,7 @@ func main() {
 	growAt := flag.Int("growat", 0, "dev: a floor is added this many frames in, to profile a growth's first frames (with ?args= on the web build)")
 	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
+	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2); -ghost shows the ghost view")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -93,7 +94,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -152,6 +153,7 @@ func main() {
 		}
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 	}
+	g.DevBook(*book)
 	if *ready >= 0 {
 		g.DevPrestigeReady(*ready == 1)
 	}

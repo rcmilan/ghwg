@@ -152,6 +152,8 @@ type Party struct {
 	acts       []act         // what each Guest is doing in the Room by day (D168)
 	ectoShown  int           // Ecto gained since its Room's last "+N" floater
 	revealed   bool          // its quirk (and Nerve) is known: a REVEAL was paid (T375)
+	visit      int           // a named guest's visit number, 0 for a generated Party (notebook.go)
+	banished   bool          // Father M sent a ghost Party over (sendOver), not passing on by itself
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	want       Unlock        // the supply it asked for (supply.go)
 	askEnded   int           // the clock its last request was served, expired or lapsed
@@ -312,6 +314,7 @@ func (g *Game) arrive(room int) *Party {
 	for _, guest := range p.Guests {
 		g.rollHuman(guest)
 	}
+	g.rollNamedHuman(p)
 	g.walkIns++
 	p.Room, p.Rate, p.arrived = room, g.hotel.Rooms[room].Type.Rate, g.clock
 	for range p.Guests {
@@ -520,6 +523,7 @@ func (g *Game) updateParty(p *Party) bool {
 // checkout banks the Party's payout as it steps out of its door; the Room is Vacant at once (D87).
 func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
+	g.logStay(p, g.stayOutcome(p))
 	p.tip = Num(p.Payout(g.moodPay(p.Room))) * Num(g.upMul(LobbyDecor)*g.upMul(TipJar)*g.tipQuirkMul(p)) // the Room as the Party leaves it, mess aside; the Rate's decor, the Tip jar and a Big tipper
 	g.leaveMess(p)
 	g.book(p.Room, g.bookGapNow())

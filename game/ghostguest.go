@@ -82,6 +82,7 @@ func (g *Game) arriveGhost(room int) *Party {
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
+	g.rollNamedGhost(p)
 	if through { // it never meets the first on the way (they are mates to the bumping), nor the Street
 		for _, q := range g.parties {
 			if q.Occupies(room, Ghost) {
@@ -254,6 +255,7 @@ func (g *Game) updateGhost(p *Party) bool {
 		if lead := p.Guests[0]; lead.PassAt > 0 { // passing on: it rises and is gone, and the Room books the next
 			if g.clock-lead.PassAt >= passFrames {
 				p.Paid = true
+				g.logStay(p, b2o(p.banished, outBanished, outPassed))
 				g.bookGhost(p.Room, g.bookGapNow())
 				return false
 			}
@@ -275,6 +277,7 @@ func (g *Game) updateGhost(p *Party) bool {
 		g.walkParty(p, departSpeed)
 		if p.outside(g.hotel.Rooms[p.Room]) {
 			p.Paid, p.state = true, leaving
+			g.logStay(p, outPassed)
 			g.bookGhost(p.Room, g.bookGapNow())
 		}
 	case leaving:

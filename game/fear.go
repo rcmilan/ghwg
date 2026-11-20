@@ -50,6 +50,7 @@ func (g *Game) scare() {
 // flee: the Party runs for the Exit, unpaid, after a hop in place (D164); its Room is Vacant at once.
 func (g *Game) flee(p *Party) {
 	p.Fled, p.state, p.fledAt, p.greet, p.talk = true, leaving, g.tick, noGreeting, nil
+	g.logStay(p, outFled)
 	g.leaveMess(p)
 	if p.Realm == Human { // only human Parties flee; staff leaving unpaid get no notice
 		g.notice("GUESTS FLED " + g.hotel.Rooms[p.Room].Number)

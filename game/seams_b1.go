@@ -18,6 +18,7 @@ func (g *Game) sendOver(room int) {
 		if p.Realm != Ghost || p.Room != room || p.state != staying || p.Guests[0].PassAt != 0 {
 			continue
 		}
+		p.banished = true
 		for _, guest := range p.Guests {
 			if left := max(1, guest.Phantasm) - guest.Haunted; left > 0 {
 				g.earn(Ecto, Num(left)*hauntEcto(guest), image.Pt(int(guest.X), int(guest.Y)))

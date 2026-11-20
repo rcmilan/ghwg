@@ -165,6 +165,9 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	if g.state == StatePause {
 		g.drawPause(screen)
 	}
+	if g.state == StateBook {
+		g.drawBookPage(screen)
+	}
 	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own; the notice too: there is no message line
 }
 
@@ -208,6 +211,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
 		up   bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
 		pot  bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+		book bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
 		key  any       // what the prestige vortex lifts it off by (vortex.go); nil stays
 	}
 	var actors []actor
@@ -256,6 +260,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	for i, p := range g.hotel.Plants {
 		actors = append(actors, actor{x: float64(p.At.X), y: float64(p.At.Y), name: p.Sprite, pot: true, key: &g.hotel.Plants[i]})
+	}
+	if c := g.hotel.Map.Cell(g.hotel.Book.Min.Add(image.Pt(0, 2*world.TileSize))); g.intro == nil {
+		actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), book: true})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -338,6 +345,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
+			continue
+		}
+		if a.book {
+			g.drawBookProp(screen, ox, oy)
 			continue
 		}
 		if a.up {
