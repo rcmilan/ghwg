@@ -335,7 +335,7 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 			px = rx + 22
 		}
 		right := px + bookPW - 52 // the text's right edge, clear of the gutter shade
-		ry := py + 50 + (k%bookPerPage)*bookRowH
+		ry := py + 50 + bookRuled + (k%bookPerPage)*bookRowH // a ruled line clear of the title
 		ink := color.Color(storeInk)
 		if e.ghost() {
 			ink = storeAccent

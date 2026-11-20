@@ -71,30 +71,24 @@ func TestAskWindow(t *testing.T) {
 	}
 }
 
-// 08 F0 (Sleeping guests): no TALK while the Party sleeps; it comes back at wake-up. (Stain vs TALK) a refusal's
-// stain hides TALK until it is cleaned.
+// 08 F0 (Sleeping guests): no MOVE while the Party sleeps; it comes back at wake-up. TALK is at the plate beside the
+// door (T381 refine 2): a stain in the Room no longer hides it, SPACE inside cleans it.
 func TestTalkRules(t *testing.T) {
 	g, _ := matchRun(t, 2)
 	p := settledHuman(t, g, 0, 2)
 	ghostOf(g, 0, 9)
 	standIn(g, 0)
-	if g.talker() != p {
+	if g.talker() != p || !g.canMove(p) {
 		t.Fatal("no TALK by day")
 	}
 	p.abed = true
-	if g.talker() != nil {
-		t.Error("TALK while the Party sleeps")
+	if g.canMove(p) {
+		t.Error("MOVE while the Party sleeps")
 	}
 	p.abed = false
 	g.addMood(0, -refuseMood) // a refusal's Mood: its stains
-	if g.talker() != nil {
-		t.Fatal("TALK over a refusal's stain")
-	}
-	for room, cell := g.cleanable(); room >= 0; room, cell = g.cleanable() {
-		g.clean(room, cell)
-	}
 	if g.talker() != p {
-		t.Error("cleaned, no TALK")
+		t.Fatal("a stain in the Room hides TALK at its door")
 	}
 }
 

@@ -170,8 +170,8 @@ func TestNamedRevealPersists(t *testing.T) {
 	}
 }
 
-// T381 refine 2: TALK shows inside a Room in either Dimension and opens the card of the Party there.
-func TestTalkOpensCardInside(t *testing.T) {
+// T381 refine 2: TALK shows on the plate beside a Room's door, in either Dimension, and opens its Party's card.
+func TestTalkOpensCardAtPlate(t *testing.T) {
 	for _, ghost := range []bool{false, true} {
 		g, s := matchRun(t, 2)
 		settledHuman(t, g, 0, 9)
@@ -181,7 +181,7 @@ func TestTalkOpensCardInside(t *testing.T) {
 		g.ghost = ghost
 		want := g.cardParty(0)
 		if g.talker() != want || want == nil {
-			t.Fatalf("ghost %v: no TALK inside the Room", ghost)
+			t.Fatalf("ghost %v: no TALK at the plate", ghost)
 		}
 		keys(g, s, ebiten.KeySpace)
 		if g.state != StateTalk || g.parley.card == nil || g.parley.p != want {

@@ -19,7 +19,6 @@ const (
 	actRoomMirror
 	actSupply
 	actDeliver
-	actTalk
 	actCard
 	actClean
 	actView
@@ -80,9 +79,6 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 			return actNone, image.Rectangle{}
 		}
 	}
-	if g.talker() != nil { // the card, from inside the Room (T381 refine 2): after a stain to clean, before the hotel view (X2)
-		return actTalk, image.Rectangle{}
-	}
 	if room, cell := g.cleanable(); room >= 0 {
 		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
 	}
@@ -116,8 +112,6 @@ func (g *Game) space() {
 		}
 	case actDeliver:
 		g.deliver(g.atMat(), g.hands)
-	case actTalk:
-		g.startCard(g.talker().Room)
 	case actCard:
 		g.startCard(g.atMat())
 	case actClean:

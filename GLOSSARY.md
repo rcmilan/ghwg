@@ -177,7 +177,7 @@ A ghost's haunt frequency, the second ghost stat beside Phantasm: the game minut
 _Avoid_: Restlessness (a candidate name)
 
 **Doormat**:
-The 3×2 mat below a Room's door. SPACE on it delivers the asked item; elsewhere on it, with nothing to deliver, it opens the Hotel view. Its cell west of the door is the guest-card plate's (G2).
+The 3×2 mat below a Room's door. SPACE on it delivers the asked item; elsewhere on it, with nothing to deliver, it opens the Hotel view. Its cell west of the door stands under the Room's plate, where SPACE is TALK.
 
 **Pill**:
 The balloon over a Party with a Request or a dirt complaint: the Room number, then the item's icon or a dirt splat; the same size on screen at any zoom.
@@ -367,7 +367,7 @@ _Avoid_: match (for the pair), compatible, preference
 How a human Party picks its Room as it arrives: of the Vacant, owned, open Rooms with beds enough, the one with the strongest ghost within its Nerve; with none, the one with the weakest ghost beyond it (the closest bad fit). The Room it leaves empty takes over the booking of the Room it took. Ghost booking is unchanged: each Room books its own.
 
 **Talk** (the talk), **TALK**:
-The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands in a Room, in the real Dimension, with its whole human Party in, not snubbed, and at least one target Room; SPACE there opens the guest's Card, whose MOVE starts the talk (after a stain to clean, before the hotel view). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
+The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands under a Room's **plate**, the brass plaque on the wall west of its door (on the mat), with a Party of the current Dimension in the Room; SPACE there opens the guest's Card, whose MOVE starts the talk when the human Party is in, awake, not snubbed and has a target Room. Inside the Room SPACE cleans (T381 refine 2). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
 _Avoid_: dialogue, chat (a pair's chat is an activity), move menu
 
 **Target Room**:
@@ -433,7 +433,7 @@ _Avoid_: autosave, slot
 Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk, and for a human maybe Vegetarian.
 
 **Card**:
-What TALK opens: the Guest's Identity on the Room's lock plate (a ghost's at its door, in ghost), with the talk's zoom and slow motion. A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
+What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), with the talk's zoom and slow motion. A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
 _Avoid_: profile, sheet
 
 **REVEAL**:

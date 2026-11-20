@@ -284,3 +284,18 @@ func (g *Game) revealedList() []string {
 	slices.Sort(ks)
 	return ks
 }
+
+// drawPlate draws Room i's guest plate (T381 refine 2): a small brass plaque on the wall west of its door, where TALK
+// opens the card. In ghost it reads in the Ectoplasm ink.
+func (g *Game) drawPlate(s *ebiten.Image, i, ox, oy int) {
+	frame, face, ink := color.RGBA{0x4a, 0x32, 0x12, 255}, color.RGBA{0xd9, 0xb0, 0x4c, 255}, color.RGBA{0x7a, 0x55, 0x1c, 255}
+	if g.ghost {
+		frame, face, ink = color.RGBA{0x10, 0x40, 0x32, 255}, color.RGBA{0x5f, 0xe0, 0xb0, 255}, color.RGBA{0x1f, 0x80, 0x60, 255}
+	}
+	c := g.hotel.Rooms[i].Plate().Min.Sub(image.Pt(0, world.TileSize)) // the wall cell above the plate's mat cell
+	x, y := (c.X+world.TileSize-11)*zoom-ox, (c.Y+3)*zoom-oy
+	rect(s, x, y, 9*zoom, 7*zoom, frame)
+	rect(s, x+zoom, y+zoom, 7*zoom, 5*zoom, face)
+	rect(s, x+2*zoom, y+2*zoom, 5*zoom, zoom, ink) // its engraved lines
+	rect(s, x+2*zoom, y+4*zoom, 3*zoom, zoom, ink)
+}

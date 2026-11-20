@@ -108,31 +108,11 @@ func (g *Game) targets(p *Party) []int {
 	return ts
 }
 
-// talker: the Party TALK opens the card of (T381 refine 2): the Concierge stands in its Room, in either Dimension (a
-// ghost Party in ghost), the whole Party in and awake (08 F0), nothing there SPACE does first (a stain to clean, the
-// Room's Mirror). nil if none.
+// talker: the Party TALK opens the card of: the Concierge stands on its Room's plate, beside the door (T381 refine 2),
+// in either Dimension (a ghost Party in ghost), with nothing SPACE does there first (an asked item to hand over).
 func (g *Game) talker() *Party {
-	if g.atRoomMirror() {
-		return nil
-	}
-	for i, r := range g.hotel.Rooms {
-		if !g.feet().In(r.Shell()) {
-			continue
-		}
-		if p := g.cardParty(i); p != nil && g.inRoom(p) && !p.abed {
-			if room, _ := g.cleanable(); room < 0 {
-				return p
-			}
-		}
-		return nil
-	}
-	return nil
-}
-
-// mover: the talker, if its card offers MOVE (the talk).
-func (g *Game) mover() *Party {
-	if p := g.talker(); p != nil && g.canMove(p) {
-		return p
+	if act, _ := g.actionable(); act == actCard {
+		return g.cardParty(g.atMat())
 	}
 	return nil
 }
@@ -340,7 +320,7 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
 	k, e := g.talkZoom(), g.talkEase()
 	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
-	if t.card != nil && g.feet().In(g.hotel.Rooms[t.p.Room].Plate()) { // opened inside, it closes in on the two as the talk does
+	if t.card != nil {
 		fx, fy, sharp = g.cardFocus(ox, oy, k)
 	}
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},

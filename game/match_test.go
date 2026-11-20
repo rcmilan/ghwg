@@ -40,9 +40,9 @@ func ghostOf(g *Game, room, phantasm int) *Party {
 	return q
 }
 
-// standIn puts the Concierge just inside the Room's door.
+// standIn puts the Concierge on the Room's plate, beside its door, where TALK is (T381 refine 2).
 func standIn(g *Game, room int) {
-	at := g.hotel.Map.Center(g.hotel.Rooms[room].Door.X, g.hotel.Rooms[room].Door.Y-1)
+	at := center(g.hotel.Rooms[room].Plate())
 	g.player.X, g.player.Y = float64(at.X), float64(at.Y)
 }
 
@@ -190,7 +190,7 @@ func TestTalkDepth(t *testing.T) {
 		ghostOf(g, 0, c.phantasm)
 		standIn(g, 0)
 		g.scale = 0.5
-		g.startTalk(g.mover())
+		g.startTalk(g.humanIn(0))
 		if g.parley == nil {
 			t.Fatalf("Nerve %d, Phantasm %d: no talk", c.nerve, c.phantasm)
 		}
@@ -257,7 +257,7 @@ func TestTalkCue(t *testing.T) {
 		t.Fatalf("the cue slid in %.2f, want 1", g.talkCue.in)
 	}
 	g.ghost = true // T381 refine 2: TALK in ghost is the ghost's card, never a human's talk
-	if q := g.talker(); q == nil || q.Realm != Ghost || g.mover() != nil {
+	if q := g.talker(); q == nil || q.Realm != Ghost || g.canMove(q) {
 		t.Error("in the ghost Dimension: want TALK to the Room's ghost and no MOVE")
 	}
 	g.ghost = false
@@ -288,7 +288,7 @@ func TestTalkCue(t *testing.T) {
 	}
 	g.scale = 1
 	ghostOf(g, 1, 5) // now no Room fits a Nerve of 2
-	if g.mover() != nil {
+	if g.canMove(p) {
 		t.Fatal("MOVE with no Room to offer")
 	}
 	keys(g, s, ebiten.KeySpace)
@@ -337,11 +337,11 @@ func TestOffers(t *testing.T) {
 	}
 	refusedAt := g.clock
 	g.clock = p.snubbed - 1 // live test 1: no TALK for that guest for about a game hour
-	if g.mover() != nil || p.snubbed-refusedAt < snubFrames-tps {
-		t.Fatalf("just refused: TALK %v, snubbed until %d; want none for %d frames", g.mover() != nil, p.snubbed, snubFrames)
+	if g.canMove(p) || p.snubbed-refusedAt < snubFrames-tps {
+		t.Fatalf("just refused: TALK %v, snubbed until %d; want none for %d frames", g.canMove(p), p.snubbed, snubFrames)
 	}
 	g.clock, g.mood[0] = p.snubbed, mood // the Mood back up: the refusal's low Mood shows stains, which SPACE cleans first
-	if g.mover() != p {
+	if !g.canMove(p) {
 		t.Fatal("TALK not back an hour after the refusal")
 	}
 	keys(g, s, ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace) // the talk again

@@ -199,20 +199,21 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawReels(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
-		x, y float64 // foot box center; y sorts (T039)
-		name string
-		anim entities.Anim
-		fog  float64
-		fear float64   // of its FleeAt
-		lift float64   // world px off the floor: a fleeing Guest's hop (D164)
-		tint []float32 // ghost dimension: its flat color; nil for the character's own
-		a    float32   // opacity; 0 is 1
-		mode int       // the palette shader's mode; 0 is modeActor
-		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
-		up   bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
-		pot  bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
-		book bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
-		key  any       // what the prestige vortex lifts it off by (vortex.go); nil stays
+		x, y  float64 // foot box center; y sorts (T039)
+		name  string
+		anim  entities.Anim
+		fog   float64
+		fear  float64   // of its FleeAt
+		lift  float64   // world px off the floor: a fleeing Guest's hop (D164)
+		tint  []float32 // ghost dimension: its flat color; nil for the character's own
+		a     float32   // opacity; 0 is 1
+		mode  int       // the palette shader's mode; 0 is modeActor
+		sil   bool      // a human seen from the ghost dimension: a white silhouette with a small glow
+		up    bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
+		pot   bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+		book  bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
+		plate int       // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
+		key   any       // what the prestige vortex lifts it off by (vortex.go); nil stays
 	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
@@ -263,6 +264,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	}
 	if c := g.hotel.Map.Cell(g.hotel.Book.Min.Add(image.Pt(0, 2*world.TileSize))); g.intro == nil {
 		actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), book: true})
+	}
+	for i, r := range g.hotel.Rooms {
+		if c := g.hotel.Map.Cell(r.Plate().Min).Sub(image.Pt(0, 1)); g.isOwned(i) && g.intro == nil {
+			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
+		}
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -349,6 +355,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		if a.book {
 			g.drawBookProp(screen, ox, oy)
+			continue
+		}
+		if a.plate > 0 {
+			g.drawPlate(screen, a.plate-1, ox, oy)
 			continue
 		}
 		if a.up {
