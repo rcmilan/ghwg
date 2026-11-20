@@ -24,6 +24,8 @@ type saveData struct {
 	Level int       `json:"level"`
 	Bonus float64   `json:"bonus"`
 	Run   *runState `json:"run,omitempty"`
+	// Revealed: the named guests whose card was revealed (card.go); they recur across Runs.
+	Revealed []string `json:"revealed,omitempty"`
 }
 
 // runState: the dawn checkpoint.
@@ -91,12 +93,14 @@ var (
 func (g *Game) Persist() { g.persist = true }
 
 // saveGame writes the save right after a prestige (level and bonus updated, the Run over): no Run in it.
-func (g *Game) saveGame() { g.write(&saveData{Level: g.level, Bonus: g.bonus}) }
+func (g *Game) saveGame() {
+	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList()})
+}
 
 // saveDawn writes the dawn checkpoint.
 func (g *Game) saveDawn() {
 	if g.persist {
-		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint()})
+		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList()})
 	}
 }
 
@@ -210,6 +214,12 @@ func (g *Game) checkpoint() *runState {
 // again, with a notice, and the title goes on as without a save.
 func (g *Game) resume(s *saveData) bool {
 	g.level, g.bonus = s.Level, max(1, s.Bonus)
+	for _, k := range s.Revealed {
+		if g.revealedKeys == nil {
+			g.revealedKeys = map[string]bool{}
+		}
+		g.revealedKeys[k] = true
+	}
 	if s.Run != nil {
 		if err := g.restore(s.Run); err != nil {
 			g.startRun()
