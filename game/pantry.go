@@ -18,7 +18,6 @@ const (
 	pantryMoney           = 250
 	pantryEcto            = 30
 	pantryStockMax        = 2
-	pantryMarkRow         = 8 // world px between the stacked marks over a shelf
 )
 
 // levelUnlocks: what each prestige level unlocks besides the bigger grid, by level (08 grill 6). Later slices append.
@@ -125,7 +124,7 @@ func (g *Game) drawPantryStock(screen *ebiten.Image, ox, oy int) {
 		}
 		r := g.pantryRect(p)
 		for k, s := range supplies {
-			g.drawStockMark(screen, s.ID, g.stockOf(p)[s.ID], (r.Min.X+r.Max.X)/2, r.Min.Y-k*pantryMarkRow, ox, oy)
+			g.drawStockMark(screen, s.ID, g.stockOf(p)[s.ID], (r.Min.X+r.Max.X)/2, r.Min.Y-k*(g.supplyIcon(s.ID).Bounds().Dy()+1), ox, oy)
 		}
 	}
 }
