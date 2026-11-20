@@ -433,7 +433,7 @@ _Avoid_: autosave, slot
 Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk.
 
 **Card**:
-What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), in the talk's frame: the camera closes in on the guest and the world runs very slow (0.06). Its line shows over its head, who it is on its left, what REVEAL read on its right, the options below (T381 refine 3). A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
+What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), in the talk's frame: the camera closes in on the guest and the world runs very slow (0.06). Its line shows over its head (each guest has 3 and says the next at each opening), who it is on its left, what REVEAL read on its right, the options below (T381 refine 3). A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
 _Avoid_: profile, sheet
 
 **REVEAL**:

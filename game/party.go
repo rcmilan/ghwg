@@ -152,6 +152,7 @@ type Party struct {
 	acts       []act         // what each Guest is doing in the Room by day (D168)
 	ectoShown  int           // Ecto gained since its Room's last "+N" floater
 	revealed   bool          // its quirk (and Nerve) is known: a REVEAL was paid (T375)
+	said       int           // its card's openings: which of its Guests' lines the next one says (card.go)
 	visit      int           // a named guest's visit number, 0 for a generated Party (notebook.go)
 	banished   bool          // Father M sent a ghost Party over (sendOver), not passing on by itself
 	asked      int           // the clock it asked for service, 0 when not asking (D163)

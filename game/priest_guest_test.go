@@ -107,11 +107,11 @@ func TestPriestGuestIdentity(t *testing.T) {
 	g, s, p := cardRun(t)
 	g.becomeFather(p, true)
 	who := p.Guests[0].Who
-	if who.Name != "Father M" || who.Job != "priest" || who.Card == "" || who.Quirk != NoQuirk {
+	if who.Name != "Father M" || who.Job != "priest" || len(who.Lines) != 3 || who.Quirk != NoQuirk {
 		t.Fatalf("identity %+v", who)
 	}
 	_ = s
-	if txt := cardText(g); !strings.Contains(txt, "Father M") || !strings.Contains(txt, "priest") || !strings.Contains(txt, who.Card[:10]) {
+	if txt := cardText(g); !strings.Contains(txt, "Father M") || !strings.Contains(txt, "priest") || !strings.Contains(txt, who.Lines[0][:10]) {
 		t.Fatalf("card: %s", txt)
 	}
 }

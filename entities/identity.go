@@ -24,12 +24,12 @@ const (
 // Died (a year) and Cause. The zero Identity is an unrolled guest (tests, staff).
 type Identity struct {
 	Name    string
-	Age     int    // a human's; 0 when AgeNote says it
-	AgeNote string // a human's age said in words ("ask the moon"), else empty
-	Job     string // a human's
-	Died    int    // a ghost's death year, 0 for a human
-	Cause   string // a ghost's cause of death
-	Card    string // the line on its card
+	Age     int      // a human's; 0 when AgeNote says it
+	AgeNote string   // a human's age said in words ("ask the moon"), else empty
+	Job     string   // a human's
+	Died    int      // a ghost's death year, 0 for a human
+	Cause   string   // a ghost's cause of death
+	Lines   []string // what it says on its card: one line an opening, in turn (game/card.go)
 	Quirk   Quirk
 	Key     string // the named cast's key (cast.go), empty for a generated guest
 }

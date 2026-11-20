@@ -45,7 +45,7 @@ func TestCardHumanRows(t *testing.T) {
 	g, _, p := cardRun(t)
 	who := p.Guests[0].Who
 	txt := cardText(g)
-	for _, want := range []string{who.Name, who.Job, who.Card, "REVEAL  10 ECTO"} {
+	for _, want := range []string{who.Name, who.Job, who.Lines[0], "REVEAL  10 ECTO"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("unrevealed card lacks %q:\n%s", want, txt)
 		}
@@ -55,6 +55,21 @@ func TestCardHumanRows(t *testing.T) {
 	}
 	if g.scale >= 1 {
 		t.Errorf("world not slowed: scale %v", g.scale)
+	}
+}
+
+// Each opening of a Party's card says its guest's next line, around its set (T381 refine 5).
+func TestCardLinesTakeTurns(t *testing.T) {
+	g, s, p := cardRun(t)
+	lines := p.Guests[0].Who.Lines
+	for i := range len(lines) + 1 {
+		if txt := cardText(g); !strings.Contains(strings.ReplaceAll(txt, "\n", " "), lines[i%len(lines)]) {
+			t.Fatalf("opening %d does not say %q:\n%s", i, lines[i%len(lines)], txt)
+		}
+		if keys(g, s, ebiten.KeyEscape); g.state == StateTalk {
+			t.Fatal("ESC did not close the card")
+		}
+		press(g, s, center(g.hotel.Rooms[0].Plate()))
 	}
 }
 
@@ -132,7 +147,7 @@ func TestCardPairFlips(t *testing.T) {
 func TestGhostCard(t *testing.T) {
 	g, s := matchRun(t, 2)
 	gh := ghostOf(g, 0, 7)
-	gh.Guests[0].Who = entities.Identity{Name: "Osvaldo Feltz", Died: 1987, Cause: "the sea", Card: "Seen Magda?", Quirk: Gentle, Key: "osvaldo"}
+	gh.Guests[0].Who = entities.Identity{Name: "Osvaldo Feltz", Died: 1987, Cause: "the sea", Lines: []string{"Seen Magda?"}, Quirk: Gentle, Key: "osvaldo"}
 	g.wallet[Ecto] = 25
 	g.ghost = true
 	press(g, s, center(g.hotel.Rooms[0].Plate()))

@@ -25,8 +25,8 @@ const (
 	cardSlow   = 0.06 // of the world's time scale while a card is open: very slow
 )
 
-// card is the open card: which guest of the Party, and which of its options.
-type card struct{ who, pick int }
+// card is the open card: which guest of the Party, which of its options, and which of the guest's lines it says.
+type card struct{ who, pick, line int }
 
 type cardOpt int
 
@@ -93,7 +93,8 @@ func (g *Game) startCard(i int) {
 	if p == nil {
 		return
 	}
-	g.state, g.parley = StateTalk, &parley{p: p, card: &card{}, scale: g.scale}
+	g.state, g.parley = StateTalk, &parley{p: p, card: &card{line: p.said}, scale: g.scale}
+	p.said++ // the next opening says the guest's next line (T381 refine 5)
 	g.scale *= cardSlow
 }
 
@@ -184,8 +185,10 @@ func (g *Game) cardView() (v cardView) {
 	for _, l := range wrapAt(about, sideWrap) {
 		v.who = append(v.who, cardRow{l, white, 1})
 	}
-	for _, l := range wrap("\"" + w.Card + "\"") {
-		v.quote = append(v.quote, cardRow{l, white, 1})
+	if n := len(w.Lines); n > 0 {
+		for _, l := range wrap("\"" + w.Lines[c.line%n] + "\"") {
+			v.quote = append(v.quote, cardRow{l, white, 1})
+		}
 	}
 	if g.revealed(p, guest) {
 		stat := fmt.Sprintf("NERVE %d", nerve(guest))

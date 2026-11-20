@@ -33,7 +33,7 @@ func TestIdentityDeterministicPerSeed(t *testing.T) {
 func TestIdentityShape(t *testing.T) {
 	quirks := 0
 	for i, id := range who(t, 3, 600) {
-		if id.Name == "" || id.Card == "" || id.Key != "" {
+		if id.Name == "" || len(id.Lines) != 3 || id.Key != "" {
 			t.Fatalf("guest %d: bad identity %+v", i, id)
 		}
 		if i%2 == 0 { // human
@@ -75,7 +75,7 @@ func TestBookingRollsIdentity(t *testing.T) {
 			t.Error("a new Party is not revealed")
 		}
 		for _, guest := range party.Guests {
-			if guest.Who.Name == "" || guest.Who.Card == "" {
+			if guest.Who.Name == "" || len(guest.Who.Lines) != 3 {
 				t.Errorf("realm %v: a guest has no identity: %+v", party.Realm, guest.Who)
 			}
 		}
@@ -108,11 +108,11 @@ func TestCastData(t *testing.T) {
 		t.Error("Bea and Lou are one Party of two")
 	}
 	for _, gh := range namedGhosts {
-		if gh.Key == "" || gh.Died == 0 || !kinds[gh.Kind] || gh.Fact == "" || gh.Card == "" || gh.Quirk < ShowOff {
+		if gh.Key == "" || gh.Died == 0 || !kinds[gh.Kind] || gh.Fact == "" || len(gh.Lines) != 3 || gh.Quirk < ShowOff {
 			t.Errorf("named ghost %s is incomplete: %+v", gh.Key, gh)
 		}
 	}
-	if len(humanFirst) != 20 || len(humanLast) != 20 || len(humanJobs) != 20 || len(ghostFirst) != 20 || len(ghostLast) != 20 || len(ghostCause) != 10 || len(humanCards) != 6 || len(ghostCards) != 6 {
+	if len(humanFirst) != 20 || len(humanLast) != 20 || len(humanJobs) != 20 || len(ghostFirst) != 20 || len(ghostLast) != 20 || len(ghostCause) != 10 || len(humanLines) != 18 || len(ghostLines) != 18 {
 		t.Error("a generated table has the wrong size")
 	}
 }

@@ -10,7 +10,9 @@ const (
 	priestRentMul   = 3
 )
 
-var fatherCards = [2]string{"Mind the corners. Dust gathers where the dead linger.", "I will be quiet. The Room will not."}
+var fatherLines = [2][]string{
+	[]string{"Mind the corners. Dust gathers where the dead linger.", "A quiet room, please. Quieter than that.", "I bless the pillows. Habit."},
+	[]string{"I will be quiet. The Room will not.", "Something here owes me an exorcism.", "Leave the door open. They should see me coming."}}
 
 // fatherOf: which Father the guest is (strong is Father M), false for anyone else.
 func fatherOf(guest *entities.Guest) (strong, ok bool) {
@@ -57,7 +59,7 @@ func (g *Game) maybePriestGuest(p *Party) {
 func (g *Game) becomeFather(p *Party, strong bool) {
 	guest := p.Guests[0]
 	guest.Character = fatherName(strong)
-	guest.Who = entities.Identity{Name: guest.Character, Age: 52 + 12*b2i(strong), Job: "priest", Card: fatherCards[b2i(strong)]}
+	guest.Who = entities.Identity{Name: guest.Character, Age: 52 + 12*b2i(strong), Job: "priest", Lines: fatherLines[b2i(strong)]}
 	p.Rate *= priestRentMul
 }
 
