@@ -218,7 +218,7 @@ _Avoid_: game, session
 The real-time in-game time: one day lasts about 4 minutes. It drives Walk-ins, Routines and the lighting, and it pauses only for the Terminal. The player can read it only on the Terminal.
 
 **Time scale**:
-How fast the world runs against real time, 1 normal. Every walk, animation, fade and timer, and the Clock, run by it together. Under 1 is slow motion (dev `-scale 0.25`); holding T runs it ×4. The Terminal, the hotel view, the HUD and the intro keep real time. A talk multiplies it by 0.25 to 0.08, by its depth, while it is on and gives it back as it ends. The sim runs at 1 outside a talk.
+How fast the world runs against real time, 1 normal. Every walk, animation, fade and timer, and the Clock, run by it together. Under 1 is slow motion (dev `-scale 0.25`); holding T runs it ×4. The Terminal, the hotel view, the HUD and the intro keep real time. A talk multiplies it by 0.25 to 0.08, by its depth, and an open Card by 0.06, while it is on and gives it back as it ends. The sim runs at 1 outside a talk.
 _Avoid_: fast clock, game speed
 
 **Day**:
@@ -433,7 +433,7 @@ _Avoid_: autosave, slot
 Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk.
 
 **Card**:
-What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), with the talk's zoom and slow motion. A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
+What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), in the talk's frame: the camera closes in on the guest and the world runs very slow (0.06). Its line shows over its head, who it is on its left, what REVEAL read on its right, the options below (T381 refine 3). A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
 _Avoid_: profile, sheet
 
 **REVEAL**:
@@ -446,7 +446,7 @@ One trait a Guest may have that bends a rule of the hotel, from the hotel's firs
 One of the hand-written cast (`cast.md`: seven human entries, three ghosts) who takes a generated booking about 1 time in 6, from the first Growth on, when not in the hotel and away a game day. It keeps its own lines, quirk and (a ghost) kind, and its visits count across Runs (saved). Osvaldo comes only after Magda.
 
 **Guest book**:
-The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own.
+The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own. It opens as a soft-cover book: two ruled pages curving into the spine, a thin black cover bending with them.
 _Avoid_: notebook (in game text), log
 
 **Priest guest**:

@@ -3,6 +3,7 @@ package game
 import (
 	"cmp"
 	"fmt"
+	"image"
 	"image/color"
 	"math"
 	"slices"
@@ -332,7 +333,10 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 		return int(float64(w)/2 + (float64(screenPx(x)-ox)-fx)*k), int(float64(h)/2 + (float64(screenPx(y)-oy)-fy)*k)
 	}
 	if t.card != nil {
-		g.drawCard(screen, w, h)
+		guest := t.p.Guests[t.card.who]
+		fx, fy := on(guest.X, guest.Y)
+		hx, hy := on(guest.X, guest.Y-charH)
+		g.drawCard(screen, w, h, bar, image.Pt(fx, fy), image.Pt(hx, hy))
 		return
 	}
 	const scale = 2

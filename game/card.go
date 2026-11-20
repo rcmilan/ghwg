@@ -21,7 +21,7 @@ import (
 const (
 	revealEcto = 10   // placeholder
 	cardWrap   = 34   // characters a line of the card wraps at
-	cardSlow   = 0.25 // of the world's time scale while a card is open
+	cardSlow   = 0.06 // of the world's time scale while a card is open: very slow
 )
 
 // card is the open card: which guest of the Party, and which of its options.
@@ -157,12 +157,19 @@ func wrapAt(s string, n int) (out []string) {
 	return append(out, line)
 }
 
-// cardRows: what the card shows for the picked guest, then its options, the picked one in the Ectoplasm ink.
-func (g *Game) cardRows() []cardRow {
+// cardView: what the card shows for the picked guest, by where it stands around the guest (drawCard): its line over
+// its head, who it is on its left, what REVEAL read on its right, the options below.
+type cardView struct {
+	quote, who, read, opts []cardRow
+}
+
+// sideWrap: characters a line beside the guest wraps at.
+const sideWrap = 20
+
+func (g *Game) cardView() (v cardView) {
 	p, c := g.parley.p, g.parley.card
 	guest := p.Guests[c.who]
 	w, white := guest.Who, color.Color(color.White)
-	rows := []cardRow{{w.Name, resInk(Ecto), 1}}
 	ghost := p.Realm == Ghost
 	about := fmt.Sprintf("AGE %d - %s", w.Age, w.Job)
 	switch {
@@ -171,11 +178,12 @@ func (g *Game) cardRows() []cardRow {
 	case w.Age == 0:
 		about = fmt.Sprintf("AGE %s - %s", strings.ToUpper(w.AgeNote), w.Job)
 	}
-	for _, l := range wrap(about) {
-		rows = append(rows, cardRow{l, white, 1})
+	v.who = []cardRow{{w.Name, resInk(Ecto), 1}}
+	for _, l := range wrapAt(about, sideWrap) {
+		v.who = append(v.who, cardRow{l, white, 1})
 	}
 	for _, l := range wrap("\"" + w.Card + "\"") {
-		rows = append(rows, cardRow{l, white, 0.8})
+		v.quote = append(v.quote, cardRow{l, white, 1})
 	}
 	if g.revealed(p, guest) {
 		stat := fmt.Sprintf("NERVE %d", nerve(guest))
@@ -186,10 +194,10 @@ func (g *Game) cardRows() []cardRow {
 		if w.Quirk != NoQuirk {
 			q = "QUIRK " + strings.ToUpper(quirkName(w.Quirk))
 		}
-		rows = append(rows, cardRow{stat, white, 1}, cardRow{q, white, 1})
+		v.read = append(v.read, cardRow{stat, white, 1}, cardRow{q, white, 1})
 		if f := ghostFact(w.Key); ghost && f != "" {
-			for _, l := range wrap(f) {
-				rows = append(rows, cardRow{l, white, 0.8})
+			for _, l := range wrapAt(f, sideWrap) {
+				v.read = append(v.read, cardRow{l, white, 0.8})
 			}
 		}
 	}
@@ -208,12 +216,15 @@ func (g *Game) cardRows() []cardRow {
 			}
 			a = 1
 		}
-		rows = append(rows, cardRow{text, ink, a})
+		v.opts = append(v.opts, cardRow{text, ink, a})
 	}
-	if len(p.Guests) > 1 {
-		rows = append(rows, cardRow{fmt.Sprintf("A/D  GUEST %d OF %d", c.who+1, len(p.Guests)), white, 0.6})
-	}
-	return rows
+	return v
+}
+
+// cardRows: the card's rows, in reading order.
+func (g *Game) cardRows() []cardRow {
+	v := g.cardView()
+	return slices.Concat(v.who, v.quote, v.read, v.opts)
 }
 
 // ghostFact: a named ghost's fact, "" for any other.
@@ -227,22 +238,39 @@ func ghostFact(key string) string {
 }
 
 // cardFocus: where the card's camera closes in (drawParley's screen px at the play camera) and how wide the sharp
-// middle is: on the plate.
+// middle is: on the picked guest.
 func (g *Game) cardFocus(ox, oy int, k float64) (fx, fy, sharp float64) {
-	pl := g.hotel.Rooms[g.parley.p.Room].Plate()
-	c := pl.Min.Add(pl.Max).Div(2)
-	return float64(screenPx(float64(c.X)) - ox), float64(screenPx(float64(c.Y)) - oy), 3 * world.TileSize * zoom * k
+	guest := g.parley.p.Guests[g.parley.card.who]
+	return float64(screenPx(guest.X) - ox), float64(screenPx(guest.Y)-oy) - charH/2*zoom, 1.5 * charH * zoom * k
 }
 
-// drawCard draws the card's panel over the closed-in world.
-func (g *Game) drawCard(s *ebiten.Image, w, h int) {
-	const scale, pad = 2, 16
-	rows, lh := g.cardRows(), glyphH*2+6
-	pw, ph := cardWrap*glyphW*scale+2*pad, len(rows)*lh+2*pad
-	x0, y0 := w/2-pw/2, h/2-ph/2
-	rect(s, x0, y0, pw, ph, color.RGBA{10, 6, 18, 225})
-	for i, r := range rows {
-		outline(s, r.text, x0+pad, y0+pad+i*lh, scale, r.ink, r.a)
+// drawCard draws the card around its guest in the talk's frame (drawParley): words alone, outlined; its line over
+// its head, who it is on its left, what REVEAL read on its right, the options at the bottom over the cinema bar, and
+// < > by them for a Party of two. at is the guest's feet on screen, top its head.
+func (g *Game) drawCard(s *ebiten.Image, w, h, bar int, at, top image.Point) {
+	const scale, gap = 2, 60 // gap: screen px from the guest's middle to the side columns, clear of its sprite
+	v, lh := g.cardView(), glyphH*scale+8
+	mid := (at.Y+top.Y)/2 - lh/2
+	for i, r := range v.quote {
+		y := top.Y - 8 - (len(v.quote)-i)*lh
+		outline(s, r.text, at.X-len(r.text)*glyphW*scale/2, y, scale, r.ink, r.a)
+	}
+	y0 := mid - (len(v.who)-1)*lh/2
+	for i, r := range v.who {
+		outline(s, r.text, at.X-gap-len(r.text)*glyphW*scale, y0+i*lh, scale, r.ink, r.a)
+	}
+	y0 = mid - (len(v.read)-1)*lh/2
+	for i, r := range v.read {
+		outline(s, r.text, at.X+gap, y0+i*lh, scale, r.ink, r.a)
+	}
+	y0 = h - bar - 12 - max(1, len(v.opts))*lh
+	for i, r := range v.opts {
+		outline(s, r.text, w/2-len(r.text)*glyphW*scale/2, y0+i*lh, scale, r.ink, r.a)
+	}
+	if len(g.parley.p.Guests) > 1 { // the other guest of the pair: A and D
+		y := y0 + (max(1, len(v.opts))-1)*lh/2
+		outline(s, "<", w/2-300, y, scale, color.White, 0.8)
+		outline(s, ">", w/2+300-glyphW*scale, y, scale, color.White, 0.8)
 	}
 }
 
@@ -293,7 +321,7 @@ func (g *Game) drawPlate(s *ebiten.Image, i, ox, oy int) {
 		frame, face, ink = color.RGBA{0x10, 0x40, 0x32, 255}, color.RGBA{0x5f, 0xe0, 0xb0, 255}, color.RGBA{0x1f, 0x80, 0x60, 255}
 	}
 	c := g.hotel.Rooms[i].Plate().Min.Sub(image.Pt(0, world.TileSize)) // the wall cell above the plate's mat cell
-	x, y := (c.X+world.TileSize-11)*zoom-ox, (c.Y+3)*zoom-oy
+	x, y := (c.X+world.TileSize-14)*zoom-ox, (c.Y+3)*zoom-oy
 	rect(s, x, y, 9*zoom, 7*zoom, frame)
 	rect(s, x+zoom, y+zoom, 7*zoom, 5*zoom, face)
 	rect(s, x+2*zoom, y+2*zoom, 5*zoom, zoom, ink) // its engraved lines

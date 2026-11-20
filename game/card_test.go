@@ -145,7 +145,7 @@ func TestGhostCard(t *testing.T) {
 	}
 	tap(g, s, ebiten.KeySpace)
 	txt = cardText(g)
-	if g.wallet[Ecto] != 15 || !strings.Contains(txt, "PHANTASM 7") || !strings.Contains(txt, "GENTLE") || !strings.Contains(txt, ghostFact("osvaldo")[:20]) {
+	if g.wallet[Ecto] != 15 || !strings.Contains(txt, "PHANTASM 7") || !strings.Contains(txt, "GENTLE") || !strings.Contains(strings.ReplaceAll(txt, "\n", " "), ghostFact("osvaldo")[:20]) {
 		t.Errorf("revealed ghost card (Ecto %v):\n%s", g.wallet[Ecto], txt)
 	}
 }

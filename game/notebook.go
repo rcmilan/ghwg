@@ -276,16 +276,21 @@ const (
 
 var bookBG *ebiten.Image
 
-// bookBackdrop: the black cover and the two ruled pages, drawn once column by column. Near the spine each column
-// darkens and its top and bottom edges move in, which is what makes the paper read as curving into the gutter.
+// bookBackdrop: the two ruled pages on a soft black cover, drawn once column by column. Near the spine each column
+// darkens and its top and bottom edges move in, which is what makes the paper read as curving into the gutter; the
+// cover is a thin rim that bends with them (T381 refine 3: a soft-cover book, not a board behind it).
 func bookBackdrop() *ebiten.Image {
 	if bookBG != nil {
 		return bookBG
 	}
 	img := ebiten.NewImage(bookW, bookH)
-	rect(img, 0, 0, bookW, bookH, color.RGBA{0x12, 0x10, 0x16, 255})
-	rect(img, 2, 2, bookW-4, bookH-4, color.RGBA{0x1c, 0x19, 0x22, 255})
-	rect(img, bookW/2-spineGap/2, 0, spineGap, bookH, color.RGBA{0x08, 0x07, 0x0a, 255})
+	cover := color.RGBA{0x16, 0x14, 0x1a, 255}
+	rim := func(x, off int) { // the cover's column at x, round a page column bowed in by off: 5 px over, 9 under
+		rect(img, x, bookM+off-5, 1, bookPH-2*off+14, cover)
+	}
+	for x := bookM + bookPW; x < bookM+bookPW+spineGap; x++ { // the spine, where the pages bow in the most
+		rim(x, 16)
+	}
 	shade := func(c color.RGBA, f float64) color.RGBA {
 		return color.RGBA{uint8(float64(c.R) * f), uint8(float64(c.G) * f), uint8(float64(c.B) * f), 255}
 	}
@@ -305,6 +310,12 @@ func bookBackdrop() *ebiten.Image {
 			}
 			off := int(16 * t * t) // the page's top and bottom edges bow in toward the spine
 			x, y0, h := x0+c, bookM+off, bookPH-2*off
+			rim(x, off)
+			if c == 0 && side == 0 || c == bookPW-1 && side == 1 { // the cover's fore edge, 6 px past the page
+				for e := 1; e <= 6; e++ {
+					rim(x+(2*side-1)*e, off)
+				}
+			}
 			rect(img, x, y0, 1, h, shade(paper, f))
 			for ly := bookM + 49; ly < bookM+bookPH-26; ly += bookRuled {
 				if ly > y0 && ly < y0+h {
