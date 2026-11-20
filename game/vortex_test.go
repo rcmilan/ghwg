@@ -6,28 +6,26 @@ import (
 	"testing"
 )
 
-// The spiral: at lift-off it sits on its start point, the angle only grows, the radius only shrinks, and at the
-// flash it is on the clock, radius 0.
+// The spiral: at lift-off it sits on its start point, at the flash it is on the clock, radius 0, and two flyers
+// leaving the same spot part ways (no line).
 func TestSpiral(t *testing.T) {
 	const x0, y0, cx, cy = 100.0, 400.0, 480.0, 270.0
-	for _, start := range []int{reelRace, reelRace + 45, reelRace + liftSpan} {
-		x, y, ang, s := spiralAt(x0, y0, cx, cy, start, start)
+	for i, start := range []int{reelRace, reelRace + 45, reelRace + liftSpan} {
+		j := jitter(i)
+		x, y, ang, s := spiralAt(x0, y0, cx, cy, start, start, j)
 		if math.Hypot(x-x0, y-y0) > 1e-9 || ang != 0 || s != 1 {
 			t.Errorf("start %d: at lift-off (%v,%v) ang %v scale %v", start, x, y, ang, s)
 		}
-		x, y, _, _ = spiralAt(x0, y0, cx, cy, start, reelFlash)
+		x, y, _, _ = spiralAt(x0, y0, cx, cy, start, reelFlash, j)
 		if math.Hypot(x-cx, y-cy) > 1e-9 {
 			t.Errorf("start %d: at the flash (%v,%v), not the centre", start, x, y)
 		}
-		prevAng, prevR := -1.0, math.Inf(1)
-		for f := start; f <= reelFlash; f++ {
-			x, y, ang, _ := spiralAt(x0, y0, cx, cy, start, f)
-			if r := math.Hypot(x-cx, y-cy); ang < prevAng || r > prevR+1e-9 {
-				t.Fatalf("start %d frame %d: angle %v (was %v), radius %v (was %v)", start, f, ang, prevAng, r, prevR)
-			} else {
-				prevAng, prevR = ang, r
-			}
-		}
+	}
+	mid := (reelRace + reelFlash) / 2
+	ax, ay, _, _ := spiralAt(x0, y0, cx, cy, reelRace, mid, jitter(0))
+	bx, by, _, _ := spiralAt(x0, y0, cx, cy, reelRace, mid, jitter(1))
+	if math.Hypot(ax-bx, ay-by) < 30 {
+		t.Errorf("two flyers from one spot still together mid-race: (%v,%v) (%v,%v)", ax, ay, bx, by)
 	}
 }
 

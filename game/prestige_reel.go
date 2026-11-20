@@ -36,7 +36,6 @@ const (
 	reelWalk    = 1.0
 	spinStart   = 24.0  // clock frames a frame at the start of the race...
 	spinEnd     = 600.0 // ...and at its end: a day in 24 frames, under 3 flickers a second
-	fallPull    = 0.05  // px/frame² "up"
 	clockRadius = 110   // screen px
 )
 
@@ -56,7 +55,6 @@ type cast struct {
 	g    *entities.Guest
 	slot image.Point
 	pop  int // the frame a far guest appears in the hall; 0 for one who walks in
-	vy   float64
 }
 
 type prestigeReel struct {
@@ -65,7 +63,6 @@ type prestigeReel struct {
 	pl    entities.Guest // the Concierge, walked like the rest, then copied back
 	p     *priest
 	ppos  image.Point // where Father P stands
-	ceil  float64     // the hall's "up" end, world px
 	flip  float64     // 0 upright .. 1 turned over
 	skip  bool
 	buf   *ebiten.Image // the world, drawn once then laid on the screen turned over
@@ -102,10 +99,6 @@ func (g *Game) playPrestige() {
 		if dist(s, front) < dist(r.ppos, front) {
 			r.ppos = s
 		}
-	}
-	r.ceil = float64(slots[0].Y) - 4
-	for _, s := range slots {
-		r.ceil = math.Min(r.ceil, float64(s.Y)-4)
 	}
 	slices.SortFunc(slots, func(a, b image.Point) int { // the crowd fills in from just below him
 		return int(dist(a, r.ppos.Add(image.Pt(0, 24))) - dist(b, r.ppos.Add(image.Pt(0, 24))))
@@ -175,11 +168,11 @@ func (g *Game) updateReel() {
 	}
 	if r.t >= reelFlip && !r.skip {
 		r.flip = min(1, r.flip+1.0/turnFrames)
-		for i := range r.cast { // gravity is up: they rise off the floor, faster and faster, and pile on the ceiling
+		for i := range r.cast { // weightless: each floats off the floor where it stands and bobs; no pile against a wall (live test 2026-11-20)
 			c := &r.cast[i]
-			c.vy += fallPull * (1 + float64(i%3)/3)
-			c.g.X += math.Sin(float64(r.t)/9+float64(i)) * .3
-			c.g.Y = math.Max(r.ceil, c.g.Y-c.vy)
+			ph := float64(r.t)/(12+float64(i%5)) + float64(i)
+			c.g.X = float64(c.slot.X) + 3*math.Sin(ph)
+			c.g.Y = float64(c.slot.Y) - 5*r.flip - 2*math.Cos(1.3*ph)
 		}
 	}
 	if r.t >= reelRace && !r.skip {

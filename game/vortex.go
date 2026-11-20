@@ -21,8 +21,8 @@ import (
 // clock has swallowed it by the white. Each flyer is drawn once into its own small image (by the world pass's own
 // draw code: see take's callers) and that image is turned on the screen.
 const (
-	liftSpan    = 90 // frames over which the lift-offs are spread: 1.5 s
-	vortexTurns = 5  // turns of the orbit over the whole race, at the clock's own curve
+	liftSpan    = 150 // frames over which the lift-offs are spread: 2.5 s
+	vortexTurns = 5   // turns of the orbit over the whole race, at the clock's own curve
 	kitchenKey  = "kitchen"
 )
 
@@ -34,15 +34,33 @@ func spin(t int) float64 {
 	return vortexTurns * 2 * math.Pi * (math.Pow(ratio, k) - 1) / (ratio - 1)
 }
 
-// spiralAt: where a flyer that lifted off at frame start from (x0,y0) is at frame t, round the clock at (cx,cy):
-// its screen position, tumble angle (0 at lift-off, only ever growing) and scale. The radius goes from where it
-// left to 0 at reelFlash, slowly then fast; the angle goes by the clock's speed.
-func spiralAt(x0, y0, cx, cy float64, start, t int) (x, y, ang, scale float64) {
+// jit: one flyer's own chaos (live test 2026-11-20: "more chaotic", not a line): its orbit speed, tumble rate (either
+// way), the fling out before the pull in (px; negative cuts in), the radius wobble and its frequency and phase, and
+// how squashed its orbit is.
+type jit struct{ speed, tumble, kick, wob, wf, ph, squash float64 }
+
+// jitter: flyer i's chaos, fixed per i (no math/rand: -shot prints repeat).
+func jitter(i int) jit {
+	h := func(k int) float64 {
+		x := uint32(i*7919 + k*104729)
+		x = (x ^ x>>16) * 0x45d9f3b
+		x = (x ^ x>>16) * 0x45d9f3b
+		return float64((x^x>>16)%10000) / 10000
+	}
+	return jit{speed: .5 + 1.3*h(1), tumble: (2*h(2) - 1) * 4, kick: -40 + 220*h(3), wob: .1 + .3*h(4),
+		wf: 2 * math.Pi * (2 + 3*h(5)), ph: 2 * math.Pi * h(6), squash: .5 * h(7)}
+}
+
+// spiralAt: where a flyer with chaos j that lifted off at frame start from (x0,y0) is at frame t, round the clock at
+// (cx,cy): its screen position, tumble angle (0 at lift-off) and scale. At lift-off it is where it stood; it is
+// flung out, wobbles on a squashed orbit at its own speed, and the radius reaches 0 at reelFlash.
+func spiralAt(x0, y0, cx, cy float64, start, t int, j jit) (x, y, ang, scale float64) {
 	k := min(1, max(0, float64(t-start)/float64(reelFlash-start)))
-	r := math.Hypot(x0-cx, y0-cy) * (1 - k*k)
+	u := min(1, float64(t-start)/30) // the first half second: the chaos takes over from where it stood
+	r := (math.Hypot(x0-cx, y0-cy) + j.kick*math.Sin(math.Pi*k)) * (1 - k*k) * (1 + j.wob*u*math.Sin(j.wf*k+j.ph))
 	d := spin(t) - spin(start)
-	a := math.Atan2(y0-cy, x0-cx) + d
-	return cx + r*math.Cos(a), cy + r*math.Sin(a), 2 * d, min(1, 4*(1-k))
+	a := math.Atan2(y0-cy, x0-cx) + d*j.speed
+	return cx + r*math.Cos(a), cy + r*math.Sin(a)*(1-j.squash*u), j.tumble * d, min(1, 4*(1-k))
 }
 
 type flyer struct {
@@ -50,6 +68,7 @@ type flyer struct {
 	x, y  float64 // where it left, on the screen (flipped)
 	start int
 	seen  bool
+	j     jit
 }
 
 type vortex struct {
@@ -72,7 +91,7 @@ func (r *prestigeReel) take(key any, cx, cy float64, w, h int, draw func(*ebiten
 		if v.fl[key] == nil && cx+hw > 0 && cx-hw < v.w && cy+hh > 0 && cy-hh < v.h {
 			img := ebiten.NewImage(w, h)
 			draw(img)
-			f := &flyer{img: img, x: cx, y: v.h - cy}
+			f := &flyer{img: img, x: cx, y: v.h - cy, j: jitter(len(v.order))}
 			v.fl[key] = f
 			v.order = append(v.order, f)
 		}
@@ -102,9 +121,8 @@ func (g *Game) registerVortex(ox, oy int) {
 	g.drawWorld(r.buf, ox, oy)
 	v.reg = false
 	cx, cy := v.w/2, v.h/2
-	slices.SortStableFunc(v.order, func(a, b *flyer) int {
-		return int(math.Hypot(a.x-cx, a.y-cy) - math.Hypot(b.x-cx, b.y-cy))
-	})
+	near := func(f *flyer) float64 { return math.Hypot(f.x-cx, f.y-cy) * (.4 + 1.2*f.j.ph/(2*math.Pi)) } // nearest first, loosely
+	slices.SortStableFunc(v.order, func(a, b *flyer) int { return int(near(a) - near(b)) })
 	for i, f := range v.order {
 		f.start = reelRace + i*liftSpan/len(v.order)
 	}
@@ -120,7 +138,7 @@ func (g *Game) drawVortex(screen *ebiten.Image) {
 		if r.t < f.start {
 			continue
 		}
-		x, y, ang, s := spiralAt(f.x, f.y, cx, cy, f.start, r.t)
+		x, y, ang, s := spiralAt(f.x, f.y, cx, cy, f.start, r.t, f.j)
 		if s <= 0 {
 			continue
 		}
