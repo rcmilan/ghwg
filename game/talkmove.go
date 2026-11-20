@@ -108,23 +108,31 @@ func (g *Game) targets(p *Party) []int {
 	return ts
 }
 
-// talker: the human Party SPACE talks to: the Concierge stands in its Room, in the real Dimension, the whole Party
-// in, awake (08 F0) and not snubbed, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits.
-// nil if none.
+// talker: the Party TALK opens the card of (T381 refine 2): the Concierge stands in its Room, in either Dimension (a
+// ghost Party in ghost), the whole Party in and awake (08 F0), nothing there SPACE does first (a stain to clean, the
+// Room's Mirror). nil if none.
 func (g *Game) talker() *Party {
-	if g.ghost || g.atRoomMirror() {
+	if g.atRoomMirror() {
 		return nil
 	}
 	for i, r := range g.hotel.Rooms {
 		if !g.feet().In(r.Shell()) {
 			continue
 		}
-		if p := g.humanIn(i); p != nil && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0 {
+		if p := g.cardParty(i); p != nil && g.inRoom(p) && !p.abed {
 			if room, _ := g.cleanable(); room < 0 {
 				return p
 			}
 		}
 		return nil
+	}
+	return nil
+}
+
+// mover: the talker, if its card offers MOVE (the talk).
+func (g *Game) mover() *Party {
+	if p := g.talker(); p != nil && g.canMove(p) {
+		return p
 	}
 	return nil
 }
@@ -291,12 +299,17 @@ type TalkView struct {
 	To      int      // the one picked, an index into Targets
 	Pick    int      // the offer picked
 	Prices  [][3]Num // each target's three offers' prices
+	Card    bool     // the guest card is open, not the talk yet: Pick is its option, Move MOVE's index (-1: none)
+	Move    int
 }
 
 func (g *Game) talkView() TalkView {
 	t := g.parley
 	if g.state != StateTalk || t == nil {
 		return TalkView{}
+	}
+	if c := t.card; c != nil {
+		return TalkView{Open: true, Card: true, Room: t.p.Room, Pick: c.pick, Move: slices.Index(g.cardOpts(t.p, t.p.Guests[c.who]), optMove)}
 	}
 	v := TalkView{Open: true, Room: t.p.Room, Targets: t.targets, To: t.to, Pick: t.pick}
 	for _, r := range t.targets {
@@ -327,7 +340,7 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
 	k, e := g.talkZoom(), g.talkEase()
 	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
-	if t.card != nil {
+	if t.card != nil && g.feet().In(g.hotel.Rooms[t.p.Room].Plate()) { // opened inside, it closes in on the two as the talk does
 		fx, fy, sharp = g.cardFocus(ox, oy, k)
 	}
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},

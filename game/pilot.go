@@ -435,6 +435,18 @@ func (p *Pilot) Talk(room, offer int) {
 		case v.Terminal.View || v.Terminal.Open: // SPACE found no talk: out
 			p.tap(ebiten.KeyEscape)
 			return true, false
+		case t.Card: // TALK opened the card (T381 refine 2): MOVE on it starts the talk
+			switch {
+			case t.Move < 0:
+				if p.tap(ebiten.KeyEscape) {
+					taps = 3
+				}
+			case t.Pick != t.Move:
+				p.tap(ebiten.KeyS)
+			default:
+				p.tap(ebiten.KeySpace)
+			}
+			return false, false
 		case !t.Open:
 			if made || taps >= 3 {
 				return true, made

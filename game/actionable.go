@@ -80,7 +80,7 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 			return actNone, image.Rectangle{}
 		}
 	}
-	if g.talker() != nil { // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
+	if g.talker() != nil { // the card, from inside the Room (T381 refine 2): after a stain to clean, before the hotel view (X2)
 		return actTalk, image.Rectangle{}
 	}
 	if room, cell := g.cleanable(); room >= 0 {
@@ -117,7 +117,7 @@ func (g *Game) space() {
 	case actDeliver:
 		g.deliver(g.atMat(), g.hands)
 	case actTalk:
-		g.startTalk(g.talker())
+		g.startCard(g.talker().Room)
 	case actCard:
 		g.startCard(g.atMat())
 	case actClean:

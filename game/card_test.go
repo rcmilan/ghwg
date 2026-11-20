@@ -169,3 +169,23 @@ func TestNamedRevealPersists(t *testing.T) {
 		t.Error("the save did not bring the reveal back")
 	}
 }
+
+// T381 refine 2: TALK shows inside a Room in either Dimension and opens the card of the Party there.
+func TestTalkOpensCardInside(t *testing.T) {
+	for _, ghost := range []bool{false, true} {
+		g, s := matchRun(t, 2)
+		settledHuman(t, g, 0, 9)
+		ghostOf(g, 0, 3)
+		ghostOf(g, 1, 3) // no Room a ghost-free Party would rather have: no MOVE either way
+		standIn(g, 0)
+		g.ghost = ghost
+		want := g.cardParty(0)
+		if g.talker() != want || want == nil {
+			t.Fatalf("ghost %v: no TALK inside the Room", ghost)
+		}
+		keys(g, s, ebiten.KeySpace)
+		if g.state != StateTalk || g.parley.card == nil || g.parley.p != want {
+			t.Fatalf("ghost %v: SPACE did not open the Party's card (state %d)", ghost, g.state)
+		}
+	}
+}

@@ -142,7 +142,7 @@ func (g *Game) updateHUD() {
 	}
 	note := t != "" && g.guestAge < noticeFrames
 	column([]*slot{&g.hud[Money].slot, &g.guestNote}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Money), note})
-	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would start the talk
+	cue := g.state == StatePlay && g.talker() != nil // TALK (07 X2): SPACE would open the card
 	slots, hs, wants := []*slot{&g.hud[Ecto].slot, &g.talkCue}, []int{glyphH * hudScale, glyphH * hudScale}, []bool{want(Ecto), cue}
 	items := g.note.items[:0]
 	for _, it := range g.note.items {
