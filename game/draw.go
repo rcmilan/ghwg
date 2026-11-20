@@ -354,6 +354,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	stock()
 	glow()
 	propsUpTo(math.Inf(1))
+	g.drawPantryStock(screen, ox, oy)
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
 		if g.ghost { // floating with him
 			_, hy = at(g.player.X, g.player.Y-hover(g.tick, "Bob"))
