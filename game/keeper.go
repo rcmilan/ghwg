@@ -71,6 +71,10 @@ var (
 
 func init() { ghostTints[keeperName] = []float32{.4, 1, 1} }
 
+// keeperClean: frames a housekeeper's clean takes at the stains, 20 game minutes (placeholder, T380); the Cleaning kit
+// cuts it. The Concierge's own clean stays instant.
+const keeperClean = 20 * minuteFrames
+
 type job int
 
 const (
@@ -93,6 +97,7 @@ type housekeeper struct {
 	due            int    // the clock of its next payday
 	unpaid         bool   // its last wage is owed: it does nothing until it is paid
 	rest           int    // the clock it next moves about the kitchen
+	work           int    // cleaning, at the stains: the clock the clean is done, 0 until it starts
 	voice                 // it speaks as the Concierge comes near, and to welcome a Party walking in
 }
 
@@ -329,9 +334,16 @@ func (g *Game) updateKeepers() {
 			}
 			g.goRest(k)
 		case k.job == cleaning:
+			if k.work == 0 && g.normalDirt(k.room) > 0 { // at the stains: the clean takes a while (Cleaning kit)
+				k.work = g.clock + g.cleanFrames(keeperClean)
+			}
+			if g.clock < k.work {
+				break
+			}
 			if g.normalDirt(k.room) > 0 {
 				g.scrub(k.room, false)
 			}
+			k.work = 0
 			g.goRest(k)
 		case k.job == refilling: // at the kitchen's shelf
 			if g.stock[k.item] == 0 || k.src >= len(g.hotel.Pantries) {

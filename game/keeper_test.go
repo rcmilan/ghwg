@@ -361,3 +361,44 @@ func TestRunningShoes(t *testing.T) {
 		}
 	}
 }
+
+// keeperCleanTime: the frames a housekeeper stands at a complaining Room's stains before they are gone, with the
+// Cleaning kit at level kit.
+func keeperCleanTime(t *testing.T, kit int) int {
+	t.Helper()
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.up[CleaningKit] = kit
+	free := g.floorCells(0)
+	var spots []spot
+	for i := range dirtLimit/spotUnit + 1 {
+		spots = append(spots, spot{free[i], false, spotUnit})
+	}
+	g.dirt, g.dirtN = [][]spot{spots, nil}, []int{len(spots), 0}
+	g.setDirtLevel(0, len(spots)*spotUnit)
+	g.wallet[Money] = keeperWage
+	p := g.arrive(0)
+	until(t, g, "the Party complains", func() bool { return p.state == complaining })
+	g.hire()
+	k := g.keepers[0]
+	until(t, g, "it reaches the stains", func() bool { return k.job == cleaning && len(k.Path) == 0 && g.roomAt(k.X, k.Y) == 0 })
+	n := 0
+	for ; g.normalDirt(0) > 0; n++ {
+		if n > 10*keeperClean {
+			t.Fatal("the Room is never cleaned")
+		}
+		g.step(0, 0)
+	}
+	return n
+}
+
+// A housekeeper's clean takes keeperClean frames of work (2026-11-20, T380), which the Cleaning kit cuts by 15% a level.
+func TestKeeperCleanTakesTime(t *testing.T) {
+	base, kit := keeperCleanTime(t, 0), keeperCleanTime(t, 2)
+	if base < keeperClean-2 || base > keeperClean+2 {
+		t.Errorf("a clean took %d frames, want about %d", base, keeperClean)
+	}
+	if want := scaleInt(keeperClean, 0.85*0.85); kit < want-2 || kit > want+2 {
+		t.Errorf("with the kit at level 2 a clean took %d frames, want about %d", kit, want)
+	}
+}

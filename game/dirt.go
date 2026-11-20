@@ -369,7 +369,7 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 			draw(s, 1, 1)
 		}
 	}
-	kept, fade := g.wiped[:0], float64(g.cleanFrames(wipeFrames)) // the only time a clean has today
+	kept, fade := g.wiped[:0], float64(g.cleanFrames(wipeFrames)) // the kit quickens the fade too; a housekeeper's work is keeperClean (keeper.go)
 	for _, w := range g.wiped {
 		if d := g.now() - float64(w.tick); d < fade {
 			f := d / fade
