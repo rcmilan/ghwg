@@ -11,8 +11,11 @@ import (
 // be locked has a hint that fits the detail pane.
 func TestTerminalHints(t *testing.T) {
 	g := closedRun(t) // no Room open: only the key is on sale
-	for _, i := range append(append(tabItems(tabSupplies), tabItems(tabHotel)...), tabItems(tabStaff)...) {
+	for _, i := range append(append(append(tabItems(tabSupplies), tabItems(tabHotel)...), tabItems(tabStaff)...), tabItems(tabUpgrades)...) {
 		it := shop[i]
+		if it.Up > 0 { // an upgrade has no teaser: its row is hidden until it applies (upgrade_rows_test.go)
+			continue
+		}
 		if g.onSale(i) {
 			t.Errorf("%s on sale with no Room open", it.ID)
 		}
@@ -62,7 +65,7 @@ func TestTerminalHides(t *testing.T) {
 	if h := slices.Index(tabItems(tabStaff), row(t, rowKeeper)); slices.Contains(g.listed(tabStaff), h) || slices.Contains(g.forSale(), row(t, rowKeeper)) {
 		t.Fatalf("staff full: listed %v, for sale %v", g.listed(tabStaff), g.forSale())
 	}
-	if len(g.listed(tabStaff)) != 2 { // the first running shoes, and Father P's teaser
+	if len(g.listed(tabStaff)) != 2 { // the first running shoes and Father P's teaser (the upgrades have their own tab)
 		t.Fatalf("staff full: listed %v, want the next running shoes and Father P", g.listed(tabStaff))
 	}
 }

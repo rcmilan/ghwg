@@ -27,7 +27,6 @@ func (p *Party) asking() bool { return p.asked > 0 }
 // asks at random, askPerDay times a day on average. Unanswered for askMinutes, the request expires and
 // the Room loses moodExpire Mood. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
-	awake := !asleep(g.clock)
 	for _, p := range g.parties {
 		if p.Realm != Human { // a ghost asks for nothing
 			continue
@@ -39,7 +38,7 @@ func (g *Game) updateAsks() {
 			g.addMood(p.Room, -moodExpire)
 			p.asked, p.askEnded = 0, g.clock
 			g.expired++
-		case !p.asking() && p.state == staying && awake && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
+		case !p.asking() && p.state == staying && (!asleep(g.clock) || !g.sleeps(p)) && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
 			g.rng.Float64() < askPerDay/float64((sleepHour-wakeHour)*60):
 			p.asked, p.want = g.clock, supplies[g.rng.IntN(len(supplies))].ID
 		}
@@ -131,6 +130,21 @@ var (
 	splat *ebiten.Image             // the dirt complaint's, white (splatRows)
 )
 
+// foodIcons: the sprites a Food ask rotates through in its balloon (cosmetic: the held item and the stock keep the
+// store's icon).
+var foodIcons = []string{"food_3", "food_4", "food_5"}
+
+// askIcon: the icon of what p asks for. A Food ask shows one of foodIcons, picked from the Party and the ask's time,
+// so g.rng, which drives the sim, is not drawn from.
+func (g *Game) askIcon(p *Party) *ebiten.Image {
+	if p.want == SupplyFood {
+		if img := g.sprite(foodIcons[(p.asked/minuteFrames+p.Room)%len(foodIcons)]); img != nil {
+			return img
+		}
+	}
+	return g.supplyIcon(p.want)
+}
+
 // drawRequests draws a pill by each asking or complaining Party's leader, in
 // both dimensions and over the Fog and the dark. The world shows at kz screen px a world px, its top left at (ox,oy).
 func (g *Game) drawRequests(s *ebiten.Image, ox, oy int, kz float64) {
@@ -138,7 +152,7 @@ func (g *Game) drawRequests(s *ebiten.Image, ox, oy int, kz float64) {
 		splat = bitmap(splatRows)
 	}
 	for _, p := range g.parties {
-		switch icon := g.supplyIcon(p.want); {
+		switch icon := g.askIcon(p); {
 		case p.state == complaining: // the Room is dirty (dirt.go)
 			g.drawPill(s, p, splat, 2*balloonScale, ox, oy, kz)
 		case p.asking() && icon != nil: // its item (show, don't tell)

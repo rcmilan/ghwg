@@ -113,7 +113,7 @@ func (g *Game) charge(p *Party) {
 			if g.pairing(p.Room) == badPair { // a bad pair pays less (X2, live test 1)
 				pay *= badRent
 			}
-			p.cents[i] += Num(p.Rate) / rentHours / Num(len(p.Guests)) * pay
+			p.cents[i] += Num(p.Rate) * Num(g.upMul(LobbyDecor)) / rentHours / Num(len(p.Guests)) * pay
 			if n := Num(int(p.cents[i])); n > 0 {
 				p.cents[i] -= n
 				p.rent += n
@@ -151,6 +151,10 @@ type Party struct {
 	abed       bool          // its Guests are in bed or on their way (D167)
 	acts       []act         // what each Guest is doing in the Room by day (D168)
 	ectoShown  int           // Ecto gained since its Room's last "+N" floater
+	revealed   bool          // its quirk (and Nerve) is known: a REVEAL was paid (T375)
+	said       int           // its card's openings: which of its Guests' lines the next one says (card.go)
+	visit      int           // a named guest's visit number, 0 for a generated Party (notebook.go)
+	banished   bool          // Father M sent a ghost Party over (sendOver), not passing on by itself
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	want       Unlock        // the supply it asked for (supply.go)
 	askEnded   int           // the clock its last request was served, expired or lapsed
@@ -308,8 +312,15 @@ func (g *Game) arrive(room int) *Party {
 		room = g.fitRoom(n, 1)
 	}
 	setNerve(p, n)
+	for _, guest := range p.Guests {
+		g.rollHuman(guest)
+	}
+	if g.grown() { // named guests, like quirks, come once the hotel has grown (T376)
+		g.rollNamedHuman(p)
+	}
 	g.walkIns++
 	p.Room, p.Rate, p.arrived = room, g.hotel.Rooms[room].Type.Rate, g.clock
+	g.maybePriestGuest(p)
 	for range p.Guests {
 		p.mess += g.mess()
 	}
@@ -516,9 +527,10 @@ func (g *Game) updateParty(p *Party) bool {
 // checkout banks the Party's payout as it steps out of its door; the Room is Vacant at once (D87).
 func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
-	p.tip = Num(p.Payout(g.moodPay(p.Room))) // the Room as the Party leaves it, mess aside
+	g.logStay(p, g.stayOutcome(p))
+	p.tip = Num(p.Payout(g.moodPay(p.Room))) * Num(g.upMul(LobbyDecor)*g.upMul(TipJar)*g.tipQuirkMul(p)) // the Room as the Party leaves it, mess aside; the Rate's decor, the Tip jar and a Big tipper
 	g.leaveMess(p)
-	g.book(p.Room, bookGap)
+	g.book(p.Room, g.bookGapNow())
 	door := r.Door.Mul(world.TileSize)
 	g.earn(Money, p.tip, door.Add(image.Pt(world.TileSize/2, 0)))
 }

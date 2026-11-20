@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -68,7 +69,7 @@ func TestUpdateBudget(t *testing.T) {
 	}
 }
 
-// BenchmarkDraw: the CPU side of one drawn frame of a busy level-1 4x4 hotel (08 W3: shifts fell to 8 FPS and a
+// BenchmarkDraw: the CPU side of one drawn frame of a busy level-1 4x4 hotel (L2: level 2, 5x5, and its hotel view, T381 refine 7) (08 W3: shifts fell to 8 FPS and a
 // growth in ghost crashed the browser; the GPU side shows only in a browser, sh tools/webprof). Run with
 // -benchtime 200x: off the game loop, the draw commands are never flushed.
 func BenchmarkDraw(b *testing.B) {
@@ -80,6 +81,9 @@ func BenchmarkDraw(b *testing.B) {
 		{"ghost", func(g *Game) { g.ghost = true }},
 		{"shift", func(g *Game) { g.startShift() }},
 		{"grow-ghost", func(g *Game) { g.ghost = true; g.DevGrow("floor") }},
+		{"L2-real", func(g *Game) {}},
+		{"L2-ghost", func(g *Game) { g.ghost = true }},
+		{"L2-view", func(g *Game) { g.state, g.viewT, g.termDepth = StateView, 1, 1 }},
 	} {
 		b.Run(c.name, func(b *testing.B) {
 			g, err := NewGrid(2, 1, 1) // with its sprites, unlike busyGame's headless world
@@ -87,6 +91,9 @@ func BenchmarkDraw(b *testing.B) {
 				b.Fatal(err)
 			}
 			g.DevLevel(1)
+			if strings.HasPrefix(c.name, "L2") {
+				g.DevLevel(2)
+			}
 			if c.name == "grow-ghost" { // a 4x3 hotel growing its last floor, as in the live test
 				g.Start(false)
 				g.DevGrow("col,floor,col,floor")

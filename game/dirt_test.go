@@ -111,7 +111,7 @@ func TestClean(t *testing.T) {
 	if _, in := g.inside(0); len(in) == 0 || p.state != staying {
 		t.Fatal("the pair is not inside its Room")
 	}
-	g.roomOwned = []bool{true, false} // no other Room to talk the pair into: else SPACE would start the talk (X2)
+	g.roomOwned = []bool{true, false}
 	press(g, s, cellPt(free[1]))
 	if len(g.spots(0)) != 1 || g.state != StateView {
 		t.Fatalf("SPACE in real on a spiritual spot, nothing else to clean: %d spots, state %d; want nothing cleaned, and so the hotel view (U2)", len(g.spots(0)), g.state)

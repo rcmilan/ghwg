@@ -3,6 +3,7 @@ package game
 import (
 	"cmp"
 	"fmt"
+	"image"
 	"image/color"
 	"math"
 	"slices"
@@ -57,6 +58,7 @@ type parley struct {
 	lineAt  int     // the t it began saying it
 	scale   float64 // the world's time scale as the talk found it, given back as it ends
 	depth   float64 // how bad the pair is, 0..1, as it began (talkDepth)
+	card    *card   // set: the guest card is open, not an offer (card.go)
 }
 
 // at: v's value at the talk's depth, from its mildest to its worst.
@@ -107,23 +109,11 @@ func (g *Game) targets(p *Party) []int {
 	return ts
 }
 
-// talker: the human Party SPACE talks to: the Concierge stands in its Room, in the real Dimension, the whole Party
-// in, awake (08 F0) and not snubbed, nothing there SPACE does first (a stain to clean, the Room's Mirror), and some Room it fits.
-// nil if none.
+// talker: the Party TALK opens the card of: the Concierge stands on its Room's plate, beside the door (T381 refine 2),
+// in either Dimension (a ghost Party in ghost), with nothing SPACE does there first (an asked item to hand over).
 func (g *Game) talker() *Party {
-	if g.ghost || g.atRoomMirror() {
-		return nil
-	}
-	for i, r := range g.hotel.Rooms {
-		if !g.feet().In(r.Shell()) {
-			continue
-		}
-		if p := g.humanIn(i); p != nil && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0 {
-			if room, _ := g.cleanable(); room < 0 {
-				return p
-			}
-		}
-		return nil
+	if act, _ := g.actionable(); act == actCard {
+		return g.cardParty(g.atMat())
 	}
 	return nil
 }
@@ -215,6 +205,10 @@ func (g *Game) updateParley() {
 	for left := g.scale; left > 0; left-- {
 		g.advance(0, 0, min(left, 1))
 	}
+	if t.card != nil {
+		g.updateCard()
+		return
+	}
 	to := t.targets[t.to]
 	if t.targets = g.targets(t.p); !g.inRoom(t.p) || len(t.targets) == 0 {
 		g.endTalk()
@@ -286,12 +280,17 @@ type TalkView struct {
 	To      int      // the one picked, an index into Targets
 	Pick    int      // the offer picked
 	Prices  [][3]Num // each target's three offers' prices
+	Card    bool     // the guest card is open, not the talk yet: Pick is its option, Move MOVE's index (-1: none)
+	Move    int
 }
 
 func (g *Game) talkView() TalkView {
 	t := g.parley
 	if g.state != StateTalk || t == nil {
 		return TalkView{}
+	}
+	if c := t.card; c != nil {
+		return TalkView{Open: true, Card: true, Room: t.p.Room, Pick: c.pick, Move: slices.Index(g.cardOpts(t.p, t.p.Guests[c.who]), optMove)}
 	}
 	v := TalkView{Open: true, Room: t.p.Room, Targets: t.targets, To: t.to, Pick: t.pick}
 	for _, r := range t.targets {
@@ -313,15 +312,32 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	}
 	t, src := g.parley, g.fx[0]
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
-	mw, mh := g.mapSize()
-	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	src.Fill(bg)
-	g.drawWorld(src, ox, oy)
 	lead := t.p.Guests[0]
-	fx := float64(screenPx(g.player.X)+screenPx(lead.X))/2 - float64(ox)
-	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
 	k, e := g.talkZoom(), g.talkEase()
-	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
+	// The focus, world px: the guest (the card's picked one). Since T381 refine 2 the talk starts at the plate, the
+	// Concierge outside the Room: from the plate to its back row is more than a screen can frame with both.
+	guest := lead
+	if t.card != nil {
+		guest = t.p.Guests[t.card.who]
+	}
+	wx, wy, sharp := guest.X, guest.Y-charH/2, 1.5*charH*zoom*k
+	// The world is drawn centred on the focus, not round the Concierge (the play camera): the shader reads only this
+	// picture, and what it closed in on past it read black. The card's guest stands up to a Room's depth from the
+	// Concierge at the plate, and since T381 refine 2 the talk starts there too (T381 refine 3). Not held inside the
+	// map: past its edge shows the backdrop, as in play, and the guest stays in the middle, its words round it.
+	ox, oy := screenPx(wx)-w/2, screenPx(wy)-h/2
+	fx, fy := float64(screenPx(wx)-ox), float64(screenPx(wy)-oy)
+	src.Fill(bg)
+	if r := t.p.Room; t.card != nil && r < len(g.fog) {
+		// The card looks at its guest: its Room's Fog lifts as the camera closes in, at the draw, as the hotel view's
+		// (hotelview.go). Faded on world time, at the card's 0.06 it took ~8 s past the door opening (T381 refine 3).
+		f := g.fog[r]
+		g.fog[r] = f * (1 - e)
+		g.drawWorld(src, ox, oy)
+		g.fog[r] = f
+	} else {
+		g.drawWorld(src, ox, oy)
+	}
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},
 		Uniforms: map[string]any{"Focus": []float32{float32(fx), float32(fy)}, "K": float32(k), "T": float32(e), "Sharp": float32(sharp), "Blur": float32(t.at(talkBlur))}})
 	bar := int(float64(h) * 0.08 * e)
@@ -329,6 +345,13 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	rect(screen, 0, h-bar, w, bar, color.Black)
 	on := func(x, y float64) (int, int) { // world px to screen px, closed in
 		return int(float64(w)/2 + (float64(screenPx(x)-ox)-fx)*k), int(float64(h)/2 + (float64(screenPx(y)-oy)-fy)*k)
+	}
+	if t.card != nil {
+		guest := t.p.Guests[t.card.who]
+		fx, fy := on(guest.X, guest.Y)
+		hx, hy := on(guest.X, guest.Y-charH)
+		g.drawCard(screen, w, h, bar, image.Pt(fx, fy), image.Pt(hx, hy))
+		return
 	}
 	const scale = 2
 	if t.t >= t.lineAt {

@@ -35,7 +35,7 @@ func (g *Game) scare() {
 			p.ectoShown = 0
 		}
 		for _, guest := range p.Guests {
-			if guest.Fear >= guest.FleeAt {
+			if guest.Fear >= guest.FleeAt && g.mayFlee(p, guest) {
 				if p.scares++; p.scares == 1 { // out for air the first time, gone the second (Step 2)
 					g.stepOut(p)
 				} else {
@@ -50,6 +50,7 @@ func (g *Game) scare() {
 // flee: the Party runs for the Exit, unpaid, after a hop in place (D164); its Room is Vacant at once.
 func (g *Game) flee(p *Party) {
 	p.Fled, p.state, p.fledAt, p.greet, p.talk = true, leaving, g.tick, noGreeting, nil
+	g.logStay(p, outFled)
 	g.leaveMess(p)
 	if p.Realm == Human { // only human Parties flee; staff leaving unpaid get no notice
 		g.notice("GUESTS FLED " + g.hotel.Rooms[p.Room].Number)

@@ -65,6 +65,7 @@ type prop struct {
 	l         int // layer
 	id        world.TileID
 	bx, by    int // where its part of the walls' top band starts, in cell px (world/band.go; propSheet.band has it)
+	room      int // the Room whose box holds its cell, -1 if none: its dread and fog, looked up once (T381 refine 7)
 }
 
 // sortedProps lists the props by sort y; within a cell, layers keep their order.
@@ -75,7 +76,7 @@ func (g *Game) sortedProps() []prop {
 		for y := range m.H {
 			for x := range m.W {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
-					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
+					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id, room: g.roomOfCell(image.Pt(x, y))}
 					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
 						p.bx, p.by = r.Min.X, r.Min.Y
 					}
@@ -98,6 +99,14 @@ var inkBuf = ebiten.NewImage(960, 64)
 
 // printAt prints v in the debug font at (x,y), at scale, in c at alpha a. Every text goes through it.
 func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	var geo ebiten.GeoM
+	geo.Scale(scale, scale)
+	geo.Translate(float64(x), float64(y))
+	printGeo(s, v, geo, c, a)
+}
+
+// printGeo is printAt placed by geo (the guest book's tilted hand).
+func printGeo(s *ebiten.Image, v string, geo ebiten.GeoM, c color.Color, a float32) {
 	lines := strings.Split(v, "\n")
 	w := 0
 	for _, l := range lines {
@@ -111,9 +120,7 @@ func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, 
 	cm.SetElement(3, 3, 0)
 	cm.ScaleWithColor(c)
 	cm.Scale(1, 1, 1, float64(a))
-	op := &colorm.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x), float64(y))
+	op := &colorm.DrawImageOptions{GeoM: geo}
 	colorm.DrawImage(s, buf, cm, op)
 }
 
@@ -165,6 +172,9 @@ func (g *Game) drawFrame(screen *ebiten.Image) {
 	if g.state == StatePause {
 		g.drawPause(screen)
 	}
+	if g.state == StateBook {
+		g.drawBookPage(screen)
+	}
 	g.drawHUD(screen) // over the Terminal, which has no wallet label of its own; the notice too: there is no message line
 }
 
@@ -196,19 +206,22 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawReels(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
 	type actor struct {
-		x, y float64 // foot box center; y sorts (T039)
-		name string
-		anim entities.Anim
-		fog  float64
-		fear float64   // of its FleeAt
-		lift float64   // world px off the floor: a fleeing Guest's hop (D164)
-		tint []float32 // ghost dimension: its flat color; nil for the character's own
-		a    float32   // opacity; 0 is 1
-		mode int       // the palette shader's mode; 0 is modeActor
-		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
-		up   bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
-		pot  bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
-		key  any       // what the prestige vortex lifts it off by (vortex.go); nil stays
+		x, y  float64 // foot box center; y sorts (T039)
+		name  string
+		anim  entities.Anim
+		fog   float64
+		fear  float64   // of its FleeAt
+		lift  float64   // world px off the floor: a fleeing Guest's hop (D164)
+		tint  []float32 // ghost dimension: its flat color; nil for the character's own
+		a     float32   // opacity; 0 is 1
+		mode  int       // the palette shader's mode; 0 is modeActor
+		sil   bool      // a human seen from the ghost dimension: a white silhouette with a small glow
+		up    bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
+		pot   bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+		book  bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
+		plate int       // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
+		key   any       // what the prestige vortex lifts it off by (vortex.go); nil stays
+		z     float64   // its sort y, set once before the sort
 	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
@@ -257,13 +270,21 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	for i, p := range g.hotel.Plants {
 		actors = append(actors, actor{x: float64(p.At.X), y: float64(p.At.Y), name: p.Sprite, pot: true, key: &g.hotel.Plants[i]})
 	}
-	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
-		if b, ok := g.bedAt(a.x, a.y); ok {
-			return float64(b.Max.Y)
-		}
-		return a.y
+	if c := g.hotel.Map.Cell(g.hotel.Book.Min.Add(image.Pt(0, 2*world.TileSize))); g.intro == nil {
+		actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), book: true})
 	}
-	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(z(a), z(b)) })
+	for i, r := range g.hotel.Rooms {
+		if c := g.hotel.Map.Cell(r.Plate().Min).Sub(image.Pt(0, 1)); g.isOwned(i) && g.intro == nil {
+			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
+		}
+	}
+	for i, a := range actors { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+		actors[i].z = a.y
+		if b, ok := g.bedAt(a.x, a.y); ok {
+			actors[i].z = float64(b.Max.Y)
+		}
+	}
+	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.z, b.z) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
 	view := screen.Bounds().Inset(-2 * world.TileSize * zoom) // a prop this far off it can't reach it (a tall one, a band, a wall's Shadow)
@@ -319,11 +340,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, a := range actors {
-		if z(a) >= stockY {
+		if a.z >= stockY {
 			stock()
 		}
-		propsUpTo(z(a))
-		if z(a) > float64(lit.Max.Y) {
+		propsUpTo(a.z)
+		if a.z > float64(lit.Max.Y) {
 			glow()
 		}
 		fx, fy := at(a.x, a.y)
@@ -338,6 +359,14 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
+			continue
+		}
+		if a.book {
+			g.drawBookProp(screen, ox, oy)
+			continue
+		}
+		if a.plate > 0 {
+			g.drawPlate(screen, a.plate-1, ox, oy)
 			continue
 		}
 		if a.up {

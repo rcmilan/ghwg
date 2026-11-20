@@ -50,7 +50,7 @@ func tabItems(t Tab) []int {
 func (g *Game) gone(i int) bool {
 	it := shop[i]
 	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
-		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Hire && g.staffed() >= keeperCap(g.ownedCount()) || it.ID == rowRetain && g.fatherIn(false) ||
+		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Up > 0 && !g.upShows(Upgrade(it.Up-1)) || it.Hire && g.staffed() >= keeperCap(g.ownedCount()) || it.ID == rowRetain && g.fatherIn(false) ||
 		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() // every one uncovered (08 B1)
 }
 
@@ -183,7 +183,7 @@ const (
 	tabY, tabH         = barH + 8, 36               // the tabs
 	bodyY              = tabY + tabH + 10           // the list and the detail pane
 	footY              = screenH - 26               // the help line
-	listX, listW, rowH = 16, 352, 38                // the item list
+	listX, listW, rowH = 16, 440, 38                // the item list
 	listRows           = (footY - 8 - bodyY) / rowH // rows in sight; more scroll
 	paneX              = listX + listW + 20
 	paneW, paneH       = screenW - 16 - paneX, listRows*rowH - 4
@@ -330,7 +330,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)
-	g.tintedAt(s, clockText(g.clock), screenW-16-glyphW*len(clockText(g.clock)), footY, 1, storeInk, 1)
+	foot := runText(g.played) + "   " + clockText(g.clock)
+	g.tintedAt(s, foot, screenW-16-glyphW*len(foot), footY, 1, storeInk, 1)
 	if g.prestigeAsk {
 		g.drawPrestigeCard(s)
 	}
@@ -399,6 +400,9 @@ func drawScroll(s *ebiten.Image, top, n int) {
 
 // about: the detail pane's line: what unlocks a teaser (its Hint), else its Blurb (08 F0-T).
 func (g *Game) about(i int) string {
+	if shop[i].Up > 0 {
+		return upBlurb[shop[i].Up-1]
+	}
 	if !g.onSale(i) {
 		return shop[i].Hint
 	}
@@ -419,7 +423,11 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 		if !g.onSale(i) {
 			a, word = 0.35, "SOON"
 		}
-		g.drawLine(s, bodyY+(k-top)*rowH, k == pos, it, strings.ToUpper(it.Name), g.priceOf(i), word, a, !g.affords(i))
+		name := strings.ToUpper(it.Name)
+		if it.Up > 0 {
+			name, word = g.upLabel(Upgrade(it.Up - 1))
+		}
+		g.drawLine(s, bodyY+(k-top)*rowH, k == pos, it, name, g.priceOf(i), word, a, !g.affords(i))
 	}
 	drawScroll(s, top, len(l))
 
@@ -439,6 +447,8 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	status := ""
 	switch {
 	case !g.onSale(i):
+	case it.Up > 0:
+		status = g.upStatus(Upgrade(it.Up - 1))
 	case g.owned(i):
 		status = "IN THE CART"
 	case it.Tab == tabSupplies:

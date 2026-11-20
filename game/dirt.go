@@ -248,8 +248,9 @@ func (g *Game) complain(p *Party) {
 		p.greet = greetClean
 	case g.clock-p.complainAt >= patience*minuteFrames:
 		p.Walked, p.state = true, leaving
+		g.logStay(p, outFled)
 		g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
-		g.book(p.Room, bookGap)
+		g.book(p.Room, g.bookGapNow())
 	}
 }
 
@@ -368,10 +369,10 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 			draw(s, 1, 1)
 		}
 	}
-	kept := g.wiped[:0]
+	kept, fade := g.wiped[:0], float64(g.cleanFrames(wipeFrames)) // the kit quickens the fade too; a housekeeper's work is keeperClean (keeper.go)
 	for _, w := range g.wiped {
-		if d := g.now() - float64(w.tick); d < wipeFrames {
-			f := d / wipeFrames
+		if d := g.now() - float64(w.tick); d < fade {
+			f := d / fade
 			draw(w.spot, 1-f, 1+f)
 			kept = append(kept, w)
 		}

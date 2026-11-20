@@ -40,9 +40,9 @@ func ghostOf(g *Game, room, phantasm int) *Party {
 	return q
 }
 
-// standIn puts the Concierge just inside the Room's door.
+// standIn puts the Concierge on the Room's plate, beside its door, where TALK is (T381 refine 2).
 func standIn(g *Game, room int) {
-	at := g.hotel.Map.Center(g.hotel.Rooms[room].Door.X, g.hotel.Rooms[room].Door.Y-1)
+	at := center(g.hotel.Rooms[room].Plate())
 	g.player.X, g.player.Y = float64(at.X), float64(at.Y)
 }
 
@@ -190,7 +190,7 @@ func TestTalkDepth(t *testing.T) {
 		ghostOf(g, 0, c.phantasm)
 		standIn(g, 0)
 		g.scale = 0.5
-		g.startTalk(g.talker())
+		g.startTalk(g.humanIn(0))
 		if g.parley == nil {
 			t.Fatalf("Nerve %d, Phantasm %d: no talk", c.nerve, c.phantasm)
 		}
@@ -233,14 +233,14 @@ func TestOffersShown(t *testing.T) {
 		}
 	}
 	g.wallet[Money] = 0
-	keys(g, s, ebiten.KeySpace, ebiten.KeyS, ebiten.KeyW, ebiten.KeyS)
+	keys(g, s, ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace, ebiten.KeyS, ebiten.KeyW, ebiten.KeyS)
 	if g.state != StateTalk || g.parley.pick != plainAsk {
 		t.Fatalf("broke, W/S: state %d, pick %d; want the talk on the plain ask, the only one", g.state, g.parley.pick)
 	}
 }
 
-// T322: TALK. In a Room with its human Party in, and some Room it fits, TALK shows on the HUD's right; SPACE
-// starts the talk: the world slows by talkSlow (the worst pair here: Nerve 2 against Phantasm 9), the camera
+// T322: TALK. In a Room with its human Party in, TALK shows on the HUD's right; SPACE opens the card, whose MOVE
+// (some Room it fits) starts the talk: the world slows by talkSlow (the worst pair here: Nerve 2 against Phantasm 9), the camera
 // closes in on the two on real frames, and leaving gives the world the scale it had.
 func TestTalkCue(t *testing.T) {
 	g, s := matchRun(t, 2)
@@ -256,13 +256,13 @@ func TestTalkCue(t *testing.T) {
 	if g.talkCue.in != 1 {
 		t.Fatalf("the cue slid in %.2f, want 1", g.talkCue.in)
 	}
-	g.ghost = true
-	if g.talker() != nil {
-		t.Error("TALK in the ghost Dimension: the Concierge can't talk to humans from there")
+	g.ghost = true // T381 refine 2: TALK in ghost is the ghost's card, never a human's talk
+	if q := g.talker(); q == nil || q.Realm != Ghost || g.canMove(q) {
+		t.Error("in the ghost Dimension: want TALK to the Room's ghost and no MOVE")
 	}
 	g.ghost = false
 	g.scale = 0.5 // whatever it was, the talk gives it back
-	keys(g, s, ebiten.KeySpace)
+	keys(g, s, ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace)
 	if g.state != StateTalk || g.parley.p != p || !slices.Equal(g.parley.targets, []int{1}) {
 		t.Fatalf("SPACE: state %d, want the talk with Room 101's Party about Room 102", g.state)
 	}
@@ -273,7 +273,7 @@ func TestTalkCue(t *testing.T) {
 		s.hold()
 		g.Update()
 	}
-	if want := int(frames * slow); g.clock != clock+want || g.scale != slow {
+	if want := int(frames * slow); g.clock-clock-want > 1 || g.clock < clock+want || g.scale != slow { // +1: the card's slowed frames leave a fraction
 		t.Errorf("%d frames of talk ran the Clock %d at scale %v, want %d at %v", frames, g.clock-clock, g.scale, want, slow)
 	}
 	if p.Guests[0].X != x {
@@ -288,12 +288,12 @@ func TestTalkCue(t *testing.T) {
 	}
 	g.scale = 1
 	ghostOf(g, 1, 5) // now no Room fits a Nerve of 2
-	if g.talker() != nil {
-		t.Fatal("TALK with no Room to offer")
+	if g.canMove(p) {
+		t.Fatal("MOVE with no Room to offer")
 	}
 	keys(g, s, ebiten.KeySpace)
-	if g.state != StateView {
-		t.Errorf("SPACE with nothing to talk about: state %d, want the hotel view", g.state)
+	if g.state != StateTalk || g.parley.card == nil || slices.Contains(g.cardOpts(p, p.Guests[0]), optMove) {
+		t.Errorf("SPACE with no Room to offer: state %d, want the card without MOVE (T381 refine 2)", g.state)
 	}
 }
 
@@ -329,7 +329,7 @@ func TestOffers(t *testing.T) {
 	}
 	standIn(g, 0)
 	g.wallet[Money] = 1000
-	keys(g, s, ebiten.KeySpace) // the talk
+	keys(g, s, ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace) // the talk
 	mood := g.mood[0]
 	keys(g, s, ebiten.KeySpace) // the plain ask, picked first, for Room 102
 	if g.state != StatePlay || g.mood[0] != mood-refuseMood || p.Room != 0 {
@@ -337,14 +337,14 @@ func TestOffers(t *testing.T) {
 	}
 	refusedAt := g.clock
 	g.clock = p.snubbed - 1 // live test 1: no TALK for that guest for about a game hour
-	if g.talker() != nil || p.snubbed-refusedAt < snubFrames-tps {
-		t.Fatalf("just refused: TALK %v, snubbed until %d; want none for %d frames", g.talker() != nil, p.snubbed, snubFrames)
+	if g.canMove(p) || p.snubbed-refusedAt < snubFrames-tps {
+		t.Fatalf("just refused: TALK %v, snubbed until %d; want none for %d frames", g.canMove(p), p.snubbed, snubFrames)
 	}
 	g.clock, g.mood[0] = p.snubbed, mood // the Mood back up: the refusal's low Mood shows stains, which SPACE cleans first
-	if g.talker() != p {
+	if !g.canMove(p) {
 		t.Fatal("TALK not back an hour after the refusal")
 	}
-	keys(g, s, ebiten.KeySpace) // the talk again
+	keys(g, s, ebiten.KeySpace, ebiten.KeyW, ebiten.KeySpace) // the talk again
 	for g.parley.targets[g.parley.to] != 2 {
 		keys(g, s, ebiten.KeyD)
 	}

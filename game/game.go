@@ -22,6 +22,7 @@ const (
 	StatePause // ESC with nothing open: Resume / Quit to title
 	StateGrow  // the hotel grows: the world waits for the cinematic (grow.go)
 	StateTalk  // the talk (talkmove.go, 07 X2): closed in on the Concierge and a guest
+	StateBook  // the notebook on the counter is open (notebook.go, 08 W4)
 )
 
 // Tunables. Speeds in world px per frame, times in frames (Ebitengine runs Update at 60 TPS).
@@ -62,12 +63,13 @@ type Game struct {
 	walkIns       int      // Walk-ins this Run
 	floaters      []floater
 	locked        map[Unlock]bool  // nil: everything unlocked (unlock.go)
-	pantryStock   []map[Unlock]int // per pantry, its Supplies (pantry.go)
 	taps          [][taskCount]Num // per Room and Task: taps done (tap.go)
 	fog           []float64        // per Room: its veil, 0 clear .. 1 fogged (fog.go)
 	rng           *rand.Rand
 	chat          *rand.Rand                     // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
 	linger        struct{ room, from, last int } // the Concierge's visit to an occupied Room: which, since when, and the last frame of it (party.go's intrude)
+	ident         *rand.Rand                     // identity rolls (cast.go), apart from rng so a guest's name never shifts the sim
+	up            [upgradeCount]int              // the leveled upgrades bought this Run (upgrade.go)
 	words         *rand.Rand                     // the lines themselves (2026-11-14, 4c): chat came to roll ghosts' bookings and pastimes too, so a text edit moved the sim
 	in            input                          // the keys (input.go)
 	headless      bool                           // no window: step skips what only drawing needs
@@ -167,6 +169,14 @@ type Game struct {
 	wideBuf       *ebiten.Image                  // g.wide's texture, kept across growths (props.go reuse)
 	darkBuf       *ebiten.Image                  // g.dark's
 	floorBuf      *ebiten.Image                  // g.floorImg's
+	revealedKeys  map[string]bool                // named guests whose card was revealed, kept across Runs and saved (card.go, 08 T375)
+	guestBook     []bookEntry                    // the notebook's entries, oldest first, at most bookMax (notebook.go, 08 W4)
+	bookTop       int                            // the open notebook's first entry shown, counted from the newest
+	visits        map[string]int                 // per named guest: visits so far, saved across Runs (notebook.go)
+	met           map[string]bool                // named guests that have booked this Run: Osvaldo follows Magda
+	leftAt        map[string]int                 // per named guest: the clock its last Party left, this Run
+	played        int                            // real frames this Run has been played, pauses and the title not counted (saved)
+	wideAge       int                            // frames since the hotel view last redrew g.wide (hotelview.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -198,7 +208,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ts: ts, in: &script{}, bonus: 1, headless: true, scale: 1, dt: 1, ticked: true}
+	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ident: rand.New(rand.NewPCG(seed, seed+3)), ts: ts, in: &script{}, bonus: 1, headless: true, scale: 1, dt: 1, ticked: true}
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
@@ -240,7 +250,7 @@ func (g *Game) startRun() {
 	g.ungrow()
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
-	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
+	g.clock, g.wallet, g.ghost, g.shifting, g.played = runStart, [2]Num{}, false, nil, 0
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.seen = nil
@@ -282,6 +292,9 @@ func (g *Game) startRun() {
 }
 
 func (g *Game) Update() error {
+	if g.reel == nil && g.intro == nil && g.state != StateTitle && g.state != StatePause {
+		g.played++
+	}
 	if g.auto != nil {
 		g.auto.drive(g)
 	}
@@ -334,6 +347,9 @@ func (g *Game) Update() error {
 		g.updateHUD()
 	case g.state == StatePause:
 		g.updatePause()
+	case g.state == StateBook:
+		g.updateBook()
+		g.updateHUD()
 	case g.state == StateTalk: // the world runs on in slow motion, stepped by updateParley (X2, D1)
 		g.updateParley()
 		g.updateHUD()

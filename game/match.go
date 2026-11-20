@@ -263,7 +263,7 @@ func (g *Game) DevMatch(step int) {
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)
 	if step >= 1 {
-		g.startTalk(g.talker())
+		g.startTalk(g.humanIn(0))
 	}
 	if step >= 2 && g.parley != nil {
 		g.parley.pick = onTheHouse

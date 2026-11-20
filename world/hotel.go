@@ -86,6 +86,7 @@ type Hotel struct {
 	Archway        image.Point      // center of the Lobby Archway, on the Hall Wall's bottom row
 	ConciergeStart image.Point      // behind the counter's computer
 	Terminal       image.Rectangle  // the computer and the cell on either side of it, both sides of the counter
+	Book           image.Rectangle  // the notebook on the counter (08 W4): its column, both sides of the counter, at its west end
 	Mirror         image.Point      // where the Concierge stands to shift dimensions: below the Lobby mirror (D142)
 	MirrorSpot     image.Rectangle  // where SPACE shifts: the cell in front of the mirror
 	Lights         []image.Point    // ceiling lights over the Corridors (D95)
@@ -326,6 +327,9 @@ func Build(ts *Tileset, types []RoomType, cols, rows int) (*Hotel, error) {
 	}
 	h.Lobby = image.Rect(l.hx*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)
 	h.Terminal = image.Rect(computer*TileSize, (l.counter-2)*TileSize, (computer+1)*TileSize, (l.counter+2)*TileSize).Add(slip) // only the computer's column, both sides of the counter: the cells touching it (08 F0)
+	// the book: the counter's west end, clear of the Mirror's spot
+	book := computer - 1
+	h.Book = image.Rect(book*TileSize, (l.counter-2)*TileSize, (book+1)*TileSize, (l.counter+2)*TileSize).Add(slip)
 	h.Mirror = m.Center(mirror, l.hall+2)
 	h.MirrorSpot = image.Rect(mirror*TileSize, (l.hall+2)*TileSize, (mirror+1)*TileSize, (l.hall+3)*TileSize).Add(slip) // the cell touching it (08 B1)
 	h.Kitchen = image.Rect((kx+1)*TileSize, l.hall*TileSize, (hxE+1)*TileSize, l.front*TileSize).Add(slip)

@@ -15,12 +15,13 @@ const (
 	tabSupplies Tab = iota // restock: into the hotel's stock
 	tabHotel               // hotel-wide unlocks
 	tabStaff               // the people to hire (keeper.go)
+	tabUpgrades            // the leveled upgrades (upgrade_rows.go)
 	tabCart
 	tabs
 	tabRooms // not a tab of the store: all that is bought for one Room, in the hotel view, paid at once (hotelview.go)
 )
 
-var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "STAFF", "CART"}
+var tabNames = [tabs]string{"SUPPLIES", "HOTEL", "STAFF", "UPGRADES", "CART"}
 
 // Item is one product of the store.
 type Item struct {
@@ -44,6 +45,7 @@ type Item struct {
 	Hire   bool // staff: one more walks in each time it is bought (keeper.go)
 	Shoes  int  // running shoes: the tier (1..3), bought in order; the row of the next one shows (keeper.go)
 	Grow   int  // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
+	Up     int  // a leveled upgrade (upgrade_rows.go): its Upgrade + 1. One level an order, delivered to the stock
 }
 
 // room: the item is for one Room: an action of the hotel view.
@@ -51,7 +53,7 @@ func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
 func (it Item) unlock() bool {
-	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
 }
 
 // The Services aren't unlocks; their IDs only name them.
@@ -87,7 +89,7 @@ var shop = []Item{
 		Cost: Cost{Ecto: growEcto}, Price: growCost, Needs: []Unlock{Mirror}},
 	{ID: CorridorMirror, Tab: tabHotel, Name: "Corridor mirror", Blurb: "A courier uncovers a Corridor's Mirror. Shift from there.", Hint: "Grow a floor to unlock.", Icon: "icon_mirror", Cost: Cost{Money: uncoverMoney, Ecto: uncoverEcto}, Price: uncoverCost,
 		Needs: []Unlock{Mirror}},
-	{ID: Pantry, Tab: tabHotel, Name: "Pantry", Blurb: "A shelf on each new Corridor. Staff stock it.", Hint: levelHint(Pantry), Icon: "shelf_b", Cost: Cost{Money: pantryMoney, Ecto: pantryEcto}},
+	{ID: Pantry, Tab: tabHotel, Name: "Pantry", Blurb: "A shelf on each new Corridor, stocked from the kitchen.", Hint: levelHint(Pantry), Icon: "shelf_b", Cost: Cost{Money: pantryMoney, Ecto: pantryEcto}},
 	{ID: Matchmaking, Tab: tabHotel, Name: "Matchmaking", Blurb: "Housekeepers talk guests into rooms they suit.", Hint: "Own the Mirror and hire a housekeeper to unlock.", Icon: keeperName, Head: true,
 		Cost: Cost{Ecto: matchEcto}, Needs: []Unlock{Mirror}}, // and a housekeeper hired (onSale)
 
@@ -140,6 +142,9 @@ func (l cartLine) cost() Cost {
 // Buying never opens another item by itself (2026-11-08).
 func (g *Game) onSale(i int) bool {
 	it := shop[i]
+	if it.Up > 0 { // on sale once it applies (upShows)
+		return g.upShows(Upgrade(it.Up - 1))
+	}
 	if it.ID == rowFatherP {
 		return g.prestigeReady()
 	}
@@ -169,6 +174,9 @@ func (g *Game) onSale(i int) bool {
 // owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
+	if it.Up > 0 { // at its top level, or a level in the cart: nothing more to add
+		return g.upMaxed(Upgrade(it.Up-1)) || g.inCart(i) > 0
+	}
 	if it.Shoes != 0 {
 		return slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i })
 	}
@@ -185,6 +193,10 @@ func (g *Game) addToCart(i, room int) string {
 		return "FATHER P ASKS FIRST"
 	case it.unlock() && g.unlocked(it.ID):
 		return "ALREADY OWNED"
+	case it.Up > 0 && g.upMaxed(Upgrade(it.Up-1)):
+		return "MAX LEVEL"
+	case it.Up > 0 && g.coming(it.ID, -1): // its price is the next level's: one level at a time
+		return "ON ITS WAY"
 	case g.owned(i), it.ID == CorridorMirror && g.inCart(i) > 0: // the next one's price fixes it: one at a time
 		return "ALREADY IN THE CART"
 	case it.ID == rowRetain && g.fatherIn(false):
@@ -346,6 +358,8 @@ func (g *Game) receive(l cartLine) {
 		g.hotel.Corridors[l.room].Open = true
 	case it.ID == Pantry:
 		g.boughtPantry()
+	case it.Up > 0:
+		g.levelUp(Upgrade(it.Up - 1))
 	default:
 		g.own(it.ID)
 	}

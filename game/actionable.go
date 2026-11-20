@@ -14,11 +14,12 @@ type spaceAct int
 const (
 	actNone spaceAct = iota
 	actTerminal
+	actBook
 	actMirror
 	actRoomMirror
 	actSupply
 	actDeliver
-	actTalk
+	actCard
 	actClean
 	actView
 )
@@ -34,6 +35,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	if g.atTerminal() { // the computer: its screen over the counter
 		t := g.hotel.Terminal
 		return actTerminal, image.Rect(t.Min.X, t.Min.Y+ts, t.Max.X, t.Max.Y-ts)
+	}
+	if g.atBook() { // the guest book on the counter
+		return actBook, g.bookRect()
 	}
 	if k := g.atCorridorMirror(); k >= 0 { // a Corridor Mirror shifts like the Lobby's once the courier uncovers it
 		if m := g.hotel.Corridors[k]; m.Open {
@@ -68,12 +72,12 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
 			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
 		}
-		if feet.In(r.Plate()) { // the guest card's, G2
+		if g.cardParty(i) != nil && feet.In(r.Plate()) { // the guest card, from the plate by the door, in either dimension (T375)
+			return actCard, r.Plate().Sub(image.Pt(0, ts))
+		}
+		if feet.In(r.Plate()) {
 			return actNone, image.Rectangle{}
 		}
-	}
-	if g.talker() != nil { // after a stain to clean (talker leaves it to SPACE), before the hotel view (X2)
-		return actTalk, image.Rectangle{}
 	}
 	if room, cell := g.cleanable(); room >= 0 {
 		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
@@ -96,18 +100,20 @@ func (g *Game) space() {
 	switch act, _ := g.actionable(); act {
 	case actTerminal:
 		g.openTerminal()
+	case actBook:
+		g.openBook()
 	case actMirror, actRoomMirror:
 		g.startShift()
 	case actSupply:
 		if p := g.atPantry(); p >= 0 {
-			g.fetchPantry(p, g.pantryPick(p))
+			g.fetch(g.pantryPick(p))
 		} else {
 			g.fetch(g.atSupply())
 		}
 	case actDeliver:
 		g.deliver(g.atMat(), g.hands)
-	case actTalk:
-		g.startTalk(g.talker())
+	case actCard:
+		g.startCard(g.atMat())
 	case actClean:
 		g.clean(g.cleanable())
 	case actView:

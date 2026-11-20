@@ -24,26 +24,46 @@ type saveData struct {
 	Level int       `json:"level"`
 	Bonus float64   `json:"bonus"`
 	Run   *runState `json:"run,omitempty"`
+	// Revealed: the named guests whose card was revealed (card.go); they recur across Runs.
+	Revealed []string `json:"revealed,omitempty"`
+	// Visits per named guest, across Runs (notebook.go): a prestige keeps them like the level.
+	Visits map[string]int `json:"visits,omitempty"`
 }
+
+// upLevels: the saved levels as g.up. A save from before Bigger shelves went has 8, that upgrade the 7th: drop its slot.
+// An older PantryStock in a save is ignored: the Pantry has no stock of its own.
+func upLevels(s []int) (up [upgradeCount]int) {
+	if len(s) > len(up) {
+		s = slices.Delete(slices.Clone(s), 6, 7)
+	}
+	copy(up[:], s)
+	return
+}
+
+// retired: the Veggie and Gourmet meals of an older save, gone with the one Food; restore drops them.
+func retired(id Unlock) bool { return id == "supply-veggie" || id == "supply-gourmet" }
 
 // runState: the dawn checkpoint.
 type runState struct {
-	Cols, Rows  int         // the hotel's Room grid
-	Seed        uint64      // the Run's rngs from here on, drawn at the checkpoint
-	Day         int         // the checkpoint is its 08:00
-	Rooms       []roomState // map order
-	Corridors   []corridorState
-	Keepers     []payroll         // housekeepers on the payroll
-	FatherK     *payroll          // the retained Father K, nil if none
-	Wallet      [2]Num            // Money, Ecto
-	Earned      [2]Num            // lifetime this Run: opens store items
-	RunEcto     Num               // Ectoplasm earned this Run, before the bonus
-	Locked      []Unlock          // the unlocks still locked; nil: a fresh Run's
-	Bought      map[Unlock][2]Num // unlocks bought, with Earned when each arrived
-	Seen        []Unlock          // store items already seen: the Terminal's "!" skips them
-	Stock       map[Unlock]int
-	PantryStock []map[Unlock]int // each pantry's, in Pantries order; an older save has none: empty shelves
-	Orders      []orderLine      // paid for and still on a courier: they arrive at the checkpoint
+	Cols, Rows int         // the hotel's Room grid
+	Seed       uint64      // the Run's rngs from here on, drawn at the checkpoint
+	Day        int         // the checkpoint is its 08:00
+	Rooms      []roomState // map order
+	Corridors  []corridorState
+	Keepers    []payroll         // housekeepers on the payroll
+	FatherK    *payroll          // the retained Father K, nil if none
+	Wallet     [2]Num            // Money, Ecto
+	Earned     [2]Num            // lifetime this Run: opens store items
+	RunEcto    Num               // Ectoplasm earned this Run, before the bonus
+	Locked     []Unlock          // the unlocks still locked; nil: a fresh Run's
+	Bought     map[Unlock][2]Num // unlocks bought, with Earned when each arrived
+	Seen       []Unlock          // store items already seen: the Terminal's "!" skips them
+	Stock      map[Unlock]int
+	Orders     []orderLine // paid for and still on a courier: they arrive at the checkpoint
+	Up         []int       // the leveled upgrades (upgrade.go); an older save has none: all 0, or 8 (upLevels)
+	Book       []bookEntry // the notebook (notebook.go)
+	Met        []string    // the named guests that have booked this Run, sorted
+	Played     int         `json:",omitempty"` // real frames played to the checkpoint (the run timer)
 }
 
 type roomState struct {
@@ -90,12 +110,14 @@ var (
 func (g *Game) Persist() { g.persist = true }
 
 // saveGame writes the save right after a prestige (level and bonus updated, the Run over): no Run in it.
-func (g *Game) saveGame() { g.write(&saveData{Level: g.level, Bonus: g.bonus}) }
+func (g *Game) saveGame() {
+	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList(), Visits: g.visits})
+}
 
 // saveDawn writes the dawn checkpoint.
 func (g *Game) saveDawn() {
 	if g.persist {
-		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint()})
+		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList(), Visits: g.visits})
 	}
 }
 
@@ -149,7 +171,7 @@ func decodeSave(b []byte) (s *saveData, err error) {
 func (g *Game) checkpoint() *runState {
 	cols, rows := g.hotel.Grid()
 	r := &runState{Cols: cols, Rows: rows, Seed: g.rng.Uint64(), Day: day(g.clock), Wallet: g.wallet, Earned: g.earned, RunEcto: g.runEcto,
-		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}}
+		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up[:], Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met)), Played: g.played}
 	for _, id := range slices.Sorted(maps.Keys(g.locked)) {
 		if g.locked[id] {
 			r.Locked = append(r.Locked, id)
@@ -181,7 +203,6 @@ func (g *Game) checkpoint() *runState {
 		}
 		r.Rooms = append(r.Rooms, rs)
 	}
-	r.PantryStock = g.pantryStock
 	for _, m := range g.hotel.Corridors {
 		r.Corridors = append(r.Corridors, corridorState{m.Floor, m.Col, m.West, m.Open})
 	}
@@ -209,6 +230,13 @@ func (g *Game) checkpoint() *runState {
 // again, with a notice, and the title goes on as without a save.
 func (g *Game) resume(s *saveData) bool {
 	g.level, g.bonus = s.Level, max(1, s.Bonus)
+	for _, k := range s.Revealed {
+		if g.revealedKeys == nil {
+			g.revealedKeys = map[string]bool{}
+		}
+		g.revealedKeys[k] = true
+	}
+	g.visits = s.Visits
 	if s.Run != nil {
 		if err := g.restore(s.Run); err != nil {
 			g.startRun()
@@ -239,6 +267,15 @@ func (g *Game) restore(r *runState) error {
 	}
 	n := len(r.Rooms)
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(r.Seed, r.Seed)), rand.New(rand.NewPCG(r.Seed, r.Seed+1)), rand.New(rand.NewPCG(r.Seed, r.Seed+2))
+	g.seedIdent(r.Seed)
+	g.guestBook, g.met, g.leftAt, g.played = slices.Clone(r.Book), nil, nil, r.Played
+	for _, k := range r.Met {
+		if g.met == nil {
+			g.met = map[string]bool{}
+		}
+		g.met[k] = true
+	}
+	g.up = upLevels(r.Up)
 	var ms []world.CorridorMirror
 	for _, m := range r.Corridors {
 		ms = append(ms, world.CorridorMirror{Floor: m.Floor, Col: m.Col, West: m.West, Open: m.Open})
@@ -249,19 +286,21 @@ func (g *Game) restore(r *runState) error {
 	if r.Locked != nil {
 		g.locked = map[Unlock]bool{}
 		for _, id := range r.Locked {
-			g.locked[id] = true
+			g.locked[id] = !retired(id)
 		}
 	}
-	g.pantryStock = nil // the growths above ran before the locks: stand the shelves now, then fill them from the save
-	g.openPantries()
-	for i, st := range r.PantryStock {
-		for id, n := range st {
-			if i < len(g.pantryStock) {
-				g.pantryStock[i][id] = max(0, min(pantryStockMax, n))
-			}
-		}
-	}
+	g.openPantries() // the growths above ran before the locks: stand the shelves now
 	g.boughtAt, g.stock = r.Bought, r.Stock
+	for id := range g.boughtAt {
+		if retired(id) {
+			delete(g.boughtAt, id)
+		}
+	}
+	for id := range g.stock {
+		if retired(id) {
+			delete(g.stock, id)
+		}
+	}
 	if g.stock == nil {
 		g.stock = map[Unlock]int{}
 	}
@@ -269,7 +308,7 @@ func (g *Game) restore(r *runState) error {
 	if len(r.Seen) > 0 {
 		g.seen = map[Unlock]bool{}
 		for _, id := range r.Seen {
-			g.seen[id] = true
+			g.seen[id] = !retired(id)
 		}
 	}
 	g.roomOwned, g.mood, g.dirt, g.dirtN, g.taps = make([]bool, n), make([]int, n), make([][]spot, n), make([]int, n), make([][taskCount]Num, n)
@@ -297,7 +336,7 @@ func (g *Game) restore(r *runState) error {
 		g.priests[0].due = g.clock + r.FatherK.DueIn
 	}
 	for _, o := range r.Orders {
-		if i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == o.Item }); i >= 0 && o.Room >= 0 && o.Room < n {
+		if i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == o.Item }); i >= 0 && o.Room < n { // -1: to the stock (Supplies, unlocks, upgrade levels)
 			g.receive(cartLine{item: i, room: o.Room, n: o.N, beds: o.Beds})
 		}
 	}

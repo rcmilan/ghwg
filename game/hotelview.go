@@ -237,6 +237,12 @@ func (g *Game) viewAt() (k, tx, ty float64) {
 	kv := zoom*fit + (ringZoom-zoom*fit)*in
 	px := float64(mw)/2 + (float64(c.Min.X+c.Max.X)/2-float64(mw)/2)*in
 	py := float64(mh)/2 + (float64(c.Min.Y+c.Max.Y)/2-float64(mh)/2)*in
+	// Part way in, a Room at the hotel's edge would sit half off the screen: the camera slides just enough to keep
+	// it and its label in full (T381 refine 8), eased in with the pick so leaving it doesn't jump.
+	hx, hy, lab := (screenW/2-viewPad)/kv, (screenH/2-viewPad)/kv, float64(glyphH+2)/kv
+	cx := min(max(px, float64(c.Max.X)-hx), float64(c.Min.X)+hx)
+	cy := min(max(py, float64(c.Max.Y)-hy), float64(c.Min.Y)-lab+hy)
+	px, py = px+(cx-px)*min(1, 2*in), py+(cy-py)*min(1, 2*in)
 	t := g.viewT * g.viewT * (3 - 2*g.viewT)
 	k = zoom + (kv-zoom)*t
 	return k, -float64(ox)*(1-t) + (screenW/2-px*kv)*t, -float64(oy)*(1-t) + (screenH/2-py*kv)*t
@@ -244,10 +250,19 @@ func (g *Game) viewAt() (k, tx, ty float64) {
 
 // drawView draws the world pulled back by g.viewT and, once the view is open, the Rooms' labels and the picked
 // Room's ring.
+// viewRedraw: how often, in frames, the pulled-back hotel view redraws the hotel.
+const viewRedraw = 10
+
 func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	mw, mh := g.mapSize()
-	g.wide = reuse(&g.wideBuf, g.wide, image.Pt(mw*zoom, mh*zoom))
-	if gr := g.growing; gr == nil || gr.drawn != dimName(g.ghost) || g.viewT < 1 { // pulled back, a growth's slide only moves the hotel, which waits: drawn once (08 W3 browser profile); the warm-up draws the other dimension
+	if w := reuse(&g.wideBuf, g.wide, image.Pt(mw*zoom, mh*zoom)); w != g.wide {
+		g.wide, g.wideAge = w, 0
+	}
+	// Pulled back in the hotel view the world waits, so the whole-map picture is redrawn only every viewRedraw
+	// frames: on a 5x5 hotel it is the view's cost (T381 refine 7). Anything bought shows within that.
+	stale := g.state != StateView || g.viewT < 1 || g.wideAge%viewRedraw == 0
+	g.wideAge++
+	if gr := g.growing; gr == nil && stale || gr != nil && (gr.drawn != dimName(g.ghost) || g.viewT < 1) { // pulled back, a growth's slide only moves the hotel, which waits: drawn once (08 W3 browser profile); the warm-up draws the other dimension
 		g.wide.Fill(bg)
 		fog := g.fog // the view sees into every Room: the veils lift as it pulls back
 		g.fog = make([]float64, len(fog))

@@ -372,7 +372,7 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i)):
+		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i) && shop[i].Up == 0): // an upgrade goes by View.Ups
 			k = ebiten.KeyEscape
 		case !added && t.Tab != tab, added && t.Tab != tabCart:
 			k = ebiten.KeyD
@@ -426,8 +426,8 @@ func (p *Pilot) Close() {
 // gives up, with ESC, on a talk that won't open or an offer the wallet can't pay (07 X2).
 func (p *Pilot) Talk(room, offer int) {
 	p.Flip(false)
-	d := p.hotel.Rooms[room].Door
-	p.GoTo(p.hotel.Map.Center(d.X, d.Y-1))
+	pl := p.hotel.Rooms[room].Plate() // TALK, beside the door (T381 refine 2)
+	p.GoTo(pl.Min.Add(pl.Max).Div(2))
 	taps, made := 0, false
 	p.do(func(p *Pilot, v View) (bool, bool) {
 		t := v.Talk
@@ -435,6 +435,18 @@ func (p *Pilot) Talk(room, offer int) {
 		case v.Terminal.View || v.Terminal.Open: // SPACE found no talk: out
 			p.tap(ebiten.KeyEscape)
 			return true, false
+		case t.Card: // TALK opened the card (T381 refine 2): MOVE on it starts the talk
+			switch {
+			case t.Move < 0:
+				if p.tap(ebiten.KeyEscape) {
+					taps = 3
+				}
+			case t.Pick != t.Move:
+				p.tap(ebiten.KeyS)
+			default:
+				p.tap(ebiten.KeySpace)
+			}
+			return false, false
 		case !t.Open:
 			if made || taps >= 3 {
 				return true, made

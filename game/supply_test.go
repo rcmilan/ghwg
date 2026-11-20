@@ -29,7 +29,7 @@ func TestAskWants(t *testing.T) {
 		seen[p.want] = true
 	}
 	if len(seen) != len(supplies) {
-		t.Fatalf("asked for %d kinds of supply, want all %d", len(seen), len(supplies))
+		t.Fatalf("asked for %d kinds of supply, want %d", len(seen), len(supplies))
 	}
 }
 

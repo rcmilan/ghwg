@@ -122,6 +122,10 @@ type Result struct {
 	Gain       float64 // what a prestige then would add to the bonus
 	LongWait   float64 // real seconds: the longest the Strategy stood with nothing to do, anywhere in the Run
 	Failures   []Failure
+	// Upgrades (T374).
+	WalletByDay []int // the Money in the wallet at the end of each 24 h: the unspent
+	UpLevels    int   // upgrade levels bought
+	UpSpend     int   // and the $ they cost
 }
 
 // sim is a Run in progress: the Game, its autopilot, and what it has seen so far.
@@ -172,7 +176,7 @@ func newSim(cfg Config) (*sim, error) {
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, due: map[*priest]int{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
-		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
+		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), WalletByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
 	g.level, g.bonus = cfg.Level, max(1, cfg.Bonus)
 	g.mirrorAtStart, g.openAtStart, g.bedsAtStart = cfg.Mirror, cfg.Open, cfg.Beds
 	_, s.res.Cheat = cfg.Strategy.(interface{ Cheat(*Game) })
@@ -283,7 +287,7 @@ func (s *sim) frame() bool {
 	}
 	s.res.PriestSpend += spent
 	spent += int(g.staffPaid - staffPaid + g.offered - offered) // a housekeeper's fee or wage, an offer to move (X2)
-	for _, c := range g.couriers {                              // the rest of a checkout: what the courier carries (D200)
+	for _, c := range g.couriers {                              // the rest of a checkout: what the courier carries (D200), upgrade levels too
 		if !s.shipped[c] {
 			s.shipped[c], spent = true, spent+int(c.paid()[Money])
 		}
@@ -350,10 +354,11 @@ func (s *sim) frame() bool {
 	if d := (g.clock - runStart) / dayFrames; d < len(s.res.MoneyByDay) {
 		s.byDay[d] += g.wallet[Money] - money // rent comes in by the frame, in cents: summed before it is rounded
 		s.res.MoneyByDay[d] = int(s.byDay[d])
+		s.res.WalletByDay[d] = int(g.wallet[Money])
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Ecto] > ecto && !cleaned && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
 			s.fail("Ecto rose %s with no ghost clean nor a shadowed Room holding its Party", fmtNum(g.wallet[Ecto]-ecto))
 		}
 	}
@@ -419,6 +424,7 @@ func (s *sim) finish() Result {
 	s.res.Ecto, s.res.ClosedHours, s.res.Serves, s.res.Expired = int(s.g.wallet[Ecto]), s.closed/hourFrames, s.g.serves, s.g.expired
 	s.res.Rooms, s.res.EctoEarned, s.res.Offered = len(s.g.hotel.Rooms), int(s.g.earned[Ecto]), int(s.g.offered)
 	s.res.Hired, s.res.Quit, s.res.StaffSpend = s.g.hired, s.g.quits, int(s.g.staffPaid)
+	s.res.UpLevels, s.res.UpSpend = upTotals(s.g)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
 			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {

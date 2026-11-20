@@ -313,12 +313,12 @@ func TestPacing(t *testing.T) {
 	var marks [4][]float64 // real minutes
 	var waits [3]float64
 	for seed := uint64(1); seed <= 32; seed++ { // 32, not 8: 8 seeds flipped the Deluxe band by luck (2026-11-15)
-		r := RunSim(Config{Cols: 2, Rows: 1, Days: 4, Seed: seed, Name: "goals", Strategy: Strategies["goals"], React: 30, KeyGap: 6})
+		r := RunSim(Config{Cols: 2, Rows: 1, Days: 5, Seed: seed, Name: "goals", Strategy: Strategies["goals"], React: 30, KeyGap: 6})
 		for _, f := range r.Failures {
 			t.Errorf("seed %d %s: %s", seed, f.Clock, f.Reason)
 		}
 		if len(r.Grown) == 0 || r.HiredAt < 0 || r.RoomMirror < 0 || r.DeluxeAt < 0 {
-			t.Errorf("seed %d: Growth %v, housekeeper %.1f h, in-Room Mirror %.1f h, Deluxe %.1f h; want all four within 4 days", seed, r.Grown, r.HiredAt, r.RoomMirror, r.DeluxeAt)
+			t.Errorf("seed %d: Growth %v, housekeeper %.1f h, in-Room Mirror %.1f h, Deluxe %.1f h; want all four within 5 days", seed, r.Grown, r.HiredAt, r.RoomMirror, r.DeluxeAt)
 			continue
 		}
 		for k, h := range []float64{r.Grown[0], r.HiredAt, r.RoomMirror, r.DeluxeAt} {

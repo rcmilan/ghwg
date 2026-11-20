@@ -98,8 +98,8 @@ func (g *Game) dashGap(room int, sh *shade) int {
 	gap := 0
 	if _, in := g.insideIn(room, Ghost); sh.area {
 		for _, ghost := range in {
-			if ghost.Haunt > 0 && (gap == 0 || ghost.Haunt < gap) {
-				gap = ghost.Haunt
+			if h := g.hauntGap(ghost); h > 0 && (gap == 0 || h < gap) {
+				gap = h
 			}
 		}
 	}
@@ -366,9 +366,10 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
 	guest.Fear += n
-	g.earn(Ecto, Num(n), noFloat) // the haunt floats its own batched "+N"
-	g.ghostDirt(p.Room, dirtMood(n))
-	p.ectoShown += n
+	m := g.upMul(SeanceTable) * g.sightingQuirkMul(p, guest)      // Seance table; Medium, Skeptic, Show-off, Gentle
+	g.earn(Ecto, Num(n)*Num(m), noFloat)                          // the haunt floats its own batched "+N"
+	g.ghostDirt(p.Room, scaleInt(dirtMood(n), g.dirtQuirkMul(p))) // a Neat freak feels the dirt twice
+	p.ectoShown += scaleInt(n, m)
 }
 
 // startle: how high a Guest is in its hop on seeing a Shadow, world px.

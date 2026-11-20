@@ -147,7 +147,7 @@ func (g *Game) priestOn(room int) bool {
 // fatherIn: that Father (K, or M if strong) is anywhere in the hotel, walking in, working or leaving. One of each at
 // a time (08 F0): noFather refuses the call with it, F0-R hides the call in the ring with it.
 func (g *Game) fatherIn(strong bool) bool {
-	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong })
+	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong }) || g.fatherGuest(strong)
 }
 
 // noFather: why that Father can't be called to the Room, "" if he can: one Priest a Room, and each Father is one
@@ -202,6 +202,7 @@ func (g *Game) workSpot(room int) image.Point {
 }
 
 func (g *Game) updatePriests() {
+	g.updatePriestGuests()
 	kept := g.priests[:0]
 	for _, pr := range g.priests {
 		if !g.updatePriest(pr) {
@@ -304,6 +305,9 @@ func (g *Game) ritualEffect(pr *priest) {
 		g.hushed[room] = true // until its ghost is gone: sendOver has it passing on, but its Shadow would come back meanwhile
 		g.sendOver(room)
 	}
+	if e := g.ritualEcto(pr); e > 0 { // Offering box (T374)
+		g.earn(Ecto, e, image.Pt(int(pr.X), int(pr.Y)))
+	}
 }
 
 // nextRound: the retained Father K, done in a Room, goes to the one with the most spiritual dirt, else paces.
@@ -328,13 +332,16 @@ func (g *Game) halveDirt(room int) { g.raiseMood(room, moodOf(g.dirtLevel(room)/
 
 // dreadAt is the dread shift of world cell c (D162): its Room's dread, 0 outside the
 // Rooms. In ghost a Closed Room pulses between 0.6 and 1.
-func (g *Game) dreadAt(c image.Point) float32 {
+func (g *Game) dreadAt(c image.Point) float32 { return g.roomShift(g.roomOfCell(c)) }
+
+// roomOfCell: the Room whose RoomW x RoomH box holds world cell c, -1 if none.
+func (g *Game) roomOfCell(c image.Point) int {
 	for i, r := range g.hotel.Rooms {
 		if c.In(image.Rectangle{r.Origin, r.Origin.Add(image.Pt(world.RoomW, world.RoomH))}) {
-			return g.roomShift(i)
+			return i
 		}
 	}
-	return 0
+	return -1
 }
 
 func (g *Game) roomShift(room int) float32 {

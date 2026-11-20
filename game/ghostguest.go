@@ -82,6 +82,9 @@ func (g *Game) arriveGhost(room int) *Party {
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
+	if g.grown() { // as rollNamedHuman (party.go)
+		g.rollNamedGhost(p)
+	}
 	if through { // it never meets the first on the way (they are mates to the bumping), nor the Street
 		for _, q := range g.parties {
 			if q.Occupies(room, Ghost) {
@@ -150,6 +153,7 @@ func (g *Game) mirrorSlot(room int) *arrival {
 func (g *Game) newGhost() *entities.Guest {
 	guest := entities.NewGuest(g.hotel.Spawn, shadowCast[g.chat.IntN(len(shadowCast))])
 	guest.Phantasm, guest.Haunt = 1+g.chat.IntN(phantasmMax), ghostHaunt
+	g.rollGhost(&guest)
 	return &guest
 }
 
@@ -181,11 +185,11 @@ func (g *Game) maybeGhostIn() {
 		if !g.hasMirror(i) {
 			*second = arrival{}
 		} else if n := g.ghostsIn(i); g.isOwned(i) && n+b2i(g.ghostArrivals[i].at > 0)+b2i(second.at > 0) == 1 {
-			g.bookGhost(i, bookGap) // its second slot is free and unbooked
+			g.bookGhost(i, g.bookGapNow()) // its second slot is free and unbooked
 		}
 		for _, a := range []*arrival{&g.ghostArrivals[i], second} {
 			if a.at > 0 && g.clock >= a.at && g.isOwned(i) && g.ghostsIn(i) < g.ghostSlots(i) && (booked < g.demand() || !g.vacant(i, Ghost)) &&
-				!g.closed(i) && !g.changing(i) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
+				!g.closed(i) && !g.changing(i) && !g.stays(i) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
 				if g.vacant(i, Ghost) {
 					booked++
 				}
@@ -253,18 +257,19 @@ func (g *Game) updateGhost(p *Party) bool {
 		if lead := p.Guests[0]; lead.PassAt > 0 { // passing on: it rises and is gone, and the Room books the next
 			if g.clock-lead.PassAt >= passFrames {
 				p.Paid = true
-				g.bookGhost(p.Room, bookGap)
+				g.logStay(p, b2o(p.banished, outBanished, outPassed))
+				g.bookGhost(p.Room, g.bookGapNow())
 				return false
 			}
 			break
 		}
-		if g.unlocked(Mirror) && !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return !spent(guest) }) {
+		if g.unlocked(Mirror) && g.mayPass(p) && !slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return !spent(guest) }) {
 			for _, guest := range p.Guests { // a pair passes on together, once its stronger one is spent
 				guest.PassAt, guest.Path = g.clock, nil
 			}
 			break
 		}
-		if g.clock >= p.Checkout {
+		if g.clock >= p.Checkout && g.mayPass(p) { // a Homebody stays until sent over
 			p.state = checkingOut
 			g.sendParty(p, exit...)
 			break
@@ -274,7 +279,8 @@ func (g *Game) updateGhost(p *Party) bool {
 		g.walkParty(p, departSpeed)
 		if p.outside(g.hotel.Rooms[p.Room]) {
 			p.Paid, p.state = true, leaving
-			g.bookGhost(p.Room, bookGap)
+			g.logStay(p, outPassed)
+			g.bookGhost(p.Room, g.bookGapNow())
 		}
 	case leaving:
 		return !g.walkParty(p, departSpeed)
