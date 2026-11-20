@@ -71,6 +71,7 @@ type prestigeReel struct {
 	buf   *ebiten.Image // the world, drawn once then laid on the screen turned over
 	late  []reelLate    // the balloons and pills the world pass left out, drawn upright after the flip
 	hallC image.Point
+	vx    vortex // the race's flyers (vortex.go)
 }
 
 // playPrestige starts the cutscene (P1-C's confirm card calls it); when it ends it calls startPrestige.
@@ -206,6 +207,7 @@ func (g *Game) endReel() {
 	if r.buf != nil {
 		r.buf.Deallocate()
 	}
+	r.freeVortex()
 	g.reel = nil
 	prestigeGo(g)
 }
@@ -222,6 +224,9 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 	r.late = r.late[:0]
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	if r.t >= reelRace && !r.skip && r.vx.fl == nil {
+		g.registerVortex(ox, oy)
+	}
 	g.drawWorld(r.buf, ox, oy)
 	at := func(x, y float64) (float64, float64) { return x*zoom - float64(ox), (y-8)*zoom - float64(oy) }
 	for _, c := range r.cast { // a far guest's arrival: a ring and a flash
@@ -254,6 +259,7 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		at := flipped(l.guest, l.oy, float64(b.Dy()), c)
 		l.draw(screen, &at)
 	}
+	g.drawVortex(screen)
 	if k := min(1, float64(r.t-reelRace)/60); k > 0 && !r.skip { // the clock, spinning
 		cx, cy := float64(b.Dx())/2, float64(b.Dy())/2
 		g.glowAt(screen, cx, cy, 3*clockRadius*zoom/2, moonLight, .3*k)
@@ -285,6 +291,9 @@ func (g *Game) reelDefer(s *ebiten.Image, guest *entities.Guest, oy int, draw fu
 	r := g.reel
 	if r == nil || s != r.buf {
 		return false
+	}
+	if r.gone(guest) { // a flyer says nothing
+		return true
 	}
 	at := *guest
 	at.Y -= g.lift(guest) // the copy is no one's in a Party: balloonAt must not lift it again

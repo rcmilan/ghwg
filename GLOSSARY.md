@@ -411,7 +411,7 @@ Ending a Run on purpose to start the next one stronger: the hotel, Money, Ectopl
 _Avoid_: reset, rebirth, new game
 
 **Father P**:
-The Priest of the Prestige, one STAFF row priced in Ectoplasm. On sale only once the hotel has grown to its Level's limit and every Room key is bought. SPACE on his row opens a confirm card (what is gained, what is lost); SPACE on the card pays and plays his cutscene: everyone gathers in the hall, the world turns upside down, time races, a white flash, and the next Run starts on Day 1 at 08:00 in the Entrance hall, with no title or intro. The first time the cutscene plays in full; later SPACE skips to the flash.
+The Priest of the Prestige, one STAFF row priced in Ectoplasm. On sale only once the hotel has grown to its Level's limit and every Room key is bought. SPACE on his row opens a confirm card (what is gained, what is lost); SPACE on the card pays and plays his cutscene: everyone gathers in the hall, the world turns upside down, time races while everyone but him and all the furniture lifts off and spirals into the spinning clock, a white flash, and the next Run starts on Day 1 at 08:00 in the Entrance hall, with no title or intro. The first time the cutscene plays in full; later SPACE skips to the flash.
 
 **Level**:
 How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Level) a side, and opens one new thing per Level (Level 1: the Pantry); a Terminal row waiting on one says "Prestige level N to unlock". Shown with the Bonus in the Terminal's header ("LV 1 - x1.53"), never on the play HUD.
