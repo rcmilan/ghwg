@@ -398,7 +398,7 @@ func TestKeeperCleanTakesTime(t *testing.T) {
 	if base < keeperClean-2 || base > keeperClean+2 {
 		t.Errorf("a clean took %d frames, want about %d", base, keeperClean)
 	}
-	if want := scaleInt(keeperClean, 0.85*0.85); kit < want-2 || kit > want+2 {
+	if want := scaleInt(keeperClean, upMulAt(CleaningKit, 2)); kit < want-2 || kit > want+2 {
 		t.Errorf("with the kit at level 2 a clean took %d frames, want about %d", kit, want)
 	}
 }

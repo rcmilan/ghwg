@@ -107,7 +107,7 @@ func TestRitualEcto(t *testing.T) {
 		t.Errorf("a ritual pays %v, want %v", g.ritualEcto(nil), ritualEctoBase)
 	}
 	g.up[OfferingBox] = 2
-	if want := ritualEctoBase * Num(1.76); math.Abs(float64(g.ritualEcto(nil)-want)) > 1e-9 {
+	if want := ritualEctoBase * Num(2.52); math.Abs(float64(g.ritualEcto(nil)-want)) > 1e-9 {
 		t.Errorf("Offering box 2: %v, want %v", g.ritualEcto(nil), want)
 	}
 }

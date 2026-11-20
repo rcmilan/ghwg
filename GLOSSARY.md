@@ -327,7 +327,7 @@ _Avoid_: expansion (as the mechanic's name), upgrade, Spin
 The Strategy that plays the Opener and buys Growth whenever its Ectoplasm covers it, a column then floors, up to the grid's limit. The sim's `growth` lines give the game hour of each expansion.
 
 **Housekeeper**:
-A member of staff hired at the Terminal's STAFF tab, one for every 3 Rooms owned (rounded up, at least one); she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. Idle, she sweeps the Room with the most normal dirt, empty or sleeping Rooms first; spiritual dirt is never hers. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
+A member of staff hired at the Terminal's STAFF tab, one for every 3 Rooms owned (rounded up, at least one); she walks in from the Entrance, no Courier, dressed as a maid (pale, black hair and dress, white apron). With nothing to do she roams the whole hotel at a stroll (the hall, the Kitchen, the Corridors), never stopping in a Room, a doorway or anyone's way. She brings a Supply the Stock holds to a Room that asks for it (the delivery pays as the Concierge's does) and cleans a Room whose Party complains of its dirt. Idle, she sweeps the Room with the most normal dirt, empty or sleeping Rooms first; spiritual dirt is never hers. A clean takes her a while at the stains (20 game minutes, cut by the Cleaning kit); the Concierge's own clean is instant. She is paid a wage each game day, the first a day after she was hired. Short of it she stops working and is owed it, taken as soon as the Money is there; still owed at her next payday, she walks out, and hiring again costs the fee. She tells the Concierge what is wrong in her own lines, as he comes near her (owed her wage; a payday near that the wallet can't cover; leaving); with nothing wrong she says a line only now and then. It welcomes each human Party walking in past it, once.
 _Avoid_: maid, cleaner, keeper (the Keeper is a Strategy)
 
 **Staffer**:
@@ -367,7 +367,7 @@ _Avoid_: match (for the pair), compatible, preference
 How a human Party picks its Room as it arrives: of the Vacant, owned, open Rooms with beds enough, the one with the strongest ghost within its Nerve; with none, the one with the weakest ghost beyond it (the closest bad fit). The Room it leaves empty takes over the booking of the Room it took. Ghost booking is unchanged: each Room books its own.
 
 **Talk** (the talk), **TALK**:
-The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands in a Room, in the real Dimension, with its whole human Party in, not snubbed, and at least one target Room; SPACE there starts the talk (after a stain to clean, before the hotel view). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
+The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands in a Room, in the real Dimension, with its whole human Party in, not snubbed, and at least one target Room; SPACE there opens the guest's Card, whose MOVE starts the talk (after a stain to clean, before the hotel view). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
 _Avoid_: dialogue, chat (a pair's chat is an activity), move menu
 
 **Target Room**:
@@ -426,3 +426,35 @@ _Avoid_: shelf (alone), storeroom
 **Save**:
 What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the Pantry stock (an older save loads with empty Pantries), the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
 _Avoid_: autosave, slot
+
+## Personalities and economy (08 W4, 2026-11-20)
+
+**Identity**:
+Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk, and for a human maybe Vegetarian.
+
+**Card**:
+What TALK opens: the Guest's Identity on the Room's lock plate (a ghost's at its door, in ghost), with the talk's zoom and slow motion. A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
+_Avoid_: profile, sheet
+
+**REVEAL**:
+A Card's option, paid in Ectoplasm once a Party: it shows the Guest's Nerve or Phantasm and its Quirk, and for a named ghost its fact. A named guest stays revealed on later visits (saved). A Priest guest has none.
+
+**Quirk**:
+One trait a Guest may have that bends a rule of the hotel, from the hotel's first Growth on (before it, guests have none). Human: Medium, Skeptic, Big tipper, Night owl, Neat freak. Ghost: Show-off, Shy, Jealous, Gentle, Homebody. Each one's rule is in `context/08-quests/cast.md`. A ghost's Homebody quirk is not the Homebody Routine.
+
+**Named guest**:
+One of the hand-written cast (`cast.md`: seven human entries, three ghosts) who takes a generated booking about 1 time in 6, from the first Growth on, when not in the hotel and away a game day. It keeps its own lines, quirk and (a ghost) kind, and its visits count across Runs (saved). Osvaldo comes only after Magda.
+
+**Guest book**:
+The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own.
+_Avoid_: notebook (in game text), log
+
+**Meal**:
+A Food a Party asks for. Veggie (asked by Vegetarians) is on sale once the hotel has grown; Gourmet, once a Room is Deluxe, is asked only there and pays double.
+
+**Priest guest**:
+Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel (a retained Father K never books). He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One of each Father hotel-wide still holds.
+
+**Upgrade**:
+A HOTEL, STAFF or SUPPLIES row of the Terminal that SPACE buys a level of at once, for Money: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time), Bigger shelves (Pantry stock, up to +3) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
+_Avoid_: perk, boost

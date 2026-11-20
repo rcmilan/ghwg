@@ -13,10 +13,10 @@ func TestUpMulAt(t *testing.T) {
 		n    int
 		want float64
 	}{
-		{LobbyDecor, 0, 1}, {LobbyDecor, 1, 1.04}, {LobbyDecor, 2, 1.076}, {LobbyDecor, 500, 1.4}, // boost: toward 1 + 10e
-		{SeanceTable, 1, 1.1}, {SeanceTable, 2, 1.19}, {TipJar, 3, 1.271}, {OfferingBox, 1, 1.4}, {OfferingBox, 2, 1.76},
-		{Brochures, 0, 1}, {Brochures, 1, 0.9}, {Brochures, 2, 0.81}, {Soundproofing, 3, 0.729}, // reducer: (1-e)^n
-		{CleaningKit, 1, 0.85}, {CleaningKit, 2, 0.7225},
+		{LobbyDecor, 0, 1}, {LobbyDecor, 1, 1.08}, {LobbyDecor, 2, 1.152}, {LobbyDecor, 500, 1.8}, // boost: toward 1 + 10e
+		{SeanceTable, 1, 1.2}, {SeanceTable, 2, 1.38}, {TipJar, 3, 1.542}, {OfferingBox, 1, 1.8}, {OfferingBox, 2, 2.52},
+		{Brochures, 0, 1}, {Brochures, 1, 0.8}, {Brochures, 2, 0.64}, {Soundproofing, 3, 0.512}, // reducer: (1-e)^n
+		{CleaningKit, 1, 0.7}, {CleaningKit, 2, 0.49},
 		{LobbyDecor, -1, 1}, // a bad level is no level
 	} {
 		if got := upMulAt(c.u, c.n); !near(got, c.want) {

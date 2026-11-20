@@ -192,9 +192,8 @@ func (g *Game) rollNamedHuman(p *Party) {
 	g.visited(p, key)
 }
 
-// rollNamedGhost: a ghost Party that just booked may be a named ghost's, in its first guest's place. Identity only: its
-// Phantasm stays the rolled one so the sim does not move (ponytail: the named Kind of cast.md is not forced onto it; the
-// card's REVEAL can read namedGhosts[..].Kind, or W4's sim tuning can set Phantasm here).
+// rollNamedGhost: a ghost Party that just booked may be a named ghost's, in its first guest's place (g.ident only);
+// nameGhost keeps it to its cast.md kind.
 func (g *Game) rollNamedGhost(p *Party) {
 	keys := make([]string, len(namedGhosts))
 	for i, n := range namedGhosts {

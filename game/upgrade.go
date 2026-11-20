@@ -42,14 +42,14 @@ type upgradeDef struct {
 }
 
 var upgrades = [upgradeCount]upgradeDef{
-	LobbyDecor:    {"Lobby decor", tabHotel, 150, 0.04, upBoost, 0},
-	Brochures:     {"Brochures", tabHotel, 120, 0.10, upReducer, 0},
-	Soundproofing: {"Soundproofing", tabHotel, 200, 0.10, upReducer, 0},
-	SeanceTable:   {"Seance table", tabHotel, 250, 0.10, upBoost, 0},
-	TipJar:        {"Tip jar", tabHotel, 180, 0.10, upBoost, 0},
-	CleaningKit:   {"Cleaning kit", tabStaff, 160, 0.15, upReducer, 0},
+	LobbyDecor:    {"Lobby decor", tabHotel, 150, 0.08, upBoost, 0},
+	Brochures:     {"Brochures", tabHotel, 120, 0.20, upReducer, 0},
+	Soundproofing: {"Soundproofing", tabHotel, 200, 0.20, upReducer, 0},
+	SeanceTable:   {"Seance table", tabHotel, 250, 0.20, upBoost, 0},
+	TipJar:        {"Tip jar", tabHotel, 180, 0.20, upBoost, 0},
+	CleaningKit:   {"Cleaning kit", tabStaff, 160, 0.30, upReducer, 0},
 	BiggerShelves: {"Bigger shelves", tabSupplies, 200, 1, upStockK, 3},
-	OfferingBox:   {"Offering box", tabStaff, 220, 0.40, upBoost, 0},
+	OfferingBox:   {"Offering box", tabStaff, 220, 0.80, upBoost, 0},
 }
 
 // upMulAt: the multiplier of upgrade u at level n. A boost is 1 + e(1-0.9^n)/0.1 (toward 1 + 10e), a reducer
