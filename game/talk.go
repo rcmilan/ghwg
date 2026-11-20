@@ -164,10 +164,7 @@ func (g *Game) updateRoomTalk() {
 	}
 }
 
-// shown: the guest is on the map.
-func (g *Game) shown(guest *entities.Guest) bool { return g.has(guest) }
-
-// shown: g.shown for a guest of p, without looking for its Party.
+// shown: p's guest is on the map.
 func (p *Party) shown(guest *entities.Guest) bool {
 	return p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0)
 }
