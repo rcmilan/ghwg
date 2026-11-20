@@ -57,6 +57,7 @@ type parley struct {
 	lineAt  int     // the t it began saying it
 	scale   float64 // the world's time scale as the talk found it, given back as it ends
 	depth   float64 // how bad the pair is, 0..1, as it began (talkDepth)
+	card    *card   // set: the guest card is open, not an offer (card.go)
 }
 
 // at: v's value at the talk's depth, from its mildest to its worst.
@@ -215,6 +216,10 @@ func (g *Game) updateParley() {
 	for left := g.scale; left > 0; left-- {
 		g.advance(0, 0, min(left, 1))
 	}
+	if t.card != nil {
+		g.updateCard()
+		return
+	}
 	to := t.targets[t.to]
 	if t.targets = g.targets(t.p); !g.inRoom(t.p) || len(t.targets) == 0 {
 		g.endTalk()
@@ -322,6 +327,9 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
 	k, e := g.talkZoom(), g.talkEase()
 	sharp := (math.Hypot(g.player.X-lead.X, g.player.Y-lead.Y)/2 + charH) * zoom * k
+	if t.card != nil {
+		fx, fy, sharp = g.cardFocus(ox, oy, k)
+	}
 	screen.DrawRectShader(w, h, g.focus, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{src},
 		Uniforms: map[string]any{"Focus": []float32{float32(fx), float32(fy)}, "K": float32(k), "T": float32(e), "Sharp": float32(sharp), "Blur": float32(t.at(talkBlur))}})
 	bar := int(float64(h) * 0.08 * e)
@@ -329,6 +337,10 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	rect(screen, 0, h-bar, w, bar, color.Black)
 	on := func(x, y float64) (int, int) { // world px to screen px, closed in
 		return int(float64(w)/2 + (float64(screenPx(x)-ox)-fx)*k), int(float64(h)/2 + (float64(screenPx(y)-oy)-fy)*k)
+	}
+	if t.card != nil {
+		g.drawCard(screen, w, h)
+		return
 	}
 	const scale = 2
 	if t.t >= t.lineAt {

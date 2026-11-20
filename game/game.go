@@ -169,6 +169,7 @@ type Game struct {
 	wideBuf       *ebiten.Image                  // g.wide's texture, kept across growths (props.go reuse)
 	darkBuf       *ebiten.Image                  // g.dark's
 	floorBuf      *ebiten.Image                  // g.floorImg's
+	revealedKeys  map[string]bool                // named guests whose card was revealed, kept across Runs and saved (card.go, 08 T375)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

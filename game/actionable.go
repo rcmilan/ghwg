@@ -19,6 +19,7 @@ const (
 	actSupply
 	actDeliver
 	actTalk
+	actCard
 	actClean
 	actView
 )
@@ -68,7 +69,10 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
 			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
 		}
-		if feet.In(r.Plate()) { // the guest card's, G2
+		if g.cardParty(i) != nil && feet.In(r.Plate()) { // the guest card, from the plate by the door, in either dimension (T375)
+			return actCard, r.Plate().Sub(image.Pt(0, ts))
+		}
+		if feet.In(r.Plate()) {
 			return actNone, image.Rectangle{}
 		}
 	}
@@ -108,6 +112,8 @@ func (g *Game) space() {
 		g.deliver(g.atMat(), g.hands)
 	case actTalk:
 		g.startTalk(g.talker())
+	case actCard:
+		g.startCard(g.atMat())
 	case actClean:
 		g.clean(g.cleanable())
 	case actView:

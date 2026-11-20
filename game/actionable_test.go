@@ -11,7 +11,7 @@ import (
 
 // 08 F0 (Glow, SPACE at a door, Put an item back): actionable names what SPACE does at the Concierge's spot and the
 // prop it lights, and SPACE does exactly that: the Terminal from the cells touching the computer only, a shelf with
-// something for it (taking, or putting back what you hold), a delivery anywhere on the doormat; nothing on the card
+// something for it (taking, or putting back what you hold), a delivery anywhere on the doormat; the guest card on the
 // plate's cell, at an empty shelf or the covered Mirror; the hotel view elsewhere, the doormat included.
 func TestActionableAgrees(t *testing.T) {
 	const ts = world.TileSize
@@ -34,7 +34,7 @@ func TestActionableAgrees(t *testing.T) {
 			func() bool { return g.hands == SupplyWater && g.stock[SupplyWater] == 0 }},
 		{"its empty shelf, holding it", supplyFront(g, 0), nil, actSupply, true, func() bool { return g.hands == "" && g.stock[SupplyWater] == 1 }},
 		{"the doormat, nothing asked", center(mat), nil, actView, false, func() bool { return g.state == StateView }},
-		{"the plate's cell, nothing held", plate, nil, actNone, false, func() bool { return g.state == StatePlay }},
+		{"the plate's cell, nothing held", plate, nil, actCard, true, func() bool { return g.state == StateTalk && g.parley.card != nil }},
 		{"the doormat, the wrong item", center(mat), func() { p.asked, p.want, g.hands = g.clock, SupplyFood, SupplyWater }, actView, false,
 			func() bool { return g.state == StateView && g.hands == SupplyWater }},
 		{"the plate's cell, the asked item", plate, func() { g.hands = SupplyFood }, actDeliver, true, func() bool { return !p.asking() && g.hands == "" }},
