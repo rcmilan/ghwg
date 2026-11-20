@@ -1,11 +1,5 @@
 package game
 
-import (
-	"slices"
-
-	"github.com/hajimehoshi/ebiten/v2"
-)
-
 // spendUp (D102): the Strategies buy the cheapest upgrade level on sale that Money covers after a reserve: a day's
 // wages, the cheapest Money unlock on sale and, while a Room is boarded, its key (what builds the hotel comes first). true if it ordered.
 func spendUp(v View, p *Pilot) bool {
@@ -41,31 +35,10 @@ func spendUp(v View, p *Pilot) bool {
 	return true
 }
 
-// BuyUp opens the Terminal and presses SPACE on the upgrade's row, then leaves: ok once its level is above from.
+// BuyUp orders the next level of u through the store like any item (Pilot.Buy): ok once it is paid for; the
+// courier brings it (spendUp waits while he is in the hotel).
 func (p *Pilot) BuyUp(u Upgrade, from int) {
-	i := upRow[u]
-	tab := shop[i].Tab
-	pos := slices.Index(tabItems(tab), i)
-	p.OpenTerminal()
-	p.do(func(p *Pilot, v View) (bool, bool) {
-		t := v.Terminal
-		if !t.Open {
-			return true, v.Ups[u].Level > from
-		}
-		var k ebiten.Key
-		switch {
-		case t.Message != "":
-			k = ebiten.KeyEscape
-		case t.Tab != tab:
-			k = ebiten.KeyD
-		case t.Pick != pos:
-			k = ebiten.KeyS
-		default:
-			k = ebiten.KeySpace
-		}
-		p.tap(k)
-		return false, false
-	})
+	p.Buy(shop[upRow[u]].ID, -1, func(v View) bool { return v.Ups[u].Level > from || v.Courier })
 }
 
 // upSpent: the Money the upgrade levels bought since up cost (the sim's ledger).

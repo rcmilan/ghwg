@@ -7,8 +7,8 @@ import (
 )
 
 // 08 W4 T374: the upgrades' rows in the Terminal. They are Items of the store (Item.Up = Upgrade+1), appended to
-// shop in the tab they belong to; SPACE buys the next level at once (no cart, no courier: it is a change to the
-// hotel, not a parcel), hidden until it applies (upShows).
+// shop in their own UPGRADES tab, hidden until they apply (upShows). Like everything else a level goes in the cart,
+// one at a time, and the courier delivers it to the stock; it counts from the drop (T381 live test).
 
 // upBlurb: the detail pane's line for each.
 var upBlurb = [upgradeCount]string{
@@ -34,7 +34,7 @@ func init() {
 	for u := range upgradeCount {
 		d := upgrades[u]
 		upRow[u] = len(shop)
-		shop = append(shop, Item{ID: Unlock("up-" + strings.ReplaceAll(strings.ToLower(d.Name), " ", "-")), Tab: d.Tab, Name: d.Name, Icon: upIcon[u],
+		shop = append(shop, Item{ID: Unlock("up-" + strings.ReplaceAll(strings.ToLower(d.Name), " ", "-")), Tab: tabUpgrades, Name: d.Name, Icon: upIcon[u],
 			Head: u == OfferingBox, Up: int(u) + 1, Price: func(g *Game) Cost { return Cost{Money: g.upPrice(u)} }})
 	}
 }
@@ -61,19 +61,10 @@ func (g *Game) upShows(u Upgrade) bool {
 
 func (g *Game) upMaxed(u Upgrade) bool { c := upgrades[u].Cap; return c > 0 && g.up[u] >= c }
 
-// buyUp: the next level of u for Money, now: "" ... the Terminal's message, and a notice on success.
-func (g *Game) buyUp(u Upgrade) string {
-	switch {
-	case g.upMaxed(u):
-		return "MAX LEVEL"
-	case !g.affords(upRow[u]):
-		return "CAN'T AFFORD"
-	}
-	g.pay(Cost{Money: g.upPrice(u)})
+// levelUp: a level of u arrives with the courier: it counts from now, with a notice.
+func (g *Game) levelUp(u Upgrade) {
 	g.up[u]++
-	text := fmt.Sprintf("%s LV %d", strings.ToUpper(upgrades[u].Name), g.up[u])
-	g.notice(text)
-	return text
+	g.notice(fmt.Sprintf("%s LV %d", strings.ToUpper(upgrades[u].Name), g.up[u]))
 }
 
 // upEffect: u's total effect at level n, as the row words it.

@@ -144,9 +144,6 @@ func (g *Game) press() string {
 	if shop[i].ID == rowFatherP {
 		return g.askPrestige(i)
 	}
-	if shop[i].Up > 0 { // an upgrade is not shipped: bought now
-		return g.buyUp(Upgrade(shop[i].Up - 1))
-	}
 	if why := g.addToCart(i, -1); why != "" {
 		return why
 	}
@@ -330,8 +327,6 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 			help = "A/D TAB   ESC CLOSE"
 		} else if it := tabItems(g.termTab); g.termPick < len(it) && shop[it[g.termPick]].ID == rowFatherP {
 			help = "A/D TAB   W/S ITEM   SPACE ASK FATHER P   ESC CLOSE"
-		} else if it := tabItems(g.termTab); g.termPick < len(it) && shop[it[g.termPick]].Up > 0 {
-			help = "A/D TAB   W/S ITEM   SPACE BUY A LEVEL   ESC CLOSE"
 		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)
@@ -467,9 +462,6 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 	case !g.onSale(i) || g.owned(i):
 	case g.affords(i):
 		label := "ADD TO CART"
-		if it.Up > 0 {
-			label = "BUY"
-		}
 		if it.ID == rowFatherP {
 			label = "ASK FATHER P"
 		}

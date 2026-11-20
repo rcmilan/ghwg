@@ -74,7 +74,7 @@ func TestHotelView(t *testing.T) {
 			t.Fatalf("%v: ESC with no Room picked: state %d, want play", grid, g.state)
 		}
 	}
-	if tabs != 4 || tabNames != [tabs]string{"SUPPLIES", "HOTEL", "STAFF", "CART"} {
+	if tabs != 5 || tabNames != [tabs]string{"SUPPLIES", "HOTEL", "STAFF", "UPGRADES", "CART"} {
 		t.Fatalf("the store's tabs are %v, want no ROOMS tab", tabNames)
 	}
 }

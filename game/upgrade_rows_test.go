@@ -3,6 +3,7 @@ package game
 import (
 	"math"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -52,52 +53,58 @@ func TestUpgradeRowsHiddenUntilTheyApply(t *testing.T) {
 	}
 }
 
-func TestBuyUpgrade(t *testing.T) {
+// A level goes through the cart like everything else (T381 live test): SPACE puts it in, checkout pays, and the
+// courier delivers it: the level counts only when he drops it at the stock.
+func TestUpgradeOrderedAndDelivered(t *testing.T) {
 	g, _ := headless(t, 2, 2, 1)
 	g.startRun()
 	g.closeRooms()
 	g.roomOwned[0], g.roomOwned[1] = true, true
 	price := g.upPrice(LobbyDecor)
 	g.wallet = [2]Num{price - 1, 0}
-	if why := g.buyUp(LobbyDecor); why != "CAN'T AFFORD" || g.up[LobbyDecor] != 0 || g.wallet[Money] != price-1 {
-		t.Fatalf("short of Money: %q, level %d, wallet %v", why, g.up[LobbyDecor], g.wallet)
+	if why := g.addToCart(upRow[LobbyDecor], -1); why != "CAN'T AFFORD" {
+		t.Fatalf("short of Money: %q", why)
 	}
 	g.wallet[Money] = price + 50
-	if why := g.buyUp(LobbyDecor); why == "" || g.up[LobbyDecor] != 1 || g.wallet[Money] != 50 {
-		t.Fatalf("buy: %q, level %d, wallet %v", why, g.up[LobbyDecor], g.wallet)
+	g.openTerminal()
+	g.termTab = tabUpgrades
+	g.termPick = slices.Index(tabItems(tabUpgrades), upRow[LobbyDecor])
+	if msg := g.press(); g.up[LobbyDecor] != 0 || g.wallet[Money] != price+50 || g.inCart(upRow[LobbyDecor]) != 1 {
+		t.Fatalf("SPACE on the row: %q, level %d, wallet %v, in the cart %d", msg, g.up[LobbyDecor], g.wallet, g.inCart(upRow[LobbyDecor]))
 	}
+	if why := g.addToCart(upRow[LobbyDecor], -1); why == "" || g.inCart(upRow[LobbyDecor]) != 1 {
+		t.Fatalf("a second level in the cart: %q", why)
+	}
+	if why := g.placeOrder(); why != "" || g.wallet[Money] != 50 || g.up[LobbyDecor] != 0 || len(g.couriers) != 1 {
+		t.Fatalf("checkout: %q, wallet %v, level %d, %d couriers", why, g.wallet, g.up[LobbyDecor], len(g.couriers))
+	}
+	g.wallet[Money] = 1e6
+	if why := g.addToCart(upRow[LobbyDecor], -1); why != "ON ITS WAY" {
+		t.Fatalf("the next level while one is on its way: %q", why)
+	}
+	until(t, g, "the courier delivers the level", func() bool { return g.up[LobbyDecor] == 1 })
 	if g.upPrice(LobbyDecor) != 2*price {
 		t.Errorf("level 2 costs %v, want %v", g.upPrice(LobbyDecor), 2*price)
 	}
-	if len(g.cart) != 0 || len(g.couriers) != 0 {
-		t.Error("an upgrade is not shipped")
+	if !slices.ContainsFunc(g.note.items, func(n feedItem) bool { return strings.Contains(n.text, "LOBBY DECOR LV 1") }) {
+		t.Error("no notice as the level arrives")
 	}
 	// Bigger shelves stops at its cap.
 	g.up[BiggerShelves] = upgrades[BiggerShelves].Cap
-	g.wallet[Money] = 1e9
-	if why := g.buyUp(BiggerShelves); why != "MAX LEVEL" || g.up[BiggerShelves] != upgrades[BiggerShelves].Cap {
-		t.Errorf("past the cap: %q, level %d", why, g.up[BiggerShelves])
+	if why := g.addToCart(upRow[BiggerShelves], -1); why == "" {
+		t.Error("a capped upgrade went in the cart")
 	}
 	if _, word := g.upLabel(BiggerShelves); word != "MAX" {
 		t.Errorf("a capped row says %q, want MAX", word)
 	}
 }
 
-// SPACE on the row in the open Terminal buys it.
-func TestUpgradeRowBoughtByTheTerminal(t *testing.T) {
-	g, _ := headless(t, 2, 2, 1)
-	g.startRun()
-	g.closeRooms()
-	g.roomOwned[0], g.roomOwned[1] = true, true
-	g.wallet = [2]Num{1e6, 0}
-	g.openTerminal()
-	g.termTab = tabHotel
-	g.termPick = slices.Index(tabItems(tabHotel), upRow[Brochures])
-	if msg := g.press(); g.up[Brochures] != 1 {
-		t.Errorf("SPACE on the Brochures row: %q, level %d", msg, g.up[Brochures])
-	}
-	if slices.Contains(g.forSale(), upRow[Brochures]) {
-		t.Error("an upgrade is not a Strategy's cart item")
+// Every upgrade is in its own tab.
+func TestUpgradesTab(t *testing.T) {
+	for u := range upgradeCount {
+		if shop[upRow[u]].Tab != tabUpgrades {
+			t.Errorf("%s is in tab %s", upgrades[u].Name, tabNames[shop[upRow[u]].Tab])
+		}
 	}
 }
 

@@ -372,7 +372,7 @@ func (p *Pilot) buy(id Unlock, room int, beds string, got func(View) bool) {
 		added := t.Cart > cart0
 		var k ebiten.Key
 		switch {
-		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i)):
+		case paid || !added && (t.Message != "" || !slices.Contains(v.Shop, i) && shop[i].Up == 0): // an upgrade goes by View.Ups
 			k = ebiten.KeyEscape
 		case !added && t.Tab != tab, added && t.Tab != tabCart:
 			k = ebiten.KeyD

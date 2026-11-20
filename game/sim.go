@@ -203,7 +203,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered, serves, staffPaid, offered, up := g.delivered, g.serves, g.staffPaid, g.offered, g.up
+	delivered, serves, staffPaid, offered := g.delivered, g.serves, g.staffPaid, g.offered
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -286,8 +286,8 @@ func (s *sim) frame() bool {
 		}
 	}
 	s.res.PriestSpend += spent
-	spent += int(g.staffPaid-staffPaid+g.offered-offered) + upSpent(g, up) // a housekeeper's fee or wage, an offer to move (X2), an upgrade level (T374)
-	for _, c := range g.couriers {                                         // the rest of a checkout: what the courier carries (D200)
+	spent += int(g.staffPaid - staffPaid + g.offered - offered) // a housekeeper's fee or wage, an offer to move (X2)
+	for _, c := range g.couriers {                              // the rest of a checkout: what the courier carries (D200), upgrade levels too
 		if !s.shipped[c] {
 			s.shipped[c], spent = true, spent+int(c.paid()[Money])
 		}

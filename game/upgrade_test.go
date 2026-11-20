@@ -104,3 +104,22 @@ func TestUpgradesSaveAndReset(t *testing.T) {
 		t.Errorf("levels %v after a prestige, want none", g2.up)
 	}
 }
+
+// A level paid for and still on the courier at dawn arrives on CONTINUE, like a Room's order (it goes to the stock:
+// no Room).
+func TestUpgradeInTransitSaved(t *testing.T) {
+	g1 := dressedRun(t, 1)
+	g1.up[LobbyDecor] = 1
+	g1.ship([]cartLine{{item: upRow[LobbyDecor], room: -1, n: 1, each: Cost{Money: g1.upPrice(LobbyDecor)}}})
+	memStore(t)
+	g1.saveDawn()
+	g2, _ := headless(t, 2, 1, 99)
+	g2.startRun()
+	g2.persist = true
+	if !g2.resume(g2.loadSave()) {
+		t.Fatal("resume failed")
+	}
+	if g2.up[LobbyDecor] != 2 {
+		t.Errorf("Lobby decor at level %d after CONTINUE, want 2: the level on its way is lost", g2.up[LobbyDecor])
+	}
+}

@@ -34,7 +34,6 @@ const upDecay = 0.9
 
 type upgradeDef struct {
 	Name   string
-	Tab    Tab
 	Base   Num     // price of level 1, before the Rooms-owned factor
 	Effect float64 // level 1's effect: the boost or the cut, a share; Bigger shelves: stock
 	Kind   upKind
@@ -42,14 +41,14 @@ type upgradeDef struct {
 }
 
 var upgrades = [upgradeCount]upgradeDef{
-	LobbyDecor:    {"Lobby decor", tabHotel, 150, 0.08, upBoost, 0},
-	Brochures:     {"Brochures", tabHotel, 120, 0.20, upReducer, 0},
-	Soundproofing: {"Soundproofing", tabHotel, 200, 0.20, upReducer, 0},
-	SeanceTable:   {"Seance table", tabHotel, 250, 0.20, upBoost, 0},
-	TipJar:        {"Tip jar", tabHotel, 180, 0.20, upBoost, 0},
-	CleaningKit:   {"Cleaning kit", tabStaff, 160, 0.30, upReducer, 0},
-	BiggerShelves: {"Bigger shelves", tabSupplies, 200, 1, upStockK, 3},
-	OfferingBox:   {"Offering box", tabStaff, 220, 0.80, upBoost, 0},
+	LobbyDecor:    {"Lobby decor", 150, 0.08, upBoost, 0},
+	Brochures:     {"Brochures", 120, 0.20, upReducer, 0},
+	Soundproofing: {"Soundproofing", 200, 0.20, upReducer, 0},
+	SeanceTable:   {"Seance table", 250, 0.20, upBoost, 0},
+	TipJar:        {"Tip jar", 180, 0.20, upBoost, 0},
+	CleaningKit:   {"Cleaning kit", 160, 0.30, upReducer, 0},
+	BiggerShelves: {"Bigger shelves", 200, 1, upStockK, 3},
+	OfferingBox:   {"Offering box", 220, 0.80, upBoost, 0},
 }
 
 // upMulAt: the multiplier of upgrade u at level n. A boost is 1 + e(1-0.9^n)/0.1 (toward 1 + 10e), a reducer

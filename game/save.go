@@ -322,7 +322,7 @@ func (g *Game) restore(r *runState) error {
 		g.priests[0].due = g.clock + r.FatherK.DueIn
 	}
 	for _, o := range r.Orders {
-		if i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == o.Item }); i >= 0 && o.Room >= 0 && o.Room < n {
+		if i := slices.IndexFunc(shop, func(it Item) bool { return it.ID == o.Item }); i >= 0 && o.Room < n { // -1: to the stock (Supplies, unlocks, upgrade levels)
 			g.receive(cartLine{item: i, room: o.Room, n: o.N, beds: o.Beds})
 		}
 	}
