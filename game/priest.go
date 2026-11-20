@@ -304,6 +304,9 @@ func (g *Game) ritualEffect(pr *priest) {
 		g.hushed[room] = true // until its ghost is gone: sendOver has it passing on, but its Shadow would come back meanwhile
 		g.sendOver(room)
 	}
+	if e := g.ritualEcto(pr); e > 0 { // Offering box (T374)
+		g.earn(Ecto, e, image.Pt(int(pr.X), int(pr.Y)))
+	}
 }
 
 // nextRound: the retained Father K, done in a Room, goes to the one with the most spiritual dirt, else paces.

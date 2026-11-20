@@ -101,7 +101,7 @@ func (g *Game) toBed(guest *entities.Guest, r world.Room, i int) []image.Point {
 // (2026-11-14): its activities run all night, and none of them is a bed.
 func (g *Game) bedtime(p *Party) {
 	r := g.hotel.Rooms[p.Room]
-	if night := asleep(g.clock) && p.Realm != Ghost; night != p.abed {
+	if night := asleep(g.clock) && p.Realm != Ghost && g.sleeps(p); night != p.abed {
 		p.abed = night
 		for i, guest := range p.Guests {
 			if night {

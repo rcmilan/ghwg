@@ -42,8 +42,9 @@ type runState struct {
 	Bought      map[Unlock][2]Num // unlocks bought, with Earned when each arrived
 	Seen        []Unlock          // store items already seen: the Terminal's "!" skips them
 	Stock       map[Unlock]int
-	PantryStock []map[Unlock]int // each pantry's, in Pantries order; an older save has none: empty shelves
-	Orders      []orderLine      // paid for and still on a courier: they arrive at the checkpoint
+	PantryStock []map[Unlock]int  // each pantry's, in Pantries order; an older save has none: empty shelves
+	Orders      []orderLine       // paid for and still on a courier: they arrive at the checkpoint
+	Up          [upgradeCount]int // the leveled upgrades (upgrade.go); an older save has none: all 0
 }
 
 type roomState struct {
@@ -149,7 +150,7 @@ func decodeSave(b []byte) (s *saveData, err error) {
 func (g *Game) checkpoint() *runState {
 	cols, rows := g.hotel.Grid()
 	r := &runState{Cols: cols, Rows: rows, Seed: g.rng.Uint64(), Day: day(g.clock), Wallet: g.wallet, Earned: g.earned, RunEcto: g.runEcto,
-		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}}
+		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up}
 	for _, id := range slices.Sorted(maps.Keys(g.locked)) {
 		if g.locked[id] {
 			r.Locked = append(r.Locked, id)
@@ -239,6 +240,8 @@ func (g *Game) restore(r *runState) error {
 	}
 	n := len(r.Rooms)
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(r.Seed, r.Seed)), rand.New(rand.NewPCG(r.Seed, r.Seed+1)), rand.New(rand.NewPCG(r.Seed, r.Seed+2))
+	g.seedIdent(r.Seed)
+	g.up = r.Up // before the pantry's stock is clamped to what the shelves hold
 	var ms []world.CorridorMirror
 	for _, m := range r.Corridors {
 		ms = append(ms, world.CorridorMirror{Floor: m.Floor, Col: m.Col, West: m.West, Open: m.Open})
@@ -257,7 +260,7 @@ func (g *Game) restore(r *runState) error {
 	for i, st := range r.PantryStock {
 		for id, n := range st {
 			if i < len(g.pantryStock) {
-				g.pantryStock[i][id] = max(0, min(pantryStockMax, n))
+				g.pantryStock[i][id] = max(0, min(g.pantryMax(), n))
 			}
 		}
 	}

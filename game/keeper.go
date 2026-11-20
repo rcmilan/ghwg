@@ -240,8 +240,8 @@ func (g *Game) sweep(k *housekeeper) bool {
 		if !g.isOwned(i) || n == 0 || slices.ContainsFunc(g.keepers, func(o *housekeeper) bool { return o.room == i && o.job == cleaning }) {
 			continue
 		}
-		_, in := g.inside(i)
-		f := len(in) == 0 || asleep(g.clock)
+		p, in := g.inside(i)
+		f := len(in) == 0 || asleep(g.clock) && g.sleeps(p)
 		if best < 0 || f && !free || f == free && n > most {
 			best, free, most = i, f, n
 		}

@@ -27,7 +27,6 @@ func (p *Party) asking() bool { return p.asked > 0 }
 // asks at random, askPerDay times a day on average. Unanswered for askMinutes, the request expires and
 // the Room loses moodExpire Mood. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
-	awake := !asleep(g.clock)
 	for _, p := range g.parties {
 		if p.Realm != Human { // a ghost asks for nothing
 			continue
@@ -39,7 +38,7 @@ func (g *Game) updateAsks() {
 			g.addMood(p.Room, -moodExpire)
 			p.asked, p.askEnded = 0, g.clock
 			g.expired++
-		case !p.asking() && p.state == staying && awake && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
+		case !p.asking() && p.state == staying && (!asleep(g.clock) || !g.sleeps(p)) && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
 			g.rng.Float64() < askPerDay/float64((sleepHour-wakeHour)*60):
 			p.asked, p.want = g.clock, supplies[g.rng.IntN(len(supplies))].ID
 		}
