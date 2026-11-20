@@ -314,7 +314,9 @@ func (g *Game) arrive(room int) *Party {
 	for _, guest := range p.Guests {
 		g.rollHuman(guest)
 	}
-	g.rollNamedHuman(p)
+	if g.grown() { // named guests, like quirks, come once the hotel has grown (T376)
+		g.rollNamedHuman(p)
+	}
 	g.walkIns++
 	p.Room, p.Rate, p.arrived = room, g.hotel.Rooms[room].Type.Rate, g.clock
 	g.maybePriestGuest(p)

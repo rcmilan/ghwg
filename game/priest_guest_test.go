@@ -124,3 +124,19 @@ func TestPriestGuestNoReveal(t *testing.T) {
 		t.Error("a Priest guest's card offers REVEAL")
 	}
 }
+
+// A named guest keeps its identity: it never becomes a Father, or its visit would count for a Priest.
+func TestPriestGuestNeverNamed(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.grid0 = [2]int{1, 1} // as if grown: named guests come only then
+	g.unlock(unlockK)
+	g.unlock(unlockM)
+	for range 2000 {
+		g.parties = nil
+		p := g.arrive(0)
+		if _, ok := guestFather(p); ok && p.visit > 0 {
+			t.Fatalf("a named guest's booking (visit %d) became a Father", p.visit)
+		}
+	}
+}

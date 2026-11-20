@@ -301,3 +301,25 @@ func TestVisitsSurvivePrestigeAndRestore(t *testing.T) {
 		t.Errorf("the prestige's save: %+v", s)
 	}
 }
+
+// Named guests book only once the hotel has grown, like the quirks they carry (T376): none in a new hotel.
+func TestNamedAfterGrowth(t *testing.T) {
+	g, _ := headless(t, 2, 1, 5)
+	g.startRun()
+	named := func() (n int) {
+		for range 300 {
+			g.parties, g.leftAt = nil, nil
+			if p := g.arrive(0); p.Guests[0].Who.Key != "" {
+				n++
+			}
+		}
+		return
+	}
+	if n := named(); n != 0 {
+		t.Errorf("%d named bookings before the hotel grew", n)
+	}
+	g.grid0 = [2]int{1, 1}
+	if named() == 0 {
+		t.Error("no named booking after the hotel grew")
+	}
+}

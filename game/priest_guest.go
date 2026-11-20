@@ -38,7 +38,7 @@ func (g *Game) fatherGuest(strong bool) bool {
 // maybePriestGuest turns a fresh solo booking into a Father's, when one is unlocked and not already in the hotel
 // (fatherIn counts a retained or called Father, and a guest). The roll hashes g.walkIns, drawing from no stream.
 func (g *Game) maybePriestGuest(p *Party) {
-	if len(p.Guests) != 1 {
+	if len(p.Guests) != 1 || p.Guests[0].Who.Key != "" { // a named guest stays who it is
 		return
 	}
 	var from []bool

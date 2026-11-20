@@ -82,7 +82,9 @@ func (g *Game) arriveGhost(room int) *Party {
 	for _, guest := range p.Guests {
 		guest.RoomIndex = room
 	}
-	g.rollNamedGhost(p)
+	if g.grown() { // as rollNamedHuman (party.go)
+		g.rollNamedGhost(p)
+	}
 	if through { // it never meets the first on the way (they are mates to the bumping), nor the Street
 		for _, q := range g.parties {
 			if q.Occupies(room, Ghost) {
