@@ -220,7 +220,9 @@ func TestCorridorMirrorCourier(t *testing.T) {
 	}
 	i := row(t, CorridorMirror)
 	rooms := g.ownedCount()
-	step := func(n Num) Cost { return Cost{Money: roomPrice(uncoverMoney*n, rooms), Ecto: roomPrice(uncoverEcto*n, rooms)} }
+	step := func(n Num) Cost {
+		return Cost{Money: roomPrice(uncoverMoney*n, rooms), Ecto: roomPrice(uncoverEcto*n, rooms)}
+	}
 	if g.priceOf(i) != step(1) {
 		t.Fatalf("first price %v", g.priceOf(i))
 	}

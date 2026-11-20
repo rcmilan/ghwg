@@ -280,9 +280,9 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 // reelLate: a balloon or pill of the world pass, kept for after the flip: a copy of its guest (his lift in his Y) and
 // how to draw it by a guest.
 type reelLate struct {
-	guest  entities.Guest
-	oy     int
-	draw   func(*ebiten.Image, *entities.Guest)
+	guest entities.Guest
+	oy    int
+	draw  func(*ebiten.Image, *entities.Guest)
 }
 
 // reelDefer: on the reel's buffer, keeps draw for after the flip and says so. The turned-over world has no upright
