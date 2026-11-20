@@ -19,9 +19,8 @@ const (
 )
 
 var (
-	kTint = [3]float32{.75, .88, 1} // K: a pale moon-blue
-	mTint = [3]float32{1, .82, .5}  // M: gold
-	mEdge = [3]float32{.7, .55, 1}  // M's sigil: violet
+	mTint = [3]float32{1, .82, .5} // M: gold
+	mEdge = [3]float32{.7, .55, 1} // M's sigil: violet
 )
 
 // lift: how high the Priest hovers in his chant, world px: K barely stirs, M floats up on his chant.
@@ -32,7 +31,7 @@ func (pr *priest) lift() float64 {
 	if pr.strong {
 		return 5 * math.Min(1, pr.t/60) * (.8 + .2*math.Sin(pr.t/20))
 	}
-	return .8 * math.Abs(math.Sin(math.Pi*pr.t/(3*chantHop))) // a slow bow
+	return kLift(pr)
 }
 
 // ritualLights: the Room's ritual glows at night too (light pass); nil when none is under way.
@@ -41,12 +40,12 @@ func (g *Game) ritualLights() (ls []light) {
 		if pr.phase != rChant && pr.phase != rBurst {
 			continue
 		}
-		cut, rgb := float32(.35), kTint
+		cut, rgb := float32(kLightCut), kTint
 		if pr.strong {
 			cut, rgb = .6, mTint
 		}
 		if pr.phase == rBurst {
-			cut = min(.95, cut+.35*float32(math.Sin(math.Pi*pr.t/burstFrames)))
+			cut = min(.95, cut+kLightBurst*float32(math.Sin(math.Pi*pr.t/burstFrames)))
 		}
 		ls = append(ls, light{at: image.Pt(int(pr.X), int(pr.Y)), img: g.glow, rgb: rgb, cut: cut})
 	}
@@ -103,29 +102,6 @@ func (g *Game) drawRituals(s *ebiten.Image, ox, oy int, floor bool) {
 		} else {
 			g.drawK(s, pr, x, y, floor)
 		}
-	}
-}
-
-func (g *Game) drawK(s *ebiten.Image, pr *priest, x, y float64, floor bool) {
-	const r = 14 * zoom
-	switch {
-	case pr.phase == rChant && floor:
-		f := math.Min(1, pr.t/60)
-		breath := .5 + .5*math.Sin(pr.t/45)
-		g.glowAt(s, x, y, 1.6*r*(1+.06*breath), kTint, .3*f)      // a faint pool under him
-		drawRing(s, x, y, r, 1, 1.5, kTint, .75*f*(.6+.4*breath)) // the ring, breathing
-	case pr.phase == rChant:
-		f := math.Min(1, pr.t/60)
-		for k := range 3 { // three motes, no more
-			u := math.Mod(pr.t/180+float64(k)/3, 1)
-			g.glowAt(s, x+math.Sin(float64(k)*2.4+u*2)*7*zoom, y-(4+22*u)*zoom, 7*zoom, kTint, .8*math.Sin(math.Pi*u)*f)
-		}
-	case pr.phase == rBurst && floor:
-		f := pr.t / burstFrames
-		drawRing(s, x, y, r*(1+.6*f), 1, 1.5, kTint, .5*(1-f))
-	case pr.phase == rBurst:
-		f := pr.t / burstFrames
-		g.glowAt(s, x, y-6*zoom, 3*world.TileSize*zoom*(.6+.4*f), kTint, .55*math.Sin(math.Pi*f)) // one soft pulse
 	}
 }
 
