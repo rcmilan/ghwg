@@ -315,7 +315,16 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	src.Fill(bg)
-	g.drawWorld(src, ox, oy)
+	if r := t.p.Room; t.card != nil && r < len(g.fog) {
+		// The card looks at its guest: its Room's Fog lifts as the camera closes in, at the draw, as the hotel view's
+		// (hotelview.go). Faded on world time, at the card's 0.06 it took ~8 s past the door opening (T381 refine 3).
+		f := g.fog[r]
+		g.fog[r] = f * (1 - g.talkEase())
+		g.drawWorld(src, ox, oy)
+		g.fog[r] = f
+	} else {
+		g.drawWorld(src, ox, oy)
+	}
 	lead := t.p.Guests[0]
 	fx := float64(screenPx(g.player.X)+screenPx(lead.X))/2 - float64(ox)
 	fy := float64(screenPx(g.player.Y)+screenPx(lead.Y))/2 - float64(oy) - charH/2*zoom
