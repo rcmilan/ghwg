@@ -11,10 +11,10 @@ import (
 // Corridor mirrors (08 B1): each Corridor a New floor made has a Mirror on a random Room's front wall, near
 // a corner, chosen per Run (the seeded rng) and covered at first. Uncovered, it shifts like the Lobby Mirror,
 // from the Corridor cell below it. The HOTEL row uncovers it for Money and Ectoplasm, a courier walking to its
-// cell to do it (as for the Lobby Mirror), each one costing twice the last. The state lives on the Hotel (world.CorridorMirror), which a Run's start rebuilds.
+// cell to do it (as for the Lobby Mirror), each one costing (n + 1) times the first, dearer per Room owned. The state lives on the Hotel (world.CorridorMirror), which a Run's start rebuilds.
 const (
 	CorridorMirror Unlock = "corridor-mirror" // the HOTEL row that uncovers the next one; not an unlock, its ID only names it
-	uncoverMoney          = 100               // $: the first uncovered (placeholder); each next one costs twice the last
+	uncoverMoney          = 100               // $: the first uncovered (placeholder); the next costs one more times that
 	uncoverEcto           = 60                // Ectoplasm: likewise
 )
 
@@ -45,15 +45,16 @@ func (g *Game) atCorridorMirror() int {
 	return -1
 }
 
-// uncoverCost: the next's price: uncoverMoney and uncoverEcto, doubled for each already uncovered or on its way.
+// uncoverCost: the next's price: (uncoverMoney, uncoverEcto) x (n + 1), n the Mirrors already uncovered or on their
+// way, then the per-Room step like keys and growth (roomPrice).
 func uncoverCost(g *Game) Cost {
-	n := Num(1)
+	n := 0
 	for k, m := range g.hotel.Corridors {
 		if m.Open || g.uncovering(k) {
-			n *= 2
+			n++
 		}
 	}
-	return Cost{Money: uncoverMoney * n, Ecto: uncoverEcto * n}
+	return Cost{Money: roomPrice(uncoverMoney*Num(n+1), g.ownedCount()), Ecto: roomPrice(uncoverEcto*Num(n+1), g.ownedCount())}
 }
 
 // spotDrop: where the courier stands to uncover Corridor Mirror k: the center of its Spot.

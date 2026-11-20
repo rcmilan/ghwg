@@ -48,6 +48,7 @@ func main() {
 	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
 	father := flag.String("father", "", "dev: start a Run with Rooms 101 and 102 open and guests in, Money for both Fathers, Father k (or m) already walking to Room 101, you in the Lobby Archway: SPACE, then Room 102's ring has no call for him until he walks out")
+	ritual := flag.String("ritual", "", "dev: loop a Father's ritual: k, m, or kpace (K on his retainer pacing the corridors); Room 101 open with spiritual dirt that comes back after each ritual, you inside its door in the ghost dimension (with -shot -at; on the web ?args=-ritual k)")
 	kitchen := flag.Bool("kitchen", false, "dev: start a Run in the kitchen, in front of the oven, the Water full, the Food low, the Towels out (with -shot -at, -ghost)")
 	mirror := flag.Bool("mirror", false, "dev: Room 101 has a Room mirror and two ghosts (the second came through it), Room 102 none: its ring offers Add mirror (-view 1,1,0); you in 101; use with -ghost")
 	corridors := flag.Int("corridors", -1, "dev, with -grow floor: stand beside the first Corridor Mirror's cell; this many (0, 1) are uncovered already; the Concierge has the Money and Ectoplasm to buy the next one at the Terminal")
@@ -92,7 +93,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -135,6 +136,9 @@ func main() {
 		}
 		if *father != "" {
 			g.DevFather(*father == "m")
+		}
+		if *ritual != "" {
+			g.DevRitual(*ritual)
 		}
 		if *notices {
 			g.DevNotices()

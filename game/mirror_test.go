@@ -204,7 +204,7 @@ func TestCorridorMirrorsOnGrowth(t *testing.T) {
 }
 
 // 08 B1 (Corridor mirrors): covered, SPACE on its cell only refuses (no glow); the HOTEL row at the Terminal sends a
-// courier to that cell, who uncovers it on arrival, for Money and Ectoplasm; the price doubles; then SPACE shifts there.
+// courier to that cell, who uncovers it on arrival, for Money and Ectoplasm; the price steps up; then SPACE shifts there.
 func TestCorridorMirrorCourier(t *testing.T) {
 	g := growFloors(t, 2)
 	s := g.in.(*script)
@@ -219,7 +219,11 @@ func TestCorridorMirrorCourier(t *testing.T) {
 		t.Fatal("SPACE uncovered or shifted a covered Mirror")
 	}
 	i := row(t, CorridorMirror)
-	if g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
+	rooms := g.ownedCount()
+	step := func(n Num) Cost {
+		return Cost{Money: roomPrice(uncoverMoney*n, rooms), Ecto: roomPrice(uncoverEcto*n, rooms)}
+	}
+	if g.priceOf(i) != step(1) {
 		t.Fatalf("first price %v", g.priceOf(i))
 	}
 	g.openTerminal()
@@ -233,11 +237,11 @@ func TestCorridorMirrorCourier(t *testing.T) {
 		t.Fatal(why)
 	}
 	g.state = StatePlay
-	if g.wallet != [2]Num{9 * uncoverMoney, 9 * uncoverEcto} || g.hotel.Corridors[0].Open || len(g.couriers) != 1 {
+	if g.wallet != [2]Num{10*uncoverMoney - step(1)[Money], 10*uncoverEcto - step(1)[Ecto]} || g.hotel.Corridors[0].Open || len(g.couriers) != 1 {
 		t.Fatalf("after checkout: wallet %v, open %v, couriers %d; want paid once, still covered, a courier on his way", g.wallet, g.hotel.Corridors[0].Open, len(g.couriers))
 	}
-	if k := g.nextCovered(); k != 1 || g.priceOf(i) != (Cost{Money: 2 * uncoverMoney, Ecto: 2 * uncoverEcto}) {
-		t.Errorf("while he walks: next %d at %v; want the second, doubled", k, g.priceOf(i))
+	if k := g.nextCovered(); k != 1 || g.priceOf(i) != step(2) {
+		t.Errorf("while he walks: next %d at %v; want the second, x2", k, g.priceOf(i))
 	}
 	for f := 0; !g.hotel.Corridors[0].Open; f++ {
 		if f > 3*60*tps {
@@ -258,8 +262,9 @@ func TestCorridorMirrorCourier(t *testing.T) {
 func TestCorridorMirrorRow(t *testing.T) {
 	g := growFloors(t, 1)
 	i := row(t, CorridorMirror)
-	if !g.onSale(i) || g.priceOf(i) != (Cost{Money: uncoverMoney, Ecto: uncoverEcto}) {
-		t.Fatalf("on sale %v at %v; want on sale for $%d and %d Ectoplasm", g.onSale(i), g.priceOf(i), uncoverMoney, uncoverEcto)
+	want := Cost{Money: roomPrice(uncoverMoney, g.ownedCount()), Ecto: roomPrice(uncoverEcto, g.ownedCount())}
+	if !g.onSale(i) || g.priceOf(i) != want {
+		t.Fatalf("on sale %v at %v; want on sale at %v", g.onSale(i), g.priceOf(i), want)
 	}
 	g.wallet = [2]Num{2 * uncoverMoney, 2 * uncoverEcto}
 	if why := g.buyNow(i, -1); why != "" {
@@ -363,5 +368,19 @@ func TestCourierHangsMirrorInRoom(t *testing.T) {
 			t.Errorf("unlock %v: the glass spot %v is not where the courier stood (%v)", unlock, g.hotel.Rooms[room].Mirror, spot)
 		}
 		deliver(t, g)
+	}
+}
+
+// The Corridor mirror's price: (100 + 60 Ecto) x (n + 1) x (1 + 0.15 x Rooms owned), n uncovered or on their way.
+func TestUncoverCostSteps(t *testing.T) {
+	g := growFloors(t, 2)
+	g.roomOwned = make([]bool, len(g.hotel.Rooms))
+	g.roomOwned[0], g.roomOwned[1] = true, true // 2 Rooms: x1.3
+	if c := uncoverCost(g); c != (Cost{Money: 130, Ecto: 78}) {
+		t.Errorf("first at 2 Rooms: %v, want $130 78 Ecto", c)
+	}
+	g.hotel.Corridors[0].Open = true
+	if c := uncoverCost(g); c != (Cost{Money: 260, Ecto: 156}) {
+		t.Errorf("second at 2 Rooms: %v, want $260 156 Ecto", c)
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/hajimehoshi/ebiten/v2"
+
 	"ghosthotel/world"
 )
 
@@ -111,6 +113,20 @@ func (g *Game) pantryPick(p int) int {
 func (g *Game) pantryRect(p int) image.Rectangle {
 	c := g.hotel.Pantries[p].Cell
 	return image.Rect(c.X*world.TileSize, (c.Y-1)*world.TileSize, (c.X+1)*world.TileSize, (c.Y+1)*world.TileSize)
+}
+
+// drawPantryStock: with the Concierge near a pantry, each Supply's icon and count over its shelf, stacked (as the
+// kitchen shows its stock). drawWorld calls it after the props.
+func (g *Game) drawPantryStock(screen *ebiten.Image, ox, oy int) {
+	for p := range g.hotel.Pantries {
+		if !g.nearStock(g.pantryRect(p)) {
+			continue
+		}
+		r := g.pantryRect(p)
+		for k, s := range supplies {
+			g.drawStockMark(screen, s.ID, g.stockOf(p)[s.ID], (r.Min.X+r.Max.X)/2, r.Min.Y-k*(g.supplyIcon(s.ID).Bounds().Dy()+1), ox, oy)
+		}
+	}
 }
 
 // fetchPantry is the kitchen shelf's fetch (supply.go) on pantry p's stock.

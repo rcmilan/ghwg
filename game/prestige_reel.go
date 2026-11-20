@@ -36,7 +36,6 @@ const (
 	reelWalk    = 1.0
 	spinStart   = 24.0  // clock frames a frame at the start of the race...
 	spinEnd     = 600.0 // ...and at its end: a day in 24 frames, under 3 flickers a second
-	fallPull    = 0.05  // px/frame² "up"
 	clockRadius = 110   // screen px
 )
 
@@ -56,7 +55,6 @@ type cast struct {
 	g    *entities.Guest
 	slot image.Point
 	pop  int // the frame a far guest appears in the hall; 0 for one who walks in
-	vy   float64
 }
 
 type prestigeReel struct {
@@ -65,11 +63,12 @@ type prestigeReel struct {
 	pl    entities.Guest // the Concierge, walked like the rest, then copied back
 	p     *priest
 	ppos  image.Point // where Father P stands
-	ceil  float64     // the hall's "up" end, world px
 	flip  float64     // 0 upright .. 1 turned over
 	skip  bool
 	buf   *ebiten.Image // the world, drawn once then laid on the screen turned over
+	late  []reelLate    // the balloons and pills the world pass left out, drawn upright after the flip
 	hallC image.Point
+	vx    vortex // the race's flyers (vortex.go)
 }
 
 // playPrestige starts the cutscene (P1-C's confirm card calls it); when it ends it calls startPrestige.
@@ -100,10 +99,6 @@ func (g *Game) playPrestige() {
 		if dist(s, front) < dist(r.ppos, front) {
 			r.ppos = s
 		}
-	}
-	r.ceil = float64(slots[0].Y) - 4
-	for _, s := range slots {
-		r.ceil = math.Min(r.ceil, float64(s.Y)-4)
 	}
 	slices.SortFunc(slots, func(a, b image.Point) int { // the crowd fills in from just below him
 		return int(dist(a, r.ppos.Add(image.Pt(0, 24))) - dist(b, r.ppos.Add(image.Pt(0, 24))))
@@ -173,11 +168,11 @@ func (g *Game) updateReel() {
 	}
 	if r.t >= reelFlip && !r.skip {
 		r.flip = min(1, r.flip+1.0/turnFrames)
-		for i := range r.cast { // gravity is up: they rise off the floor, faster and faster, and pile on the ceiling
+		for i := range r.cast { // weightless: each floats off the floor where it stands and bobs; no pile against a wall (live test 2026-11-20)
 			c := &r.cast[i]
-			c.vy += fallPull * (1 + float64(i%3)/3)
-			c.g.X += math.Sin(float64(r.t)/9+float64(i)) * .3
-			c.g.Y = math.Max(r.ceil, c.g.Y-c.vy)
+			ph := float64(r.t)/(12+float64(i%5)) + float64(i)
+			c.g.X = float64(c.slot.X) + 3*math.Sin(ph)
+			c.g.Y = float64(c.slot.Y) - 5*r.flip - 2*math.Cos(1.3*ph)
 		}
 	}
 	if r.t >= reelRace && !r.skip {
@@ -205,6 +200,7 @@ func (g *Game) endReel() {
 	if r.buf != nil {
 		r.buf.Deallocate()
 	}
+	r.freeVortex()
 	g.reel = nil
 	prestigeGo(g)
 }
@@ -218,8 +214,12 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		r.buf = ebiten.NewImage(b.Dx(), b.Dy())
 	}
 	r.buf.Fill(assets.Night)
+	r.late = r.late[:0]
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	if r.t >= reelRace && !r.skip && r.vx.fl == nil {
+		g.registerVortex(ox, oy)
+	}
 	g.drawWorld(r.buf, ox, oy)
 	at := func(x, y float64) (float64, float64) { return x*zoom - float64(ox), (y-8)*zoom - float64(oy) }
 	for _, c := range r.cast { // a far guest's arrival: a ring and a flash
@@ -247,6 +247,12 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 	op.GeoM.Scale(1, math.Cos(math.Pi*e)) // turns through edge-on to upside down
 	op.GeoM.Translate(0, float64(b.Dy())/2)
 	screen.DrawImage(r.buf, op)
+	c := math.Cos(math.Pi * e)
+	for _, l := range r.late { // at the speaker's flipped place, the balloon itself upright
+		at := flipped(l.guest, l.oy, float64(b.Dy()), c)
+		l.draw(screen, &at)
+	}
+	g.drawVortex(screen)
 	if k := min(1, float64(r.t-reelRace)/60); k > 0 && !r.skip { // the clock, spinning
 		cx, cy := float64(b.Dx())/2, float64(b.Dy())/2
 		g.glowAt(screen, cx, cy, 3*clockRadius*zoom/2, moonLight, .3*k)
@@ -263,6 +269,46 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{255, 255, 255, uint8(255 * min(1, f))})
 	}
 }
+
+// reelLate: a balloon or pill of the world pass, kept for after the flip: a copy of its guest (his lift in his Y) and
+// how to draw it by a guest.
+type reelLate struct {
+	guest entities.Guest
+	oy    int
+	draw  func(*ebiten.Image, *entities.Guest)
+}
+
+// reelDefer: on the reel's buffer, keeps draw for after the flip and says so. The turned-over world has no upright
+// balloons: they are drawn on the screen, by the guest's flipped place.
+func (g *Game) reelDefer(s *ebiten.Image, guest *entities.Guest, oy int, draw func(*ebiten.Image, *entities.Guest)) bool {
+	r := g.reel
+	if r == nil || s != r.buf {
+		return false
+	}
+	if r.gone(guest) { // a flyer says nothing
+		return true
+	}
+	at := *guest
+	at.Y -= g.lift(guest) // the copy is no one's in a Party: balloonAt must not lift it again
+	r.late = append(r.late, reelLate{at, oy, draw})
+	return true
+}
+
+// headY: the screen y a balloon's tail points at for a guest at world y, the world at zoom with top oy (balloonAt's head).
+func headY(y float64, oy int) float64 {
+	return float64(int(y*zoom) - oy + int(float64(entities.FootH/2-charH)*zoom) + int(4*zoom))
+}
+
+// flipped: the guest moved so that his balloon's tail lands where the tail of the unflipped one would after the screen
+// of height h turns through scale c: the tail is affine in his Y, slope zoom.
+func flipped(guest entities.Guest, oy int, h, c float64) entities.Guest {
+	t0 := headY(guest.Y, oy)
+	guest.Y += (flipY(t0, h, c) - t0) / zoom
+	return guest
+}
+
+// flipY: where screen y lands when the screen of height h is turned through scale c on its middle line.
+func flipY(y, h, c float64) float64 { return h/2 + (y-h/2)*c }
 
 // DevPrestige is main's -prestige: a busy hotel a few hours in, the cutscene running.
 func (g *Game) DevPrestige() {

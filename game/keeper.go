@@ -214,7 +214,10 @@ func (g *Game) nextJob(k *housekeeper) bool {
 		}
 	}
 	for i := range g.hotel.Rooms { // Matchmaking (X2): a bad pair whose Party she can afford to move
-		if p := g.humanIn(i); g.unlocked(Matchmaking) && p != nil && g.pairing(i) == badPair && movable(p) && !taken(i, matching) {
+		if !g.unlocked(Matchmaking) {
+			break
+		}
+		if p := g.humanIn(i); p != nil && g.pairing(i) == badPair && movable(p) && !taken(i, matching) {
 			if _, _, c, ok := g.sureOffer(p); ok && g.afford(Cost{Money: c}) {
 				k.job, k.room = matching, i
 				g.sendKeeper(k, g.doorDrop(i), -1)
@@ -367,7 +370,7 @@ func (g *Game) keeperTalk(k *housekeeper) {
 		return
 	}
 	for _, p := range g.parties {
-		if lead := p.Guests[0]; p.Realm == Human && p.state == checkingIn && !p.welcomed && g.shown(lead) &&
+		if lead := p.Guests[0]; p.Realm == Human && p.state == checkingIn && !p.welcomed && p.shown(lead) &&
 			math.Hypot(lead.X-k.X, lead.Y-k.Y) <= keeperNear*world.TileSize {
 			p.welcomed = true
 			k.said = line{0, g.pickLine(keeperWelcome), g.tick}

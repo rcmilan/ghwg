@@ -337,7 +337,7 @@ The Strategy that opens Rooms, keeps the Stock up, hires one Housekeeper as soon
 A stress Run (`-busy`, `TestBusyHotel`): the hotel at 3 by 3, every Room open with Twin beds, Parties and ghosts arriving minutes apart and replaced minutes after they leave, three Housekeepers, a Courier restocking for free. It shows everyone walking at once and counts how often a walker is stopped by someone ahead.
 
 **Notice**:
-The HUD's place for words to the player: a feed on the right, under the Ectoplasm counter and TALK's cue, of one-line notices (about 4 s) drawn exactly like the Ectoplasm counter (its font, size and ink, no outline), in one left-aligned column, at most three, the oldest leaving early; the left side's next-guest note is drawn like the Money counter and holds as long, shown again when its line changes. All hide while the Terminal is open. A notice fires when a Room reaches Mood -100 ("101 CLOSED", ghost-only Rooms too) and when a human Party flees ("GUESTS FLED 102"); staff leaving unpaid only say so. Code says it with `g.notice(text)`. The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a text outside `g.notice`.
+The HUD's place for words to the player: a feed on the right, under the Ectoplasm counter and TALK's cue, of one-line notices (about 4 s) drawn exactly like the Ectoplasm counter (its font, size and ink, no outline), in one left-aligned column, at most three, the oldest leaving early, the feed emptied when a Run starts; the left side's next-guest note is drawn like the Money counter and holds as long, shown again when its line changes. All hide while the Terminal is open. A notice fires when a Room reaches Mood -100 ("101 CLOSED", ghost-only Rooms too) and when a human Party flees ("GUESTS FLED 102"); staff leaving unpaid only say so. Code says it with `g.notice(text)`. The game has no message line at the bottom of the screen, and a test (`TestNoMessageLine`) fails if code brings back one, a background behind HUD words, or a text outside `g.notice`.
 _Avoid_: message, message line, status bar, toast
 
 **Room-only line**:
@@ -347,7 +347,7 @@ A line that makes sense only inside a Room (what a Guest says of its Room, of a 
 What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.
 
 **Goals Strategy** (`goals`, 2026-11-14)
-The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper). It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
+The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's call unlocks, calls them on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
 
 **Spent**, **passing on** (2026-11-14)
 A ghost has one haunt in it per point of Phantasm. Having done them all it is spent and passes on: it rises, pales and is gone, and its Room books the next ghost. It dims with each haunt on the way. The weakest ghost haunts once. A pair passes on together.
@@ -390,7 +390,7 @@ The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a pl
 Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, whenever the guest is not snubbed. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.
 
 **Ritual**:
-A Priest's work in a Room: he walks to its middle, says an opening line, chants with a small hop while sparkles rise, a burst of light lands the effect, he says a closing line and leaves.
+A Priest's work in a Room: he walks to its middle, says an opening line, chants with a small hop while sparkles rise, a burst of light lands the effect, he says a closing line and leaves. Father K's drawing is in `game/ritual_k.go`, its knobs at the top; the dev flag `-ritual k|m|kpace` loops one for tuning.
 
 **Retainer**:
 Father K's daily wage in Ectoplasm, a STAFF row once his call is unlocked. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any; his call is not offered meanwhile. Short of it on payday, he leaves at once and the row is offered again.
@@ -402,7 +402,7 @@ Three STAFF tiers in Ectoplasm, each +15% walking speed (added) for every Housek
 The Concierge in the ghost Dimension: he hears only ghost lines (never the living's or the staff's), triggers no Shadow or haunt, and never bothers guests by lingering.
 
 **Corridor mirror**:
-A Mirror on a Corridor made by a New floor, one per such Corridor, at a random Room's front-wall corner each Run, covered at first, like the Lobby Mirror: SPACE at a covered one does nothing. The HOTEL row buys it for Money and Ectoplasm, dearer than the Lobby's and doubling per Mirror; the Courier walks to the cell below it and uncovers it, and then it Shifts like the Lobby's.
+A Mirror on a Corridor made by a New floor, one per such Corridor, at a random Room's front-wall corner each Run, covered at first, like the Lobby Mirror: SPACE at a covered one does nothing. The HOTEL row buys it for Money and Ectoplasm, dearer than the Lobby's: ($100 and 60 Ectoplasm) times the number of Corridor mirrors bought plus one, then the Room key's 15% more for each Room owned; the Courier walks to the cell below it and uncovers it, and then it Shifts like the Lobby's.
 
 ## Prestige
 
@@ -411,7 +411,7 @@ Ending a Run on purpose to start the next one stronger: the hotel, Money, Ectopl
 _Avoid_: reset, rebirth, new game
 
 **Father P**:
-The Priest of the Prestige, one STAFF row priced in Ectoplasm. On sale only once the hotel has grown to its Level's limit and every Room key is bought. SPACE on his row opens a confirm card (what is gained, what is lost); SPACE on the card pays and plays his cutscene: everyone gathers in the hall, the world turns upside down, time races, a white flash, and the next Run starts on Day 1 at 08:00 in the Entrance hall, with no title or intro. The first time the cutscene plays in full; later SPACE skips to the flash.
+The Priest of the Prestige, one STAFF row priced in Ectoplasm. On sale only once the hotel has grown to its Level's limit and every Room key is bought. SPACE on his row opens a confirm card (what is gained, what is lost); SPACE on the card pays and plays his cutscene: everyone gathers in the hall, the world turns upside down, time races while everyone but him and all the furniture lifts off and spirals into the spinning clock, a white flash, and the next Run starts on Day 1 at 08:00 in the Entrance hall, with no title or intro. The first time the cutscene plays in full; later SPACE skips to the flash.
 
 **Level**:
 How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Level) a side, and opens one new thing per Level (Level 1: the Pantry); a Terminal row waiting on one says "Prestige level N to unlock". Shown with the Bonus in the Terminal's header ("LV 1 - x1.53"), never on the play HUD.
@@ -420,9 +420,9 @@ How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Le
 The income multiplier a Prestige leaves: every Money and Ectoplasm earning is multiplied by it, in one place. Each Prestige adds to it (it never drops) the square root of the Run's Ectoplasm earned plus its unspent Money (donated, $10 counting as 1 Ectoplasm) over 6000.
 
 **Pantry**:
-A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It holds a few of each Supply (2); the Concierge takes from it with SPACE as at the Kitchen, a Housekeeper fetches from whichever of it and the Kitchen is nearer, and an idle Housekeeper refills it from the Kitchen. Supplies are still bought in the Kitchen.
+A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It holds a few of each Supply (2), shown as each Supply's icon and `xN` while the Concierge is within 2 cells; the Concierge takes from it with SPACE as at the Kitchen, a Housekeeper fetches from whichever of it and the Kitchen is nearer, and an idle Housekeeper refills it from the Kitchen. Supplies are still bought in the Kitchen.
 _Avoid_: shelf (alone), storeroom
 
 **Save**:
-What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
+What the game keeps between sessions: the Level and the Bonus, and a checkpoint of the Run at each dawn (08:00, from Day 2): the grid, each Room's type, ownership, Mood, dirt and Mirror, the Corridor mirrors, the Pantry stock (an older save loads with empty Pantries), the staff, the wallet, the unlocks and the Ectoplasm earned. No guests: CONTINUE on the title starts that morning with an empty hotel. On the web it lives in the browser's storage, on a computer in a file; only a person's start uses it, never a dev start, a print, a test or the sim. A save it cannot read starts a new game.
 _Avoid_: autosave, slot

@@ -2,7 +2,10 @@ package game
 
 import (
 	"image"
+	"math"
 	"testing"
+
+	"ghosthotel/entities"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -57,6 +60,29 @@ func TestPrestigeReelSkip(t *testing.T) {
 		g.Update()
 		if got := g.reel.t >= reelFlash; got != want {
 			t.Errorf("level %d: SPACE skipped to the flash = %v, want %v", level, got, want)
+		}
+	}
+}
+
+// The cutscene's balloons are drawn upright at the speaker's turned-over place: the anchor takes the flip, not the balloon.
+func TestFlipY(t *testing.T) {
+	for _, c := range []struct{ y, c, want float64 }{{100, 1, 100}, {100, -1, 440}, {100, 0, 270}, {270, -1, 270}} {
+		if got := flipY(c.y, 540, c.c); got != c.want {
+			t.Errorf("flipY(%v, 540, %v) = %v, want %v", c.y, c.c, got, c.want)
+		}
+	}
+}
+
+// A replayed balloon's tail lands on the flipped tail of the unflipped one, whatever the turn.
+func TestFlippedTail(t *testing.T) {
+	g := entities.NewGuest(image.Pt(300, 200), "x")
+	const h, oy, ox = 540.0, 120, 50
+	for _, c := range []float64{1, 0.3, -0.6} {
+		_, _, _, hy0 := balloonAt(g.X, g.Y, zoom, ox, oy, 40, 8, balloonScale, 960, int(h))
+		at := flipped(g, oy, h, c)
+		_, _, _, hy := balloonAt(at.X, at.Y, zoom, ox, oy, 40, 8, balloonScale, 960, int(h))
+		if want := flipY(float64(hy0), h, c); math.Abs(float64(hy)-want) > 1 {
+			t.Errorf("c=%v: tail at %d, want %v", c, hy, want)
 		}
 	}
 }

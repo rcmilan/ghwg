@@ -73,11 +73,11 @@ func main() {
 	fmt.Printf("%s, %d days, %d Runs per Strategy (seeds %d..%d), react %d, keygap %d, score = $ + Ectoplasm × %g\n\n",
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
+	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tM calls\tretainer days\tpriest ecto\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
 	var failures, growth, staff, pacing, prestige []string
 	for s, name := range names {
 		var perDay []float64
-		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed int
+		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed, priestsM, retainDays, priestEcto int
 		cheat := false
 		mirrorSum, mirrorN := 0.0, 0
 		var roomMirror []float64
@@ -130,6 +130,7 @@ func main() {
 			fled, ecto, serves, expired = fled+r.Fled, ecto+r.Ecto, serves+r.Serves, expired+r.Expired
 			walked, cleans = walked+r.Walked, cleans+r.Cleans
 			priests, spent, closed = priests+r.Priests, spent+r.PriestSpend, closed+r.ClosedHours
+			priestsM, retainDays, priestEcto = priestsM+r.PriestsM, retainDays+r.RetainDays, priestEcto+r.PriestEcto
 			cheat = cheat || r.Cheat
 			if len(r.Failures) > 0 {
 				failed++
@@ -154,10 +155,10 @@ func main() {
 			pacing = append(pacing, fmt.Sprintf("  %s: Mirror %s; Growth %s; housekeeper %s; Room mirror %s; Deluxe %s\n    longest wait: %.0f s before the Growth, %.0f s before the housekeeper, %.0f s before the Room mirror; %.0f Ectoplasm earned a Run",
 				name, spread(marks[0], *runs), spread(marks[1], *runs), spread(marks[2], *runs), spread(marks[3], *runs), spread(marks[4], *runs), waits[0], waits[1], waits[2], float64(earned)/n))
 		}
-		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.0f\t%s\t%s\t%d\t\n", name,
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.0f\t%.0f\t%.1f%%\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.1f\t%.0f\t%.1f\t%.1f\t%.0f\t%.0f\t%s\t%s\t%d\t\n", name,
 			mean(perDay)+float64(ecto)/n**ectoRate/float64(*days), mean(perDay), slices.Min(perDay), slices.Max(perDay),
 			100*float64(sold)/float64(max(avail, 1)), float64(bookings)/n, float64(ghosts)/n, float64(fled)/n, float64(walked)/n, float64(cleans)/n, float64(ecto)/n,
-			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
+			float64(serves)/n, float64(expired)/n, float64(priests)/n, float64(spent)/n, float64(priestsM)/n, float64(retainDays)/n, float64(priestEcto)/n, float64(closed)/n, mirrorAt, roomMirrorAt, failed)
 		g := "-"
 		if len(gains) > 0 {
 			g = fmt.Sprintf("%.2f", mean(gains))
@@ -226,7 +227,7 @@ func writeCSV(path string, results [][]game.Result) error {
 		return err
 	}
 	w := csv.NewWriter(f)
-	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "ghosts", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "closed_hours", "mirror_at_h", "room_mirror_at_h", "failure"})
+	w.Write([]string{"strategy", "seed", "cheat", "money_by_day", "sold", "available", "bookings", "ghosts", "paid", "pairs", "outings", "fled", "ectoplasm", "serves", "expired", "priests", "priest_spend", "m_calls", "retainer_days", "priest_ecto", "closed_hours", "mirror_at_h", "room_mirror_at_h", "failure"})
 	for _, rs := range results {
 		for _, r := range rs {
 			var money []string
@@ -241,7 +242,7 @@ func writeCSV(path string, results [][]game.Result) error {
 				strconv.Itoa(r.Sold), strconv.Itoa(r.Available),
 				strconv.Itoa(r.Bookings), strconv.Itoa(r.Ghosts), strconv.Itoa(r.Paid), strconv.Itoa(r.Pairs), strconv.Itoa(r.Outings),
 				strconv.Itoa(r.Fled), strconv.Itoa(r.Ecto), strconv.Itoa(r.Serves), strconv.Itoa(r.Expired),
-				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.ClosedHours), strconv.FormatFloat(r.MirrorAt, 'f', 1, 64), strconv.FormatFloat(r.RoomMirror, 'f', 1, 64), failure})
+				strconv.Itoa(r.Priests), strconv.Itoa(r.PriestSpend), strconv.Itoa(r.PriestsM), strconv.Itoa(r.RetainDays), strconv.Itoa(r.PriestEcto), strconv.Itoa(r.ClosedHours), strconv.FormatFloat(r.MirrorAt, 'f', 1, 64), strconv.FormatFloat(r.RoomMirror, 'f', 1, 64), failure})
 		}
 	}
 	w.Flush()

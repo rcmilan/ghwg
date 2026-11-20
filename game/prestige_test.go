@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"strings"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -108,6 +109,25 @@ func TestPrestigeReset(t *testing.T) {
 	g.startPrestige()
 	if g.bonus < before || g.level != 2 {
 		t.Fatalf("bonus %v after an empty Run, was %v: it must never drop", g.bonus, before)
+	}
+}
+
+// A new Run starts with an empty notice feed: after a prestige only its LEVEL/BONUS notice is in it.
+func TestNoticesClearedOnRun(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.notice("OLD ONE")
+	g.notice("OLD TWO")
+	g.startPrestige()
+	if n := g.note.items; len(n) != 1 || !strings.HasPrefix(n[0].text, "LEVEL") {
+		t.Fatalf("feed after a prestige: %+v", n)
+	}
+	data, _, _ := memStore(t) // a broken save's notice, posted by the title's startRun, stays
+	*data = []byte("not json")
+	g.introOn, g.persist = true, true
+	g.startRun()
+	if len(g.note.items) != 1 {
+		t.Fatalf("broken-save notice lost: %+v", g.note.items)
 	}
 }
 

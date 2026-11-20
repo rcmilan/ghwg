@@ -41,6 +41,9 @@ func (goals) Act(v View, p *Pilot) {
 		if c >= maxGrid(v.Level) {
 			grow = GrowFloor
 		}
+		if fathers(v, p, buy) { // dread first: a Room that closes is a spiral
+			return
+		}
 		plain := slices.IndexFunc(v.Rooms, func(r RoomView) bool { return !r.Boarded && !r.Changing && r.Type != deluxeTier })
 		for _, s := range []struct { // the first it wants is the one it saves for
 			want bool
@@ -70,4 +73,39 @@ func (goals) Act(v View, p *Pilot) {
 		}
 	}
 	smart{}.Act(v, p)
+}
+
+// fathers fights a Room's dread with the Fathers. It buys the K and M call unlocks once some Room's Mood is at or
+// below dreadMood and the wallet holds the unlock and one call; calls K at that Room if it has spiritual dirt, or
+// M if it is Closed or has a Shadow; and puts K on his retainer once the wallet holds two days of it (income
+// covers it: whatever Growth leaves piling up is spare; if he later leaves unpaid, the row waits for the same).
+func fathers(v View, p *Pilot, buy func(Unlock, int, Cost, func(View) bool) bool) bool {
+	const dreadMood = 0
+	worst := -1
+	for i, r := range v.Rooms {
+		if !r.Boarded && !r.Priest && r.Mood <= dreadMood && (worst < 0 || r.Mood < v.Rooms[worst].Mood) {
+			worst = i
+		}
+	}
+	if worst >= 0 {
+		r := v.Rooms[worst]
+		for _, u := range []struct {
+			id   Unlock
+			cost Num
+		}{{unlockK, unlockKEcto + priestWeak}, {unlockM, unlockMEcto + priestStrong}} {
+			if v.Ecto >= u.cost && buy(u.id, -1, Cost{Ecto: u.cost}, func(v View) bool { return !callable(v, u.id) }) {
+				return true
+			}
+		}
+		strong := r.Closed || r.Shadow
+		switch {
+		case strong && callable(v, rowFatherM) && v.Ecto >= priestStrong && !p.FatherBusy(true):
+			p.CallPriest(worst, true)
+			return true
+		case len(r.Spirit) > 0 && callable(v, rowFatherK) && callable(v, rowRetain) && v.Ecto >= priestWeak && !p.FatherBusy(false):
+			p.CallPriest(worst, false)
+			return true
+		}
+	}
+	return v.Ecto >= 2*retainerEcto && buy(rowRetain, -1, Cost{Ecto: retainerEcto}, func(v View) bool { return !callable(v, rowRetain) })
 }

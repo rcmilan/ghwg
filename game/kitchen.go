@@ -28,10 +28,26 @@ func (g *Game) supplyDrop(k int) image.Point {
 }
 
 // stockShown: supply k's count shows, the Concierge within stockNear cells of its prop.
-func (g *Game) stockShown(k int) bool {
-	r := supplySpot(g.hotel, k)
+func (g *Game) stockShown(k int) bool { return g.nearStock(supplySpot(g.hotel, k)) }
+
+// nearStock: the Concierge is within stockNear cells of the prop r (world px): its stock shows.
+func (g *Game) nearStock(r image.Rectangle) bool {
 	near := stockNear * world.TileSize
 	return g.feet().In(image.Rect(r.Min.X-near, r.Min.Y-near, r.Max.X+near, r.Max.Y+near))
+}
+
+// drawStockMark draws supply id's icon and "xN" over a prop: centered on world x mid, just above world y top. The
+// kitchen's shelves and the pantries both draw their stock with it.
+func (g *Game) drawStockMark(screen *ebiten.Image, id Unlock, n, mid, top, ox, oy int) {
+	icon := g.supplyIcon(id)
+	label := fmt.Sprintf("x%d", n)
+	iw, ih := icon.Bounds().Dx()*zoom, icon.Bounds().Dy()*zoom
+	ix, iy := mid*zoom-ox-(iw+2+6*len(label))/2, (top-2)*zoom-oy-ih
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(ix), float64(iy))
+	screen.DrawImage(icon, op)
+	g.inked(screen, label, ix+iw+2, iy+ih-15, 0, 0, 0) // black, on the walls' light paint
 }
 
 // drawKitchen draws the kitchen's props on their cells, against the back wall, and, with the Concierge near a
@@ -56,15 +72,7 @@ func (g *Game) drawKitchen(screen *ebiten.Image, ox, oy int) {
 			continue
 		}
 		mid, top := stock.Min.X+s.X*world.TileSize+s.W*world.TileSize/2, stock.Max.Y-g.sprite(s.Prop).Bounds().Dy()
-		icon := g.supplyIcon(s.ID)
-		label := fmt.Sprintf("x%d", g.stock[s.ID])
-		iw, ih := icon.Bounds().Dx()*zoom, icon.Bounds().Dy()*zoom
-		ix, iy := mid*zoom-ox-(iw+2+6*len(label))/2, (top-2)*zoom-oy-ih
-		op.GeoM.Reset()
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate(float64(ix), float64(iy))
-		screen.DrawImage(icon, op)
-		g.inked(screen, label, ix+iw+2, iy+ih-15, 0, 0, 0) // black, on the kitchen's light wall
+		g.drawStockMark(screen, s.ID, g.stock[s.ID], mid, top, ox, oy)
 	}
 }
 

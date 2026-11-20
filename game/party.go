@@ -198,7 +198,7 @@ func (g *Game) guestsIn(realm Realm) iter.Seq[*entities.Guest] {
 	return func(yield func(*entities.Guest) bool) {
 		for _, p := range g.parties {
 			for _, guest := range p.Guests {
-				if p.Realm == realm && p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
+				if p.Realm == realm && p.shown(guest) {
 					if !yield(guest) {
 						return
 					}
@@ -206,18 +206,6 @@ func (g *Game) guestsIn(realm Realm) iter.Seq[*entities.Guest] {
 			}
 		}
 	}
-}
-
-// has: guest is on the map.
-func (g *Game) has(guest *entities.Guest) bool {
-	for _, realm := range [...]Realm{Human, Ghost} {
-		for o := range g.guestsIn(realm) {
-			if o == guest {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // vacant: no Party of the realm occupies the Room.

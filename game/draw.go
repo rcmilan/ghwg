@@ -208,10 +208,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		sil  bool      // a human seen from the ghost dimension: a white silhouette with a small glow
 		up   bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
 		pot  bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+		key  any       // what the prestige vortex lifts it off by (vortex.go); nil stays
 	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
-		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim, up: g.ghost})
+		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim, up: g.ghost, key: &g.player})
 	}
 	if g.intro != nil && g.ghost { // and has ghosts strolling the street
 		for _, gh := range g.intro.ghosts {
@@ -225,7 +226,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		for guest := range g.guestsIn(realm) {
 			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
-				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest)}
+				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest), key: guest}
 			switch {
 			case realm == Ghost: // hued by its kind
 				var up float64
@@ -248,13 +249,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if c.carrying() {
 			name = courierBox
 		}
-		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y)))})
+		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y))), key: &c.Guest})
 	}
 	for _, k := range g.keepers {
-		actors = append(actors, actor{x: k.X, y: k.Y, name: keeperName, anim: k.Anim, fog: g.fogAt(image.Pt(int(k.X), int(k.Y)))})
+		actors = append(actors, actor{x: k.X, y: k.Y, name: keeperName, anim: k.Anim, fog: g.fogAt(image.Pt(int(k.X), int(k.Y))), key: &k.Guest})
 	}
-	for _, p := range g.hotel.Plants {
-		actors = append(actors, actor{x: float64(p.At.X), y: float64(p.At.Y), name: p.Sprite, pot: true})
+	for i, p := range g.hotel.Plants {
+		actors = append(actors, actor{x: float64(p.At.X), y: float64(p.At.Y), name: p.Sprite, pot: true, key: &g.hotel.Plants[i]})
 	}
 	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		if b, ok := g.bedAt(a.x, a.y); ok {
@@ -273,6 +274,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			return // off the picture: every prop of the hotel drawn each frame was most of a frame (08 W3 browser profile)
 		}
 		if g.reelingAt(p.l, p.cx, p.cy) { // rolling with its Room's reel
+			return
+		}
+		if g.reel != nil && g.vortexProp(i, ox, oy) { // lifted off in the prestige vortex
 			return
 		}
 		g.queueProp(i, o.X*zoom-ox, o.Y*zoom-oy)
@@ -296,7 +300,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	stock := func() { // the stock props: over the wall they stand against, under whoever stands in front
 		if !stocked {
 			propsUpTo(stockY)
-			g.drawKitchen(screen, ox, oy)
+			if g.reel == nil || !g.vortexKitchen(ox, oy) {
+				g.drawKitchen(screen, ox, oy)
+			}
 			stocked = true
 		}
 	}
@@ -321,6 +327,15 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			glow()
 		}
 		fx, fy := at(a.x, a.y)
+		if g.reel != nil && g.vortexActor(a.key, a.name, a.x, a.y-a.lift, a.pot, ox, oy, func(dst *ebiten.Image, x, y int) {
+			if a.pot {
+				g.drawPlant(dst, a.name, x, y)
+			} else {
+				g.drawCharacterAs(dst, x, y, a.name, a.anim, 0, a.tint, a.a, a.mode)
+			}
+		}) {
+			continue
+		}
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
 			continue
@@ -354,6 +369,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	stock()
 	glow()
 	propsUpTo(math.Inf(1))
+	g.drawPantryStock(screen, ox, oy)
 	if hx, hy := at(g.player.X, g.player.Y); g.hands != "" {
 		if g.ghost { // floating with him
 			_, hy = at(g.player.X, g.player.Y-hover(g.tick, "Bob"))
