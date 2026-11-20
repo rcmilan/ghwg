@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"slices"
+	"strconv"
 	"strings"
 
 	"ghosthotel/entities"
@@ -171,14 +172,15 @@ func (g *Game) cardView() (v cardView) {
 	guest := p.Guests[c.who]
 	w, white := guest.Who, color.Color(color.White)
 	ghost := p.Realm == Ghost
-	about := fmt.Sprintf("AGE %d - %s", w.Age, w.Job)
+	// "Name, age" over the job; a ghost's "Name, death year" over its cause (T381 refine 4: no labels, no dash).
+	age, about := strconv.Itoa(w.Age), w.Job
 	switch {
 	case ghost:
-		about = fmt.Sprintf("DIED %d - %s", w.Died, w.Cause)
+		age, about = strconv.Itoa(w.Died), w.Cause
 	case w.Age == 0:
-		about = fmt.Sprintf("AGE %s - %s", strings.ToUpper(w.AgeNote), w.Job)
+		age = w.AgeNote
 	}
-	v.who = []cardRow{{w.Name, resInk(Ecto), 1}}
+	v.who = []cardRow{{w.Name + ", " + age, resInk(Ecto), 1}}
 	for _, l := range wrapAt(about, sideWrap) {
 		v.who = append(v.who, cardRow{l, white, 1})
 	}

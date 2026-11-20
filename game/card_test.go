@@ -140,7 +140,7 @@ func TestGhostCard(t *testing.T) {
 		t.Fatal("the plate did not open the ghost's card in ghost")
 	}
 	txt := cardText(g)
-	if !strings.Contains(txt, "DIED 1987") || !strings.Contains(txt, "the sea") || strings.Contains(txt, "MOVE") || strings.Contains(txt, "PHANTASM") {
+	if !strings.Contains(txt, "Osvaldo Feltz, 1987") || !strings.Contains(txt, "the sea") || strings.Contains(txt, "MOVE") || strings.Contains(txt, "PHANTASM") {
 		t.Errorf("ghost card:\n%s", txt)
 	}
 	tap(g, s, ebiten.KeySpace)

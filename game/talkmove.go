@@ -312,7 +312,6 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 	}
 	t, src := g.parley, g.fx[0]
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
-	mw, mh := g.mapSize()
 	lead := t.p.Guests[0]
 	k, e := g.talkZoom(), g.talkEase()
 	// The focus, world px: the guest (the card's picked one). Since T381 refine 2 the talk starts at the plate, the
@@ -322,13 +321,11 @@ func (g *Game) drawParley(screen *ebiten.Image, bg color.Color) {
 		guest = t.p.Guests[t.card.who]
 	}
 	wx, wy, sharp := guest.X, guest.Y-charH/2, 1.5*charH*zoom*k
-	// Kept half a closed-in screen from the map's edges, so the picture never shows past them.
-	wx = min(max(wx, viewW/2/k), float64(mw)-viewW/2/k)
-	wy = min(max(wy, viewH/2/k), float64(mh)-viewH/2/k)
-	// The world is drawn round the focus, not round the Concierge (the play camera): the shader reads only this
-	// picture, and what it closes in on past it read black. The card's guest stands up to a Room's depth from the
-	// Concierge at the plate, and since T381 refine 2 the talk starts there too (T381 refine 3).
-	ox, oy := min(max(screenPx(wx)-w/2, 0), (mw-viewW)*zoom), min(max(screenPx(wy)-h/2, 0), (mh-viewH)*zoom)
+	// The world is drawn centred on the focus, not round the Concierge (the play camera): the shader reads only this
+	// picture, and what it closed in on past it read black. The card's guest stands up to a Room's depth from the
+	// Concierge at the plate, and since T381 refine 2 the talk starts there too (T381 refine 3). Not held inside the
+	// map: past its edge shows the backdrop, as in play, and the guest stays in the middle, its words round it.
+	ox, oy := screenPx(wx)-w/2, screenPx(wy)-h/2
 	fx, fy := float64(screenPx(wx)-ox), float64(screenPx(wy)-oy)
 	src.Fill(bg)
 	if r := t.p.Room; t.card != nil && r < len(g.fog) {
