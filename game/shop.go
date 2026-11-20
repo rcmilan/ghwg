@@ -69,6 +69,8 @@ var shop = []Item{
 	{ID: SupplyWater, Tab: tabSupplies, Name: "Water", Blurb: "Bottled at the source. Do not ask which.", Hint: "Buy a Room to unlock.", Icon: "icon_water", Cost: Cost{Money: 50}, Pack: 5},
 	{ID: SupplyFood, Tab: tabSupplies, Name: "Food", Blurb: "Hot meals, mostly from this dimension.", Hint: "Buy a Room to unlock.", Icon: "food_4", Cost: Cost{Money: 100}, Pack: 5},
 	{ID: SupplyTowel, Tab: tabSupplies, Name: "Towels", Blurb: "Fluffy. Stains come out. Most stains.", Hint: "Buy a Room to unlock.", Icon: "icon_towel", Cost: Cost{Money: 75}, Pack: 5},
+	{ID: SupplyVeggie, Tab: tabSupplies, Name: "Veggie meals", Blurb: "No meat, no ghosts. Mostly no ghosts.", Hint: "Grow the hotel to unlock.", Icon: "food_3", Cost: Cost{Money: 100}, Pack: 5},
+	{ID: SupplyGourmet, Tab: tabSupplies, Name: "Gourmet meals", Blurb: "For Deluxe guests. Pays double.", Hint: "Upgrade a Room to Deluxe to unlock.", Icon: "food_5", Cost: Cost{Money: 200}, Pack: 5},
 
 	{ID: Mirror, Tab: tabHotel, Name: "The Mirror", Blurb: "Totally not haunted. Ignore the knocking.", Hint: "Buy a Room to unlock.", Icon: "icon_mirror", Cost: Cost{Money: mirrorPrice}},
 	{ID: BedsTwin, Tab: tabHotel, Name: "Twin beds", Blurb: "Two beds. Twice the snoring.", Hint: "Earn $50 after the Mirror to unlock.", Icon: "icon_bed_twin", Cost: Cost{Money: twinPrice},
@@ -145,6 +147,9 @@ func (g *Game) onSale(i int) bool {
 	}
 	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
 		return g.nextCovered() >= 0
+	}
+	if !g.mealOn(it.ID) {
+		return false
 	}
 	if g.level < unlockLevel(it.ID) { // a prestige level opens it (pantry.go)
 		return false

@@ -40,7 +40,7 @@ func (g *Game) updateAsks() {
 			g.expired++
 		case !p.asking() && p.state == staying && (!asleep(g.clock) || !g.sleeps(p)) && (p.askEnded == 0 || g.clock-p.askEnded >= askGap*minuteFrames) &&
 			g.rng.Float64() < askPerDay/float64((sleepHour-wakeHour)*60):
-			p.asked, p.want = g.clock, supplies[g.rng.IntN(len(supplies))].ID
+			p.asked, p.want = g.clock, g.meal(p, supplies[g.rng.IntN(baseSupplies)].ID)
 		}
 	}
 }

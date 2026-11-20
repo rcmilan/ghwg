@@ -177,3 +177,21 @@ func TestPantryStockNear(t *testing.T) {
 		t.Error("stock shown from afar")
 	}
 }
+
+// T378: a pantry takes the meals too: SPACE fetches them from its shelf, a housekeeper refills them up to pantryMax.
+func TestPantryMeals(t *testing.T) {
+	g := pantryRun(t, 1)
+	g.stock = map[Unlock]int{}
+	spot := center(g.hotel.Pantries[0].Spot)
+	g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+	g.pantryStock[0][SupplyVeggie] = 2
+	g.space()
+	if g.hands != SupplyVeggie || g.pantryStock[0][SupplyVeggie] != 1 {
+		t.Fatalf("took: hands %q, pantry Veggie %d; want Veggie, 1", g.hands, g.pantryStock[0][SupplyVeggie])
+	}
+	g.hands, g.stock[SupplyGourmet] = "", 3
+	k := &housekeeper{}
+	if !g.refillPantry(k) || k.item != SupplyGourmet {
+		t.Fatalf("refill item %q, want Gourmet", k.item)
+	}
+}

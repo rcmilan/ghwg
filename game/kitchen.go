@@ -18,7 +18,7 @@ const stockNear = 2 // cells from a Supply's prop within which its icon and coun
 
 // kitchenDecor: the props that only stand there, on the cells the Supplies leave free.
 var kitchenDecor = []Supply{
-	{Prop: "drawer_b", X: 3, W: 2},
+	{Prop: "drawer_a", X: 4, W: 1},
 }
 
 // supplyDrop: where the courier stands to fill supply k, the cell in front of its prop.
@@ -79,7 +79,7 @@ func (g *Game) drawKitchen(screen *ebiten.Image, ox, oy int) {
 // DevKitchen starts the Run for a print (-kitchen): the Water full, the Food low, the Towels out, and you in
 // front of the oven.
 func (g *Game) DevKitchen() {
-	g.stock = map[Unlock]int{SupplyWater: 5, SupplyFood: 2}
+	g.stock = map[Unlock]int{SupplyWater: 5, SupplyFood: 2, SupplyVeggie: 3, SupplyGourmet: 1}
 	at := g.supplyDrop(supplyOf(SupplyFood))
 	g.player.X, g.player.Y = float64(at.X), float64(at.Y)
 	w, h := g.mapSize()
