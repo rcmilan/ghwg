@@ -150,6 +150,13 @@ func (g *Game) drawRequests(s *ebiten.Image, ox, oy int, kz float64) {
 // drawPill draws the Party's pill: its Room's number in black, then icon at iconK screen px a pixel (the splat in
 // black); the box as wide as they need, sc screen px a balloon px.
 func (g *Game) drawPill(s *ebiten.Image, p *Party, icon *ebiten.Image, iconK float64, ox, oy int, kz float64) {
+	if g.reelDefer(s, p.Guests[0], oy, func(scr *ebiten.Image, at *entities.Guest) { g.pillAt(scr, p, at, icon, iconK, ox, oy, kz) }) {
+		return
+	}
+	g.pillAt(s, p, p.Guests[0], icon, iconK, ox, oy, kz)
+}
+
+func (g *Game) pillAt(s *ebiten.Image, p *Party, guest *entities.Guest, icon *ebiten.Image, iconK float64, ox, oy int, kz float64) {
 	const sc float64 = balloonScale
 	num := g.hotel.Rooms[p.Room].Number
 	text := sc * 2 / 3 // the debug font at 2× beside a 3× icon
@@ -158,7 +165,7 @@ func (g *Game) drawPill(s *ebiten.Image, p *Party, icon *ebiten.Image, iconK flo
 	if pills[w] == nil {
 		pills[w] = paint(w, balloonH, rounded(w, balloonH, balloonR), func(int, int) bool { return false })
 	}
-	x, y := g.drawBalloon(s, pills[w], p.Guests[0], ox, oy, kz, sc)
+	x, y := g.drawBalloon(s, pills[w], guest, ox, oy, kz, sc)
 	left, mid := float64(x)+pillPad*sc, float64(y)+balloonH*sc/2
 	printAt(s, num, int(left), int(mid-7.5*text), text, color.Black, 1) // the digits sit on rows 3..12 of the 16
 	op := &ebiten.DrawImageOptions{}
@@ -205,9 +212,8 @@ const sayH, sayPad = 8, 8 // balloon px tall; screen px each side of the text, i
 
 // say draws line in a speech balloon by the guest's head.
 func (g *Game) say(s *ebiten.Image, line string, guest *entities.Guest, ox, oy int) {
-	if r := g.reel; r != nil && s == r.buf { // the cutscene turns the world over: its balloons are drawn after, upright
-		r.says = append(r.says, reelSay{line, *guest, (guest.Y-g.lift(guest))*zoom - float64(oy), ox, oy})
-		return
+	if g.reelDefer(s, guest, oy, func(scr *ebiten.Image, at *entities.Guest) { g.sayAt(scr, line, at, ox, oy) }) {
+		return // the cutscene turns the world over: its balloons are drawn after, upright
 	}
 	g.sayAt(s, line, guest, ox, oy)
 }
