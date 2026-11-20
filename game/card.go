@@ -60,7 +60,7 @@ func (g *Game) canMove(p *Party) bool {
 
 // cardOpts: the options that apply to the guest now, in order. REVEAL stays while unaffordable (drawn grey).
 func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
-	if !g.revealed(p, guest) {
+	if _, priest := guestFather(p); !priest && !g.revealed(p, guest) { // a Father has nothing to reveal
 		os = append(os, optReveal)
 	}
 	if g.canMove(p) {

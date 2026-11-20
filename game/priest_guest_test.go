@@ -1,6 +1,7 @@
 package game
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -112,5 +113,14 @@ func TestPriestGuestIdentity(t *testing.T) {
 	_ = s
 	if txt := cardText(g); !strings.Contains(txt, "Father M") || !strings.Contains(txt, "priest") || !strings.Contains(txt, who.Card[:10]) {
 		t.Fatalf("card: %s", txt)
+	}
+}
+
+// A Father has no Nerve or quirk to show: his card offers no REVEAL (menus show only what applies).
+func TestPriestGuestNoReveal(t *testing.T) {
+	g, _, p := cardRun(t)
+	g.becomeFather(p, false)
+	if slices.Contains(g.cardOpts(p, p.Guests[0]), optReveal) {
+		t.Error("a Priest guest's card offers REVEAL")
 	}
 }
