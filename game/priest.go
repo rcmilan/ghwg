@@ -64,6 +64,7 @@ type priest struct {
 	phase          phase
 	t              float64 // frames in the phase
 	retained       bool    // Father K on his daily retainer (B1)
+	loop           bool    // dev -ritual: the dirt comes back after each ritual (ritual_dev.go)
 	due            int     // the clock of his next payday
 	lap            int     // the corridor stop he paces to
 	voice
@@ -250,6 +251,9 @@ func (g *Game) updatePriest(pr *priest) bool {
 	case rBurst:
 		if pr.t >= burstFrames {
 			g.ritualEffect(pr)
+			if pr.loop {
+				g.ritualDirt(pr.RoomIndex)
+			}
 			pr.phase, pr.t, pr.done = rClose, 0, true
 			g.priestSays(pr, g.closers(pr))
 		}
