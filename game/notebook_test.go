@@ -104,7 +104,7 @@ func TestBookGhostEntriesOnlyInGhost(t *testing.T) {
 	}
 }
 
-// SPACE beside the book opens the page, W/S scroll, SPACE closes.
+// SPACE beside the book opens the page, A/D scroll, SPACE closes.
 func TestBookOpensWithSpace(t *testing.T) {
 	g, s := headless(t, 2, 1, 3)
 	g.startRun()
@@ -121,7 +121,7 @@ func TestBookOpensWithSpace(t *testing.T) {
 	if g.state != StateBook {
 		t.Fatalf("state %d after SPACE, want the book open", g.state)
 	}
-	s.hold(ebiten.KeyS)
+	s.hold(ebiten.KeyD)
 	g.Update()
 	if g.bookTop != 1 {
 		t.Errorf("S scrolled to %d, want 1", g.bookTop)

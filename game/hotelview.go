@@ -237,6 +237,12 @@ func (g *Game) viewAt() (k, tx, ty float64) {
 	kv := zoom*fit + (ringZoom-zoom*fit)*in
 	px := float64(mw)/2 + (float64(c.Min.X+c.Max.X)/2-float64(mw)/2)*in
 	py := float64(mh)/2 + (float64(c.Min.Y+c.Max.Y)/2-float64(mh)/2)*in
+	// Part way in, a Room at the hotel's edge would sit half off the screen: the camera slides just enough to keep
+	// it and its label in full (T381 refine 8), eased in with the pick so leaving it doesn't jump.
+	hx, hy, lab := (screenW/2-viewPad)/kv, (screenH/2-viewPad)/kv, float64(glyphH+2)/kv
+	cx := min(max(px, float64(c.Max.X)-hx), float64(c.Min.X)+hx)
+	cy := min(max(py, float64(c.Max.Y)-hy), float64(c.Min.Y)-lab+hy)
+	px, py = px+(cx-px)*min(1, 2*in), py+(cy-py)*min(1, 2*in)
 	t := g.viewT * g.viewT * (3 - 2*g.viewT)
 	k = zoom + (kv-zoom)*t
 	return k, -float64(ox)*(1-t) + (screenW/2-px*kv)*t, -float64(oy)*(1-t) + (screenH/2-py*kv)*t

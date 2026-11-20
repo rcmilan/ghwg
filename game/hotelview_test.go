@@ -329,3 +329,17 @@ func TestKeyRow(t *testing.T) {
 		t.Fatalf("a bought Room's actions: %v, want some, and no key", g.roomRows(0))
 	}
 }
+
+// T381 refine 8: on a 5x5 hotel, a Room picked part way in sits on the screen in full, its label too.
+func TestViewKeepsPickedRoomOnScreen(t *testing.T) {
+	g, _ := headless(t, 5, 5, 3)
+	g.state, g.viewT, g.termDepth, g.viewIn = StateView, 1, 2, viewIns[2]
+	for i, r := range g.hotel.Rooms {
+		g.termCursor = i
+		k, tx, ty := g.viewAt()
+		c := r.Shell()
+		if x0, y0, x1, y1 := float64(c.Min.X)*k+tx, float64(c.Min.Y)*k+ty-glyphH-2, float64(c.Max.X)*k+tx, float64(c.Max.Y)*k+ty; x0 < 0 || y0 < 0 || x1 > screenW || y1 > screenH {
+			t.Errorf("Room %s picked shows at (%.0f,%.0f)-(%.0f,%.0f), off the %dx%d screen", r.Number, x0, y0, x1, y1, screenW, screenH)
+		}
+	}
+}

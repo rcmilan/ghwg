@@ -34,7 +34,7 @@ const (
 	namedAway = dayFrames // a named guest must have been out of the hotel this long to come again
 	dreadMood = rotMood   // a stay that ended at or below this Room Mood was a dread one
 	scribble  = "~ ^ ~ ~ ^ ~"
-	bookRows  = 4 // entries a spread shows at least: W/S stops with these in sight
+	bookRows  = 4 // entries a spread shows at least: A/D stops with these in sight
 )
 
 // bookEntry is one line of the notebook (saved in runState).
@@ -253,9 +253,9 @@ func (g *Game) updateBook() {
 	switch {
 	case key(ebiten.KeySpace):
 		g.state = StatePlay
-	case key(ebiten.KeyW):
+	case key(ebiten.KeyA):
 		g.bookTop = max(0, g.bookTop-1)
-	case key(ebiten.KeyS):
+	case key(ebiten.KeyD):
 		g.bookTop = max(0, min(g.bookTop+1, len(g.shown())-bookRows))
 	}
 }
@@ -368,7 +368,7 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(g.bookTop+n) + " OF " + strconv.Itoa(len(es))
 		g.tintedAt(s, pos, rx+bookPW-74-len(pos)*glyphW, y+bookM+22, 1, storeDim, 1)
 	}
-	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
+	g.tintedAt(s, "A/D SCROLL   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
 }
 
 // bookInks: the pens a human writes with; a ghost writes in the Ectoplasm accent.
