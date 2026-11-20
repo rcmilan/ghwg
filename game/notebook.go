@@ -1,0 +1,320 @@
+package game
+
+import (
+	"hash/fnv"
+	"image"
+	"image/color"
+	"slices"
+	"strconv"
+	"strings"
+
+	"ghosthotel/entities"
+	"ghosthotel/world"
+
+	"github.com/hajimehoshi/ebiten/v2"
+)
+
+// 08 W4 (T377): the notebook on the entrance counter, and the named cast's arrivals (context/08-quests/cast.md).
+// Every Party leaves a line in the book as it goes: how the stay went decides which. Ghost entries show only in ghost.
+
+// bookOutcome: how a stay ended.
+type bookOutcome int
+
+const (
+	outCozy     bookOutcome = iota // paid, the Room as good as it was
+	outDread                       // paid, but the Room rotted or the Party stepped out for air
+	outFled                        // ran, or walked out of a dirty Room
+	outPassed                      // a ghost left on its own
+	outBanished                    // Father M sent a ghost over
+)
+
+const (
+	bookMax   = 50        // entries kept
+	namedOdds = 6         // a Party's booking is a named guest's 1 time in namedOdds
+	namedAway = dayFrames // a named guest must have been out of the hotel this long to come again
+	dreadMood = rotMood   // a stay that ended at or below this Room Mood was a dread one
+	scribble  = "~ ^ ~ ~ ^ ~"
+	bookRows  = 6
+)
+
+// bookEntry is one line of the notebook (saved in runState).
+type bookEntry struct {
+	Name string
+	Line string // empty: a scribble
+	Day  int
+	Out  bookOutcome
+}
+
+func (e bookEntry) ghost() bool { return e.Out >= outPassed }
+
+func b2o(b bool, yes, no bookOutcome) bookOutcome {
+	if b {
+		return yes
+	}
+	return no
+}
+
+// stayOutcome: a Party that paid went away cozy, or in dread when the Room rotted or it stepped out for air.
+func (g *Game) stayOutcome(p *Party) bookOutcome {
+	return b2o(p.scares > 0 || g.roomMood(p.Room) <= dreadMood, outDread, outCozy)
+}
+
+// logStay writes the Party's entry as it leaves and notes when its named guest left.
+func (g *Game) logStay(p *Party, out bookOutcome) {
+	names := make([]string, len(p.Guests))
+	for i, guest := range p.Guests {
+		names[i] = guest.Who.Name
+	}
+	g.guestBook = append(g.guestBook, bookEntry{strings.Join(names, " & "), g.bookLine(p, out), day(g.clock), out})
+	if len(g.guestBook) > bookMax {
+		g.guestBook = slices.Delete(g.guestBook, 0, len(g.guestBook)-bookMax)
+	}
+	if k := p.Guests[0].Who.Key; k != "" {
+		if g.leftAt == nil {
+			g.leftAt = map[string]int{}
+		}
+		g.leftAt[k] = g.clock
+	}
+}
+
+// pickBy: a line of s chosen by the guests' names and the day, no random draw: a draw from any of the Game's rngs
+// would move the sim (talk.go reads g.words to decide who chats).
+func pickBy(s []string, seed string) string {
+	h := fnv.New32a()
+	h.Write([]byte(seed))
+	return s[int(h.Sum32())%len(s)]
+}
+
+// bookLine picks the line: a named guest's own, else one of the generated tables.
+func (g *Game) bookLine(p *Party, out bookOutcome) string {
+	if k := p.Guests[0].Who.Key; k != "" {
+		if l := namedLine(k, p.visit, out); l != "" || out == outFled {
+			return l
+		}
+	}
+	seed := p.Guests[0].Who.Name + strconv.Itoa(day(g.clock)) + outTag[out]
+	switch out {
+	case outDread:
+		return pickBy(notebookDread, seed)
+	case outFled:
+		return pickBy(notebookFled, seed)
+	case outPassed:
+		return pickBy(notebookPassed, seed)
+	case outBanished:
+		return pickBy(notebookBanished, seed)
+	}
+	return pickBy(notebookCozy, seed)
+}
+
+// namedLine: a named guest's line for visit n (1 on): the visit's own, rotating from the 4th; the dread and fled lines
+// win when the stay went badly. A Skeptic has no fled line (it never flees), so one that walked out gets "": a scribble.
+// A ghost has no dread or fled, and a banished one takes the generated line ("" here).
+func namedLine(key string, n int, out bookOutcome) string {
+	i := (max(n, 1) - 1) % 3
+	if j := slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key }); j >= 0 {
+		h := namedHumans[j]
+		switch out {
+		case outDread:
+			return h.Dread
+		case outFled:
+			return h.Fled
+		}
+		return h.Visit[i]
+	}
+	if j := slices.IndexFunc(namedGhosts, func(h namedGhost) bool { return h.Key == key }); j >= 0 && out == outPassed {
+		return namedGhosts[j].Visit[i]
+	}
+	return ""
+}
+
+// namedFree: the named guest is not in the hotel and has been away namedAway.
+func (g *Game) namedFree(key string) bool {
+	for _, p := range g.parties {
+		for _, guest := range p.Guests {
+			if guest.Who.Key == key {
+				return false
+			}
+		}
+	}
+	t, ok := g.leftAt[key]
+	return !ok || g.clock-t >= namedAway
+}
+
+// osvaldoDue: Osvaldo comes only once Magda has booked this Run, and trails her visits.
+func (g *Game) osvaldoDue() bool { return g.met["magda"] && g.visits["osvaldo"] < g.visits["magda"] }
+
+// namedPick: this booking is a named guest's 1 time in namedOdds, one of the eligible keys. g.ident only.
+func (g *Game) namedPick(keys []string) (string, bool) {
+	if g.ident.IntN(namedOdds) != 0 {
+		return "", false
+	}
+	keys = slices.DeleteFunc(keys, func(k string) bool { return !g.namedFree(k) || k == "osvaldo" && !g.osvaldoDue() })
+	if len(keys) == 0 {
+		return "", false
+	}
+	return keys[g.ident.IntN(len(keys))], true
+}
+
+// visited counts the visit (kept across Runs, save.go) and gives it to the Party.
+func (g *Game) visited(p *Party, key string) {
+	if g.visits == nil {
+		g.visits = map[string]int{}
+	}
+	if g.met == nil {
+		g.met = map[string]bool{}
+	}
+	g.visits[key]++
+	g.met[key] = true
+	p.visit = g.visits[key]
+}
+
+// rollNamedHuman: a Party that just booked may be a named human's: its Guests take the entry's Members (a pair needs
+// two). Identity only: g.ident, never g.rng.
+func (g *Game) rollNamedHuman(p *Party) {
+	var keys []string
+	for _, h := range namedHumans {
+		if len(h.Members) <= len(p.Guests) {
+			keys = append(keys, h.Key)
+		}
+	}
+	key, ok := g.namedPick(keys)
+	if !ok {
+		return
+	}
+	h := namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })]
+	for i, m := range h.Members {
+		guest := p.Guests[i]
+		guest.Who = entities.Identity{Name: m.Name, Age: m.Age, AgeNote: m.AgeNote, Job: h.Job, Card: m.Card, Quirk: h.Quirk, Key: h.Key}
+		if _, seed, ok := strings.Cut(guest.Character, "#"); ok { // its own base character, the look seed kept
+			guest.Character = m.Sprite + "#" + seed
+		}
+	}
+	g.visited(p, key)
+}
+
+// rollNamedGhost: a ghost Party that just booked may be a named ghost's, in its first guest's place. Identity only: its
+// Phantasm stays the rolled one so the sim does not move (ponytail: the named Kind of cast.md is not forced onto it; the
+// card's REVEAL can read namedGhosts[..].Kind, or W4's sim tuning can set Phantasm here).
+func (g *Game) rollNamedGhost(p *Party) {
+	keys := make([]string, len(namedGhosts))
+	for i, n := range namedGhosts {
+		keys[i] = n.Key
+	}
+	key, ok := g.namedPick(keys)
+	if !ok {
+		return
+	}
+	n := namedGhosts[slices.IndexFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })]
+	guest := p.Guests[0]
+	guest.Who = entities.Identity{Name: n.Name, Died: n.Died, Job: n.Job, Card: n.Card, Quirk: n.Quirk, Key: n.Key}
+	g.visited(p, key)
+}
+
+// The book on the counter: SPACE beside it opens the page (actionable.go).
+
+// A Strategy playing (the sim, -play) never opens it: the Pilot taps SPACE the moment it leaves the Terminal's zone,
+// which is where the book's zone starts, and that would move the sim (ponytail: teach the Pilot the book if a Strategy
+// ever wants to read it).
+func (g *Game) atBook() bool { return g.auto == nil && g.feet().In(g.hotel.Book) }
+
+// bookRect: the counter cell the book lies on, world px.
+func (g *Game) bookRect() image.Rectangle {
+	b := g.hotel.Book
+	return image.Rect(b.Min.X, b.Min.Y+2*world.TileSize, b.Max.X, b.Max.Y-world.TileSize)
+}
+
+func (g *Game) openBook() { g.state, g.bookTop = StateBook, 0 }
+
+// shown: the entries the open page lists, newest first: a human's view hides the ghosts'.
+func (g *Game) shown() []bookEntry {
+	var es []bookEntry
+	for _, e := range slices.Backward(g.guestBook) {
+		if g.ghost || !e.ghost() {
+			es = append(es, e)
+		}
+	}
+	return es
+}
+
+func (g *Game) updateBook() {
+	key := g.in.JustPressed
+	switch {
+	case key(ebiten.KeySpace):
+		g.state = StatePlay
+	case key(ebiten.KeyW):
+		g.bookTop = max(0, g.bookTop-1)
+	case key(ebiten.KeyS):
+		g.bookTop = max(0, min(g.bookTop+1, len(g.shown())-bookRows))
+	}
+}
+
+var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED"}
+
+func (g *Game) drawBookPage(s *ebiten.Image) {
+	rect(s, 0, 0, screenW, screenH, color.RGBA{0, 0, 0, 150})
+	const w, h, rh = 600, 420, 52
+	x, y := (screenW-w)/2, (screenH-h)/2
+	rect(s, x, y, w, h, storeInk)
+	rect(s, x+3, y+3, w-6, h-6, storePage)
+	g.tintedAt(s, "GUEST BOOK", x+20, y+14, 3, storeInk, 1)
+	es := g.shown()
+	if len(es) == 0 {
+		g.tintedAt(s, "NO ENTRIES YET", x+20, y+80, 2, storeDim, 1)
+	}
+	for k, e := range es[min(g.bookTop, len(es)):min(g.bookTop+bookRows, len(es))] {
+		ry := y + 60 + k*rh
+		rect(s, x+12, ry, w-24, rh-6, storeCard)
+		var bar color.Color = storeInk
+		if e.ghost() {
+			bar = storeAccent
+		}
+		rect(s, x+12, ry, 4, rh-6, bar)
+		g.tintedAt(s, e.Name, x+26, ry+4, 2, storeInk, 1)
+		tag := "DAY " + strconv.Itoa(e.Day) + "  " + outTag[e.Out]
+		g.tintedAt(s, tag, x+w-24-len(tag)*glyphW, ry+8, 1, storeDim, 1)
+		line := e.Line
+		if line == "" {
+			line = scribble
+		}
+		g.tintedAt(s, "\""+line+"\"", x+26, ry+28, 1, storeInk, 1)
+	}
+	if len(es) > bookRows {
+		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(min(g.bookTop+bookRows, len(es))) + " OF " + strconv.Itoa(len(es))
+		g.tintedAt(s, pos, x+w-24-len(pos)*glyphW, y+22, 1, storeDim, 1)
+	}
+	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", x+20, y+h-22, 1, storeDim, 1)
+}
+
+// drawBookProp: the book lying on the counter, a small vector one (no cut of the sprite sheet fits): the cover, its
+// page edge, the spine. In ghost it reads in the Ectoplasm ink.
+func (g *Game) drawBookProp(s *ebiten.Image, ox, oy int) {
+	r := g.bookRect()
+	cover, edge := color.RGBA{0x8a, 0x2f, 0x3b, 255}, color.RGBA{0xf3, 0xe9, 0xd2, 255}
+	if g.ghost {
+		cover, edge = color.RGBA{0x2a, 0xa0, 0x7a, 255}, color.RGBA{0xd8, 0xff, 0xee, 255}
+	}
+	x, y := (r.Min.X+4)*zoom-ox, (r.Min.Y+3)*zoom-oy
+	rect(s, x, y, 8*zoom, 5*zoom, cover)
+	rect(s, x+zoom, y+zoom, 7*zoom, 3*zoom, edge)
+	rect(s, x, y, 2*zoom, 5*zoom, cover)
+}
+
+// DevBook is main's -book: 1 the counter, you behind it; 2 the page open, filled with a stay of each outcome.
+func (g *Game) DevBook(n int) {
+	if n < 1 {
+		return
+	}
+	b := g.hotel.Book
+	g.player.X, g.player.Y = float64(b.Min.X+world.TileSize/2), float64(b.Min.Y+world.TileSize+world.TileSize/2)
+	w, h := g.mapSize()
+	g.cam.Snap(g.player.X, g.player.Y, w, h)
+	if n < 2 {
+		return
+	}
+	g.guestBook = append(g.guestBook,
+		bookEntry{"Magda Feltz", namedHumans[0].Visit[0], 1, outCozy}, bookEntry{"Teo Barros", namedHumans[1].Dread, 1, outDread},
+		bookEntry{"Noor Haddad", namedHumans[3].Fled, 2, outFled}, bookEntry{"Ana Costa", notebookCozy[0], 2, outCozy},
+		bookEntry{"Agatha Fogg", notebookPassed[0], 2, outPassed}, bookEntry{"Silas Wick", notebookBanished[1], 3, outBanished},
+		bookEntry{"Osvaldo Feltz", namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
+	g.openBook()
+}

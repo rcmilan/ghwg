@@ -14,6 +14,7 @@ type spaceAct int
 const (
 	actNone spaceAct = iota
 	actTerminal
+	actBook
 	actMirror
 	actRoomMirror
 	actSupply
@@ -35,6 +36,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	if g.atTerminal() { // the computer: its screen over the counter
 		t := g.hotel.Terminal
 		return actTerminal, image.Rect(t.Min.X, t.Min.Y+ts, t.Max.X, t.Max.Y-ts)
+	}
+	if g.atBook() { // the guest book on the counter
+		return actBook, g.bookRect()
 	}
 	if k := g.atCorridorMirror(); k >= 0 { // a Corridor Mirror shifts like the Lobby's once the courier uncovers it
 		if m := g.hotel.Corridors[k]; m.Open {
@@ -100,6 +104,8 @@ func (g *Game) space() {
 	switch act, _ := g.actionable(); act {
 	case actTerminal:
 		g.openTerminal()
+	case actBook:
+		g.openBook()
 	case actMirror, actRoomMirror:
 		g.startShift()
 	case actSupply:

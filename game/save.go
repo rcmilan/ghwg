@@ -26,6 +26,8 @@ type saveData struct {
 	Run   *runState `json:"run,omitempty"`
 	// Revealed: the named guests whose card was revealed (card.go); they recur across Runs.
 	Revealed []string `json:"revealed,omitempty"`
+	// Visits per named guest, across Runs (notebook.go): a prestige keeps them like the level.
+	Visits map[string]int `json:"visits,omitempty"`
 }
 
 // runState: the dawn checkpoint.
@@ -47,6 +49,8 @@ type runState struct {
 	PantryStock []map[Unlock]int  // each pantry's, in Pantries order; an older save has none: empty shelves
 	Orders      []orderLine       // paid for and still on a courier: they arrive at the checkpoint
 	Up          [upgradeCount]int // the leveled upgrades (upgrade.go); an older save has none: all 0
+	Book        []bookEntry       // the notebook (notebook.go)
+	Met         []string          // the named guests that have booked this Run, sorted
 }
 
 type roomState struct {
@@ -94,13 +98,13 @@ func (g *Game) Persist() { g.persist = true }
 
 // saveGame writes the save right after a prestige (level and bonus updated, the Run over): no Run in it.
 func (g *Game) saveGame() {
-	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList()})
+	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList(), Visits: g.visits})
 }
 
 // saveDawn writes the dawn checkpoint.
 func (g *Game) saveDawn() {
 	if g.persist {
-		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList()})
+		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList(), Visits: g.visits})
 	}
 }
 
@@ -154,7 +158,7 @@ func decodeSave(b []byte) (s *saveData, err error) {
 func (g *Game) checkpoint() *runState {
 	cols, rows := g.hotel.Grid()
 	r := &runState{Cols: cols, Rows: rows, Seed: g.rng.Uint64(), Day: day(g.clock), Wallet: g.wallet, Earned: g.earned, RunEcto: g.runEcto,
-		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up}
+		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up, Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met))}
 	for _, id := range slices.Sorted(maps.Keys(g.locked)) {
 		if g.locked[id] {
 			r.Locked = append(r.Locked, id)
@@ -220,6 +224,7 @@ func (g *Game) resume(s *saveData) bool {
 		}
 		g.revealedKeys[k] = true
 	}
+	g.visits = s.Visits
 	if s.Run != nil {
 		if err := g.restore(s.Run); err != nil {
 			g.startRun()
@@ -251,6 +256,13 @@ func (g *Game) restore(r *runState) error {
 	n := len(r.Rooms)
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(r.Seed, r.Seed)), rand.New(rand.NewPCG(r.Seed, r.Seed+1)), rand.New(rand.NewPCG(r.Seed, r.Seed+2))
 	g.seedIdent(r.Seed)
+	g.guestBook, g.met, g.leftAt = slices.Clone(r.Book), nil, nil
+	for _, k := range r.Met {
+		if g.met == nil {
+			g.met = map[string]bool{}
+		}
+		g.met[k] = true
+	}
 	g.up = r.Up // before the pantry's stock is clamped to what the shelves hold
 	var ms []world.CorridorMirror
 	for _, m := range r.Corridors {
