@@ -21,18 +21,19 @@ type View struct {
 	Guests       []image.Point // every guest's cell not hidden by the Fog (none is, in the ghost dimension)
 	Concierge    image.Point   // world px
 	Terminal     TerminalView
-	Shop         []int          // the store items that can go in the cart now, by index into shop (D180)
-	Stock        map[Unlock]int // Supplies in the stock area, by ID, as its spots show them (D200)
-	MirrorLocked bool           // the Mirror is covered: SPACE at it shifts nothing
-	Courier      bool           // a courier is on his way with an order
-	Staff        int            // the housekeepers in the hotel
-	Hands        Unlock         // the supply over the Concierge's head, "" for none (E5)
-	Beds         []string       // the bed layouts a Room can change to: the unlocked ones (K1)
-	RoomMirror   bool           // the in-Room Mirror is bought
-	Hotel        *world.Hotel   // the map as drawn: walls, doors, anchors. Read it, never write it.
-	Talk         TalkView       // the talk, open or not (07 X2)
-	Matchmaking  bool           // owned: the housekeepers fix bad pairs (07 X2)
-	Level        int            // prestige level: the grid's limit is maxGrid(Level)
+	Shop         []int                // the store items that can go in the cart now, by index into shop (D180)
+	Stock        map[Unlock]int       // Supplies in the stock area, by ID, as its spots show them (D200)
+	MirrorLocked bool                 // the Mirror is covered: SPACE at it shifts nothing
+	Courier      bool                 // a courier is on his way with an order
+	Staff        int                  // the housekeepers in the hotel
+	Hands        Unlock               // the supply over the Concierge's head, "" for none (E5)
+	Beds         []string             // the bed layouts a Room can change to: the unlocked ones (K1)
+	RoomMirror   bool                 // the in-Room Mirror is bought
+	Hotel        *world.Hotel         // the map as drawn: walls, doors, anchors. Read it, never write it.
+	Talk         TalkView             // the talk, open or not (07 X2)
+	Matchmaking  bool                 // owned: the housekeepers fix bad pairs (07 X2)
+	Level        int                  // prestige level: the grid's limit is maxGrid(Level)
+	Ups          [upgradeCount]UpView // the leveled upgrades (upgrade_rows.go)
 }
 
 type RoomView struct {
@@ -87,6 +88,7 @@ func (g *Game) view() View {
 		Talk:         g.talkView(),
 		Matchmaking:  g.unlocked(Matchmaking),
 		Level:        g.level,
+		Ups:          g.upViews(),
 	}
 	for k, b := range bedKinds {
 		if g.bedOpen(k) {
@@ -155,7 +157,7 @@ func (g *Game) termView() TerminalView {
 func (g *Game) forSale() []int {
 	var rows []int
 	for i := range shop {
-		if g.onSale(i) && !g.owned(i) && !g.gone(i) {
+		if g.onSale(i) && !g.owned(i) && !g.gone(i) && shop[i].Up == 0 { // the upgrades go by View.Ups
 			rows = append(rows, i)
 		}
 	}

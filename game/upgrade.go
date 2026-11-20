@@ -88,9 +88,11 @@ func (g *Game) upPrice(u Upgrade) Num { return upPriceAt(u, g.up[u], g.ownedCoun
 // pantryMax: how many of each Supply a Pantry holds.
 func (g *Game) pantryMax() int { return pantryStockMax + g.upStock() }
 
-// ritualEcto: the Ectoplasm a Priest's finished ritual pays, before the prestige bonus (earn adds it). 0 until
-// T374's Offering box fills it: ~10 x upMul(OfferingBox).
-func (g *Game) ritualEcto(pr *priest) Num { return 0 }
+// ritualEctoBase: the Ectoplasm every Priest ritual pays, before the Offering box and the prestige bonus.
+const ritualEctoBase = 10
+
+// ritualEcto: the Ectoplasm a Priest's finished ritual pays, before the prestige bonus (earn adds it).
+func (g *Game) ritualEcto(pr *priest) Num { return ritualEctoBase * Num(g.upMul(OfferingBox)) }
 
 // scaleInt: n times m, rounded: a hook's int values (m of 1 gives n).
 func scaleInt(n int, m float64) int { return int(math.Round(float64(n) * m)) }
@@ -99,5 +101,5 @@ func scaleInt(n int, m float64) int { return int(math.Round(float64(n) * m)) }
 func (g *Game) bookGapNow() int { return scaleInt(bookGap, g.upMul(Brochures)) }
 
 // cleanFrames: frames a clean of base frames takes, the Concierge's and the housekeepers' (Cleaning kit). A clean
-// has no duration today but its fade (dirt.go): T374 decides what takes time.
+// has no duration but its fade (dirt.go), so that is all the kit shortens (T374: the housekeepers' work is instant too).
 func (g *Game) cleanFrames(base int) int { return max(1, scaleInt(base, g.upMul(CleaningKit))) }

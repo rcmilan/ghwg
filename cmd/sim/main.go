@@ -38,7 +38,9 @@ func main() {
 	level := flag.Int("level", 0, "prestige level: the grid's limit is (3+level) a side (08 P1)")
 	bonus := flag.Float64("bonus", 1, "the income bonus a prestige left (08 P1)")
 	ectoRate := flag.Float64("ectorate", 0.5, "$ one Ectoplasm is worth in the score column: an assumed shop price (T112)")
+	noUp := flag.Bool("noup", false, "the Strategies buy no upgrade levels (T374: for a before/after)")
 	flag.Parse()
+	game.NoUpgrades = *noUp
 	debug.SetGCPercent(400) // ponytail: Runs allocate per frame and the GC is what stops them scaling across cores
 
 	var cols, rows int
@@ -74,7 +76,7 @@ func main() {
 		*grid, *days, *runs, *seed, *seed+uint64(*runs)-1, *react, *keyGap, *ectoRate)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "strategy\tscore/day\t$/day mean\tmin\tmax\toccupancy\tbookings\tghosts\tfled\twalked\tcleans\tectoplasm\tserves\texpired\tpriests\tspent\tM calls\tretainer days\tpriest ecto\tclosed h\tmirror at (h)\troom mirror at (h)\tfailures\t")
-	var failures, growth, staff, pacing, prestige []string
+	var failures, growth, staff, pacing, prestige, ups []string
 	for s, name := range names {
 		var perDay []float64
 		var sold, avail, bookings, ghosts, fled, walked, cleans, ecto, serves, expired, priests, spent, closed, failed, priestsM, retainDays, priestEcto int
@@ -87,10 +89,15 @@ func main() {
 		var grown [][]float64 // per expansion, first to last: the game hour of each Run that made it (H1)
 		rooms := 0
 		hired, quit, staffSpend := 0, 0, 0
+		upLevels, upSpend, wallet := 0, 0, make([]int, *days)
 		var ready, gains []float64
 		longWait := 0.0
 		for _, r := range results[s] {
 			hired, quit, staffSpend = hired+r.Hired, quit+r.Quit, staffSpend+r.StaffSpend
+			upLevels, upSpend = upLevels+r.UpLevels, upSpend+r.UpSpend
+			for d, m := range r.WalletByDay {
+				wallet[d] += m
+			}
 			if longWait = max(longWait, r.LongWait); r.PrestigeAt >= 0 {
 				ready, gains = append(ready, r.PrestigeAt/6), append(gains, r.Gain)
 			}
@@ -164,6 +171,11 @@ func main() {
 			g = fmt.Sprintf("%.2f", mean(gains))
 		}
 		prestige = append(prestige, fmt.Sprintf("  %s: Father P ready at %s real min; gain %s; longest idle %.0f s", name, spread(ready, *runs), g, longWait))
+		line := fmt.Sprintf("  %s: %.1f levels a Run for $%.0f; unspent $ at each day's end:", name, float64(upLevels)/n, float64(upSpend)/n)
+		for _, m := range wallet {
+			line += fmt.Sprintf(" %.0f", float64(m)/n)
+		}
+		ups = append(ups, line)
 		if hired > 0 {
 			staff = append(staff, fmt.Sprintf("  %s hired %.1f a Run, %d walked out unpaid in %d Runs, $%.0f a day on fees and wages", name, float64(hired)/n, quit, *runs, float64(staffSpend)/n/float64(*days)))
 		}
@@ -193,6 +205,7 @@ func main() {
 		fmt.Println("\nfailures:")
 		fmt.Println(strings.Join(failures, "\n"))
 	}
+	fmt.Println("\nupgrades:\n" + strings.Join(ups, "\n"))
 	if *csvPath != "" {
 		if err := writeCSV(*csvPath, results); err != nil {
 			log.Fatal(err)

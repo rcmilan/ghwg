@@ -81,7 +81,7 @@ func (s smart) Act(v View, p *Pilot) {
 		p.Close()
 		return
 	}
-	if !s.save && (openRooms(v, p) || restock(v, p)) {
+	if !s.save && (openRooms(v, p) || restock(v, p) || spendUp(v, p)) {
 		return
 	}
 	for i, r := range v.Rooms {

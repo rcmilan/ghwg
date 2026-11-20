@@ -114,6 +114,8 @@ func mustNew(t *testing.T) *Game {
 // W3.5 P1FIX-SIM: `goals` buys the Fathers' unlocks and calls one when a Room's dread is high, and puts K on his
 // retainer once Ecto piles up.
 func TestGoalsCallsPriests(t *testing.T) {
+	NoUpgrades = true // about the Fathers: the upgrade buying (sim_up.go) moves this seed's course, and a Run that spends its Money on levels may never leave dread to retain K
+	defer func() { NoUpgrades = false }()
 	r := RunSim(Config{Cols: 2, Rows: 1, Days: 8, Seed: 2, Name: "goals", Strategy: Strategies["goals"], React: 30, KeyGap: 6})
 	t.Logf("%+v", r)
 	for _, f := range r.Failures {

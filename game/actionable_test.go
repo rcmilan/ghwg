@@ -84,6 +84,8 @@ func TestNewBuy(t *testing.T) {
 	if !g.newBuy() {
 		t.Fatal(`no "!" with Food and Towels newly affordable`)
 	}
+	g.termTab = tabHotel // the 2 Rooms of this game show the first upgrade rows there, newly affordable too
+	g.openTerminal()
 	g.termTab = tabStaff
 	g.openTerminal()
 	keys(g, s, ebiten.KeyD, ebiten.KeyD) // CART, then SUPPLIES
