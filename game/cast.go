@@ -193,10 +193,14 @@ func choose[T any](r *rand.Rand, s []T) T { return s[r.IntN(len(s))] }
 // seedIdent (re)seeds the identity rolls from the Run's seed, apart from rng, chat and words.
 func (g *Game) seedIdent(seed uint64) { g.ident = rand.New(rand.NewPCG(seed, seed+3)) }
 
-// rollQuirk: no quirk, or about 1 time in quirkOdds one of the realm's.
+// rollQuirk: no quirk, or about 1 time in quirkOdds one of the realm's, once the hotel has grown: before, the player
+// can't read a quirk yet and the early Ecto must not stall (T376, TestPacing). It draws either way, so the rest of
+// the identity keeps its rolls.
 func (g *Game) rollQuirk(from []Quirk) Quirk {
 	if g.ident.IntN(quirkOdds) == 0 {
-		return choose(g.ident, from)
+		if q := choose(g.ident, from); g.grown() {
+			return q
+		}
 	}
 	return NoQuirk
 }

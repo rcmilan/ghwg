@@ -76,7 +76,7 @@ func (g *Game) mess() int {
 // leaveMess: a leaving Party's mess, for the nights it stayed (a started night counts).
 func (g *Game) leaveMess(p *Party) {
 	nights := min(p.Nights, (g.clock-p.arrived)/dayFrames+1)
-	g.addDirtLevel(p.Room, scaleInt(p.mess*nights, g.dirtQuirkMul(p))) // a Neat freak's Room feels it twice
+	g.addDirtLevel(p.Room, p.mess*nights)
 }
 
 // spots: the Room's dirt spots, enough to cover its dirt, past bigFrom each a spotUnit bigger (a

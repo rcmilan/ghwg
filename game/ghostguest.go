@@ -265,7 +265,7 @@ func (g *Game) updateGhost(p *Party) bool {
 			}
 			break
 		}
-		if g.clock >= p.Checkout {
+		if g.clock >= p.Checkout && g.mayPass(p) { // a Homebody stays until sent over
 			p.state = checkingOut
 			g.sendParty(p, exit...)
 			break
