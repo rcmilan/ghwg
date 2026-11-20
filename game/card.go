@@ -144,10 +144,12 @@ type cardRow struct {
 	a    float32
 }
 
-func wrap(s string) (out []string) {
+func wrap(s string) []string { return wrapAt(s, cardWrap) }
+
+func wrapAt(s string, n int) (out []string) {
 	line := ""
 	for _, w := range strings.Fields(s) {
-		if line != "" && len(line)+1+len(w) > cardWrap {
+		if line != "" && len(line)+1+len(w) > n {
 			out, line = append(out, line), ""
 		}
 		line = strings.TrimSpace(line + " " + w)

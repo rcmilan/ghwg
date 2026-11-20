@@ -34,7 +34,7 @@ const (
 	namedAway = dayFrames // a named guest must have been out of the hotel this long to come again
 	dreadMood = rotMood   // a stay that ended at or below this Room Mood was a dread one
 	scribble  = "~ ^ ~ ~ ^ ~"
-	bookRows  = 6
+	bookRows  = 8 // two pages of four
 )
 
 // bookEntry is one line of the notebook (saved in runState).
@@ -262,52 +262,114 @@ func (g *Game) updateBook() {
 
 var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED"}
 
+// The open book's geometry, px: the cover, the pages inset by bookM, the spine gutter, the ruled lines' pitch.
+const (
+	bookW, bookH = 880, 440
+	bookM        = 10
+	spineGap     = 4
+	bookPW       = (bookW - 2*bookM - spineGap) / 2
+	bookPH       = bookH - 2*bookM
+	bookRuled    = 18
+	bookRowH     = 4 * bookRuled
+	bookPerPage  = bookRows / 2
+)
+
+var bookBG *ebiten.Image
+
+// bookBackdrop: the black cover and the two ruled pages, drawn once column by column. Near the spine each column
+// darkens and its top and bottom edges move in, which is what makes the paper read as curving into the gutter.
+func bookBackdrop() *ebiten.Image {
+	if bookBG != nil {
+		return bookBG
+	}
+	img := ebiten.NewImage(bookW, bookH)
+	rect(img, 0, 0, bookW, bookH, color.RGBA{0x12, 0x10, 0x16, 255})
+	rect(img, 2, 2, bookW-4, bookH-4, color.RGBA{0x1c, 0x19, 0x22, 255})
+	rect(img, bookW/2-spineGap/2, 0, spineGap, bookH, color.RGBA{0x08, 0x07, 0x0a, 255})
+	shade := func(c color.RGBA, f float64) color.RGBA {
+		return color.RGBA{uint8(float64(c.R) * f), uint8(float64(c.G) * f), uint8(float64(c.B) * f), 255}
+	}
+	paper, ruled := color.RGBA{0xf5, 0xf0, 0xe0, 255}, color.RGBA{0xb4, 0xc2, 0xda, 255}
+	for side := range 2 {
+		x0 := bookM + side*(bookPW+spineGap)
+		for c := range bookPW {
+			d := c // distance to the spine
+			if side == 0 {
+				d = bookPW - 1 - c
+			}
+			t := max(0, 1-float64(d)/110)
+			u := max(0, 1-float64(d)/90)
+			f := 1 - 0.34*u*u // the gutter shadow
+			if c == 0 && side == 0 || c == bookPW-1 && side == 1 {
+				f *= 0.8 // the outer page edge
+			}
+			off := int(16 * t * t) // the page's top and bottom edges bow in toward the spine
+			x, y0, h := x0+c, bookM+off, bookPH-2*off
+			rect(img, x, y0, 1, h, shade(paper, f))
+			for ly := bookM + 49; ly < bookM+bookPH-26; ly += bookRuled {
+				if ly > y0 && ly < y0+h {
+					rect(img, x, ly, 1, 1, shade(ruled, f))
+				}
+			}
+		}
+	}
+	bookBG = img
+	return img
+}
+
 func (g *Game) drawBookPage(s *ebiten.Image) {
 	rect(s, 0, 0, screenW, screenH, color.RGBA{0, 0, 0, 150})
-	const w, h, rh = 600, 420, 52
-	x, y := (screenW-w)/2, (screenH-h)/2
-	rect(s, x, y, w, h, storeInk)
-	rect(s, x+3, y+3, w-6, h-6, storePage)
-	g.tintedAt(s, "GUEST BOOK", x+20, y+14, 3, storeInk, 1)
+	x, y := (screenW-bookW)/2, (screenH-bookH)/2
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(x), float64(y))
+	s.DrawImage(bookBackdrop(), op)
+	lx, rx, py := x+bookM, x+bookM+bookPW+spineGap, y+bookM
+	g.tintedAt(s, "GUEST BOOK", lx+30, py+14, 3, storeInk, 1)
 	es := g.shown()
 	if len(es) == 0 {
-		g.tintedAt(s, "NO ENTRIES YET", x+20, y+80, 2, storeDim, 1)
+		g.tintedAt(s, "NO ENTRIES YET", lx+30, py+80, 2, storeDim, 1)
 	}
 	for k, e := range es[min(g.bookTop, len(es)):min(g.bookTop+bookRows, len(es))] {
-		ry := y + 60 + k*rh
-		rect(s, x+12, ry, w-24, rh-6, storeCard)
-		var bar color.Color = storeInk
-		if e.ghost() {
-			bar = storeAccent
+		px := lx + 30
+		if k >= bookPerPage {
+			px = rx + 22
 		}
-		rect(s, x+12, ry, 4, rh-6, bar)
-		g.tintedAt(s, e.Name, x+26, ry+4, 2, storeInk, 1)
+		right := px + bookPW - 52 // the text's right edge, clear of the gutter shade
+		ry := py + 50 + (k%bookPerPage)*bookRowH
+		ink := color.Color(storeInk)
+		if e.ghost() {
+			ink = storeAccent
+			rect(s, px-8, ry+2, 3, bookRowH-22, storeAccent)
+		}
+		g.tintedAt(s, e.Name, px, ry+2, 2, storeInk, 1)
 		tag := "DAY " + strconv.Itoa(e.Day) + "  " + outTag[e.Out]
-		g.tintedAt(s, tag, x+w-24-len(tag)*glyphW, ry+8, 1, storeDim, 1)
+		g.tintedAt(s, tag, right-len(tag)*glyphW, ry+8, 1, ink, 1)
 		line := e.Line
 		if line == "" {
 			line = scribble
 		}
-		g.tintedAt(s, "\""+line+"\"", x+26, ry+28, 1, storeInk, 1)
+		for i, l := range wrapAt("\""+line+"\"", (right-px)/glyphW) {
+			g.tintedAt(s, l, px, ry+bookRuled+8+i*bookRuled, 1, storeInk, 1)
+		}
 	}
 	if len(es) > bookRows {
 		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(min(g.bookTop+bookRows, len(es))) + " OF " + strconv.Itoa(len(es))
-		g.tintedAt(s, pos, x+w-24-len(pos)*glyphW, y+22, 1, storeDim, 1)
+		g.tintedAt(s, pos, rx+bookPW-52-len(pos)*glyphW, py+22, 1, storeDim, 1)
 	}
-	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", x+20, y+h-22, 1, storeDim, 1)
+	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", lx+30, py+bookPH-18, 1, storeDim, 1)
 }
 
-// drawBookProp: the book lying on the counter, a small vector one (no cut of the sprite sheet fits): the cover, its
-// page edge, the spine. In ghost it reads in the Ectoplasm ink.
+// drawBookProp: the book lying on the counter, a small vector one (no cut of the sprite sheet fits): the black cover,
+// its white page edge, the spine. In ghost the edge reads in the Ectoplasm ink.
 func (g *Game) drawBookProp(s *ebiten.Image, ox, oy int) {
 	r := g.bookRect()
-	cover, edge := color.RGBA{0x8a, 0x2f, 0x3b, 255}, color.RGBA{0xf3, 0xe9, 0xd2, 255}
+	cover, edge := color.RGBA{0x16, 0x14, 0x1a, 255}, color.RGBA{0xf5, 0xf0, 0xe0, 255}
 	if g.ghost {
-		cover, edge = color.RGBA{0x2a, 0xa0, 0x7a, 255}, color.RGBA{0xd8, 0xff, 0xee, 255}
+		cover, edge = color.RGBA{0x0c, 0x24, 0x1e, 255}, color.RGBA{0x7a, 0xe8, 0xc0, 255}
 	}
 	x, y := (r.Min.X+4)*zoom-ox, (r.Min.Y+3)*zoom-oy
 	rect(s, x, y, 8*zoom, 5*zoom, cover)
-	rect(s, x+zoom, y+zoom, 7*zoom, 3*zoom, edge)
+	rect(s, x+2*zoom, y+zoom, 6*zoom, 3*zoom, edge)
 	rect(s, x, y, 2*zoom, 5*zoom, cover)
 }
 
