@@ -172,6 +172,9 @@ func main() {
 	if *term != "" {
 		var tab, row, place int
 		fmt.Sscanf(*term, "%d,%d,%d", &tab, &row, &place)
+		if place == 2 { // with -shop: every upgrade row showing, some levels bought
+			g.DevUpgrades()
+		}
 		g.DevTerm(tab, row, place == 1)
 	}
 	if *shotPath != "" {

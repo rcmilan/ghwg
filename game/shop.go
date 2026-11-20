@@ -44,6 +44,7 @@ type Item struct {
 	Hire   bool // staff: one more walks in each time it is bought (keeper.go)
 	Shoes  int  // running shoes: the tier (1..3), bought in order; the row of the next one shows (keeper.go)
 	Grow   int  // H1: growCol or growFloor: the hotel grows as the Terminal closes. Bought again and again, one at a time
+	Up     int  // a leveled upgrade (upgrade_rows.go): its Upgrade + 1. Bought at once, level by level
 }
 
 // room: the item is for one Room: an action of the hotel view.
@@ -51,7 +52,7 @@ func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
 func (it Item) unlock() bool {
-	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
 }
 
 // The Services aren't unlocks; their IDs only name them.
@@ -142,6 +143,9 @@ func (l cartLine) cost() Cost {
 // Buying never opens another item by itself (2026-11-08).
 func (g *Game) onSale(i int) bool {
 	it := shop[i]
+	if it.Up > 0 { // on sale once it applies (upShows)
+		return g.upShows(Upgrade(it.Up - 1))
+	}
 	if it.ID == rowFatherP {
 		return g.prestigeReady()
 	}
@@ -174,6 +178,9 @@ func (g *Game) onSale(i int) bool {
 // owned: an unlock already bought, on its way, or already in the cart.
 func (g *Game) owned(i int) bool {
 	it := shop[i]
+	if it.Up > 0 { // at its top level: nothing left to buy
+		return g.upMaxed(Upgrade(it.Up - 1))
+	}
 	if it.Shoes != 0 {
 		return slices.ContainsFunc(g.cart, func(l cartLine) bool { return l.item == i })
 	}

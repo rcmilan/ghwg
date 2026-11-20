@@ -59,7 +59,7 @@ func TestUpgradesNeutralAtZero(t *testing.T) {
 			t.Errorf("upMul(%s) = %v at level 0, want 1", upgrades[u].Name, g.upMul(u))
 		}
 	}
-	if g.upStock() != 0 || g.pantryMax() != pantryStockMax || g.bookGapNow() != bookGap || g.cleanFrames(wipeFrames) != wipeFrames || g.ritualEcto(nil) != 0 {
+	if g.upStock() != 0 || g.pantryMax() != pantryStockMax || g.bookGapNow() != bookGap || g.cleanFrames(wipeFrames) != wipeFrames || g.ritualEcto(nil) != ritualEctoBase {
 		t.Error("a hook is not neutral at level 0")
 	}
 	if scaleInt(7, 1) != 7 {

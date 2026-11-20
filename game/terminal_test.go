@@ -13,6 +13,9 @@ func TestTerminalHints(t *testing.T) {
 	g := closedRun(t) // no Room open: only the key is on sale
 	for _, i := range append(append(tabItems(tabSupplies), tabItems(tabHotel)...), tabItems(tabStaff)...) {
 		it := shop[i]
+		if it.Up > 0 { // an upgrade has no teaser: its row is hidden until it applies (upgrade_rows_test.go)
+			continue
+		}
 		if g.onSale(i) {
 			t.Errorf("%s on sale with no Room open", it.ID)
 		}
@@ -62,8 +65,8 @@ func TestTerminalHides(t *testing.T) {
 	if h := slices.Index(tabItems(tabStaff), row(t, rowKeeper)); slices.Contains(g.listed(tabStaff), h) || slices.Contains(g.forSale(), row(t, rowKeeper)) {
 		t.Fatalf("staff full: listed %v, for sale %v", g.listed(tabStaff), g.forSale())
 	}
-	if len(g.listed(tabStaff)) != 2 { // the first running shoes, and Father P's teaser
-		t.Fatalf("staff full: listed %v, want the next running shoes and Father P", g.listed(tabStaff))
+	if len(g.listed(tabStaff)) != 4 { // the first running shoes, Father P's teaser, and the Cleaning kit and Offering box now that they apply
+		t.Fatalf("staff full: listed %v, want the next running shoes, Father P and the two upgrades", g.listed(tabStaff))
 	}
 }
 
