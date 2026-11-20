@@ -213,6 +213,8 @@ func TestSaveResumesPantry(t *testing.T) {
 	if len(g1.hotel.Pantries) == 0 {
 		t.Fatal("no pantry on the grown hotel")
 	}
+	g1.pantryStock[0][SupplyFood] = 2
+	g1.pantryStock[len(g1.pantryStock)-1][SupplyTowel] = 1
 	memStore(t)
 	g1.saveDawn()
 	g2, _ := headless(t, 2, 1, 99)
@@ -220,5 +222,16 @@ func TestSaveResumesPantry(t *testing.T) {
 	g2.persist = true
 	if !g2.resume(g2.loadSave()) || len(g2.hotel.Pantries) != len(g1.hotel.Pantries) || len(g2.pantryStock) != len(g2.hotel.Pantries) {
 		t.Fatalf("pantries %d, stocks %d; want %d", len(g2.hotel.Pantries), len(g2.pantryStock), len(g1.hotel.Pantries))
+	}
+	if !reflect.DeepEqual(g2.pantryStock, g1.pantryStock) {
+		t.Errorf("pantry stock %v after the round trip, want %v", g2.pantryStock, g1.pantryStock)
+	}
+	// an old save, with no PantryStock: empty shelves
+	s := g1.loadSave()
+	s.Run.PantryStock = nil
+	g3, _ := headless(t, 2, 1, 99)
+	g3.startRun()
+	if !g3.resume(s) || len(g3.pantryStock) != len(g3.hotel.Pantries) || g3.pantryStock[0][SupplyFood] != 0 {
+		t.Errorf("an old save should load empty pantries: %v", g3.pantryStock)
 	}
 }

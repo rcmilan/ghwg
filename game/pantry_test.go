@@ -161,3 +161,19 @@ func TestPantryRefill(t *testing.T) {
 	}
 	until(t, g, "it rests", func() bool { return k.job == resting })
 }
+
+// The pantry shows its stock like the kitchen: only with the Concierge within stockNear cells.
+func TestPantryStockNear(t *testing.T) {
+	g := dressedRun(t, 1)
+	g.level = 1
+	g.boughtPantry()
+	r := g.pantryRect(0)
+	g.player.X, g.player.Y = float64(r.Min.X+world.TileSize/2), float64(r.Max.Y+world.TileSize)
+	if !g.nearStock(r) {
+		t.Error("stock hidden next to the shelf")
+	}
+	g.player.X += float64((stockNear + 3) * world.TileSize)
+	if g.nearStock(r) {
+		t.Error("stock shown from afar")
+	}
+}

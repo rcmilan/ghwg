@@ -69,6 +69,7 @@ type prestigeReel struct {
 	flip  float64     // 0 upright .. 1 turned over
 	skip  bool
 	buf   *ebiten.Image // the world, drawn once then laid on the screen turned over
+	late  []reelLate    // the balloons and pills the world pass left out, drawn upright after the flip
 	hallC image.Point
 }
 
@@ -218,6 +219,7 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		r.buf = ebiten.NewImage(b.Dx(), b.Dy())
 	}
 	r.buf.Fill(assets.Night)
+	r.late = r.late[:0]
 	mw, mh := g.mapSize()
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	g.drawWorld(r.buf, ox, oy)
@@ -247,6 +249,11 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 	op.GeoM.Scale(1, math.Cos(math.Pi*e)) // turns through edge-on to upside down
 	op.GeoM.Translate(0, float64(b.Dy())/2)
 	screen.DrawImage(r.buf, op)
+	c := math.Cos(math.Pi * e)
+	for _, l := range r.late { // at the speaker's flipped place, the balloon itself upright
+		at := flipped(l.guest, l.oy, float64(b.Dy()), c)
+		l.draw(screen, &at)
+	}
 	if k := min(1, float64(r.t-reelRace)/60); k > 0 && !r.skip { // the clock, spinning
 		cx, cy := float64(b.Dx())/2, float64(b.Dy())/2
 		g.glowAt(screen, cx, cy, 3*clockRadius*zoom/2, moonLight, .3*k)
@@ -263,6 +270,43 @@ func (g *Game) drawReel(screen *ebiten.Image) {
 		rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{255, 255, 255, uint8(255 * min(1, f))})
 	}
 }
+
+// reelLate: a balloon or pill of the world pass, kept for after the flip: a copy of its guest (his lift in his Y) and
+// how to draw it by a guest.
+type reelLate struct {
+	guest  entities.Guest
+	oy     int
+	draw   func(*ebiten.Image, *entities.Guest)
+}
+
+// reelDefer: on the reel's buffer, keeps draw for after the flip and says so. The turned-over world has no upright
+// balloons: they are drawn on the screen, by the guest's flipped place.
+func (g *Game) reelDefer(s *ebiten.Image, guest *entities.Guest, oy int, draw func(*ebiten.Image, *entities.Guest)) bool {
+	r := g.reel
+	if r == nil || s != r.buf {
+		return false
+	}
+	at := *guest
+	at.Y -= g.lift(guest) // the copy is no one's in a Party: balloonAt must not lift it again
+	r.late = append(r.late, reelLate{at, oy, draw})
+	return true
+}
+
+// headY: the screen y a balloon's tail points at for a guest at world y, the world at zoom with top oy (balloonAt's head).
+func headY(y float64, oy int) float64 {
+	return float64(int(y*zoom) - oy + int(float64(entities.FootH/2-charH)*zoom) + int(4*zoom))
+}
+
+// flipped: the guest moved so that his balloon's tail lands where the tail of the unflipped one would after the screen
+// of height h turns through scale c: the tail is affine in his Y, slope zoom.
+func flipped(guest entities.Guest, oy int, h, c float64) entities.Guest {
+	t0 := headY(guest.Y, oy)
+	guest.Y += (flipY(t0, h, c) - t0) / zoom
+	return guest
+}
+
+// flipY: where screen y lands when the screen of height h is turned through scale c on its middle line.
+func flipY(y, h, c float64) float64 { return h/2 + (y-h/2)*c }
 
 // DevPrestige is main's -prestige: a busy hotel a few hours in, the cutscene running.
 func (g *Game) DevPrestige() {

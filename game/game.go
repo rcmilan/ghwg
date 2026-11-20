@@ -236,6 +236,7 @@ func (g *Game) mapSize() (int, int) {
 // startRun begins a Run (D72): Day 1 at 08:00, every Room Vacant and a Standard Single (K1: the Run-start
 // draw is gone; Rooms change type one by one, roomtype_change.go), no money.
 func (g *Game) startRun() {
+	g.note = notice{} // a Run starts on a clean feed (a load's broken-save notice comes after, in beginIntro)
 	g.ungrow()
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
