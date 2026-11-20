@@ -210,7 +210,7 @@ func (g *Game) queueProp(i, x, y int) {
 	if maze(name) {
 		mode, shade = modeMaze, 1
 	}
-	dread, fog := g.dreadAt(image.Pt(p.cx, p.cy)), float32(g.propFog(p))
+	dread, fog := g.roomShift(p.room), float32(g.propFog(p))
 	r := ps.tile[p.id]
 	if g.covered(p) { // the lobby Mirror, until it's installed
 		r = ps.cover[0]

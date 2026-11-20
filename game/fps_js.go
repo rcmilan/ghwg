@@ -12,14 +12,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// fpsOn: the page URL has ?fps, a dev-only readout for live tests of the web build.
+// fpsOn: the readout shows unless the page URL has ?nofps: on for the live tests of the web build (T381 refine 7).
+// ponytail: on by default, flip to opt-in (?fps) before the itch release.
 var fpsOn = func() bool {
 	loc := js.Global().Get("location")
 	if loc.IsUndefined() { // the Node test runner has no page
 		return false
 	}
 	q, _ := url.ParseQuery(strings.TrimPrefix(loc.Get("search").String(), "?"))
-	return q.Has("fps")
+	return !q.Has("nofps")
 }()
 
 func drawFPS(screen *ebiten.Image) {

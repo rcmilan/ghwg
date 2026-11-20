@@ -330,7 +330,8 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		}
 	}
 	g.tintedAt(s, help, listX, footY, 1, storeAccent, 1)
-	g.tintedAt(s, clockText(g.clock), screenW-16-glyphW*len(clockText(g.clock)), footY, 1, storeInk, 1)
+	foot := runText(g.played) + "   " + clockText(g.clock)
+	g.tintedAt(s, foot, screenW-16-glyphW*len(foot), footY, 1, storeInk, 1)
 	if g.prestigeAsk {
 		g.drawPrestigeCard(s)
 	}

@@ -65,7 +65,7 @@ The desk in the Lobby that holds the Terminal; the Concierge can stand behind it
 _Avoid_: desk, reception
 
 **Terminal**:
-The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. It covers the whole screen; the world pauses while it is open; ESC closes it in one press. Its zone is the computer's own column. Its bar shows the Income rates.
+The computer on the Reception Counter, a web store: the Concierge buys Supplies and hotel-wide unlocks there through a cart. It covers the whole screen; the world pauses while it is open; ESC closes it in one press. Its zone is the computer's own column. Its bar shows the Income rates; its footer the run timer (`RUN h:mm:ss`, real time played this Run, pauses and the title not counted, saved at each dawn) and the Clock.
 
 **Teaser**:
 A store item not on sale yet, listed with SOON; its detail shows its Hint, what unlocks it.

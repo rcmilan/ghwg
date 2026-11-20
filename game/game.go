@@ -175,6 +175,8 @@ type Game struct {
 	visits        map[string]int                 // per named guest: visits so far, saved across Runs (notebook.go)
 	met           map[string]bool                // named guests that have booked this Run: Osvaldo follows Magda
 	leftAt        map[string]int                 // per named guest: the clock its last Party left, this Run
+	played        int                            // real frames this Run has been played, pauses and the title not counted (saved)
+	wideAge       int                            // frames since the hotel view last redrew g.wide (hotelview.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -248,7 +250,7 @@ func (g *Game) startRun() {
 	g.ungrow()
 	g.parties, g.floaters, g.walkIns, g.fog, g.priests = nil, nil, 0, nil, nil
 	g.mood, g.shades, g.serves, g.expired = newMoods(len(g.hotel.Rooms)), make([]shades, len(g.hotel.Rooms)), 0, 0
-	g.clock, g.wallet, g.ghost, g.shifting = runStart, [2]Num{}, false, nil
+	g.clock, g.wallet, g.ghost, g.shifting, g.played = runStart, [2]Num{}, false, nil, 0
 	g.taps = make([][taskCount]Num, len(g.hotel.Rooms))
 	g.cart, g.stock, g.earned, g.boughtAt, g.placing = nil, nil, [2]Num{}, nil, -1
 	g.seen = nil
@@ -290,6 +292,9 @@ func (g *Game) startRun() {
 }
 
 func (g *Game) Update() error {
+	if g.reel == nil && g.intro == nil && g.state != StateTitle && g.state != StatePause {
+		g.played++
+	}
 	if g.auto != nil {
 		g.auto.drive(g)
 	}

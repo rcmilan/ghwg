@@ -244,10 +244,19 @@ func (g *Game) viewAt() (k, tx, ty float64) {
 
 // drawView draws the world pulled back by g.viewT and, once the view is open, the Rooms' labels and the picked
 // Room's ring.
+// viewRedraw: how often, in frames, the pulled-back hotel view redraws the hotel.
+const viewRedraw = 10
+
 func (g *Game) drawView(screen *ebiten.Image, bg color.Color) {
 	mw, mh := g.mapSize()
-	g.wide = reuse(&g.wideBuf, g.wide, image.Pt(mw*zoom, mh*zoom))
-	if gr := g.growing; gr == nil || gr.drawn != dimName(g.ghost) || g.viewT < 1 { // pulled back, a growth's slide only moves the hotel, which waits: drawn once (08 W3 browser profile); the warm-up draws the other dimension
+	if w := reuse(&g.wideBuf, g.wide, image.Pt(mw*zoom, mh*zoom)); w != g.wide {
+		g.wide, g.wideAge = w, 0
+	}
+	// Pulled back in the hotel view the world waits, so the whole-map picture is redrawn only every viewRedraw
+	// frames: on a 5x5 hotel it is the view's cost (T381 refine 7). Anything bought shows within that.
+	stale := g.state != StateView || g.viewT < 1 || g.wideAge%viewRedraw == 0
+	g.wideAge++
+	if gr := g.growing; gr == nil && stale || gr != nil && (gr.drawn != dimName(g.ghost) || g.viewT < 1) { // pulled back, a growth's slide only moves the hotel, which waits: drawn once (08 W3 browser profile); the warm-up draws the other dimension
 		g.wide.Fill(bg)
 		fog := g.fog // the view sees into every Room: the veils lift as it pulls back
 		g.fog = make([]float64, len(fog))

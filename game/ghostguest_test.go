@@ -414,7 +414,7 @@ func TestRoomPropsFogged(t *testing.T) {
 	g.fog = make([]float64, len(g.hotel.Rooms))
 	g.fog[0] = 1
 	id, _ := g.ts.ID("prop_mirror_r0c0")
-	room := prop{cx: o.X + 2, cy: o.Y + 4, l: world.LayerProps, id: id}
+	room := prop{cx: o.X + 2, cy: o.Y + 4, l: world.LayerProps, id: id, room: 0}
 	if g.propFog(room) == 0 || g.covered(room) {
 		t.Errorf("a mirror prop in a fogged Room: fog %v covered %v; want it fogged and drawn as itself", g.propFog(room), g.covered(room))
 	}

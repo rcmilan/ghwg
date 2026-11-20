@@ -39,6 +39,9 @@ func (g *Game) nearStock(r image.Rectangle) bool {
 // drawStockMark draws supply id's icon and "xN" over a prop: centered on world x mid, just above world y top. The
 // kitchen's shelves and the pantries both draw their stock with it.
 func (g *Game) drawStockMark(screen *ebiten.Image, id Unlock, n, mid, top, ox, oy int) {
+	if g.ghost { // Supplies are picked only in the real Dimension: nothing to read here in ghost (T381 refine 7)
+		return
+	}
 	icon := g.supplyIcon(id)
 	label := fmt.Sprintf("x%d", n)
 	iw, ih := icon.Bounds().Dx()*zoom, icon.Bounds().Dy()*zoom

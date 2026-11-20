@@ -332,13 +332,16 @@ func (g *Game) halveDirt(room int) { g.raiseMood(room, moodOf(g.dirtLevel(room)/
 
 // dreadAt is the dread shift of world cell c (D162): its Room's dread, 0 outside the
 // Rooms. In ghost a Closed Room pulses between 0.6 and 1.
-func (g *Game) dreadAt(c image.Point) float32 {
+func (g *Game) dreadAt(c image.Point) float32 { return g.roomShift(g.roomOfCell(c)) }
+
+// roomOfCell: the Room whose RoomW x RoomH box holds world cell c, -1 if none.
+func (g *Game) roomOfCell(c image.Point) int {
 	for i, r := range g.hotel.Rooms {
 		if c.In(image.Rectangle{r.Origin, r.Origin.Add(image.Pt(world.RoomW, world.RoomH))}) {
-			return g.roomShift(i)
+			return i
 		}
 	}
-	return 0
+	return -1
 }
 
 func (g *Game) roomShift(room int) float32 {

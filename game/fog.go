@@ -66,17 +66,13 @@ func (g *Game) propFog(p prop) float64 {
 	if g.ghost {
 		return 0
 	}
-	c := image.Pt(p.cx, p.cy)
-	for i, f := range g.fog {
-		o := g.hotel.Rooms[i].Origin
-		if f == 0 || !c.In(image.Rect(o.X, o.Y, o.X+world.RoomW, o.Y+world.RoomH)) {
-			continue
-		}
-		x, y := c.X-o.X, c.Y-o.Y
-		if p.l == world.LayerProps || y < 2 && !(p.l == world.LayerDecor && (x == 0 || x == world.RoomW-1)) {
-			return f
-		}
+	if p.room < 0 || p.room >= len(g.fog) || g.fog[p.room] == 0 {
 		return 0
+	}
+	o := g.hotel.Rooms[p.room].Origin
+	x, y := p.cx-o.X, p.cy-o.Y
+	if p.l == world.LayerProps || y < 2 && !(p.l == world.LayerDecor && (x == 0 || x == world.RoomW-1)) {
+		return g.fog[p.room]
 	}
 	return 0
 }

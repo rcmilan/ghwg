@@ -16,6 +16,12 @@ const (
 func day(c int) int  { return c/dayFrames + 1 }
 func hour(c int) int { return c % dayFrames / hourFrames }
 
+// runText: the run timer, real time played this Run (T381 refine 7): "RUN 1:02:03".
+func runText(frames int) string {
+	s := frames / tps
+	return fmt.Sprintf("RUN %d:%02d:%02d", s/3600, s/60%60, s%60)
+}
+
 // clockText is the Terminal's readout (D74): "DAY 3  14:20".
 func clockText(c int) string {
 	return fmt.Sprintf("DAY %d  %02d:%02d", day(c), hour(c), c%hourFrames/minuteFrames)

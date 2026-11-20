@@ -63,6 +63,7 @@ type runState struct {
 	Up         []int       // the leveled upgrades (upgrade.go); an older save has none: all 0, or 8 (upLevels)
 	Book       []bookEntry // the notebook (notebook.go)
 	Met        []string    // the named guests that have booked this Run, sorted
+	Played     int         `json:",omitempty"` // real frames played to the checkpoint (the run timer)
 }
 
 type roomState struct {
@@ -170,7 +171,7 @@ func decodeSave(b []byte) (s *saveData, err error) {
 func (g *Game) checkpoint() *runState {
 	cols, rows := g.hotel.Grid()
 	r := &runState{Cols: cols, Rows: rows, Seed: g.rng.Uint64(), Day: day(g.clock), Wallet: g.wallet, Earned: g.earned, RunEcto: g.runEcto,
-		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up[:], Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met))}
+		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up[:], Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met)), Played: g.played}
 	for _, id := range slices.Sorted(maps.Keys(g.locked)) {
 		if g.locked[id] {
 			r.Locked = append(r.Locked, id)
@@ -267,7 +268,7 @@ func (g *Game) restore(r *runState) error {
 	n := len(r.Rooms)
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(r.Seed, r.Seed)), rand.New(rand.NewPCG(r.Seed, r.Seed+1)), rand.New(rand.NewPCG(r.Seed, r.Seed+2))
 	g.seedIdent(r.Seed)
-	g.guestBook, g.met, g.leftAt = slices.Clone(r.Book), nil, nil
+	g.guestBook, g.met, g.leftAt, g.played = slices.Clone(r.Book), nil, nil, r.Played
 	for _, k := range r.Met {
 		if g.met == nil {
 			g.met = map[string]bool{}

@@ -65,6 +65,7 @@ type prop struct {
 	l         int // layer
 	id        world.TileID
 	bx, by    int // where its part of the walls' top band starts, in cell px (world/band.go; propSheet.band has it)
+	room      int // the Room whose box holds its cell, -1 if none: its dread and fog, looked up once (T381 refine 7)
 }
 
 // sortedProps lists the props by sort y; within a cell, layers keep their order.
@@ -75,7 +76,7 @@ func (g *Game) sortedProps() []prop {
 		for y := range m.H {
 			for x := range m.W {
 				if id := m.At(l, x, y); id != 0 && !m.TS.Tiles[id].Door {
-					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id}
+					p := prop{y: m.TileSortY(l, x, y), cx: x, cy: y, l: l, id: id, room: g.roomOfCell(image.Pt(x, y))}
 					if r := world.BandRect(m.TS.Tiles[id].Name); !r.Empty() {
 						p.bx, p.by = r.Min.X, r.Min.Y
 					}
@@ -220,6 +221,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		book  bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
 		plate int       // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
 		key   any       // what the prestige vortex lifts it off by (vortex.go); nil stays
+		z     float64   // its sort y, set once before the sort
 	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
@@ -276,13 +278,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
 		}
 	}
-	z := func(a actor) float64 { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+	for i, a := range actors { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+		actors[i].z = a.y
 		if b, ok := g.bedAt(a.x, a.y); ok {
-			return float64(b.Max.Y)
+			actors[i].z = float64(b.Max.Y)
 		}
-		return a.y
 	}
-	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(z(a), z(b)) })
+	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.z, b.z) })
 	// y-sorted pass (D11): merge the props and the actors; an actor whose feet are on or below a prop's
 	// sort y is drawn over it
 	view := screen.Bounds().Inset(-2 * world.TileSize * zoom) // a prop this far off it can't reach it (a tall one, a band, a wall's Shadow)
@@ -338,11 +340,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, a := range actors {
-		if z(a) >= stockY {
+		if a.z >= stockY {
 			stock()
 		}
-		propsUpTo(z(a))
-		if z(a) > float64(lit.Max.Y) {
+		propsUpTo(a.z)
+		if a.z > float64(lit.Max.Y) {
 			glow()
 		}
 		fx, fy := at(a.x, a.y)
