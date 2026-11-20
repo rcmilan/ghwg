@@ -45,7 +45,7 @@ func main() {
 	staff := flag.String("staff", "", "dev: start a Run with a full stock, housekeepers in the kitchen and Money in the wallet, you beside them: n,money (e.g. 1,500; with less Money than their wages, as 1,0, they are owed them already)")
 	ready := flag.Int("prestige-ready", -1, "dev: a full level-1 hotel, every key bought, the Terminal on Father P's row; 1 with his confirm card open")
 	busy := flag.Bool("busy", false, "dev: start a stress Run: a full 3x3 hotel, Parties and ghosts arriving minutes apart, three housekeepers, a courier restocking")
-	card := flag.Int("card", -1, "dev: open a guest card at Room 101's plate: 0 a human, 1 revealed, 2 a Party of two, 3 its ghost's, revealed (with -shot -at)")
+	card := flag.Int("card", -1, "dev: open a guest card at Room 101's plate: 0 a human, 1 revealed, 2 a Party of two, 3 its ghost's, revealed, 4 Father K as a guest (with -shot -at)")
 	match := flag.Int("match", -1, "dev: start a Run with a bad pair in Room 101 and the other way round in 102, you in 101: 0 as it is (-view 0: the hotel view's tints), 1 the talk open, 2 the swap taken, both under way (with -shot -at)")
 	scale := flag.Float64("scale", 1, "dev: the world's time scale, e.g. 0.25 for slow motion (holding T still runs it x4)")
 	father := flag.String("father", "", "dev: start a Run with Rooms 101 and 102 open and guests in, Money for both Fathers, Father k (or m) already walking to Room 101, you in the Lobby Archway: SPACE, then Room 102's ring has no call for him until he walks out")

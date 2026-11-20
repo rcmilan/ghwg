@@ -147,7 +147,7 @@ func (g *Game) priestOn(room int) bool {
 // fatherIn: that Father (K, or M if strong) is anywhere in the hotel, walking in, working or leaving. One of each at
 // a time (08 F0): noFather refuses the call with it, F0-R hides the call in the ring with it.
 func (g *Game) fatherIn(strong bool) bool {
-	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong })
+	return slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong == strong }) || g.fatherGuest(strong)
 }
 
 // noFather: why that Father can't be called to the Room, "" if he can: one Priest a Room, and each Father is one
@@ -202,6 +202,7 @@ func (g *Game) workSpot(room int) image.Point {
 }
 
 func (g *Game) updatePriests() {
+	g.updatePriestGuests()
 	kept := g.priests[:0]
 	for _, pr := range g.priests {
 		if !g.updatePriest(pr) {
