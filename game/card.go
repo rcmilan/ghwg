@@ -60,7 +60,7 @@ func (g *Game) canMove(p *Party) bool {
 
 // cardOpts: the options that apply to the guest now, in order. REVEAL stays while unaffordable (drawn grey).
 func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
-	if !g.revealed(p, guest) {
+	if _, priest := guestFather(p); !priest && !g.revealed(p, guest) { // a Father has nothing to reveal
 		os = append(os, optReveal)
 	}
 	if g.canMove(p) {
@@ -245,7 +245,7 @@ func (g *Game) drawCard(s *ebiten.Image, w, h int) {
 }
 
 // DevCard (-card), the prints' scenes over -match's two Rooms: 0 a human's card, 1 revealed, 2 a Party of two,
-// 3 its ghost's card, revealed.
+// 3 its ghost's card, revealed, 4 Father K as a guest.
 func (g *Game) DevCard(n int) {
 	if n < 0 {
 		return
@@ -262,6 +262,9 @@ func (g *Game) DevCard(n int) {
 	g.player.X, g.player.Y = float64(pl.Min.X+world.TileSize/2), float64(pl.Min.Y+world.TileSize/2)
 	if n == 3 {
 		g.ghost = true
+	}
+	if n == 4 {
+		g.becomeFather(p, false)
 	}
 	g.startCard(0)
 	if n == 1 || n == 3 {

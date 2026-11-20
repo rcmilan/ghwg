@@ -314,6 +314,7 @@ func (g *Game) arrive(room int) *Party {
 	}
 	g.walkIns++
 	p.Room, p.Rate, p.arrived = room, g.hotel.Rooms[room].Type.Rate, g.clock
+	g.maybePriestGuest(p)
 	for range p.Guests {
 		p.mess += g.mess()
 	}
