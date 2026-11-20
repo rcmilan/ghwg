@@ -168,9 +168,9 @@ var (
 		"Lovely wallpaper. Was it always moving?", "Wake-up call at seven. A human one, please.", "Who left the bath running? I'm alone.", "First time in town. Last, maybe.",
 		"The bed's comfy. The corner isn't.", "Is it normal for the mirror to fog by itself?", "I'm a light sleeper. Very light.", "Late checkout? Very late?"}
 	// The notebook's lines for a generated human (BOOK reads them). The last fled one, a scribble, has no words.
-	notebookCozy  = []string{"Slept like a baby.", "Would haunt again.", "Best pillows in town.", "The concierge has a lovely walk.", "10/10, the walls only whispered once."}
-	notebookDread = []string{"Never felt so watched.", "The mirror blinked first.", "Please check room's vents. And soul.", "Don't take the dread room. Too late for me."}
-	notebookFled  = []string{"Left at 3 a.m. Keep the deposit.", "NOPE.", "My hair is white now. It was brown.", ""}
+	notebookCozy  = []string{"Slept like a baby.", "Would haunt again.", "Best pillows in town.", "The concierge has a lovely walk.", "10/10, the walls only whispered once.", "The soap and I are friends now.", "Room smelled of Tuesday. Nice.", "Left a sock. It's yours now. Raise it well.", "The bed said goodnight. I said it back.", "Breakfast was a spoon. Just the spoon. Loved it.", "Five stars. Six if you count the one on the ceiling.", "My moustache feels rested.", "Came for one night. Stayed for one night.", "The towels were very supportive.", "Lost a button. Found a better one.", "Would recommend to my enemies, kindly."}
+	notebookDread = []string{"Never felt so watched.", "The mirror blinked first.", "Please check room's vents. And soul.", "Don't take the dread room. Too late for me.", "The curtains kept clapping. For what?", "Someone ate my dreams. Left the crusts.", "The radiator knows my name.", "Woke up facing the other way. Me, not the bed.", "The painting's eyes followed me. Then its feet.", "Heard a cello. There is no cello.", "My reflection checked out early.", "3 a.m. knock-knock jokes. None landed."}
+	notebookFled  = []string{"Left at 3 a.m. Keep the deposit.", "NOPE.", "My hair is white now. It was brown.", "", "Ran so fast I left my shadow. Please forward it.", "Bye. BYE.", "Took the window. Faster than the stairs.", "My suitcase fled first. Smart suitcase.", "No refund needed. No anything needed.", "The lamp said leave. I listened.", "AAAAAAAAAAAA. Lobby was nice."}
 )
 
 const (
@@ -190,8 +190,8 @@ var (
 		"Is it Tuesday? It's always Tuesday.", "This used to be my bedroom. And my grave.", "The living walk so loudly.", "I'd tip you, but my coins went through.",
 		"Keep the lights low. It's flattering.", "I was a guest once. I never left.", "Don't move the furniture. I'm attached.", "One more night. Then I'll go. Probably."}
 	// The notebook's lines for a generated ghost: it left on its own, or Father M sent it over.
-	notebookPassed   = []string{"Finally checked out. Lovely stay.", "Off to the light. The pillows were better here.", "Ninety years. Worth it."}
-	notebookBanished = []string{"Rude.", "I wasn't finished.", "Tell the priest I'll be back. I won't, but tell him."}
+	notebookPassed   = []string{"Finally checked out. Lovely stay.", "Off to the light. The pillows were better here.", "Ninety years. Worth it.", "Gone to the big lobby upstairs.", "Leaving my rattle to the next guy.", "Checked out at last. Kept the key. Spiritually.", "Tell the stairs I forgive them.", "Bright light. Decent parking.", "I'm off. Water my fern. It's also dead.", "Two hundred years and the mints were worth it."}
+	notebookBanished = []string{"Rude.", "I wasn't finished.", "Tell the priest I'll be back. I won't, but tell him.", "Holy water? On the carpet?", "Evicted by a man in a dress. Again.", "I'll haunt your postcards.", "Fine. I was leaving anyway. In eighty years.", "Tell my chains I said goodbye.", "Out in one prayer. A new record.", "Rude priest. Lovely shoes."}
 )
 
 func choose[T any](r *rand.Rand, s []T) T { return s[r.IntN(len(s))] }

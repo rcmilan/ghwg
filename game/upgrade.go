@@ -35,16 +35,17 @@ type upgradeDef struct {
 	Effect float64 // level 1's effect: the boost or the cut, a share
 	Kind   upKind
 	Cap    int // highest level, 0 = none
+	Ecto   Num // Ectoplasm price of level 1, like Base: the ghost-side ones only, 0 = none (T381 refine 6)
 }
 
 var upgrades = [upgradeCount]upgradeDef{
-	LobbyDecor:    {"Lobby decor", 150, 0.08, upBoost, 0},
-	Brochures:     {"Brochures", 120, 0.20, upReducer, 0},
-	Soundproofing: {"Soundproofing", 200, 0.20, upReducer, 0},
-	SeanceTable:   {"Seance table", 250, 0.20, upBoost, 0},
-	TipJar:        {"Tip jar", 180, 0.20, upBoost, 0},
-	CleaningKit:   {"Cleaning kit", 160, 0.30, upReducer, 0},
-	OfferingBox:   {"Offering box", 220, 0.80, upBoost, 0},
+	LobbyDecor:    {"Lobby decor", 150, 0.08, upBoost, 0, 0},
+	Brochures:     {"Brochures", 120, 0.20, upReducer, 0, 0},
+	Soundproofing: {"Soundproofing", 200, 0.20, upReducer, 0, 40},
+	SeanceTable:   {"Seance table", 250, 0.20, upBoost, 0, 50},
+	TipJar:        {"Tip jar", 180, 0.20, upBoost, 0, 0},
+	CleaningKit:   {"Cleaning kit", 160, 0.30, upReducer, 0, 0},
+	OfferingBox:   {"Offering box", 220, 0.80, upBoost, 0, 45},
 }
 
 // upMulAt: the multiplier of upgrade u at level n. A boost is 1 + e(1-0.9^n)/0.1 (toward 1 + 10e), a reducer
@@ -68,11 +69,19 @@ func upMulAt(u Upgrade, n int) float64 {
 // keys and growth (roomPrice).
 func upPriceAt(u Upgrade, n, rooms int) Num { return roomPrice(upgrades[u].Base*Num(n+1), rooms) }
 
+// upEctoAt: the Ectoplasm part of that price, on the same curve (0 for a Money-only upgrade).
+func upEctoAt(u Upgrade, n, rooms int) Num { return roomPrice(upgrades[u].Ecto*Num(n+1), rooms) }
+
 // upMul: the Run's multiplier of upgrade u (boost: above 1; reducer: below 1).
 func (g *Game) upMul(u Upgrade) float64 { return upMulAt(u, g.up[u]) }
 
 // upPrice: the price of u's next level.
 func (g *Game) upPrice(u Upgrade) Num { return upPriceAt(u, g.up[u], g.ownedCount()) }
+
+// upCost: the whole price of u's next level, its Ectoplasm part included.
+func (g *Game) upCost(u Upgrade) Cost {
+	return Cost{Money: g.upPrice(u), Ecto: upEctoAt(u, g.up[u], g.ownedCount())}
+}
 
 // ritualEctoBase: the Ectoplasm every Priest ritual pays, before the Offering box and the prestige bonus.
 const ritualEctoBase = 10

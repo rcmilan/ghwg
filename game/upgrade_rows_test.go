@@ -85,8 +85,8 @@ func TestUpgradeOrderedAndDelivered(t *testing.T) {
 	if g.upPrice(LobbyDecor) != 2*price {
 		t.Errorf("level 2 costs %v, want %v", g.upPrice(LobbyDecor), 2*price)
 	}
-	if !slices.ContainsFunc(g.note.items, func(n feedItem) bool { return strings.Contains(n.text, "LOBBY DECOR LV 1") }) {
-		t.Error("no notice as the level arrives")
+	if slices.ContainsFunc(g.note.items, func(n feedItem) bool { return strings.Contains(n.text, "LOBBY DECOR") }) {
+		t.Error("a notice as the level arrives: the courier's delivery is enough (T381 refine 6)")
 	}
 	// a capped upgrade stops at its cap
 	upgrades[TipJar].Cap = 2

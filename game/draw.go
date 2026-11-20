@@ -98,6 +98,14 @@ var inkBuf = ebiten.NewImage(960, 64)
 
 // printAt prints v in the debug font at (x,y), at scale, in c at alpha a. Every text goes through it.
 func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, a float32) {
+	var geo ebiten.GeoM
+	geo.Scale(scale, scale)
+	geo.Translate(float64(x), float64(y))
+	printGeo(s, v, geo, c, a)
+}
+
+// printGeo is printAt placed by geo (the guest book's tilted hand).
+func printGeo(s *ebiten.Image, v string, geo ebiten.GeoM, c color.Color, a float32) {
 	lines := strings.Split(v, "\n")
 	w := 0
 	for _, l := range lines {
@@ -111,9 +119,7 @@ func printAt(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, 
 	cm.SetElement(3, 3, 0)
 	cm.ScaleWithColor(c)
 	cm.Scale(1, 1, 1, float64(a))
-	op := &colorm.DrawImageOptions{}
-	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x), float64(y))
+	op := &colorm.DrawImageOptions{GeoM: geo}
 	colorm.DrawImage(s, buf, cm, op)
 }
 

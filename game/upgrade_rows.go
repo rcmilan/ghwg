@@ -34,7 +34,7 @@ func init() {
 		d := upgrades[u]
 		upRow[u] = len(shop)
 		shop = append(shop, Item{ID: Unlock("up-" + strings.ReplaceAll(strings.ToLower(d.Name), " ", "-")), Tab: tabUpgrades, Name: d.Name, Icon: upIcon[u],
-			Head: u == OfferingBox, Up: int(u) + 1, Price: func(g *Game) Cost { return Cost{Money: g.upPrice(u)} }})
+			Head: u == OfferingBox, Up: int(u) + 1, Price: func(g *Game) Cost { return g.upCost(u) }})
 	}
 }
 
@@ -58,11 +58,8 @@ func (g *Game) upShows(u Upgrade) bool {
 
 func (g *Game) upMaxed(u Upgrade) bool { c := upgrades[u].Cap; return c > 0 && g.up[u] >= c }
 
-// levelUp: a level of u arrives with the courier: it counts from now, with a notice.
-func (g *Game) levelUp(u Upgrade) {
-	g.up[u]++
-	g.notice(fmt.Sprintf("%s LV %d", strings.ToUpper(upgrades[u].Name), g.up[u]))
-}
+// levelUp: a level of u arrives with the courier: it counts from now. No notice: the delivery shows it (T381 refine 6).
+func (g *Game) levelUp(u Upgrade) { g.up[u]++ }
 
 // upEffect: u's total effect at level n, as the row words it.
 func upEffect(u Upgrade, n int) string {
@@ -108,11 +105,13 @@ type UpView struct {
 	Max   bool
 	Level int
 	Price Num // of the next level
+	Ecto  Num // its Ectoplasm part
 }
 
 func (g *Game) upViews() (v [upgradeCount]UpView) {
 	for u := range upgradeCount {
-		v[u] = UpView{g.upShows(u), g.upMaxed(u), g.up[u], g.upPrice(u)}
+		c := g.upCost(u)
+		v[u] = UpView{g.upShows(u), g.upMaxed(u), g.up[u], c[Money], c[Ecto]}
 	}
 	return
 }

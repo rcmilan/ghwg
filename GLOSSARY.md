@@ -446,12 +446,12 @@ One trait a Guest may have that bends a rule of the hotel, from the hotel's firs
 One of the hand-written cast (`cast.md`: seven human entries, three ghosts) who takes a generated booking about 1 time in 6, from the first Growth on, when not in the hotel and away a game day. It keeps its own lines, quirk and (a ghost) kind, and its visits count across Runs (saved). Osvaldo comes only after Magda.
 
 **Guest book**:
-The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own. It opens as a soft-cover book: two ruled pages curving into the spine, a thin black cover bending with them.
+The book on the entrance counter, read with SPACE beside it. Every Party writes a line as it leaves: cozy, dread or fled; ghosts passed on or banished, shown only in ghost. A named guest writes its own. It opens as a soft-cover book: two ruled pages curving into the spine, a thin black cover bending with them. The entries are handwritten on wide ruled lines, each in its own pen and hand: some keep to the line, some tilt, some bob word by word (T381 refine 6).
 _Avoid_: notebook (in game text), log
 
 **Priest guest**:
 Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel (a retained Father K never books). He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One of each Father hotel-wide still holds.
 
 **Upgrade**:
-A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid in Money at checkout, and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
+A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid at checkout in Money (Soundproofing, Seance table and Offering box, the ghost-side ones, in Ectoplasm too), and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
 _Avoid_: perk, boost

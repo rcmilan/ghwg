@@ -24,7 +24,7 @@ func spendUp(v View, p *Pilot) bool {
 	reserve += next
 	best := Upgrade(-1)
 	for u, x := range v.Ups {
-		if x.Shown && !x.Max && v.Money >= x.Price+reserve && (best < 0 || x.Price < v.Ups[best].Price) {
+		if x.Shown && !x.Max && v.Money >= x.Price+reserve && v.Ecto >= x.Ecto && (best < 0 || x.Price < v.Ups[best].Price) {
 			best = Upgrade(u)
 		}
 	}

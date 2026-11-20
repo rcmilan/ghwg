@@ -34,7 +34,7 @@ const (
 	namedAway = dayFrames // a named guest must have been out of the hotel this long to come again
 	dreadMood = rotMood   // a stay that ended at or below this Room Mood was a dread one
 	scribble  = "~ ^ ~ ~ ^ ~"
-	bookRows  = 8 // two pages of four
+	bookRows  = 4 // entries a spread shows at least: W/S stops with these in sight
 )
 
 // bookEntry is one line of the notebook (saved in runState).
@@ -269,9 +269,10 @@ const (
 	spineGap     = 4
 	bookPW       = (bookW - 2*bookM - spineGap) / 2
 	bookPH       = bookH - 2*bookM
-	bookRuled    = 18
-	bookRowH     = 4 * bookRuled
-	bookPerPage  = bookRows / 2
+	bookRuled    = 30                                  // the ruled lines' pitch: the hand sits on them (T381 refine 6)
+	bookLine0    = 70                                  // the first ruled line, from the cover's top
+	bookLines    = (bookPH-40-bookLine0)/bookRuled + 1 // ruled lines a page
+	bookBase     = 13                                  // the debug font's baseline row: the hand's y is the line's minus this, scaled
 )
 
 var bookBG *ebiten.Image
@@ -317,8 +318,8 @@ func bookBackdrop() *ebiten.Image {
 				}
 			}
 			rect(img, x, y0, 1, h, shade(paper, f))
-			for ly := bookM + 49; ly < bookM+bookPH-26; ly += bookRuled {
-				if ly > y0 && ly < y0+h {
+			for k := range bookLines {
+				if ly := bookLine0 + k*bookRuled; ly > y0 && ly < y0+h {
 					rect(img, x, ly, 1, 1, shade(ruled, f))
 				}
 			}
@@ -334,40 +335,89 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(x), float64(y))
 	s.DrawImage(bookBackdrop(), op)
-	lx, rx, py := x+bookM, x+bookM+bookPW+spineGap, y+bookM
-	g.tintedAt(s, "GUEST BOOK", lx+30, py+14, 3, storeInk, 1)
+	lx, rx := x+bookM+30, x+bookM+bookPW+spineGap+22
+	line := func(k int) int { return y + bookLine0 + k*bookRuled } // ruled line k's y
+	g.tintedAt(s, "GUEST BOOK", lx, line(0)-3*bookBase, 3, storeInk, 1)
 	es := g.shown()
 	if len(es) == 0 {
-		g.tintedAt(s, "NO ENTRIES YET", lx+30, py+80, 2, storeDim, 1)
+		scrawl(s, "No entries yet.", lx, line(1), 0, 0, storeDim)
 	}
-	for k, e := range es[min(g.bookTop, len(es)):min(g.bookTop+bookRows, len(es))] {
-		px := lx + 30
-		if k >= bookPerPage {
-			px = rx + 22
+	// The entries flow down the left page under the title, then the right one: a line for the name, the words on
+	// the next, a blank line between two.
+	side, k, n := 0, 1, 0
+	for _, e := range es[min(g.bookTop, len(es)):] {
+		words := e.Line
+		if words == "" {
+			words = scribble
 		}
-		right := px + bookPW - 52                            // the text's right edge, clear of the gutter shade
-		ry := py + 50 + bookRuled + (k%bookPerPage)*bookRowH // a ruled line clear of the title
-		ink := color.Color(storeInk)
-		if e.ghost() {
-			ink = storeAccent
-			rect(s, px-8, ry+2, 3, bookRowH-22, storeAccent)
+		ls := wrapAt("\""+words+"\"", (bookPW-60)/(2*glyphW))
+		if k+1+len(ls) > bookLines {
+			if side == 1 {
+				break
+			}
+			side, k = 1, 0
 		}
-		g.tintedAt(s, e.Name, px, ry+2, 2, storeInk, 1)
-		tag := "DAY " + strconv.Itoa(e.Day) + "  " + outTag[e.Out]
-		g.tintedAt(s, tag, right-len(tag)*glyphW, ry+8, 1, ink, 1)
-		line := e.Line
-		if line == "" {
-			line = scribble
+		px := lx
+		if side == 1 {
+			px = rx
 		}
-		for i, l := range wrapAt("\""+line+"\"", (right-px)/glyphW) {
-			g.tintedAt(s, l, px, ry+bookRuled+8+i*bookRuled, 1, storeInk, 1)
-		}
+		g.writeEntry(s, e, ls, px, line(k), px+bookPW-52)
+		k, n = k+len(ls)+2, n+1
 	}
-	if len(es) > bookRows {
-		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(min(g.bookTop+bookRows, len(es))) + " OF " + strconv.Itoa(len(es))
-		g.tintedAt(s, pos, rx+bookPW-52-len(pos)*glyphW, py+22, 1, storeDim, 1)
+	if len(es) > n {
+		pos := strconv.Itoa(g.bookTop+1) + "-" + strconv.Itoa(g.bookTop+n) + " OF " + strconv.Itoa(len(es))
+		g.tintedAt(s, pos, rx+bookPW-74-len(pos)*glyphW, y+bookM+22, 1, storeDim, 1)
 	}
-	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", lx+30, py+bookPH-18, 1, storeDim, 1)
+	g.tintedAt(s, "W/S SCROLL   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
+}
+
+// bookInks: the pens a human writes with; a ghost writes in the Ectoplasm accent.
+var bookInks = [...]color.RGBA{storeInk, {0x23, 0x3a, 0x7a, 255}, {0x5a, 0x34, 0x22, 255}}
+
+// writeEntry writes e by hand: its name on the ruled line at y, its words on the next ones, the day and how it
+// went at the right. Each hand is its own, from a hash of the entry (no rng): its pen, a nudge along the line, and
+// how it keeps to the line, straight, tilted a little, or bobbing word by word; a guest who fled always bobs.
+func (g *Game) writeEntry(s *ebiten.Image, e bookEntry, ls []string, x, y, right int) {
+	h := fnv.New32a()
+	h.Write([]byte(e.Name + e.Line + strconv.Itoa(e.Day)))
+	v := h.Sum32()
+	ink := color.Color(bookInks[v%3])
+	if e.ghost() {
+		ink = storeAccent
+	}
+	x += int(v>>4%7) - 3
+	var tilt float64
+	var wob uint32
+	switch style := v >> 8 % 4; {
+	case style == 3 || e.Out == outFled:
+		wob = v>>12 | 1
+	case style == 2:
+		tilt = float64(int(v>>12%9)-4) * 0.008 // up to about 1.8 degrees either way
+	}
+	scrawl(s, e.Name, x, y, tilt, wob>>16, ink)
+	tag := "DAY " + strconv.Itoa(e.Day) + "  " + outTag[e.Out]
+	g.tintedAt(s, tag, right-len(tag)*glyphW, y-bookBase, 1, ink, 1)
+	for i, l := range ls {
+		scrawl(s, l, x+8, y+(i+1)*bookRuled, tilt, wob>>(i%4*4), ink)
+	}
+}
+
+// scrawl writes v at twice the font's size by hand on the ruled line at y, from x: tilted by rad around its start,
+// or, with wob set, each word bobbing up to 2 px off the line by wob's bits.
+func scrawl(s *ebiten.Image, v string, x, y int, rad float64, wob uint32, c color.Color) {
+	if wob == 0 {
+		var geo ebiten.GeoM
+		geo.Scale(2, 2)
+		geo.Translate(0, -2*bookBase)
+		geo.Rotate(rad)
+		geo.Translate(float64(x), float64(y))
+		printGeo(s, v, geo, c, 1)
+		return
+	}
+	for i, w := range strings.Split(v, " ") {
+		printAt(s, w, x, y-2*bookBase+int(wob>>(i%8*2)%5)-2, 2, c, 1)
+		x += (len(w) + 1) * 2 * glyphW
+	}
 }
 
 // drawBookProp: the book lying on the counter, a small vector one (no cut of the sprite sheet fits): the black cover,

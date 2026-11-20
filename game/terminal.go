@@ -183,7 +183,7 @@ const (
 	tabY, tabH         = barH + 8, 36               // the tabs
 	bodyY              = tabY + tabH + 10           // the list and the detail pane
 	footY              = screenH - 26               // the help line
-	listX, listW, rowH = 16, 352, 38                // the item list
+	listX, listW, rowH = 16, 440, 38                // the item list
 	listRows           = (footY - 8 - bodyY) / rowH // rows in sight; more scroll
 	paneX              = listX + listW + 20
 	paneW, paneH       = screenW - 16 - paneX, listRows*rowH - 4
