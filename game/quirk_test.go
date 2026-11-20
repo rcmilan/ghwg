@@ -206,3 +206,24 @@ func TestPrefersStrongGhost(t *testing.T) {
 		t.Error("a Big tipper was sent to a strong ghost")
 	}
 }
+
+// A quirk is rolled only once the hotel has grown: before, nobody can read it yet (REVEAL costs Ecto) and the
+// early Ecto must not stall (TestPacing). The draws are made either way, so the rest of the identity keeps its rolls.
+func TestQuirkAfterGrowth(t *testing.T) {
+	g, _ := mirrorRun(t, 2, 1)
+	some := func() bool {
+		for range 60 {
+			if g.rollQuirk(humanQuirks) != NoQuirk {
+				return true
+			}
+		}
+		return false
+	}
+	if some() {
+		t.Error("a quirk was rolled before the hotel grew")
+	}
+	g.grid0 = [2]int{1, 1} // as if the hotel had grown
+	if !some() {
+		t.Error("no quirk in 60 rolls after the hotel grew")
+	}
+}
