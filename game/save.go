@@ -28,21 +28,22 @@ type saveData struct {
 
 // runState: the dawn checkpoint.
 type runState struct {
-	Cols, Rows int         // the hotel's Room grid
-	Seed       uint64      // the Run's rngs from here on, drawn at the checkpoint
-	Day        int         // the checkpoint is its 08:00
-	Rooms      []roomState // map order
-	Corridors  []corridorState
-	Keepers    []payroll         // housekeepers on the payroll
-	FatherK    *payroll          // the retained Father K, nil if none
-	Wallet     [2]Num            // Money, Ecto
-	Earned     [2]Num            // lifetime this Run: opens store items
-	RunEcto    Num               // Ectoplasm earned this Run, before the bonus
-	Locked     []Unlock          // the unlocks still locked; nil: a fresh Run's
-	Bought     map[Unlock][2]Num // unlocks bought, with Earned when each arrived
-	Seen       []Unlock          // store items already seen: the Terminal's "!" skips them
-	Stock      map[Unlock]int
-	Orders     []orderLine // paid for and still on a courier: they arrive at the checkpoint
+	Cols, Rows  int         // the hotel's Room grid
+	Seed        uint64      // the Run's rngs from here on, drawn at the checkpoint
+	Day         int         // the checkpoint is its 08:00
+	Rooms       []roomState // map order
+	Corridors   []corridorState
+	Keepers     []payroll         // housekeepers on the payroll
+	FatherK     *payroll          // the retained Father K, nil if none
+	Wallet      [2]Num            // Money, Ecto
+	Earned      [2]Num            // lifetime this Run: opens store items
+	RunEcto     Num               // Ectoplasm earned this Run, before the bonus
+	Locked      []Unlock          // the unlocks still locked; nil: a fresh Run's
+	Bought      map[Unlock][2]Num // unlocks bought, with Earned when each arrived
+	Seen        []Unlock          // store items already seen: the Terminal's "!" skips them
+	Stock       map[Unlock]int
+	PantryStock []map[Unlock]int // each pantry's, in Pantries order; an older save has none: empty shelves
+	Orders      []orderLine      // paid for and still on a courier: they arrive at the checkpoint
 }
 
 type roomState struct {
@@ -180,6 +181,7 @@ func (g *Game) checkpoint() *runState {
 		}
 		r.Rooms = append(r.Rooms, rs)
 	}
+	r.PantryStock = g.pantryStock
 	for _, m := range g.hotel.Corridors {
 		r.Corridors = append(r.Corridors, corridorState{m.Floor, m.Col, m.West, m.Open})
 	}
@@ -250,8 +252,15 @@ func (g *Game) restore(r *runState) error {
 			g.locked[id] = true
 		}
 	}
-	g.pantryStock = nil // the growths above ran before the locks: stand the shelves now, empty (their stock isn't saved)
+	g.pantryStock = nil // the growths above ran before the locks: stand the shelves now, then fill them from the save
 	g.openPantries()
+	for i, st := range r.PantryStock {
+		for id, n := range st {
+			if i < len(g.pantryStock) {
+				g.pantryStock[i][id] = max(0, min(pantryStockMax, n))
+			}
+		}
+	}
 	g.boughtAt, g.stock = r.Bought, r.Stock
 	if g.stock == nil {
 		g.stock = map[Unlock]int{}
