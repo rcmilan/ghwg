@@ -1,6 +1,10 @@
 package world
 
-import "image"
+import (
+	"cmp"
+	"image"
+	"slices"
+)
 
 const (
 	DoorSlideFrames = 15 // frames from shut to fully open (~0.25s at 60 TPS)
@@ -35,19 +39,32 @@ func (d Door) Allows(actor int) bool { return d.Room < 0 || actor < 0 || actor =
 // anyone stands in the doorway (a door never closes on someone); toward shut otherwise. A boarded Room's
 // door stays shut to everyone.
 func (h *Hotel) UpdateDoors(actors []Actor, boarded func(room int) bool, dt float64) {
-	for i := range h.Doors {
-		d := &h.Doors[i]
-		want := false
-		for _, a := range actors {
-			if d.Room >= 0 && boarded(d.Room) {
+	// Doors sorted by top edge: an actor looks only at the doors on its own rows, not at all of them.
+	b := &h.pf
+	idx, maxH := b.doors[:0], 0
+	for i, d := range h.Doors {
+		idx = append(idx, i)
+		maxH = max(maxH, d.Rect.Dy())
+	}
+	slices.SortFunc(idx, func(i, j int) int { return cmp.Or(h.Doors[i].Rect.Min.Y-h.Doors[j].Rect.Min.Y, i-j) })
+	b.doors = idx
+	want := append(b.want[:0], make([]bool, len(idx))...)
+	b.want = want
+	for _, a := range actors {
+		lo, _ := slices.BinarySearchFunc(idx, a.Box.Min.Y-doorReach-maxH, func(i, y int) int { return cmp.Compare(h.Doors[i].Rect.Min.Y, y+1) })
+		for _, i := range idx[lo:] {
+			d := &h.Doors[i]
+			if d.Rect.Min.Y >= a.Box.Max.Y+doorReach {
 				break
 			}
-			if a.Box.Overlaps(d.Rect) || a.Box.Overlaps(d.Rect.Inset(-doorReach)) && d.Allows(a.Room) {
-				want = true
-				break
+			if !want[i] && (a.Box.Overlaps(d.Rect) || a.Box.Overlaps(d.Rect.Inset(-doorReach)) && d.Allows(a.Room)) {
+				want[i] = true
 			}
 		}
-		if want {
+	}
+	for i := range h.Doors {
+		d := &h.Doors[i]
+		if want[i] && !(d.Room >= 0 && boarded(d.Room)) {
 			d.slide = min(d.slide+dt, DoorSlideFrames)
 		} else {
 			d.slide = max(d.slide-dt, 0)

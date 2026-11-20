@@ -98,7 +98,7 @@ func clockGreeting(c int) string {
 func (g *Game) updateTalk() {
 	for _, p := range g.parties {
 		p.talk = slices.DeleteFunc(p.talk, func(l line) bool { return g.tick-l.at >= sayFrames })
-		if lead := p.Guests[0]; p.greet == noGreeting || p.state != checkingIn && p.state != goingOut || !g.shown(lead) || g.indoors(lead) || !g.hears(lead) {
+		if lead := p.Guests[0]; p.greet == noGreeting || p.state != checkingIn && p.state != goingOut || !p.shown(lead) || g.indoors(lead) || !g.hears(lead) {
 			continue
 		}
 		p.talk = nil // a greeting replaces what it was saying
@@ -164,8 +164,10 @@ func (g *Game) updateRoomTalk() {
 	}
 }
 
-// shown: the guest is on the map.
-func (g *Game) shown(guest *entities.Guest) bool { return g.has(guest) }
+// shown: p's guest is on the map.
+func (p *Party) shown(guest *entities.Guest) bool {
+	return p.state != out && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0)
+}
 
 // drawTalk draws, by its speaker's head, the one line each Party is saying, while the Concierge hears it:
 // the last that has started (2026-11-14: a Guest never says two at once). A Party asking or complaining
@@ -176,7 +178,7 @@ func (g *Game) drawTalk(s *ebiten.Image, ox, oy int) {
 			continue
 		}
 		if l, ok := p.saying(g.tick); ok {
-			if guest := p.Guests[l.who]; g.shown(guest) && g.hears(guest) && (!roomOnly[l.text] || g.indoors(guest)) {
+			if guest := p.Guests[l.who]; p.shown(guest) && g.hears(guest) && (!roomOnly[l.text] || g.indoors(guest)) {
 				g.say(s, l.text, guest, ox, oy)
 			}
 		}

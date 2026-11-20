@@ -586,7 +586,8 @@ func (g *Game) steer(guest *entities.Guest) {
 	if g.realm() == realm {
 		see(g.player.X, g.player.Y)
 	}
-	for o := range g.walkers(realm) {
+	// only a walker on a cell of the next waypoints matters (a cell is under 2 tiles from its waypoint)
+	for o := range g.walkersNear(realm, around(2*world.TileSize, ahead...)) {
 		if o == guest || o.Phasing || o.Mate(guest) {
 			continue
 		}
@@ -655,7 +656,7 @@ func (g *Game) yields(guest *entities.Guest) bool {
 	c := m.Center(m.Cell(ahead[i]).X, m.Cell(ahead[i]).Y)
 	near := func(x, y float64) float64 { return math.Hypot(float64(c.X)-x, float64(c.Y)-y) }
 	hx, hy := float64(guest.Path[0].X)-guest.X, float64(guest.Path[0].Y)-guest.Y
-	for o := range g.walkers(g.realmOf(guest)) {
+	for o := range g.walkersNear(g.realmOf(guest), around(2*world.TileSize, ahead...)) {
 		if o == guest || o.Mate(guest) || o.Phasing || len(o.Path) == 0 || near(o.X, o.Y) >= near(guest.X, guest.Y) {
 			continue
 		}
@@ -681,7 +682,7 @@ func (g *Game) bumpsAhead(guest *entities.Guest, hx, hy float64) (x, y float64, 
 	if g.realm() == realm && hit(g.player.X, g.player.Y) {
 		return g.player.X, g.player.Y, true
 	}
-	for o := range g.walkers(realm) {
+	for o := range g.walkersNear(realm, around(entities.FootW+2, image.Pt(int(guest.X), int(guest.Y)))) {
 		if o == guest || o.Mate(guest) || o.Phasing || !hit(o.X, o.Y) {
 			continue
 		}
