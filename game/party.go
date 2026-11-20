@@ -210,11 +210,9 @@ func (g *Game) guestsIn(realm Realm) iter.Seq[*entities.Guest] {
 
 // has: guest is on the map.
 func (g *Game) has(guest *entities.Guest) bool {
-	for _, realm := range [...]Realm{Human, Ghost} {
-		for o := range g.guestsIn(realm) {
-			if o == guest {
-				return true
-			}
+	for _, p := range g.parties { // guestsIn's test, in either realm, for this one guest
+		if p.state != out && slices.Contains(p.Guests, guest) && !((p.state == goingOut || p.state == leaving) && len(guest.Path) == 0) {
+			return true
 		}
 	}
 	return false
