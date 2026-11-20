@@ -22,6 +22,7 @@ type Pilot struct {
 	readyAt int
 	lastTap int
 	keys    []ebiten.Key // this frame's
+	called  [2]int       // the frame each Father (K, M) was last sent for: the View doesn't say which one is in the hotel
 }
 
 // action runs one frame; done once finished, ok if it got what it wanted. A failed action drops the queue.
@@ -286,7 +287,14 @@ func (p *Pilot) CallPriest(room int, strong bool) {
 	if strong {
 		row = rowFatherM
 	}
+	p.called[b2i(strong)] = p.frame
 	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
+}
+
+// FatherBusy: that Father was sent for less than an hour ago, so likely still in the hotel (his walk and chant).
+func (p *Pilot) FatherBusy(strong bool) bool {
+	at := p.called[b2i(strong)]
+	return at > 0 && p.frame-at < 2*priestMinutes*minuteFrames
 }
 
 // Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the Room's
