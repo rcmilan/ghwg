@@ -35,7 +35,7 @@ func (g *Game) scare() {
 			p.ectoShown = 0
 		}
 		for _, guest := range p.Guests {
-			if guest.Fear >= guest.FleeAt {
+			if guest.Fear >= guest.FleeAt && g.mayFlee(p, guest) {
 				if p.scares++; p.scares == 1 { // out for air the first time, gone the second (Step 2)
 					g.stepOut(p)
 				} else {

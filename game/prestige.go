@@ -68,6 +68,8 @@ func (g *Game) startPrestige() {
 func (g *Game) resetRun() {
 	seed := rand.Uint64()
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(seed, seed)), rand.New(rand.NewPCG(seed, seed+1)), rand.New(rand.NewPCG(seed, seed+2))
+	g.seedIdent(seed)
+	g.up = [upgradeCount]int{}
 	g.runEcto, g.prestigeAsk, g.termTab, g.termPick = 0, false, 0, 0
 	intro := g.introOn
 	g.introOn = false

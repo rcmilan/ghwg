@@ -76,7 +76,7 @@ func (g *Game) mess() int {
 // leaveMess: a leaving Party's mess, for the nights it stayed (a started night counts).
 func (g *Game) leaveMess(p *Party) {
 	nights := min(p.Nights, (g.clock-p.arrived)/dayFrames+1)
-	g.addDirtLevel(p.Room, p.mess*nights)
+	g.addDirtLevel(p.Room, scaleInt(p.mess*nights, g.dirtQuirkMul(p))) // a Neat freak's Room feels it twice
 }
 
 // spots: the Room's dirt spots, enough to cover its dirt, past bigFrom each a spotUnit bigger (a
@@ -249,7 +249,7 @@ func (g *Game) complain(p *Party) {
 	case g.clock-p.complainAt >= patience*minuteFrames:
 		p.Walked, p.state = true, leaving
 		g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
-		g.book(p.Room, bookGap)
+		g.book(p.Room, g.bookGapNow())
 	}
 }
 
@@ -368,10 +368,10 @@ func (g *Game) drawDirt(s *ebiten.Image, ox, oy int) {
 			draw(s, 1, 1)
 		}
 	}
-	kept := g.wiped[:0]
+	kept, fade := g.wiped[:0], float64(g.cleanFrames(wipeFrames)) // the only time a clean has today
 	for _, w := range g.wiped {
-		if d := g.now() - float64(w.tick); d < wipeFrames {
-			f := d / wipeFrames
+		if d := g.now() - float64(w.tick); d < fade {
+			f := d / fade
 			draw(w.spot, 1-f, 1+f)
 			kept = append(kept, w)
 		}

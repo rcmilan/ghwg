@@ -110,7 +110,10 @@ func spent(ghost *entities.Guest) bool { return ghost.Haunted >= max(1, ghost.Ph
 
 // haunt: the ghost haunts its Room; with a human in it, one haunt nearer to spent.
 func (g *Game) haunt(room int, ghost *entities.Guest) {
-	g.haunts(room, ghostHauntDamage(ghost))
+	if !g.mayHaunt(room, ghost) { // Shy
+		return
+	}
+	g.haunts(room, scaleInt(ghostHauntDamage(ghost), g.upMul(Soundproofing)*g.hauntQuirkMul(room, ghost)))
 	g.terrify(room, ghost)
 	if _, in := g.inside(room); len(in) > 0 { // 08 F0: only a haunt with a human in counts toward passing on
 		ghost.Haunted++
@@ -120,7 +123,7 @@ func (g *Game) haunt(room int, ghost *entities.Guest) {
 // hauntTick runs each frame for a ghost in its Room: every ghost.Haunt game minutes it haunts, until it is
 // spent. G1 calls it.
 func (g *Game) hauntTick(room int, ghost *entities.Guest) {
-	if ghost.Haunt > 0 && !spent(ghost) && g.clock%minuteFrames == 0 && (g.clock/minuteFrames-ghost.HauntAt)%ghost.Haunt == 0 {
+	if gap := g.hauntGap(ghost); gap > 0 && !spent(ghost) && g.clock%minuteFrames == 0 && (g.clock/minuteFrames-ghost.HauntAt)%gap == 0 {
 		g.haunt(room, ghost)
 	}
 }

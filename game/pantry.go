@@ -162,7 +162,7 @@ func (g *Game) nearestStock(k *housekeeper, item Unlock) (src int, at image.Poin
 func (g *Game) refillPantry(k *housekeeper) bool {
 	for p := range g.hotel.Pantries {
 		for _, s := range supplies {
-			if g.stockOf(p)[s.ID] >= pantryStockMax || g.stock[s.ID] == 0 || g.refilling(p, s.ID) {
+			if g.stockOf(p)[s.ID] >= g.pantryMax() || g.stock[s.ID] == 0 || g.refilling(p, s.ID) {
 				continue
 			}
 			k.job, k.src, k.item = refilling, p, s.ID

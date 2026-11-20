@@ -68,6 +68,8 @@ type Game struct {
 	rng           *rand.Rand
 	chat          *rand.Rand                     // picks Guests' lines, apart from rng so talk never changes the simulation (D165)
 	linger        struct{ room, from, last int } // the Concierge's visit to an occupied Room: which, since when, and the last frame of it (party.go's intrude)
+	ident         *rand.Rand                     // identity rolls (cast.go), apart from rng so a guest's name never shifts the sim
+	up            [upgradeCount]int              // the leveled upgrades bought this Run (upgrade.go)
 	words         *rand.Rand                     // the lines themselves (2026-11-14, 4c): chat came to roll ghosts' bookings and pastimes too, so a text edit moved the sim
 	in            input                          // the keys (input.go)
 	headless      bool                           // no window: step skips what only drawing needs
@@ -198,7 +200,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ts: ts, in: &script{}, bonus: 1, headless: true, scale: 1, dt: 1, ticked: true}
+	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ident: rand.New(rand.NewPCG(seed, seed+3)), ts: ts, in: &script{}, bonus: 1, headless: true, scale: 1, dt: 1, ticked: true}
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}

@@ -155,7 +155,7 @@ func (g *Game) updateRoomTalk() {
 		set := calmLines[tier]
 		lines := set[0]
 		switch {
-		case asleep:
+		case asleep && g.sleeps(p):
 			lines = []string{"Zzz..."}
 		case len(p.Guests) > 1:
 			lines = slices.Concat(set[0], set[1])

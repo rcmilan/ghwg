@@ -22,6 +22,7 @@ type Guest struct {
 	Haunted   int           // a ghost: the haunts it has done. At its Phantasm it is spent and passes on (2026-11-14)
 	PassAt    int           // the clock it began to pass on, 0 until then
 	Anim      Anim
+	Who       Identity // its name, age or death year, line and quirk (game/cast.go rolls it at booking)
 
 	best     float64 // shortest remaining path seen on this path
 	stuck    int     // frames without beating best
