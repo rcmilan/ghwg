@@ -12,7 +12,7 @@ var kitchenGrids = [][2]int{{2, 1}, {3, 3}}
 // T293: the kitchen is the Lobby's part east of the Archway, walled off, with every Supply's prop on its back wall: Water at the
 // fridge, Food at the oven, Towels at the shelf. The Concierge and the courier reach each from the Lobby.
 func TestKitchen(t *testing.T) {
-	want := map[Unlock]string{SupplyWater: "fridge", SupplyFood: "cabinet_mirror", SupplyTowel: "shelf_a"}
+	want := map[Unlock]string{SupplyWater: "fridge", SupplyFood: "cabinet_mirror", SupplyTowel: "shelf_a", SupplyVeggie: "cabinet", SupplyGourmet: "shelf_b"}
 	for _, grid := range kitchenGrids {
 		g, _ := headless(t, grid[0], grid[1], 1)
 		g.startRun()
@@ -92,7 +92,7 @@ func TestCourierStops(t *testing.T) {
 		t.Fatal(why)
 	}
 	c := g.couriers[0]
-	if len(c.drops) != len(supplies) {
+	if len(c.drops) != baseSupplies {
 		t.Fatalf("%d stops, want one per Supply ordered", len(c.drops))
 	}
 	clear(g.stock)
@@ -112,8 +112,8 @@ func TestCourierStops(t *testing.T) {
 			}
 		}
 	}
-	if len(filled) != len(supplies) {
-		t.Fatalf("%d Supplies filled, want %d", len(filled), len(supplies))
+	if len(filled) != baseSupplies {
+		t.Fatalf("%d Supplies filled, want %d", len(filled), baseSupplies)
 	}
 }
 

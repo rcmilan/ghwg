@@ -23,6 +23,44 @@ var supplies = []Supply{
 	{SupplyWater, "fridge", 25, 5, 1},
 	{SupplyFood, "cabinet_mirror", 50, 2, 1}, // the mirror cabinet, recolored as an oven (tools/sprites)
 	{SupplyTowel, "shelf_a", 35, 1, 1},
+	{SupplyVeggie, "cabinet", 50, 0, 1},   // the plain cabinet beside the oven (T378)
+	{SupplyGourmet, "shelf_b", 100, 3, 1}, // pays double the Food
+}
+
+// baseSupplies: the supplies a request first picks among (g.rng.IntN keeps its range); the rest are meals the pick maps to.
+const baseSupplies = 3
+
+// mealOn: the Veggie meal is sold and asked once the hotel has grown, the Gourmet once a Room is Deluxe.
+func (g *Game) mealOn(id Unlock) bool {
+	switch id {
+	case SupplyVeggie:
+		return g.grown()
+	case SupplyGourmet:
+		for _, r := range g.hotel.Rooms {
+			if r.Type.Name == deluxeTier {
+				return true
+			}
+		}
+		return false
+	}
+	return true
+}
+
+// meal maps a picked supply to what p really asks for: a Vegetarian's Food is the Veggie meal, a Deluxe Room's the
+// Gourmet. No random draw, so the sim stays as it was while neither is on.
+func (g *Game) meal(p *Party, id Unlock) Unlock {
+	if id != SupplyFood {
+		return id
+	}
+	for _, gu := range p.Guests {
+		if gu.Who.Vegetarian && g.mealOn(SupplyVeggie) {
+			return SupplyVeggie
+		}
+	}
+	if g.hotel.Rooms[p.Room].Type.Name == deluxeTier && g.mealOn(SupplyGourmet) {
+		return SupplyGourmet
+	}
+	return id
 }
 
 func supplyOf(id Unlock) int {
