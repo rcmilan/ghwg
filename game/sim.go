@@ -97,6 +97,9 @@ type Result struct {
 	Expired     int       // requests left to expire
 	Priests     int       // called and paid
 	PriestSpend int       // $ paid for them
+	PriestsM    int       // of Priests, the calls of Father M (Father K's are Priests - PriestsM)
+	RetainDays  int       // game days Father K was on retainer: each hire and each payday paid
+	PriestEcto  int       // Ectoplasm spent on the Fathers: unlocks, calls and the retainer
 	ClosedHours int       // Room-hours spent Closed
 	MirrorAt    float64   // game hours from the Run start until the Mirror unlocked; -1 if it never did (07 B1)
 	RoomMirror  float64   // the same, until the first Room had its own Mirror: the opening loop's finish line (07 K1)
@@ -134,6 +137,8 @@ type sim struct {
 	phased    map[*entities.Guest]bool
 	legs      map[*Party]leg
 	called    map[*priest]bool
+	due       map[*priest]int // a retained Father K's payday last frame
+	unlocked  [2]bool         // the K and M call unlocks bought, so far
 	shipped   map[*courier]bool
 	rent      map[*Party]Num  // each Party's rent counted so far
 	byDay     []Num           // MoneyByDay before rounding
@@ -166,7 +171,7 @@ func newSim(cfg Config) (*sim, error) {
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
 		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
-		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
+		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, due: map[*priest]int{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
 	g.level, g.bonus = cfg.Level, max(1, cfg.Bonus)
 	g.mirrorAtStart, g.openAtStart, g.bedsAtStart = cfg.Mirror, cfg.Open, cfg.Beds
@@ -253,9 +258,27 @@ func (s *sim) frame() bool {
 	}
 	spent := 0
 	for _, pr := range g.priests {
-		if !s.called[pr] {
+		switch {
+		case !s.called[pr] && pr.retained: // hired: the first day's pay was the row's price
+			s.called[pr], s.due[pr] = true, pr.due
+			s.res.RetainDays, s.res.PriestEcto = s.res.RetainDays+1, s.res.PriestEcto+retainerEcto
+		case !s.called[pr]:
 			s.called[pr], spent = true, spent+pr.price()
 			s.res.Priests++
+			s.res.PriestEcto += priestWeak
+			if pr.strong {
+				s.res.PriestsM++
+				s.res.PriestEcto += priestStrong - priestWeak
+			}
+		case pr.retained && pr.due != s.due[pr]: // payday, paid (an unpaid one clears retained)
+			s.due[pr] = pr.due
+			s.res.RetainDays, s.res.PriestEcto = s.res.RetainDays+1, s.res.PriestEcto+retainerEcto
+		}
+	}
+	for k, u := range []Unlock{unlockK, unlockM} {
+		if !s.unlocked[k] && g.unlocked(u) {
+			s.unlocked[k] = true
+			s.res.PriestEcto += []int{unlockKEcto, unlockMEcto}[k]
 		}
 	}
 	s.res.PriestSpend += spent

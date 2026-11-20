@@ -110,3 +110,19 @@ func mustNew(t *testing.T) *Game {
 	g.openAtStart = true // see headless
 	return g
 }
+
+// W3.5 P1FIX-SIM: `goals` buys the Fathers' unlocks and calls one when a Room's dread is high, and puts K on his
+// retainer once Ecto piles up.
+func TestGoalsCallsPriests(t *testing.T) {
+	r := RunSim(Config{Cols: 2, Rows: 1, Days: 8, Seed: 2, Name: "goals", Strategy: Strategies["goals"], React: 30, KeyGap: 6})
+	t.Logf("%+v", r)
+	for _, f := range r.Failures {
+		t.Errorf("%s: %s", f.Clock, f.Reason)
+	}
+	if r.Priests == 0 || r.PriestEcto < unlockKEcto+priestWeak {
+		t.Errorf("%d Priests called for %d Ectoplasm, want some", r.Priests, r.PriestEcto)
+	}
+	if r.RetainDays == 0 {
+		t.Error("Father K was never put on his retainer")
+	}
+}
