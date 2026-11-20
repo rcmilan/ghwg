@@ -23,14 +23,13 @@ const (
 // Identity is who a guest is, rolled when its Party books (game/cast.go). A human has Age and Job; a ghost has
 // Died (a year) and Cause. The zero Identity is an unrolled guest (tests, staff).
 type Identity struct {
-	Name       string
-	Age        int    // a human's; 0 when AgeNote says it
-	AgeNote    string // a human's age said in words ("ask the moon"), else empty
-	Job        string // a human's
-	Died       int    // a ghost's death year, 0 for a human
-	Cause      string // a ghost's cause of death
-	Card       string // the line on its card
-	Quirk      Quirk
-	Key        string // the named cast's key (cast.go), empty for a generated guest
-	Vegetarian bool   // a human who asks for veggie meals (T378 fills the asking; about 1 in 5)
+	Name    string
+	Age     int    // a human's; 0 when AgeNote says it
+	AgeNote string // a human's age said in words ("ask the moon"), else empty
+	Job     string // a human's
+	Died    int    // a ghost's death year, 0 for a human
+	Cause   string // a ghost's cause of death
+	Card    string // the line on its card
+	Quirk   Quirk
+	Key     string // the named cast's key (cast.go), empty for a generated guest
 }

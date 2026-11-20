@@ -40,7 +40,7 @@ var (
 
 const (
 	quirkOdds = 3 // a generated guest has a quirk 1 time in quirkOdds
-	vegOdds   = 5 // and a human is Vegetarian 1 time in vegOdds
+	vegOdds   = 5 // the draw a human once spent on Vegetarian, kept so the identity stream does not move
 )
 
 // member is one person of a named human entry: a Party of two has two, one card each (A/D flips).
@@ -214,7 +214,7 @@ func (g *Game) rollHuman(guest *entities.Guest) {
 		Card:  choose(g.ident, humanCards),
 		Quirk: g.rollQuirk(humanQuirks),
 	}
-	guest.Who.Vegetarian = g.ident.IntN(vegOdds) == 0 // placeholder until T378
+	g.ident.IntN(vegOdds)
 }
 
 // rollGhost gives a ghost guest a generated Identity, when it is created (newGhost).

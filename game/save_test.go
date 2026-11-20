@@ -213,25 +213,34 @@ func TestSaveResumesPantry(t *testing.T) {
 	if len(g1.hotel.Pantries) == 0 {
 		t.Fatal("no pantry on the grown hotel")
 	}
-	g1.pantryStock[0][SupplyFood] = 2
-	g1.pantryStock[len(g1.pantryStock)-1][SupplyTowel] = 1
 	memStore(t)
 	g1.saveDawn()
 	g2, _ := headless(t, 2, 1, 99)
 	g2.startRun()
 	g2.persist = true
-	if !g2.resume(g2.loadSave()) || len(g2.hotel.Pantries) != len(g1.hotel.Pantries) || len(g2.pantryStock) != len(g2.hotel.Pantries) {
-		t.Fatalf("pantries %d, stocks %d; want %d", len(g2.hotel.Pantries), len(g2.pantryStock), len(g1.hotel.Pantries))
+	if !g2.resume(g2.loadSave()) || len(g2.hotel.Pantries) != len(g1.hotel.Pantries) {
+		t.Fatalf("pantries %d; want %d", len(g2.hotel.Pantries), len(g1.hotel.Pantries))
 	}
-	if !reflect.DeepEqual(g2.pantryStock, g1.pantryStock) {
-		t.Errorf("pantry stock %v after the round trip, want %v", g2.pantryStock, g1.pantryStock)
+}
+
+// A save from before W4's refine 2 still loads: its PantryStock is ignored, its meals are dropped, and its 8 upgrade
+// levels (Bigger shelves, the 7th, among them) keep the right owners.
+func TestSaveFromBeforeOneFood(t *testing.T) {
+	s, err := decodeSave([]byte(`{"level":1,"run":{"Cols":2,"Rows":1,"Seed":5,"Day":2,"Rooms":[{"Tier":"Standard","Beds":"Single"},{"Tier":"Standard","Beds":"Single"}],
+		"PantryStock":[{"supply-food":2}],"Stock":{"supply-food":2,"supply-veggie":3,"supply-gourmet":1},
+		"Locked":["supply-veggie","supply-gourmet"],"Seen":["supply-veggie"],"Bought":{"supply-veggie":[1,1]},"Up":[1,2,3,4,5,6,3,8]}}`))
+	if err != nil {
+		t.Fatal(err)
 	}
-	// an old save, with no PantryStock: empty shelves
-	s := g1.loadSave()
-	s.Run.PantryStock = nil
-	g3, _ := headless(t, 2, 1, 99)
-	g3.startRun()
-	if !g3.resume(s) || len(g3.pantryStock) != len(g3.hotel.Pantries) || g3.pantryStock[0][SupplyFood] != 0 {
-		t.Errorf("an old save should load empty pantries: %v", g3.pantryStock)
+	g, _ := headless(t, 2, 1, 99)
+	g.startRun()
+	if !g.resume(s) {
+		t.Fatal("an older save did not load")
+	}
+	if g.stock[SupplyFood] != 2 || len(g.stock) != 1 || g.locked["supply-veggie"] || len(g.boughtAt) != 0 {
+		t.Errorf("stock %v, locked %v, bought %v: want only the Food, no meals", g.stock, g.locked, g.boughtAt)
+	}
+	if want := [upgradeCount]int{1, 2, 3, 4, 5, 6, 8}; g.up != want {
+		t.Errorf("levels %v, want %v: Offering box (8) must stay 7th", g.up, want)
 	}
 }

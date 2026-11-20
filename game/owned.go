@@ -68,7 +68,7 @@ func (g *Game) closeRooms() {
 	g.roomOwned = make([]bool, len(g.hotel.Rooms))
 	g.wallet[Money] = startMoney
 	g.stock = map[Unlock]int{}
-	for _, s := range supplies[:baseSupplies] { // the meals start empty: nobody asks for them yet
+	for _, s := range supplies {
 		g.stock[s.ID] = startStock
 	}
 }
