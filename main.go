@@ -59,6 +59,8 @@ func main() {
 	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
 	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2), a full book turned n-3 spreads (3 and up); -ghost shows the ghost view")
+	weather := flag.String("weather", "", "dev: this weather every day: rain, fog, wind, or storm (the thunderstorm)")
+	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -95,7 +97,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -154,6 +156,10 @@ func main() {
 		}
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 		g.DevCard(*card)
+	}
+	g.DevWeather(*weather)
+	if *street {
+		g.DevStreet()
 	}
 	g.DevBook(*book)
 	if *ready >= 0 {
