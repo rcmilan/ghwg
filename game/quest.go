@@ -115,10 +115,15 @@ func (g *Game) sayLine(key, text string) bool {
 	if p == nil {
 		return false
 	}
-	for k, chunk := range wrapAt(text, sayWrap) {
-		p.talk = append(p.talk, line{who, chunk, g.tick + k*sayFrames})
-	}
+	speak(p, who, text, g.tick)
 	return true
+}
+
+// speak: member who of p says text over its head from tick at, a balloon at a time.
+func speak(p *Party, who int, text string, at int) {
+	for k, chunk := range wrapAt(text, sayWrap) {
+		p.talk = append(p.talk, line{who, chunk, at + k*sayFrames})
+	}
 }
 
 // sayWrap: characters a quest line's balloon holds (a balloon is 6 px a character at x3, the screen 320 px wide).
