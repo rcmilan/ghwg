@@ -186,38 +186,56 @@ func (g *Game) DevWeather(kind string) {
 // fogPuffs: soft puffs drifting along the Street, each of one of a few pre-rendered pixel blobs.
 const fogPuffs = 12
 
-// fogBlob: a puff w by h px (world px, drawn at zoom): a solid core, then a checker-dithered ring, then nothing.
-func fogBlob(w, h int) *ebiten.Image {
+// fogBlob: a cloud w by h px (world px, drawn at zoom) of overlapping ellipses (cx, cy, rx, ry in 0..1): a
+// bright solid core, a checker-dithered shoulder, a sparse dithered rim, and a lumpy outline.
+func fogBlob(w, h int, lumps [][4]float64) *ebiten.Image {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
 	for y := range h {
 		for x := range w {
-			dx, dy := (float64(x)+.5)/float64(w)*2-1, (float64(y)+.5)/float64(h)*2-1
-			d := dx*dx + dy*dy
-			if d < .45 || (d < 1 && (x+y)%2 == 0 && d < .75) || (d < 1 && x%2 == 0 && y%2 == 0) {
-				img.SetNRGBA(x, y, color.NRGBA{228, 234, 240, 255})
+			v := 0.0
+			for _, l := range lumps {
+				dx, dy := ((float64(x)+.5)/float64(w)-l[0])/l[2], ((float64(y)+.5)/float64(h)-l[1])/l[3]
+				v = max(v, 1-math.Sqrt(dx*dx+dy*dy))
+			}
+			switch {
+			case v > .45:
+				img.SetNRGBA(x, y, color.NRGBA{244, 247, 252, 255})
+			case v > .2 && (x+y)%2 == 0, v > .2 && v <= .45 && y%2 == 0 && x%2 == 0:
+				img.SetNRGBA(x, y, color.NRGBA{226, 232, 242, 255})
+			case v > 0 && x%2 == 0 && y%2 == 0:
+				img.SetNRGBA(x, y, color.NRGBA{214, 222, 236, 255})
 			}
 		}
 	}
 	return ebiten.NewImageFromImage(img)
 }
 
-// drawFog: fogPuffs puffs in the box (screen px), drifting east slowly at ground level, fading toward its left
-// and right edges. No per-pixel work: a few images made once.
+// drawFog: fogPuffs banks in the box (screen px), from the ground up to the front wall's foot, drifting east
+// slowly and fading toward its left and right edges. The big faint ones drift slower, behind. No per-pixel work.
 func (g *Game) drawFog(dst *ebiten.Image, x0, y0, cw, ch int) {
 	s := &g.street
 	if s.puffs[0] == nil {
-		s.puffs = [3]*ebiten.Image{fogBlob(34, 12), fogBlob(24, 9), fogBlob(44, 14)}
+		s.puffs = [3]*ebiten.Image{
+			fogBlob(44, 22, [][4]float64{{.3, .6, .3, .4}, {.55, .45, .32, .5}, {.78, .62, .24, .36}}),
+			fogBlob(34, 18, [][4]float64{{.35, .55, .33, .42}, {.68, .5, .3, .45}}),
+			fogBlob(56, 26, [][4]float64{{.22, .62, .22, .36}, {.45, .42, .26, .5}, {.7, .5, .28, .46}, {.88, .66, .14, .3}}),
+		}
 	}
 	for i := range fogPuffs {
+		big := i < 4 // behind: twice the size, fainter, slower
 		img := s.puffs[i%3]
-		pw, ph := img.Bounds().Dx()*zoom, img.Bounds().Dy()*zoom
+		sc, al, spd := float64(zoom), .62, 3+i%3
+		if big {
+			sc, al, spd = 2*zoom, .3, 2
+		}
+		pw, ph := int(float64(img.Bounds().Dx())*sc), int(float64(img.Bounds().Dy())*sc)
 		span := cw + pw
-		x := (i*span/fogPuffs + s.n*(3+i%3)/20) % span // 0.15-0.25 px a frame, each its own pace
+		x := (i*span*5/(fogPuffs*3) + s.n*spd/20) % span
 		fx := float64(x) / float64(span)
-		a := float32(.32 * min(1, min(fx, 1-fx)*5))
-		y := y0 + ch/3 + (i*53)%(ch*2/3-ph/2+1) + int(2*zoom*math.Sin(float64(s.n)/90+float64(i)))
+		a := float32(al * min(1, min(fx, 1-fx)*5))
+		y := y0 + (i*ch*5/(fogPuffs*3)+i*29)%max(ch-ph/2, 1) - ph/4 + int(2*zoom*math.Sin(float64(s.n)/90+float64(i)))
 		s.op.GeoM.Reset()
-		s.op.GeoM.Scale(zoom, zoom)
+		s.op.GeoM.Scale(sc, sc)
 		s.op.GeoM.Translate(float64(x0+x-pw), float64(y))
 		s.op.ColorScale.Reset()
 		s.op.ColorScale.Scale(a, a, a, a)
