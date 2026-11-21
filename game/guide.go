@@ -232,7 +232,7 @@ func (g *Game) guideRows() (title string, rows []guideRow) {
 }
 
 // stepNeed: the shop row open objective id's current step needs and is not bought yet ("" if none): the Wreath and the
-// Crate, Father K's call (STAFF) for O6, the Supply O5's ghost asked for while none is in stock.
+// Crate, Father M's call (STAFF) for O6, the Supply O5's ghost asked for while none is in stock.
 func (g *Game) stepNeed(id string) Unlock {
 	i := g.stepIdx(id)
 	switch {
@@ -240,8 +240,8 @@ func (g *Game) stepNeed(id string) Unlock {
 		return rowWreath
 	case id == "O13" && i == 0:
 		return rowCrate
-	case id == "O6" && i == 2 && g.locked[unlockK]:
-		return unlockK
+	case id == "O6" && i == 2 && g.locked[unlockM]:
+		return unlockM
 	case id == "O5" && i == 1:
 		if p := g.questParty("tim"); p != nil {
 			if k := supplyOf(p.want); k >= 0 && g.stock[supplies[k].ID] == 0 {

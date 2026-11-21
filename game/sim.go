@@ -97,7 +97,7 @@ type Result struct {
 	Expired     int       // requests left to expire
 	Priests     int       // called and paid
 	PriestSpend int       // $ paid for them
-	PriestsM    int       // of Priests, the calls of Father M (Father K's are Priests - PriestsM)
+	PriestsM    int       // of Priests, the calls of Father M (K's, via sendPriest, only from the dev flags)
 	RetainDays  int       // game days Father K was on retainer: each hire and each payday paid
 	PriestEcto  int       // Ectoplasm spent on the Fathers: unlocks, calls and the retainer
 	ClosedHours int       // Room-hours spent Closed
@@ -270,10 +270,9 @@ func (s *sim) frame() bool {
 		case !s.called[pr]:
 			s.called[pr], spent = true, spent+pr.price()
 			s.res.Priests++
-			s.res.PriestEcto += priestWeak
 			if pr.strong {
 				s.res.PriestsM++
-				s.res.PriestEcto += priestStrong - priestWeak
+				s.res.PriestEcto += priestStrong
 			}
 		case pr.retained && pr.due != s.due[pr]: // payday, paid (an unpaid one clears retained)
 			s.due[pr] = pr.due

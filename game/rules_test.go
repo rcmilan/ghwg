@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// 08 F0 (One of each Father): each Father is one person. While he is anywhere in the hotel, walking in, working
-// or walking out, he can't be called to another Room; the other Father can. Once he's gone, he can again.
+// 08 F0 (One of each Father): Father M is one person. While he is anywhere in the hotel, walking in, working or
+// walking out, he can't be called to another Room; Father K, retained, is a person of his own. Once M is gone, he can again.
 func TestOneOfEachFather(t *testing.T) {
 	g, _ := headless(t, 3, 1, 1)
 	g.startRun()
@@ -14,33 +14,34 @@ func TestOneOfEachFather(t *testing.T) {
 	g.unlock(unlockK)
 	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
-	k, m := row(t, rowFatherK), row(t, rowFatherM)
-	if why := g.buyNow(k, 0); why != "" {
-		t.Fatalf("Father K to Room 0: %q", why)
+	m := row(t, rowFatherM)
+	if why := g.buyNow(m, 0); why != "" {
+		t.Fatalf("Father M to Room 0: %q", why)
 	}
-	if g.buyNow(k, 1) == "" || g.callPriest(2, false) == "" || len(g.priests) != 1 {
-		t.Fatalf("Father K called again while in the hotel: %d Priests", len(g.priests))
+	if g.buyNow(m, 1) == "" || g.callPriest(2) == "" || len(g.priests) != 1 {
+		t.Fatalf("Father M called again while in the hotel: %d Priests", len(g.priests))
 	}
-	if why := g.buyNow(m, 1); why != "" {
-		t.Fatalf("Father M refused while only Father K is in: %q", why)
+	g.retainK()
+	if len(g.priests) != 2 {
+		t.Fatalf("Father K refused while only Father M is in: %d Priests", len(g.priests))
 	}
 	for i := 0; !g.priests[0].done; i++ {
 		if i > 60*tps+priestMinutes*minuteFrames {
-			t.Fatal("Father K never finished")
+			t.Fatal("Father M never finished")
 		}
 		g.step(0, 0)
 	}
-	if g.buyNow(k, 2) == "" {
-		t.Error("Father K called while walking out")
+	if g.buyNow(m, 2) == "" {
+		t.Error("Father M called while walking out")
 	}
-	for i := 0; slices.ContainsFunc(g.priests, func(pr *priest) bool { return !pr.strong }); i++ {
+	for i := 0; slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.strong }); i++ {
 		if i > 60*tps {
-			t.Fatal("Father K never left")
+			t.Fatal("Father M never left")
 		}
 		g.step(0, 0)
 	}
-	if why := g.buyNow(k, 2); why != "" {
-		t.Errorf("Father K gone, still refused: %q", why)
+	if why := g.buyNow(m, 2); why != "" {
+		t.Errorf("Father M gone, still refused: %q", why)
 	}
 }
 

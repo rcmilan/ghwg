@@ -533,22 +533,22 @@ func TestO6RetirementParty(t *testing.T) {
 		t.Errorf("the porter's read:\n%s", txt)
 	}
 	g.endTalk()
-	pr := &priest{}
+	pr := &priest{strong: true}
 	pr.RoomIndex = 1
 	if l := g.verbOpener(pr); len(l) != 1 || l[0] != fatherKParty[0] {
-		t.Errorf("K's opener: %v", l)
+		t.Errorf("M's opener: %v", l)
 	}
 	g.questRec.Times[3] = 1
 	if l := g.verbOpener(pr); l[0] != fatherKParty[1] {
-		t.Errorf("K's opener the 2nd time: %v", l)
+		t.Errorf("M's opener the 2nd time: %v", l)
 	}
-	g.ritualEffect(&priest{strong: true, Guest: entities.Guest{RoomIndex: 1}}) // M's Ritual: no party
+	g.ritualEffect(&priest{Guest: entities.Guest{RoomIndex: 1}}) // K's Ritual: no party
 	if reported(g, "O6") {
-		t.Fatal("Father M finished O6")
+		t.Fatal("Father K finished O6")
 	}
 	g.ritualEffect(pr)
 	if !reported(g, "O6") || porter.Guests[0].PassAt == 0 {
-		t.Errorf("K's Ritual: reported %v, PassAt %d", g.verbs.done, porter.Guests[0].PassAt)
+		t.Errorf("M's Ritual: reported %v, PassAt %d", g.verbs.done, porter.Guests[0].PassAt)
 	}
 }
 

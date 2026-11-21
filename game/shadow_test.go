@@ -25,9 +25,9 @@ func TestPlaceShadow(t *testing.T) {
 	}
 	g.placeShadow(1)
 	g.shades[1] = append(g.shades[1], &shade{run: g.shades[1][0].run, essence: shadowEssence}) // past the cap, as R1 will allow
-	g.wallet[Ecto] = priestWeak + priestStrong
-	g.callPriest(0, false)
-	g.callPriest(1, true)
+	g.wallet[Ecto] = priestStrong
+	g.sendPriest(0, false)
+	g.callPriest(1)
 	for i := 0; len(g.priests) > 0; i++ {
 		if i > 60*tps+priestMinutes*minuteFrames {
 			t.Fatal("the Priests never left")

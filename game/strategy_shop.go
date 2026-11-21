@@ -19,12 +19,12 @@ func (shopper) Act(v View, p *Pilot) {
 			p.Buy(id, 0, func(v View) bool { return true })
 			return
 		}
-		if it.ID != rowFatherK && it.ID != rowFatherM {
+		if it.ID != rowFatherM {
 			continue
 		}
 		for r, rv := range v.Rooms {
 			if !rv.Priest {
-				p.CallPriest(r, it.ID == rowFatherM)
+				p.CallPriest(r)
 				return
 			}
 		}

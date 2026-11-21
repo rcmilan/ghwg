@@ -442,14 +442,14 @@ func (g *Game) ghostDeliver(i int) {
 	}
 }
 
-// verbOpener: the Priest's opening line when the quest has one for this Room: K's retirement party (O6), then either
+// verbOpener: the Priest's opening line when the quest has one for this Room: the retirement party (O6), then either
 // Father's memory of the questline's Room.
 func (g *Game) verbOpener(pr *priest) []string {
 	room := pr.RoomIndex
 	if room < 0 || g.quest.Beat < 1 {
 		return nil
 	}
-	if !pr.strong && g.questOpen("O6") && g.porterRoom() == room {
+	if g.questOpen("O6") && g.porterRoom() == room {
 		return []string{byTimes(fatherKParty, g.timesDone(4))}
 	}
 	n := g.timesDone(g.quest.Beat)
@@ -465,10 +465,10 @@ func (g *Game) verbOpener(pr *priest) []string {
 // porterRoom: the Room of O6's porter, -1 before it is rolled.
 func (g *Game) porterRoom() int { return g.rollGet("O6.room") - 1 }
 
-// verbRitual: a Priest's Ritual landed. Father K's on the porter's Room is the retirement party: it passes on
-// happily, and O6 is done.
+// verbRitual: a Priest's Ritual landed. Father M's on the porter's Room is the retirement party: it passes on
+// happily, and O6 is done (the porter is pinned, so sendOver leaves it to this).
 func (g *Game) verbRitual(pr *priest) {
-	if pr.strong || !g.questOpen("O6") || g.porterRoom() != pr.RoomIndex {
+	if !pr.strong || !g.questOpen("O6") || g.porterRoom() != pr.RoomIndex {
 		return
 	}
 	p := g.porterParty()

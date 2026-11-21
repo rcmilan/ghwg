@@ -33,11 +33,11 @@ func TestRoomMood(t *testing.T) {
 func TestPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.mood[0], g.wallet[Ecto] = moodMin, priestStrong+priestWeak
-	if msg := g.callPriest(0, true); msg != "" || g.wallet[Ecto] != priestWeak {
-		t.Fatalf("call: %q, Ecto %v; want no refusal and Ecto %d", msg, g.wallet[Ecto], priestWeak)
+	g.mood[0], g.wallet[Ecto] = moodMin, 2*priestStrong
+	if msg := g.callPriest(0); msg != "" || g.wallet[Ecto] != priestStrong {
+		t.Fatalf("call: %q, Ecto %v; want no refusal and Ecto %d", msg, g.wallet[Ecto], priestStrong)
 	}
-	if msg := g.callPriest(0, false); msg == "" || g.wallet[Ecto] != priestWeak {
+	if msg := g.callPriest(0); msg == "" || g.wallet[Ecto] != priestStrong {
 		t.Fatalf("a second Priest for Room 0 was called (money %v)", g.wallet[Money])
 	}
 	for i := 0; len(g.priests) > 0; i++ {
@@ -53,8 +53,8 @@ func TestPriest(t *testing.T) {
 		t.Fatalf("after a Strong Priest: Room Mood %d, want %d", g.roomMood(0), moodClean)
 	}
 	g.setDirtLevel(1, 10)
-	g.wallet[Ecto] = priestWeak - 1
-	if msg := g.callPriest(1, false); msg == "" || g.wallet[Ecto] != priestWeak-1 || len(g.priests) > 0 {
+	g.wallet[Ecto] = priestStrong - 1
+	if msg := g.callPriest(1); msg == "" || g.wallet[Ecto] != priestStrong-1 || len(g.priests) > 0 {
 		t.Fatal("a Priest was called without the money")
 	}
 }
@@ -63,8 +63,8 @@ func TestPriest(t *testing.T) {
 func TestWeakPriest(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.mood[1], g.wallet[Ecto] = moodMin, priestWeak
-	g.callPriest(1, false)
+	g.mood[1] = moodMin
+	g.sendPriest(1, false)
 	for i := 0; len(g.priests) > 0 && i < 60*tps+priestMinutes*minuteFrames; i++ {
 		g.step(0, 0)
 	}
@@ -99,7 +99,7 @@ func TestDevFather(t *testing.T) {
 		g, _ := headless(t, grid[0], grid[1], 1)
 		g.openAtStart = false
 		g.startRun()
-		g.DevFather(false)
+		g.DevFather(true)
 		at := map[string]int{}
 		for i, r := range g.hotel.Rooms {
 			at[r.Number] = i
@@ -111,19 +111,19 @@ func TestDevFather(t *testing.T) {
 		if !g.isOwned(a) || !g.isOwned(b) || !in(a) || !in(b) {
 			t.Fatalf("%v: Rooms 101 and 102 owned %v %v, guests in %v %v; want both open with guests in", grid, g.isOwned(a), g.isOwned(b), in(a), in(b))
 		}
-		if len(g.priests) != 1 || g.priests[0].strong || g.priests[0].RoomIndex != a || g.afford(Cost{Ecto: priestStrong}) {
-			t.Fatalf("%v: priests %v, Ecto %v; want Father K on Room 101 and M's call out of reach (red)", grid, g.priests, g.wallet[Ecto])
+		if len(g.priests) != 1 || !g.priests[0].strong || g.priests[0].RoomIndex != a || g.afford(Cost{Ecto: priestStrong}) {
+			t.Fatalf("%v: priests %v, Ecto %v; want Father M on Room 101 and M's call out of reach (red)", grid, g.priests, g.wallet[Ecto])
 		}
 		if act, _ := g.actionable(); act != actView || g.feet().Y < g.hotel.HallY {
 			t.Fatalf("%v: SPACE does %v at %v; want the hotel view, in the hall", grid, act, g.feet())
 		}
 		has := func(id Unlock) bool { return slices.Contains(g.roomRows(b), row(t, id)) }
-		if has(rowFatherK) || !has(rowFatherM) {
-			t.Fatalf("%v: Room 102's ring: K %v, M %v; want M only", grid, has(rowFatherK), has(rowFatherM))
+		if has(rowFatherM) {
+			t.Fatalf("%v: Room 102's ring has Father M's call while he is in", grid)
 		}
-		g.priests = nil // K walked out
-		if !has(rowFatherK) {
-			t.Fatalf("%v: Room 102's ring has no Father K once he is gone", grid)
+		g.priests = nil // M walked out
+		if !has(rowFatherM) {
+			t.Fatalf("%v: Room 102's ring has no Father M once he is gone", grid)
 		}
 	}
 }
@@ -135,10 +135,7 @@ func TestRitual(t *testing.T) {
 	g.startRun()
 	g.ghostDirt(0, 80)
 	before := g.dirtLevel(0)
-	g.wallet[Ecto] = priestWeak
-	if why := g.callPriest(0, false); why != "" {
-		t.Fatal(why)
-	}
+	g.sendPriest(0, false)
 	pr := g.priests[0]
 	var seen []phase
 	var said []string
@@ -179,7 +176,7 @@ func TestFatherMSendsOver(t *testing.T) {
 	g.unlock(Mirror)
 	q := ghostOf(g, 0, 1)
 	g.wallet[Ecto] = priestStrong
-	if why := g.callPriest(0, true); why != "" {
+	if why := g.callPriest(0); why != "" {
 		t.Fatal(why)
 	}
 	for i := 0; !g.priests[0].done; i++ {

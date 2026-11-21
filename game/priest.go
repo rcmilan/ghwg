@@ -15,9 +15,8 @@ import (
 
 // Room Mood (D147) and the Priests who clean it (D151). Placeholders, retuned at T112.
 const (
-	priestWeak   = 15 // Ecto: a call of Father K, halves a Room's dread (B1: calls cost Ecto, the unlocks 30 and 80)
-	priestStrong = 40 // Ecto: a call of Father M, clears it
-	unlockKEcto  = 30 // the STAFF unlock that puts Father K in the Rooms' rings
+	priestStrong = 40 // Ecto: a call of Father M, clears a Room (B1: calls cost Ecto, the unlocks 30 and 80)
+	unlockKEcto  = 30 // the STAFF unlock that lets Father K be retained
 	unlockMEcto  = 80
 	retainerEcto = 150 // Ecto a game day: Father K stays on rounds; dear on purpose (08 B1 live test 4)
 
@@ -73,19 +72,16 @@ type priest struct {
 // price: the Money a Priest cost, none since B1 (calls are paid in Ecto).
 func (pr *priest) price() int { return 0 }
 
-// callPriest pays for a Priest to the Room and sends him in from the Street; else why not.
-func (g *Game) callPriest(room int, strong bool) string {
-	price := priestWeak // D166: Father K is the Weak Priest, Father M the Strong one
-	if strong {
-		price = priestStrong
-	}
-	if why := g.noFather(room, strong); why != "" {
+// callPriest pays for Father M to the Room and sends him in from the Street; else why not. Father K is only ever
+// retained (retainK), he has no call (08 W5 R11).
+func (g *Game) callPriest(room int) string {
+	if why := g.noFather(room, true); why != "" {
 		return why
 	}
-	if !g.pay(Cost{Ecto: Num(price)}) {
-		return fmt.Sprintf("NOT ENOUGH ECTOPLASM: %d", price)
+	if !g.pay(Cost{Ecto: priestStrong}) {
+		return fmt.Sprintf("NOT ENOUGH ECTOPLASM: %d", priestStrong)
 	}
-	g.sendPriest(room, strong)
+	g.sendPriest(room, true)
 	return ""
 }
 
@@ -379,7 +375,7 @@ func (g *Game) drawMoodFloor(screen *ebiten.Image, ox, oy int) {
 }
 
 // DevFather is main's -father: Rooms 101 and 102 open with a Party settled in each, both Fathers on sale and Ecto
-// for one call and a bit, Father K (M if strong) already called to Room 101 and walking in, the Concierge in the Lobby
+// for one call and a bit, Father M (K if not strong) already sent to Room 101 and walking in, the Concierge in the Lobby
 // Archway, where SPACE opens the hotel view: Room 102's ring hides that Father's call until he has walked out.
 func (g *Game) DevFather(strong bool) {
 	a := slices.IndexFunc(g.hotel.Rooms, func(r world.Room) bool { return r.Number == "101" })
@@ -395,8 +391,8 @@ func (g *Game) DevFather(strong bool) {
 		p.schedule(g.clock)
 		g.settleIn(p)
 	}
-	g.wallet[Ecto] = max(g.wallet[Ecto], priestWeak+priestStrong-1) // one short of both: the other Father's call shows red
-	g.callPriest(a, strong)
+	g.wallet[Ecto] = max(g.wallet[Ecto], priestStrong-1) // one short of a call: its row shows red
+	g.sendPriest(a, strong)
 	g.player.X, g.player.Y = float64(g.hotel.Archway.X), float64(g.hotel.Archway.Y)
 	w, h := g.mapSize()
 	g.cam.Snap(g.player.X, g.player.Y, w, h)

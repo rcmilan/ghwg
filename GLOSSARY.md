@@ -84,7 +84,7 @@ The whole hotel seen from afar: SPACE, wherever it has nothing else to do, pulls
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Room ring**:
-The radial menu of a Room's actions in the Hotel view, one fixed slot each: Change type on top (a boarded Room's key, alone), Father K left, Deluxe right, Father M lower left, the Room mirror lower right. Only the actions that apply show; it opens on the top slot, or the next clockwise. Change type opens an inner ring of the other unlocked beds.
+The radial menu of a Room's actions in the Hotel view, one fixed slot each: Change type on top (a boarded Room's key, alone), Deluxe right, the Room mirror lower right, Father M lower left. Only the actions that apply show; it opens on the top slot, or the next clockwise. Change type opens an inner ring of the other unlocked beds.
 _Avoid_: action card, context menu
 
 **Pause**:
@@ -162,7 +162,7 @@ A Room at Mood -100. No new Party comes to it; a Party already in it stays until
 _Avoid_: blocked, locked
 
 **Priest**:
-A visitor the Concierge calls to a Room from its ring in the Hotel view, one per Room and one of each Father in the hotel at a time; each Father's call is first unlocked once in the Terminal's STAFF tab, and every call costs Ectoplasm. He walks in, does his Ritual and leaves. A **Weak** Priest, Father K, halves the Room's dirt; a **Strong** one, Father M, also raises its Mood, banishes its Shadow and sends every ghost in it over, each paying at once the Ectoplasm its remaining haunts would have earned. Both wear a black cassock with a white collar.
+Father M is the Priest the Concierge calls to a Room from its ring in the Hotel view, one per Room and one of each Father in the hotel at a time; his call is first unlocked once in the Terminal's STAFF tab, and every call costs Ectoplasm. He walks in, does his Ritual and leaves. He is the **Strong** Priest: he halves the Room's dirt, raises its Mood, banishes its Shadow and sends every ghost in it over, each paying at once the Ectoplasm its remaining haunts would have earned. Father K, the **Weak** Priest (halves the dirt), has no call: he is only ever the Retainer. Both wear a black cassock with a white collar.
 _Avoid_: exorcist, cleaner
 
 ## Serving
@@ -350,7 +350,7 @@ A line that makes sense only inside a Room (what a Guest says of its Room, of a 
 What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.
 
 **Goals Strategy** (`goals`, 2026-11-14)
-The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's call unlocks, calls them on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
+The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's unlocks, calls Father M on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
 
 **Spent**, **passing on** (2026-11-14)
 A ghost has one haunt in it per point of Phantasm. Having done them all it is spent and passes on: it rises, pales and is gone, and its Room books the next ghost. It dims with each haunt on the way. The weakest ghost haunts once. A pair passes on together.
@@ -400,7 +400,7 @@ Two sim Strategies that play `goals` and talk to every bad pair they can: `match
 A Priest's work in a Room: he walks to its middle, says an opening line, chants with a small hop while sparkles rise, a burst of light lands the effect, he says a closing line and leaves. Father K's drawing is in `game/ritual_k.go`, its knobs at the top; the dev flag `-ritual k|m|kpace` loops one for tuning.
 
 **Retainer**:
-Father K's daily wage in Ectoplasm, a STAFF row once his call is unlocked. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any; his call is not offered meanwhile. Short of it on payday, he leaves at once and the row is offered again.
+Father K's daily wage in Ectoplasm, a STAFF row once Father K is unlocked there. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any. Short of it on payday, he leaves at once and the row is offered again.
 
 **Running shoes**:
 Three STAFF tiers in Ectoplasm, each +15% walking speed (added) for every Housekeeper, Priest and the Courier, later hires included; never the Concierge. Only the next tier is listed.
@@ -457,7 +457,7 @@ The book on the entrance counter, read with SPACE beside it. Every Party writes 
 _Avoid_: notebook (in game text), log
 
 **Priest guest**:
-Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel (a retained Father K never books). He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One of each Father hotel-wide still holds.
+Father M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel, and never while O6 is open (it needs his call). Father K never books. He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One Father M hotel-wide still holds.
 
 **Upgrade**:
 A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid at checkout in Money (Soundproofing, Seance table and Offering box, the ghost-side ones, in Ectoplasm too), and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
@@ -486,7 +486,7 @@ While the Beat under way has an Objective open, the next Growth waits: "SHIFT'S 
 A named guest (`cast.md`) a Beat needs: Magenta, Magda, Teo, Celestine, Tim, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
 
 **Guidance**:
-The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline, only in the Dimension the step is done in; in the other one the nearest Mirror wears it. A quest guest under a Room's Fog keeps its outline (hollow, drawn over the Fog; the sprite stays covered). A step that needs something not bought yet (Father K's call, the Wreath, the Crate, the Supply asked for) outlines the Terminal and, inside it, that row (and its tab); a row a step needs is on sale. In the guest book the questline's entries are written in a deep purple (the rest in black or dark blue), and while a step needs one, the page-turn key toward its spread wears the outline; reading counts only on the open spread.
+The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline, only in the Dimension the step is done in; in the other one the nearest Mirror wears it. A quest guest under a Room's Fog keeps its outline (hollow, drawn over the Fog; the sprite stays covered). A step that needs something not bought yet (Father M's call, the Wreath, the Crate, the Supply asked for) outlines the Terminal and, inside it, that row (and its tab); a row a step needs is on sale. In the guest book the questline's entries are written in a deep purple (the rest in black or dark blue), and while a step needs one, the page-turn key toward its spread wears the outline; reading counts only on the open spread.
 
 **Quest look**:
 The sheets a Quest guest wears: its base LimeZu sheet in colours of its own under one accessory (hat, tiara, lamp, cap, phone), made by `tools/questlooks`. No ordinary guest, passer-by or Shadow wears one; in ghost a quest ghost has a hue of its own. Magenta is never scared.
