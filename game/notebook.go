@@ -47,6 +47,9 @@ type bookEntry struct {
 
 func (e bookEntry) ghost() bool { return e.Out >= outPassed }
 
+// quest: a questline entry (verbs_card.go), written in its own ink; O12's odd entry reads as a cozy stay in real.
+func (e bookEntry) quest() bool { return e.Out == outQuest || e.Line == nameEntry }
+
 func b2o(b bool, yes, no bookOutcome) bookOutcome {
 	if b {
 		return yes
@@ -409,10 +412,20 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 		g.tintedAt(s, pos, rx+bookPW-74-len(pos)*glyphW, y+bookM+22, 1, storeDim, 1)
 	}
 	g.tintedAt(s, "A/D TURN THE PAGE   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
+	if d := g.bookWay(); d != 0 { // 08 W5 R9: the way to the page the step needs
+		w := []string{"< A", "D >"}[(d+1)/2]
+		bx := []int{lx + 4*glyphW, rx + bookPW - 52 - 2*glyphW*len(w)}[(d+1)/2]
+		by := y + bookM + bookPH - 52
+		g.tintedAt(s, w, bx, by, 2, storeInk, 1)
+		g.frame(s, bx-4, by-2, 2*glyphW*len(w)+8, 2*glyphH-6)
+	}
 }
 
-// bookInks: the pens a human writes with; a ghost writes in the Ectoplasm accent.
-var bookInks = [...]color.RGBA{storeInk, {0x23, 0x3a, 0x7a, 255}, {0x5a, 0x34, 0x22, 255}}
+// bookInks: the pens a human writes with (black, dark blue); a ghost writes in the Ectoplasm accent; the questline's
+// entries in a deep purple, 4.7:1 on the page even in its gutter's shade (notebook_test.go).
+var bookInks = [...]color.RGBA{storeInk, {0x23, 0x3a, 0x7a, 255}}
+
+var questInk = color.RGBA{0x4b, 0x16, 0x70, 255}
 
 // writeEntry writes e by hand: its name on the ruled line at y, its words on the next ones, the day and how it
 // went at the right. Each hand is its own, from a hash of the entry (no rng): its pen, a nudge along the line, and
@@ -421,8 +434,11 @@ func (g *Game) writeEntry(s *ebiten.Image, e bookEntry, ls []string, x, y, right
 	h := fnv.New32a()
 	h.Write([]byte(e.Name + e.Line + strconv.Itoa(e.Day)))
 	v := h.Sum32()
-	ink := color.Color(bookInks[v%3])
-	if e.ghost() {
+	ink := color.Color(bookInks[v%2])
+	switch {
+	case e.quest():
+		ink = questInk
+	case e.ghost():
 		ink = storeAccent
 	}
 	x += int(v>>4%7) - 3

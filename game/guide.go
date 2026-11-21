@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"slices"
 	"strings"
 
 	"ghosthotel/entities"
@@ -13,7 +14,7 @@ import (
 )
 
 // 08 W5 R1 GUIDE: holding the player's hand without coercion. The checklist reads each open objective's next step
-// (circle.go objSteps, stepIdx here), and the step's target wears an outline and a sparkle, only in the step's
+// (circle.go objSteps, stepIdx here), and the step's target wears an outline, only in the step's
 // Dimension; in the other one the nearest Mirror does (SHIFT here). Nothing here draws from an rng or changes the
 // sim: it reads the quest and verb state, and draws.
 
@@ -199,13 +200,14 @@ type guideRow struct {
 	Text string
 	Step stepDef
 	Done bool
+	Need Unlock // the shop row the step needs and the player has not bought: the Terminal and that row wear the outline
 }
 
 // guideRows: the beat's title and its rows now: an open objective reads its next step, a done one its row; once the
 // beat is done (or before the first), "GROW THE HOTEL" while another Growth is to come.
 func (g *Game) guideRows() (title string, rows []guideRow) {
 	q := g.quest
-	grow := guideRow{"O0", growStep.Text, growStep, false}
+	grow := guideRow{ID: "O0", Text: growStep.Text, Step: growStep}
 	if q.Beat < 1 {
 		return "", []guideRow{grow}
 	}
@@ -219,7 +221,7 @@ func (g *Game) guideRows() (title string, rows []guideRow) {
 		open = true
 		r := guideRow{ID: o.ID, Text: o.Row}
 		if s, ok := g.stepOf(o.ID); ok {
-			r.Step, r.Text = s, g.stepText(o.ID, s)
+			r.Step, r.Text, r.Need = s, g.stepText(o.ID, s), g.stepNeed(o.ID)
 		}
 		rows = append(rows, r)
 	}
@@ -229,9 +231,49 @@ func (g *Game) guideRows() (title string, rows []guideRow) {
 	return bt.Title, rows
 }
 
+// stepNeed: the shop row open objective id's current step needs and is not bought yet ("" if none): the Wreath and the
+// Crate, Father K's call (STAFF) for O6, the Supply O5's ghost asked for while none is in stock.
+func (g *Game) stepNeed(id string) Unlock {
+	i := g.stepIdx(id)
+	switch {
+	case id == "O8" && i == 0:
+		return rowWreath
+	case id == "O13" && i == 0:
+		return rowCrate
+	case id == "O6" && i == 2 && g.locked[unlockK]:
+		return unlockK
+	case id == "O5" && i == 1:
+		if p := g.questParty("tim"); p != nil {
+			if k := supplyOf(p.want); k >= 0 && g.stock[supplies[k].ID] == 0 {
+				return supplies[k].ID
+			}
+		}
+	}
+	return ""
+}
+
+// needRows: the shop rows the Terminal outlines now.
+func (g *Game) needRows() (ids []Unlock) {
+	_, rows := g.guideRows()
+	for _, r := range rows {
+		if !r.Done && r.Need != "" {
+			ids = append(ids, r.Need)
+		}
+	}
+	return ids
+}
+
+// needInk: the outline's ink in the Dimension the Concierge is in.
+func (g *Game) needInk(a float32) color.NRGBA {
+	if g.ghost {
+		return withAlpha(markSilver, a)
+	}
+	return withAlpha(markGold, a)
+}
+
 // ---- the marker ----
 
-// mark is one outlined target: how to draw its outline, and its box for the sparkle (world px).
+// mark is one outlined target: how to draw its outline, and its box (world px).
 type mark struct {
 	tint   []float32
 	ink    color.RGBA
@@ -242,6 +284,7 @@ type mark struct {
 	ring   image.Rectangle // a frame round a plain shape: the book, a plate, a door, a shelf
 	box    image.Rectangle
 	z      float64 // sort y of its outline
+	hollow bool    // only the outline, the silhouette left clear (a guest under the Fog)
 }
 
 var (
@@ -265,9 +308,13 @@ func (g *Game) guideMarks(vis image.Rectangle) (ms []mark) {
 			continue
 		}
 		var m *mark
+		tgt := r.Step.Tgt
+		if r.Need != "" {
+			tgt = target{tgTerminal, ""}
+		}
 		switch {
 		case r.Step.Dim == g.realm() || r.Step.Any:
-			m = g.markOf(r.Step.Tgt, vis)
+			m = g.markOf(tgt, vis)
 		case !r.Step.Wait && g.unlocked(Mirror):
 			m = g.mirrorMark()
 		}
@@ -405,6 +452,9 @@ func (g *Game) mirrorMark() *mark {
 func (g *Game) guideActors(ms []mark, ox, oy int) (as []actor) {
 	for _, m := range ms {
 		m := m
+		if g.underFog(m) {
+			continue
+		}
 		x := 0.0
 		if m.guest != nil {
 			x = m.guest.X
@@ -412,6 +462,22 @@ func (g *Game) guideActors(ms []mark, ox, oy int) (as []actor) {
 		as = append(as, actor{x: x, y: m.z, draw: func(s *ebiten.Image, _, _ int) { g.drawOutline(s, m, ox, oy) }})
 	}
 	return as
+}
+
+// underFog: the mark's guest stands in a fogged Room: its outline is drawn over the Fog and the darkness instead
+// (drawFogOutlines), hollow, so that the sprite stays covered.
+func (g *Game) underFog(m mark) bool {
+	return m.guest != nil && g.fogAt(image.Pt(int(m.guest.X), int(m.guest.Y))) > 0
+}
+
+// drawFogOutlines: the hollow outlines of the guests under the Fog.
+func (g *Game) drawFogOutlines(s *ebiten.Image, ox, oy int, ms []mark) {
+	for _, m := range ms {
+		if g.underFog(m) {
+			m.hollow = true
+			g.drawOutline(s, m, ox, oy)
+		}
+	}
 }
 
 // outlineAlpha: the outline breathes a little, from 65% to 100%.
@@ -482,7 +548,10 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 }
 `
 
-var outlineShader *ebiten.Shader
+var (
+	outlineShader *ebiten.Shader
+	outlineBuf    *ebiten.Image
+)
 
 // outlineImg draws part r of img in the ink, a world px up, down, left and right of (x,y) screen px.
 func (g *Game) outlineImg(s *ebiten.Image, m mark, img *ebiten.Image, r image.Rectangle, x, y float64, a float32) {
@@ -493,6 +562,24 @@ func (g *Game) outlineImg(s *ebiten.Image, m mark, img *ebiten.Image, r image.Re
 		}
 	}
 	part := img.SubImage(r).(*ebiten.Image)
+	if m.hollow { // the outline in a buffer a world px wider each way, the sprite's own pixels cut out of it
+		m.hollow = false
+		w, h := r.Dx()*zoom+2*zoom, r.Dy()*zoom+2*zoom
+		if outlineBuf == nil || outlineBuf.Bounds().Dx() != w || outlineBuf.Bounds().Dy() != h {
+			outlineBuf = ebiten.NewImage(w, h)
+		}
+		outlineBuf.Clear()
+		g.outlineImg(outlineBuf, m, img, r, zoom, zoom, 1)
+		cut := &ebiten.DrawImageOptions{Blend: ebiten.BlendDestinationOut}
+		cut.GeoM.Scale(zoom, zoom)
+		cut.GeoM.Translate(zoom, zoom)
+		outlineBuf.DrawImage(part, cut)
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(x-zoom, y-zoom)
+		op.ColorScale.ScaleAlpha(a)
+		s.DrawImage(outlineBuf, op)
+		return
+	}
 	for _, d := range [...][2]float64{{-zoom, 0}, {zoom, 0}, {0, -zoom}, {0, zoom}} {
 		op := &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{part}, Uniforms: map[string]any{"Ink": m.tint}}
 		op.GeoM.Scale(zoom, zoom)
@@ -502,32 +589,41 @@ func (g *Game) outlineImg(s *ebiten.Image, m mark, img *ebiten.Image, r image.Re
 	}
 }
 
-// drawGuideSparkles: a few four-point glints orbiting each target's box, over the darkness so they show at night.
-func (g *Game) drawGuideSparkles(s *ebiten.Image, ox, oy int, ms []mark) {
-	t := float64(g.tick)
-	for _, m := range ms {
-		b := m.box.Inset(-2)
-		w, h := float64(b.Dx()), float64(b.Dy())
-		for k := range 4 {
-			u := math.Mod(t/150+float64(k)/4, 1) * 2 * (w + h)
-			var px, py float64
-			switch {
-			case u < w:
-				px, py = u, 0
-			case u < w+h:
-				px, py = w, u-w
-			case u < 2*w+h:
-				px, py = w-(u-w-h), h
-			default:
-				px, py = 0, h-(u-2*w-h)
-			}
-			tw := math.Sin(math.Pi * math.Mod(t/40+float64(k)*.37, 1))
-			arm := 1 + int(tw*2.4)
-			c := color.NRGBA{255, 255, 255, uint8(200 * tw)}
-			x, y := (b.Min.X+int(px))*zoom-ox, (b.Min.Y+int(py))*zoom-oy
-			rect(s, x-arm*zoom, y, (2*arm+1)*zoom, zoom, c)
-			rect(s, x, y-arm*zoom, zoom, (2*arm+1)*zoom, c)
-			rect(s, x-zoom, y-zoom, 3*zoom, 3*zoom, color.NRGBA{m.ink.R, m.ink.G, m.ink.B, uint8(90 * tw)})
+// bookWanted: reading e now would move an open objective on (the same tests as bookRead).
+func (g *Game) bookWanted(e bookEntry) bool {
+	switch {
+	case !e.quest():
+		return false
+	case e.Line == nameEntry:
+		return g.questOpen("O12") && !g.sawn("O12.odd")
+	case e.Line == macguffinName:
+		return g.questOpen("O12")
+	}
+	read := g.rollGet("O2.read")
+	return g.questOpen("O2") && (e.Line == celestineEntryHard && read&2 == 0 || e.Line != celestineEntryHard && read&1 == 0)
+}
+
+// bookWay: which way the open book's page-turn goes to the spread with a wanted entry: -1 A, +1 D, 0 it is on this
+// spread (reading counts only there) or nothing is wanted.
+func (g *Game) bookWay() int {
+	es := g.shown()
+	j := slices.IndexFunc(es, g.bookWanted)
+	if j < 0 {
+		return 0
+	}
+	starts := bookStarts(es)
+	cur := slices.Index(starts, g.bookTop)
+	want := 0
+	for k, s := range starts {
+		if s <= j {
+			want = k
 		}
 	}
+	switch {
+	case want > cur:
+		return 1
+	case want < cur:
+		return -1
+	}
+	return 0
 }

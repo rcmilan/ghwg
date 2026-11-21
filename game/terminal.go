@@ -311,8 +311,12 @@ func (g *Game) drawTerminal(s *ebiten.Image) {
 		units += l.n
 	}
 	tw := screenW / int(tabs)
+	need := g.needRows() // 08 W5 R9: the rows the quest step needs wear the outline, and the tab that holds one
 	for t := range tabs {
 		x := int(t) * tw
+		if t != g.termTab && slices.ContainsFunc(tabItems(t), func(i int) bool { return !g.gone(i) && slices.Contains(need, shop[i].ID) }) {
+			g.frame(s, x+8, tabY, tw-16, tabH)
+		}
 		if t == g.termTab {
 			rect(s, x+8, tabY, tw-16, tabH, storeCard)
 			rect(s, x+8, tabY+tabH-4, tw-16, 4, storeAccent)
@@ -395,6 +399,15 @@ func (g *Game) drawLine(s *ebiten.Image, y int, picked bool, it Item, name strin
 	g.drawPrice(s, c, listX+listW-8-priceW(c, 2), y+2, 2, red)
 }
 
+// frame: a 3 px outline in the guidance ink, round a part of a page.
+func (g *Game) frame(s *ebiten.Image, x, y, w, h int) {
+	c := g.needInk(g.outlineAlpha())
+	rect(s, x-3, y-3, w+6, 3, c)
+	rect(s, x-3, y+h, w+6, 3, c)
+	rect(s, x-3, y, 3, h, c)
+	rect(s, x+w, y, 3, h, c)
+}
+
 // drawScroll: the list's scroll marker, when its n rows don't all show; top is the first in sight.
 func drawScroll(s *ebiten.Image, top, n int) {
 	if n <= listRows {
@@ -435,6 +448,9 @@ func (g *Game) drawCatalog(s *ebiten.Image) {
 			name, word = g.upLabel(Upgrade(it.Up - 1))
 		}
 		g.drawLine(s, bodyY+(k-top)*rowH, k == pos, it, name, g.priceOf(i), word, a, !g.affords(i))
+		if slices.Contains(g.needRows(), it.ID) {
+			g.frame(s, listX, bodyY+(k-top)*rowH, listW, rowH-4)
+		}
 	}
 	drawScroll(s, top, len(l))
 

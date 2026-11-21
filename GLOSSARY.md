@@ -479,7 +479,7 @@ While the Beat under way has an Objective open, the next Growth waits: "SHIFT'S 
 A named guest (`cast.md`) a Beat needs: Magenta, Magda, Teo, Celestine, Tim, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
 
 **Guidance**:
-The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline and a sparkle, only in the Dimension the step is done in; in the other one the nearest Mirror wears it.
+The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline, only in the Dimension the step is done in; in the other one the nearest Mirror wears it. A quest guest under a Room's Fog keeps its outline (hollow, drawn over the Fog; the sprite stays covered). A step that needs something not bought yet (Father K's call, the Wreath, the Crate, the Supply asked for) outlines the Terminal and, inside it, that row (and its tab). In the guest book the questline's entries are written in a deep purple (the rest in black or dark blue), and while a step needs one, the page-turn key toward its spread wears the outline; reading counts only on the open spread.
 
 **Quest look**:
 The sheets a Quest guest wears: its base LimeZu sheet in colours of its own under one accessory (hat, tiara, lamp, cap, phone), made by `tools/questlooks`. No ordinary guest, passer-by or Shadow wears one; in ghost a quest ghost has a hue of its own. Magenta is never scared.

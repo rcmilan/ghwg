@@ -1,8 +1,11 @@
 package game
 
 import (
+	"math"
 	"slices"
 	"testing"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // 08 W5 R1 GUIDE: the checklist's next step per objective, from the quest and verb state.
@@ -66,7 +69,7 @@ func TestNextStep(t *testing.T) {
 			g.settleIn(p)
 			g.rollSet("O6.room", 2)
 		}, want{Ghost, false, tgGuest, "porter"}},
-		{"O6 call Father K", "O6", 0, func(g *Game) { g.saw("teo"); g.rollSet("O6.room", 2) }, want{Human, false, tgNone, ""}},
+		{"O6 call Father K", "O6", 0, func(g *Game) { g.saw("teo"); g.rollSet("O6.room", 2) }, want{Human, false, tgDoor, "porter"}},
 		{"O7 find", "O7", 0, func(g *Game) {}, want{Ghost, false, tgGuest, "osvaldo"}},
 		{"O7 move", "O7", 0, func(g *Game) { g.saw("osvaldo") }, want{Human, false, tgGuest, "magda"}},
 		{"O8 buy", "O8", 0, func(g *Game) {}, want{Human, true, tgTerminal, ""}},
@@ -129,5 +132,90 @@ func TestGuideRowsGrow(t *testing.T) {
 	g.quest.Done[0] = true
 	if _, rows := g.guideRows(); len(rows) != 2 || !rows[0].Done || rows[1].ID != "O0" {
 		t.Errorf("between beats: %+v", rows)
+	}
+}
+
+// lum: a colour's relative luminance (WCAG).
+func lum(r, g, b uint8) float64 {
+	f := func(v uint8) float64 {
+		c := float64(v) / 255
+		if c <= 0.03928 {
+			return c / 12.92
+		}
+		return math.Pow((c+0.055)/1.055, 2.4)
+	}
+	return 0.2126*f(r) + 0.7152*f(g) + 0.0722*f(b)
+}
+
+// The quest ink reads on the page (4.5:1, even in the gutter's shade) and no regular pen is it.
+func TestQuestInkContrast(t *testing.T) {
+	paper := lum(161, 158, 148)
+	q := lum(questInk.R, questInk.G, questInk.B)
+	if c := (paper + .05) / (q + .05); c < 4.5 {
+		t.Errorf("quest ink contrast %.2f", c)
+	}
+	if slices.Contains(bookInks[:], questInk) {
+		t.Error("a regular pen is the quest ink")
+	}
+	if !(bookEntry{Out: outQuest}).quest() || !(bookEntry{Line: nameEntry, Out: outCozy}).quest() || (bookEntry{Out: outCozy}).quest() {
+		t.Error("quest() wrong")
+	}
+}
+
+// O12's entry sits on a later spread: the way there is D, opening the book and reading another page ticks nothing,
+// and turning to its spread does.
+func TestBookWayToQuestPage(t *testing.T) {
+	g, _ := verbRun(t, 2, 6)
+	for i := range 30 {
+		g.guestBook = append(g.guestBook, bookEntry{"Guest", notebookCozy[i%len(notebookCozy)], 1, outCozy})
+	}
+	g.rollSet("O12.at", 25)
+	g.openBook()
+	if g.sawn("O12.odd") || g.bookWay() != 1 {
+		t.Fatalf("on open: saw %v, way %d", g.sawn("O12.odd"), g.bookWay())
+	}
+	for i := 0; i < 20 && g.bookWay() == 1; i++ {
+		g.in.(*script).hold()
+		g.in.(*script).hold(ebiten.KeyD)
+		g.updateBook()
+		if g.bookWay() == 1 && g.sawn("O12.odd") {
+			t.Fatal("ticked on another page")
+		}
+	}
+	if g.bookWay() != 0 || !g.sawn("O12.odd") {
+		t.Errorf("way %d, saw %v", g.bookWay(), g.sawn("O12.odd"))
+	}
+}
+
+// A step that needs Father K's call outlines the Terminal and his STAFF row until it is bought.
+func TestNeedsRow(t *testing.T) {
+	g, _ := verbRun(t, 3, 4)
+	g.saw("teo")
+	g.rollSet("O6.room", 2)
+	g.locked[unlockK] = true
+	if ids := g.needRows(); !slices.Contains(ids, unlockK) {
+		t.Fatalf("rows %v", ids)
+	}
+	g.unlock(unlockK)
+	if ids := g.needRows(); slices.Contains(ids, unlockK) {
+		t.Fatalf("still needed: %v", ids)
+	}
+}
+
+// A quest guest in a fogged Room keeps its outline, drawn hollow over the Fog; out of it, the outline is the old one.
+func TestOutlineUnderFog(t *testing.T) {
+	g, _ := verbRun(t, 2, 1)
+	p := named(t, g, 0, "magenta")
+	guest := p.Guests[0]
+	sh := g.hotel.Rooms[0].Shell()
+	guest.X, guest.Y = float64(sh.Min.X+40), float64(sh.Min.Y+40)
+	m := mark{guest: guest, party: p}
+	g.fog = make([]float64, len(g.hotel.Rooms))
+	if g.underFog(m) || len(g.guideActors([]mark{m}, 0, 0)) != 1 {
+		t.Fatal("clear room: not hollow")
+	}
+	g.fog[0] = 1
+	if !g.underFog(m) || len(g.guideActors([]mark{m}, 0, 0)) != 0 {
+		t.Fatal("fogged room: drawn under the Fog")
 	}
 }
