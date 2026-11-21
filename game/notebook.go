@@ -484,10 +484,10 @@ func (g *Game) DevBook(n int) {
 		return
 	}
 	g.guestBook = append(g.guestBook,
-		bookEntry{"Magda Feltz", namedHumans[0].Visit[0], 1, outCozy}, bookEntry{"Teo Barros", namedHumans[1].Dread, 1, outDread},
+		bookEntry{nameMagdaFull, namedHumans[0].Visit[0], 1, outCozy}, bookEntry{nameTeoFull, namedHumans[1].Dread, 1, outDread},
 		bookEntry{"Noor Haddad", namedHumans[3].Fled, 2, outFled}, bookEntry{"Ana Costa", notebookCozy[0], 2, outCozy},
 		bookEntry{"Agatha Fogg", notebookPassed[0], 2, outPassed}, bookEntry{"Silas Wick", notebookBanished[1], 3, outBanished},
-		bookEntry{"Osvaldo Feltz", namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
+		bookEntry{nameOsvaldoFull, namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
 	pools := [...][]string{notebookCozy, notebookDread, notebookFled, notebookPassed, notebookBanished}
 	for i := 0; n > 2 && len(g.guestBook) < bookMax; i++ { // 3 and up: a full book, turned n-3 spreads
 		g.guestBook = append(g.guestBook, bookEntry{"Guest " + strconv.Itoa(i+1), pools[i%5][i%len(pools[i%5])], 4 + i/10, bookOutcome(i % 5)})

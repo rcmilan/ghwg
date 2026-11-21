@@ -38,7 +38,7 @@ func (g *Game) drawCredits(screen *ebiten.Image) {
 		printAt(screen, v, (screenW-len(v)*glyphW*int(scale))/2, y, scale, c, a)
 	}
 	if s.page == 0 {
-		y := 90
+		y := 40
 		for i, l := range credits {
 			sc := 2.0
 			if i == 0 {

@@ -12,7 +12,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// 08 W5-ITEMS: Morwenna's six items, owned for good once a beat first gives them (itemOn, quest.go). The Crystal
+// 08 W5-ITEMS: Magenta's six items, owned for good once a beat first gives them (itemOn, quest.go). The Crystal
 // ball is card.go's revealCost; the rest are here. Placeholders: the numbers below.
 const (
 	broomBoost  = 1.3 // the Concierge's walk in ghost with the Broom
@@ -132,7 +132,7 @@ func placeRefuse(g *Game, room int, id Unlock) string {
 
 func init() { // the placing rows, on the Room's ring (shop.go has the rest)
 	shop = append(shop,
-		Item{ID: rowGerald, Tab: tabRooms, Name: "Place Gerald", Blurb: "Gerald floats here. This Room's sightings pay 50% more.", Icon: "icon_key",
+		Item{ID: rowGerald, Tab: tabRooms, Name: "Place " + nameGerald, Blurb: nameGerald + " floats here. This Room's sightings pay 50% more.", Icon: "icon_key",
 			Refuse: func(g *Game, room int) string { return placeRefuse(g, room, rowGerald) },
 			Send:   func(g *Game, l cartLine) { g.items.Gerald = l.room + 1 }},
 		Item{ID: rowWard, Tab: tabRooms, Name: "Place the Ward", Blurb: "Its human Parties never flee. Guests may leave. Emotionally.", Icon: "lock_red",
@@ -278,7 +278,7 @@ func (g *Game) drawGerald(s *ebiten.Image, x, y int) {
 	if g.skull == nil {
 		g.skull = bitmap(skullRows)
 	}
-	lift := int((hover(g.tick, "Gerald") + 6) * zoom)
+	lift := int((hover(g.tick, nameGerald) + 6) * zoom)
 	g.stamp(s, g.skull, x-len(skullRows[0])*zoom/2, y-lift-len(skullRows)*zoom, zoom, color.RGBA{226, 236, 220, 255})
 }
 

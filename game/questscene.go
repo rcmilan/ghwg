@@ -19,7 +19,7 @@ import (
 // on a replay. When one ends it reports questEvent(evScene, -1, id).
 //
 //	O4      the card frame closes in on the spirit: its sign (o4Signs), then it folds into the floor
-//	O9      the card frame on Ned: the suitcase opens (a case, a clipboard), then the hotel view pulls back and the
+//	O9      the card frame on Tim: the suitcase opens (a case, a clipboard), then the hotel view pulls back and the
 //	        clipboard's 5x5 hotel with a circle round it is drawn over it
 //	finale  everyone gathers in the hall, both Dimensions show split down the Mirror, the crate's lid lifts, stars pour
 //	        up, a tall starry figure unfolds, a ring of light cracks round the Mirror, the vortex spins backwards, the
@@ -35,7 +35,7 @@ const (
 	o4Fold = 150 // ...and folds it away
 	o4Len  = 215
 
-	o9Line1 = 30 // Ned's first line
+	o9Line1 = 30 // Tim's first line
 	o9Case  = 70 // the suitcase opens (30 frames), the small one rises at o9Small, the clipboard at o9Board
 	o9Small = 130
 	o9Board = 170
@@ -295,8 +295,8 @@ func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
 	s := &g.scene
 	t := s.t
 	nx, ny := g.player.X, g.player.Y
-	if ned := g.findGuest("ned"); ned != nil {
-		nx, ny = ned.X, ned.Y
+	if tim := g.findGuest("tim"); tim != nil {
+		nx, ny = tim.X, tim.Y
 	}
 	e := ease(float64(t)/sceneIn) * (1 - ease(float64(t-o9Hotel-30)/30))
 	k := 1 + (sceneZoom-1)*e
@@ -626,12 +626,12 @@ func (g *Game) drawScene(screen *ebiten.Image) {
 	}
 }
 
-// DevScene is main's -scene: a busy hotel a few hours in, with Ned and Celestine in it, the cutscene playing.
+// DevScene is main's -scene: a busy hotel a few hours in, with Tim and Celestine in it, the cutscene playing.
 func (g *Game) DevScene(id string) {
 	for range 3 * hourFrames {
 		g.step(0, 0)
 	}
-	for i, key := range []string{"ned", "celestine"} {
+	for i, key := range []string{"tim", "celestine"} {
 		if p := g.arriveGhost(i); p != nil {
 			g.nameGhost(p.Guests[0], namedGhosts[slices.IndexFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })])
 			g.settleIn(p)

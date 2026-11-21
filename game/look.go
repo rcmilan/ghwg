@@ -76,11 +76,11 @@ var (
 	fatherK = struct {
 		name string
 		look look
-	}{"Father K", look{hair: 0x3a2a24, top: 0x24202a, accent: 0xf2f2f6}}
+	}{nameFatherK, look{hair: 0x3a2a24, top: 0x24202a, accent: 0xf2f2f6}}
 	fatherM = struct {
 		name string
 		look look
-	}{"Father M", look{hair: 0xe4e2e8, top: 0x24202a, accent: 0xf2f2f6}}
+	}{nameFatherM, look{hair: 0xe4e2e8, top: 0x24202a, accent: 0xf2f2f6}}
 )
 
 // dressed: a new Guest's name, base character and a random look's seed (D166), from the talk's random

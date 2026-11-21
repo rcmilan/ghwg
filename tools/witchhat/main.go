@@ -1,6 +1,6 @@
-// Command witchhat makes Morwenna's sheets (08 W5): Amelia's idle and run sheets with a short pointed
+// Command witchhat makes Magenta's sheets (08 W5): Amelia's idle and run sheets with a short pointed
 // witch hat stamped on every frame, on the head's top row, so it bobs with her. It writes
-// assets/characters/Morwenna_{idle_anim,run}_16x16.png and never overwrites an existing file unless run
+// assets/characters/Magenta_{idle_anim,run}_16x16.png and never overwrites an existing file unless run
 // with -force, so hand-polished PNGs survive.
 //
 //	go run ./tools/witchhat [-force]
@@ -157,7 +157,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("%s: %v", kind, err)
 		}
-		path := *dir + "/Morwenna_" + kind + "_16x16.png"
+		path := *dir + "/Magenta_" + kind + "_16x16.png"
 		wrote, err := save(path, out, *force)
 		if err != nil {
 			log.Fatal(err)

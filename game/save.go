@@ -28,7 +28,7 @@ type saveData struct {
 	Revealed []string `json:"revealed,omitempty"`
 	// Visits per named guest, across Runs (notebook.go): a prestige keeps them like the level.
 	Visits map[string]int `json:"visits,omitempty"`
-	// Quest: Morwenna's circle across Runs (quest.go, 08 W5): kept by a prestige like the level.
+	// Quest: Magenta's circle across Runs (quest.go, 08 W5): kept by a prestige like the level.
 	Quest *questRecord `json:"quest,omitempty"`
 }
 

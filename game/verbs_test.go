@@ -53,10 +53,10 @@ func minuteAt(g *Game, c int) {
 	g.verbMinute()
 }
 
-// O1: Morwenna's Card in real gives the word; it crosses the SHIFT, and TELL shows only on the ghost roommate's Card.
+// O1: Magenta's Card in real gives the word; it crosses the SHIFT, and TELL shows only on the ghost roommate's Card.
 func TestO1TellAcrossShift(t *testing.T) {
 	g, s := verbRun(t, 2, 1)
-	m := named(t, g, 0, "morwenna")
+	m := named(t, g, 0, "magenta")
 	if g.verbWait("O1") != true {
 		t.Error("no ghost in her Room, but the row does not wait")
 	}
@@ -75,7 +75,7 @@ func TestO1TellAcrossShift(t *testing.T) {
 		t.Errorf("her Card does not say the Ask:\n%s", txt)
 	}
 	if hasOpt(optsOf(g, m), optTell) {
-		t.Error("TELL shows on Morwenna's own Card")
+		t.Error("TELL shows on Magenta's own Card")
 	}
 	keys(g, s, ebiten.KeyEscape)
 	g.ghost = true // SHIFT: the word stays
@@ -102,7 +102,7 @@ func TestO1TellAcrossShift(t *testing.T) {
 // Menus show only what applies: no TELL, TAKE or GIVE without a word or thing for that guest, none for a closed objective.
 func TestVerbMenusOnlyWhatApplies(t *testing.T) {
 	g, _ := verbRun(t, 3, 1)
-	m, ghost := named(t, g, 0, "morwenna"), ghostOf(g, 0, 3)
+	m, ghost := named(t, g, 0, "magenta"), ghostOf(g, 0, 3)
 	for _, held := range []string{"", "O2", "O9", "O11"} {
 		g.verbs.held = held
 		for _, p := range []*Party{m, ghost} {
@@ -138,7 +138,7 @@ func TestMacGuffinHasNoReveal(t *testing.T) {
 	}
 }
 
-// O2: Celestine's entry is in the book only in ghost; reading it hands the word; TELL Morwenna in real. Lv2+ needs the
+// O2: Celestine's entry is in the book only in ghost; reading it hands the word; TELL Magenta in real. Lv2+ needs the
 // second part too.
 func TestO2BookEntryGhostOnly(t *testing.T) {
 	for _, level := range []int{0, 2} {
@@ -146,7 +146,7 @@ func TestO2BookEntryGhostOnly(t *testing.T) {
 		g.level = level
 		setQuest(g, 2)
 		named(t, g, 1, "celestine")
-		m := named(t, g, 0, "morwenna")
+		m := named(t, g, 0, "magenta")
 		want := g.fill(celestineEntry, 1)
 		if strings.Contains(entryLines(g), want) {
 			t.Fatal("real: the book shows her entry")
@@ -168,7 +168,7 @@ func TestO2BookEntryGhostOnly(t *testing.T) {
 		}
 		g.state, g.ghost = StatePlay, false
 		if !hasOpt(optsOf(g, m), optTell) {
-			t.Fatal("no TELL on Morwenna's Card")
+			t.Fatal("no TELL on Magenta's Card")
 		}
 		g.startCard(0)
 		g.cardVerb(optTell, m, m.Guests[0], g.parley.card)
@@ -371,47 +371,47 @@ func TestO4TwoDashesBothLitAtLv2(t *testing.T) {
 	}
 }
 
-// O5: only a quest ghost asks; Ned asks for a Supply, fetched in real and given at his door in ghost.
+// O5: only a quest ghost asks; Tim asks for a Supply, fetched in real and given at his door in ghost.
 func TestO5GhostRequest(t *testing.T) {
 	g, s := verbRun(t, 2, 4)
-	ned := named(t, g, 0, "ned")
+	tim := named(t, g, 0, "tim")
 	other := ghostOf(g, 1, 3)
 	for range 3 * dayFrames / minuteFrames {
 		g.clock += minuteFrames
 		g.updateAsks()
 	}
-	if other.asking() || ned.asking() {
+	if other.asking() || tim.asking() {
 		t.Fatal("a ghost asked through the ordinary asks")
 	}
 	g.clock = runStart
 	minuteAt(g, runStart)
-	if !ned.asking() || other.asking() {
-		t.Fatalf("Ned asks %v, another ghost %v", ned.asking(), other.asking())
+	if !tim.asking() || other.asking() {
+		t.Fatalf("Tim asks %v, another ghost %v", tim.asking(), other.asking())
 	}
-	want := ned.want
+	want := tim.want
 	g.ghost, g.hands = true, SupplyFood
 	if want == SupplyFood {
 		g.hands = SupplyWater
 	}
 	press(g, s, center(g.hotel.Rooms[0].Mat()))
-	if reported(g, "O5") || !ned.asking() {
+	if reported(g, "O5") || !tim.asking() {
 		t.Fatal("the wrong Supply was taken")
 	}
 	g.state = StatePlay // SPACE with nothing to do opened the hotel view
 	g.hands = want
 	press(g, s, center(g.hotel.Rooms[0].Mat()))
-	if !reported(g, "O5") || ned.asking() || g.hands != "" {
-		t.Errorf("delivered: reported %v asking %v hands %q", g.verbs.done, ned.asking(), g.hands)
+	if !reported(g, "O5") || tim.asking() || g.hands != "" {
+		t.Errorf("delivered: reported %v asking %v hands %q", g.verbs.done, tim.asking(), g.hands)
 	}
 }
 
 func TestO5TwoAsksAtLv2(t *testing.T) {
 	g, s := verbRun(t, 2, 4)
 	g.level = 2
-	ned := named(t, g, 0, "ned")
+	tim := named(t, g, 0, "tim")
 	g.ghost = true
 	minuteAt(g, runStart)
-	first := ned.want
+	first := tim.want
 	g.hands = first
 	press(g, s, center(g.hotel.Rooms[0].Mat()))
 	if reported(g, "O5") {
@@ -419,10 +419,10 @@ func TestO5TwoAsksAtLv2(t *testing.T) {
 	}
 	g.state = StatePlay
 	minuteAt(g, runStart+minuteFrames)
-	if !ned.asking() || ned.want == first {
-		t.Fatalf("no second, different ask: asking %v %q after %q", ned.asking(), ned.want, first)
+	if !tim.asking() || tim.want == first {
+		t.Fatalf("no second, different ask: asking %v %q after %q", tim.asking(), tim.want, first)
 	}
-	g.hands = ned.want
+	g.hands = tim.want
 	press(g, s, center(g.hotel.Rooms[0].Mat()))
 	if !reported(g, "O5") {
 		t.Error("not done after two")
@@ -477,7 +477,7 @@ func TestO6RetirementParty(t *testing.T) {
 // The Fathers' memory lines, in a Room of the questline, from the 2nd time on.
 func TestFathersRememberTheCircle(t *testing.T) {
 	g, _ := verbRun(t, 2, 1)
-	named(t, g, 0, "morwenna")
+	named(t, g, 0, "magenta")
 	k, m := &priest{}, &priest{strong: true}
 	k.RoomIndex, m.RoomIndex = 0, 0
 	if g.verbOpener(k) != nil || g.verbOpener(m) != nil {
@@ -571,10 +571,10 @@ func TestO8Wreath(t *testing.T) {
 	}
 }
 
-// O9: Ned's fact is where the key is; the oldest guest hands it over (TAKE), only that one; GIVE it to Ned in ghost.
-func TestO9KeyForNed(t *testing.T) {
+// O9: Tim's fact is where the key is; the oldest guest hands it over (TAKE), only that one; GIVE it to Tim in ghost.
+func TestO9KeyForTim(t *testing.T) {
 	g, s := verbRun(t, 3, 5)
-	ned := named(t, g, 0, "ned")
+	tim := named(t, g, 0, "tim")
 	young, old := settledHuman(t, g, 1, 5), settledHuman(t, g, 2, 5)
 	young.Guests[0].Who.Age, old.Guests[0].Who.Age = 30, 79
 	g.verbMinute()
@@ -593,17 +593,17 @@ func TestO9KeyForNed(t *testing.T) {
 	if g.verbs.held != "O9" || g.verbPinned(old) || hasOpt(optsOf(g, old), optTake) {
 		t.Errorf("after TAKE: held %q pinned %v", g.verbs.held, g.verbPinned(old))
 	}
-	g.ghost = true // SHIFT: Ned's Card
-	ned.revealed = true
+	g.ghost = true // SHIFT: Tim's Card
+	tim.revealed = true
 	g.startCard(0)
 	if txt := flat(g); !strings.Contains(txt, "oldest soul") || !strings.Contains(txt, "GIVE THE KEY") {
-		t.Errorf("Ned's Card:\n%s", txt)
+		t.Errorf("Tim's Card:\n%s", txt)
 	}
-	os := g.cardOpts(ned, ned.Guests[0])
+	os := g.cardOpts(tim, tim.Guests[0])
 	tap(g, s, ebiten.KeyS)
 	_ = os
 	g.endTalk()
-	g.cardVerb(optGive, ned, ned.Guests[0], &card{})
+	g.cardVerb(optGive, tim, tim.Guests[0], &card{})
 	if !reported(g, "O9") || g.verbs.held != "" {
 		t.Errorf("GIVE: reported %v held %q", g.verbs.done, g.verbs.held)
 	}
@@ -622,10 +622,10 @@ func TestO9OldestIsATouristAtLv2(t *testing.T) {
 	}
 }
 
-// O10: Morwenna into Madame's Room, both there at dawn.
+// O10: Magenta into Madame's Room, both there at dawn.
 func TestO10StrangeBedfellows(t *testing.T) {
 	g, _ := verbRun(t, 3, 6)
-	m := named(t, g, 0, "morwenna")
+	m := named(t, g, 0, "magenta")
 	named(t, g, 1, "celestine")
 	if g.questTarget(m) != 1 {
 		t.Fatal("no override toward Madame's Room")
@@ -639,19 +639,19 @@ func TestO10StrangeBedfellows(t *testing.T) {
 	}
 }
 
-// O11: the rolled ghost ally hands the HAFT (TAKE, ghost); Morwenna takes it (GIVE, real). It crosses the SHIFT.
+// O11: the rolled ghost ally hands the HAFT (TAKE, ghost); Magenta takes it (GIVE, real). It crosses the SHIFT.
 func TestO11Haft(t *testing.T) {
 	g, _ := verbRun(t, 3, 6)
-	m := named(t, g, 0, "morwenna")
-	cel, ned := named(t, g, 1, "celestine"), named(t, g, 2, "ned")
+	m := named(t, g, 0, "magenta")
+	cel, tim := named(t, g, 1, "celestine"), named(t, g, 2, "tim")
 	g.verbMinute()
 	a := g.ally()
-	if a != "celestine" && a != "ned" {
+	if a != "celestine" && a != "tim" {
 		t.Fatalf("ally %q", a)
 	}
-	giver, other := cel, ned
-	if a == "ned" {
-		giver, other = ned, cel
+	giver, other := cel, tim
+	if a == "tim" {
+		giver, other = tim, cel
 	}
 	g.ghost = true
 	if !hasOpt(optsOf(g, giver), optTake) || hasOpt(optsOf(g, other), optTake) {
@@ -663,7 +663,7 @@ func TestO11Haft(t *testing.T) {
 	}
 	g.ghost = false
 	if !hasOpt(optsOf(g, m), optGive) {
-		t.Fatal("no GIVE on Morwenna's Card")
+		t.Fatal("no GIVE on Magenta's Card")
 	}
 	g.startCard(0)
 	g.cardVerb(optGive, m, m.Guests[0], g.parley.card)
@@ -730,7 +730,7 @@ func TestO13Crate(t *testing.T) {
 // A guest with an Ask says it instead of its line, while the objective is open and no other.
 func TestAskReplacesLine(t *testing.T) {
 	g, _ := verbRun(t, 2, 3)
-	named(t, g, 0, "morwenna")
+	named(t, g, 0, "magenta")
 	g.startCard(0)
 	if txt := flat(g); !strings.Contains(txt, "customer service of the dead") {
 		t.Errorf("O3's Ask:\n%s", txt)
@@ -746,7 +746,7 @@ func TestAskReplacesLine(t *testing.T) {
 // Nothing of a quest happens with no objective open.
 func TestVerbsInertWithoutQuest(t *testing.T) {
 	g, _ := matchRun(t, 3)
-	m := named(t, g, 0, "morwenna")
+	m := named(t, g, 0, "magenta")
 	named(t, g, 1, "celestine")
 	g.verbMinute()
 	g.updateVerbs()

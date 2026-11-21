@@ -136,9 +136,9 @@ func TestQuestGate(t *testing.T) {
 func TestQuestPinned(t *testing.T) {
 	g := questRun0(t, 1)
 	grow(g)
-	p, _ := g.questHolder("morwenna")
+	p, _ := g.questHolder("magenta")
 	if p == nil || !g.questPinned(p) {
-		t.Fatal("Morwenna is not in, or not pinned, on beat 1")
+		t.Fatal("Magenta is not in, or not pinned, on beat 1")
 	}
 	g.settleIn(p)
 	g.clock = p.Checkout + 1
@@ -154,14 +154,14 @@ func TestQuestPinned(t *testing.T) {
 		grow(g)
 		finish(g)
 	}
-	for _, key := range []string{"morwenna", "celestine", "magda", "ned", "teo", "osvaldo"} { // level 1: five beats, all done
+	for _, key := range []string{"magenta", "celestine", "magda", "tim", "teo", "osvaldo"} { // level 1: five beats, all done
 		if g.questNeeds(key) {
 			t.Errorf("%s still needed after the Run's beats", key)
 		}
 	}
 	g.updateParty(p)
 	if p.state != checkingOut {
-		t.Fatal("Morwenna stays after the Run's last beat")
+		t.Fatal("Magenta stays after the Run's last beat")
 	}
 }
 
@@ -169,28 +169,28 @@ func TestQuestPinned(t *testing.T) {
 // objective is done, then leave), and its Speaker until its opening line is said.
 func TestQuestNeedsWhileOpen(t *testing.T) {
 	g := questRun0(t, 2)
-	g.questEvent(evGrow, -1, "") // beat 1: O1, Morwenna's
+	g.questEvent(evGrow, -1, "") // beat 1: O1, Magenta's
 	g.quest.Said = true
-	if !g.questNeeds("morwenna") {
-		t.Fatal("beat 1: Morwenna is not needed")
+	if !g.questNeeds("magenta") {
+		t.Fatal("beat 1: Magenta is not needed")
 	}
 	g.questEvent(evDone, -1, "O1")
-	if g.questNeeds("morwenna") {
-		t.Fatal("Morwenna still needed after O1")
+	if g.questNeeds("magenta") {
+		t.Fatal("Magenta still needed after O1")
 	}
 	for range 3 {
 		g.questEvent(evGrow, -1, "")
 		finish(g)
 	}
-	g.questEvent(evGrow, -1, "") // beat 5: O7 Magda and Osvaldo, O8 Madame, O9 Ned
-	g.quest.owe = ""             // beat 3's end line, owed by Morwenna (TestQuestOwedLine)
-	if !g.questNeeds("magda") || !g.questNeeds("osvaldo") || !g.questNeeds("celestine") || !g.questNeeds("ned") ||
-		g.questNeeds("morwenna") || g.questNeeds("teo") {
-		t.Fatal("beat 5: Magda, Osvaldo, Madame and Ned are needed, Morwenna and Teo are not")
+	g.questEvent(evGrow, -1, "") // beat 5: O7 Magda and Osvaldo, O8 Madame, O9 Tim
+	g.quest.owe = ""             // beat 3's end line, owed by Magenta (TestQuestOwedLine)
+	if !g.questNeeds("magda") || !g.questNeeds("osvaldo") || !g.questNeeds("celestine") || !g.questNeeds("tim") ||
+		g.questNeeds("magenta") || g.questNeeds("teo") {
+		t.Fatal("beat 5: Magda, Osvaldo, Madame and Tim are needed, Magenta and Teo are not")
 	}
 	g.questEvent(evDone, -1, "O7")
-	if g.questNeeds("magda") || g.questNeeds("osvaldo") || !g.questNeeds("ned") {
-		t.Fatal("after O7 Magda and Osvaldo go; Ned stays for O9")
+	if g.questNeeds("magda") || g.questNeeds("osvaldo") || !g.questNeeds("tim") {
+		t.Fatal("after O7 Magda and Osvaldo go; Tim stays for O9")
 	}
 }
 
@@ -201,18 +201,18 @@ func TestQuestOwedLine(t *testing.T) {
 		g.questEvent(evGrow, -1, "")
 		finish(g)
 	}
-	g.questEvent(evGrow, -1, "") // beat 3: Morwenna speaks at its end, and no objective of it needs her
-	if g.questNeeds("morwenna") {
-		t.Fatal("beat 3: Morwenna needed before its end")
+	g.questEvent(evGrow, -1, "") // beat 3: Magenta speaks at its end, and no objective of it needs her
+	if g.questNeeds("magenta") {
+		t.Fatal("beat 3: Magenta needed before its end")
 	}
 	finish(g) // she is not in the hotel: the line is owed
-	if !g.questNeeds("morwenna") {
-		t.Fatal("Morwenna not needed for her owed line")
+	if !g.questNeeds("magenta") {
+		t.Fatal("Magenta not needed for her owed line")
 	}
 	for range 4 { // she checks in and says it
 		g.questArrivals()
 	}
-	if p, _ := g.questHolder("morwenna"); p == nil || len(p.talk) == 0 || g.questNeeds("morwenna") {
+	if p, _ := g.questHolder("magenta"); p == nil || len(p.talk) == 0 || g.questNeeds("magenta") {
 		t.Fatal("the owed line was not said on her return")
 	}
 }
@@ -223,22 +223,22 @@ func TestQuestArrivals(t *testing.T) {
 	g.questEvent(evGrow, -1, "")
 	g.clock += minuteFrames - g.clock%minuteFrames - 1
 	g.advanceClock() // questArrivals runs before maybeWalkIn
-	if len(g.parties) == 0 || g.parties[0].Guests[0].Who.Key != "morwenna" || g.parties[0].Realm != Human || g.visits["morwenna"] != 1 || !g.met["morwenna"] {
-		t.Fatalf("%d parties: want Morwenna first, a visit", len(g.parties))
+	if len(g.parties) == 0 || g.parties[0].Guests[0].Who.Key != "magenta" || g.parties[0].Realm != Human || g.visits["magenta"] != 1 || !g.met["magenta"] {
+		t.Fatalf("%d parties: want Magenta first, a visit", len(g.parties))
 	}
 	n := len(g.parties)
 	g.questArrivals()
 	if len(g.parties) != n {
-		t.Fatal("Morwenna checked in twice")
+		t.Fatal("Magenta checked in twice")
 	}
 	finish(g)
 	grow(g) // beat 2: Celestine, a ghost
 	p, _ := g.questHolder("celestine")
-	if p == nil || p.Realm != Ghost || g.visits["celestine"] != 1 || p.Guests[0].Who.Name != "Madame Celestine Arbogast" {
+	if p == nil || p.Realm != Ghost || g.visits["celestine"] != 1 || p.Guests[0].Who.Name != nameCelestineFull {
 		t.Fatalf("Celestine: %+v", p)
 	}
-	if m, _ := g.questHolder("morwenna"); m == nil {
-		t.Fatal("Morwenna left")
+	if m, _ := g.questHolder("magenta"); m == nil {
+		t.Fatal("Magenta left")
 	}
 	finish(g)
 	grow(g) // beat 3: Magda
@@ -253,17 +253,17 @@ func TestQuestArrivalsAgain(t *testing.T) {
 	g.questEvent(evGrow, -1, "")
 	g.roomOwned = make([]bool, len(g.hotel.Rooms)) // nothing to book into
 	g.questArrivals()
-	if p, _ := g.questHolder("morwenna"); p != nil {
+	if p, _ := g.questHolder("magenta"); p != nil {
 		t.Fatal("booked with no Room owned")
 	}
 	g.roomOwned = nil
 	g.questArrivals()
-	if p, _ := g.questHolder("morwenna"); p == nil {
+	if p, _ := g.questHolder("magenta"); p == nil {
 		t.Fatal("did not check in once a Room was free")
 	}
 	g.parties = nil
 	g.questArrivals()
-	if p, _ := g.questHolder("morwenna"); p == nil {
+	if p, _ := g.questHolder("magenta"); p == nil {
 		t.Fatal("did not come back")
 	}
 }
@@ -272,7 +272,7 @@ func TestQuestArrivalsAgain(t *testing.T) {
 func TestQuestLines(t *testing.T) {
 	g := questRun0(t, 0)
 	grow(g)
-	p, who := g.questHolder("morwenna")
+	p, who := g.questHolder("magenta")
 	if len(p.talk) == 0 || p.talk[0].who != who || !g.quest.Said {
 		t.Fatalf("no opening line: %v", p.talk)
 	}
@@ -286,7 +286,7 @@ func TestQuestLines(t *testing.T) {
 	finish(g)
 	grow(g)
 	p.talk = nil
-	finish(g) // beat 3: Morwenna's cliffhanger, at its end
+	finish(g) // beat 3: Magenta's cliffhanger, at its end
 	if len(p.talk) == 0 {
 		t.Fatal("no cliffhanger")
 	}
@@ -322,7 +322,7 @@ func TestQuestSaveRoundTrip(t *testing.T) {
 		t.Fatal("the beat under way is not playable")
 	}
 	g2.unlock(Mirror)
-	g2.questArrivals() // Madame is back for O3 (Morwenna has no objective open)
+	g2.questArrivals() // Madame is back for O3 (Magenta has no objective open)
 	if p, _ := g2.questHolder("celestine"); p == nil {
 		t.Fatal("Madame did not come back")
 	}

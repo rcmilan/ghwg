@@ -217,10 +217,10 @@ func (g *Game) oldestParty() (best *Party) {
 }
 
 // questCast: the named guests the questline uses (cast.go).
-var questCast = []string{"morwenna", "magda", "teo", "celestine", "ned", "osvaldo"}
+var questCast = []string{"magenta", "magda", "teo", "celestine", "tim", "osvaldo"}
 
 // allies: O11's ghost allies; the rolled one has the HAFT.
-var allies = [...]string{"celestine", "ned", "osvaldo"}
+var allies = [...]string{"celestine", "tim", "osvaldo"}
 
 func (g *Game) ally() string {
 	if v := g.rollGet("O11.ally"); v > 0 {
@@ -265,7 +265,7 @@ func (g *Game) updateVerbs() {
 func (g *Game) verbMinute() {
 	g.rollOpen()
 	if g.questOpen("O5") {
-		g.askNed()
+		g.askTim()
 	}
 	if g.questOpen("O7") && g.together("magda", "osvaldo") {
 		room := g.roomOfKey("osvaldo")
@@ -275,16 +275,16 @@ func (g *Game) verbMinute() {
 	switch g.clock % dayFrames {
 	case 22 * hourFrames: // the night begins: who is where, to be there at dawn
 		g.rollSet("O3.night", b2i(g.together("magda", "celestine")))
-		g.rollSet("O10.night", b2i(g.together("morwenna", "celestine")))
+		g.rollSet("O10.night", b2i(g.together("magenta", "celestine")))
 	case runStart: // dawn
 		g.dawnChecks()
 	}
 }
 
-// dawnChecks: the objectives that wait for a night: Magda and Madame (O3), Morwenna and Madame (O10), and Lv2+'s
+// dawnChecks: the objectives that wait for a night: Magda and Madame (O3), Magenta and Madame (O10), and Lv2+'s
 // longer word (O1).
 func (g *Game) dawnChecks() {
-	for _, c := range [...]struct{ id, a, says string }{{"O3", "magda", "magda"}, {"O10", "morwenna", "celestine"}} {
+	for _, c := range [...]struct{ id, a, says string }{{"O3", "magda", "magda"}, {"O10", "magenta", "celestine"}} {
 		if g.questOpen(c.id) && g.rollGet(c.id+".night") == 1 && g.together(c.a, "celestine") {
 			g.sayDone(g.questParty(c.says), objOf(c.id).Done)
 			g.verbDone(evDawn, g.roomOfKey("celestine"), c.id)
@@ -365,18 +365,18 @@ func (g *Game) pickStranger() {
 	g.verbs.stranger = q
 }
 
-// verbWait: the objective can't be played yet and its row says so (Objective.Wait): O1 has no ghost in Morwenna's Room.
+// verbWait: the objective can't be played yet and its row says so (Objective.Wait): O1 has no ghost in Magenta's Room.
 func (g *Game) verbWait(id string) bool {
 	if id != "O1" || !g.questOpen("O1") {
 		return false
 	}
-	m := g.questParty("morwenna")
+	m := g.questParty("magenta")
 	return m != nil && !slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Realm == Ghost && p.Room == m.Room && p.state == staying })
 }
 
-// askNed (O5): the ghost asks for a Supply, rolled once; at Lv2+ a second one after the first is served.
-func (g *Game) askNed() {
-	p := g.questParty("ned")
+// askTim (O5): the ghost asks for a Supply, rolled once; at Lv2+ a second one after the first is served.
+func (g *Game) askTim() {
+	p := g.questParty("tim")
 	if p == nil || p.Realm != Ghost || p.state != staying || p.asking() || g.rollGet("O5.n") >= askCount(g.level) {
 		return
 	}
@@ -513,14 +513,14 @@ func (g *Game) placeNamed(room int, key string) *Party {
 
 // devCast: who -verb O<n> puts where ("key@room", a plain "human" or "ghost" a generic guest), as -grid 3x1 has the Rooms.
 var devCast = map[string][]string{
-	"O1": {"morwenna@0", "ghost@0"}, "O2": {"morwenna@0", "celestine@1"}, "O3": {"magda@0", "celestine@1"},
-	"O5": {"ned@0"}, "O6": {"teo@0", "ghost@1"}, "O7": {"magda@0", "osvaldo@1"}, "O8": {"celestine@1"},
-	"O9": {"ned@0", "human@1", "human@2"}, "O10": {"morwenna@0", "celestine@1"}, "O11": {"morwenna@0", "celestine@1", "ned@2"},
+	"O1": {"magenta@0", "ghost@0"}, "O2": {"magenta@0", "celestine@1"}, "O3": {"magda@0", "celestine@1"},
+	"O5": {"tim@0"}, "O6": {"teo@0", "ghost@1"}, "O7": {"magda@0", "osvaldo@1"}, "O8": {"celestine@1"},
+	"O9": {"tim@0", "human@1", "human@2"}, "O10": {"magenta@0", "celestine@1"}, "O11": {"magenta@0", "celestine@1", "tim@2"},
 }
 
 // DevVerb is main's -verb O<n>: a Run at that objective with its guests in, for prints. In ghost (-ghost) it shows the
 // ghost side where it differs: the TELL Card (O1), Celestine's entry (O2), the handprint (O4). O4 starts at night with
-// the Concierge in the beam's way (-at 14); O5 has Ned asking, the Supply in the hands; O8 opens the Terminal.
+// the Concierge in the beam's way (-at 14); O5 has Tim asking, the Supply in the hands; O8 opens the Terminal.
 func (g *Game) DevVerb(id string) {
 	if id == "" {
 		return
@@ -572,7 +572,7 @@ func (g *Game) DevVerb(id string) {
 		at(plate)
 		g.startCard(0)
 	case "O2":
-		for _, e := range []bookEntry{{"Teo Barros", namedHumans[1].Visit[0], 1, outCozy}, {"Agatha Fogg", notebookPassed[0], 1, outPassed}} {
+		for _, e := range []bookEntry{{nameTeoFull, namedHumans[1].Visit[0], 1, outCozy}, {"Agatha Fogg", notebookPassed[0], 1, outPassed}} {
 			g.guestBook = append(g.guestBook, e)
 		}
 		g.openBook()
@@ -590,7 +590,7 @@ func (g *Game) DevVerb(id string) {
 		g.player.Anim.Facing = entities.FaceLeft
 	case "O5":
 		g.hands = SupplyTowel
-		if p := g.questParty("ned"); p != nil {
+		if p := g.questParty("tim"); p != nil {
 			p.asked, p.want = g.clock, SupplyTowel
 		}
 		at(g.hotel.Rooms[0].Mat())

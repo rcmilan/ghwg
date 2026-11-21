@@ -8,7 +8,7 @@ import (
 	"ghosthotel/world"
 )
 
-// 08 W5: Morwenna's circle, the questline's state (W5-SEAM). The data is circle.go. W5-QUEST fills the stubs below;
+// 08 W5: Magenta's circle, the questline's state (W5-SEAM). The data is circle.go. W5-QUEST fills the stubs below;
 // every verb (verbs.go) reports what it did through questEvent, the one call the engine listens to.
 
 // questRun: this Run's questline, in the dawn checkpoint (runState.Quest).
@@ -159,9 +159,9 @@ func (g *Game) questStage() int {
 
 // objCast: the quest guests each objective needs in the hotel (circle.md); O13's gather for the finale.
 var objCast = map[string][]string{
-	"O1": {"morwenna"}, "O2": {"morwenna", "celestine"}, "O3": {"magda", "celestine"}, "O5": {"ned"}, "O6": {"teo"},
-	"O7": {"magda", "osvaldo"}, "O8": {"celestine"}, "O9": {"ned"}, "O10": {"morwenna", "celestine"},
-	"O11": {"morwenna", "celestine", "ned"}, "O13": {"morwenna", "celestine", "ned"},
+	"O1": {"magenta"}, "O2": {"magenta", "celestine"}, "O3": {"magda", "celestine"}, "O5": {"tim"}, "O6": {"teo"},
+	"O7": {"magda", "osvaldo"}, "O8": {"celestine"}, "O9": {"tim"}, "O10": {"magenta", "celestine"},
+	"O11": {"magenta", "celestine", "tim"}, "O13": {"magenta", "celestine", "tim"},
 }
 
 // questNeeds: the guest key is needed now: by an open objective of the beat under way (circle.md: they stay until

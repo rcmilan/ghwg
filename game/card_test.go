@@ -147,7 +147,7 @@ func TestCardPairFlips(t *testing.T) {
 func TestGhostCard(t *testing.T) {
 	g, s := matchRun(t, 2)
 	gh := ghostOf(g, 0, 7)
-	gh.Guests[0].Who = entities.Identity{Name: "Osvaldo Feltz", Died: 1987, Cause: "the sea", Lines: []string{"Seen Magda?"}, Quirk: Gentle, Key: "osvaldo"}
+	gh.Guests[0].Who = entities.Identity{Name: nameOsvaldoFull, Died: 1987, Cause: "the sea", Lines: []string{"Seen Magda?"}, Quirk: Gentle, Key: "osvaldo"}
 	g.wallet[Ecto] = 25
 	g.ghost = true
 	press(g, s, center(g.hotel.Rooms[0].Plate()))
@@ -155,7 +155,7 @@ func TestGhostCard(t *testing.T) {
 		t.Fatal("the plate did not open the ghost's card in ghost")
 	}
 	txt := cardText(g)
-	if !strings.Contains(txt, "Osvaldo Feltz, 1987") || !strings.Contains(txt, "the sea") || strings.Contains(txt, "MOVE") || strings.Contains(txt, "PHANTASM") {
+	if !strings.Contains(txt, nameOsvaldoFull+", 1987") || !strings.Contains(txt, "the sea") || strings.Contains(txt, "MOVE") || strings.Contains(txt, "PHANTASM") {
 		t.Errorf("ghost card:\n%s", txt)
 	}
 	tap(g, s, ebiten.KeySpace)

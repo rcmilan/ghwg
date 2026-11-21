@@ -34,9 +34,9 @@ func TestItemsOffUnowned(t *testing.T) {
 	}
 }
 
-func TestCrystalBall(t *testing.T) {
+func TestShowDontTell(t *testing.T) {
 	if g := itemsRun(t, itemBall); g.revealCost() != 0 {
-		t.Error("REVEAL costs with the Crystal ball")
+		t.Error("REVEAL costs with Show, don't tell")
 	}
 }
 

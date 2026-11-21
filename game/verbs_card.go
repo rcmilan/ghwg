@@ -9,10 +9,10 @@ import (
 // 08 W5-VERBS: the Card's quest side (TELL, TAKE, GIVE, a quest guest's Ask line, REVEAL's quest facts), the talk's
 // target override and the guest book's quest entries.
 
-// verbOpened: a Card was opened. Morwenna's, while O1 is open, gives the Concierge the word to carry across.
+// verbOpened: a Card was opened. Magenta's, while O1 is open, gives the Concierge the word to carry across.
 func (g *Game) verbOpened(p *Party) {
 	g.verbSync()
-	if g.questOpen("O1") && p.Realm == Human && p.Guests[0].Who.Key == "morwenna" {
+	if g.questOpen("O1") && p.Realm == Human && p.Guests[0].Who.Key == "magenta" {
 		g.verbs.held = "O1"
 	}
 }
@@ -34,13 +34,13 @@ func (g *Game) takeId(p *Party, guest *entities.Guest) string {
 func (g *Game) verbOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	g.verbSync()
 	k, h := guest.Who.Key, g.verbs.held
-	if h == "O1" && g.questOpen("O1") && p.Realm == Ghost && p.Room == g.roomOfKey("morwenna") || h == "O2" && g.questOpen("O2") && k == "morwenna" {
+	if h == "O1" && g.questOpen("O1") && p.Realm == Ghost && p.Room == g.roomOfKey("magenta") || h == "O2" && g.questOpen("O2") && k == "magenta" {
 		os = append(os, optTell)
 	}
 	if g.takeId(p, guest) != "" {
 		os = append(os, optTake)
 	}
-	if h == "O9" && g.questOpen("O9") && k == "ned" || h == "O11" && g.questOpen("O11") && k == "morwenna" {
+	if h == "O9" && g.questOpen("O9") && k == "tim" || h == "O11" && g.questOpen("O11") && k == "magenta" {
 		os = append(os, optGive)
 	}
 	return os
@@ -63,7 +63,7 @@ func (g *Game) verbOptText(o cardOpt, p *Party, guest *entities.Guest) string {
 // GIVE closes it for the cutscene.
 func (g *Game) cardVerb(o cardOpt, p *Party, guest *entities.Guest, c *card) {
 	switch o {
-	case optTell: // O1: the ghost roommate hears the word; O2: Morwenna hears the entry
+	case optTell: // O1: the ghost roommate hears the word; O2: Magenta hears the entry
 		id := g.verbs.held
 		g.verbs.held = ""
 		c.say = objOf(id).Done
@@ -101,7 +101,7 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest, c *card) string {
 		return objOf(id).Ask
 	}
 	switch k := guest.Who.Key; {
-	case k == "morwenna" && p.Realm == Human:
+	case k == "magenta" && p.Realm == Human:
 		for _, id := range [...]string{"O1", "O2", "O3", "O7"} {
 			if g.questOpen(id) {
 				if id == "O1" && g.rollGet("O1.long") == 1 {
@@ -110,7 +110,7 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest, c *card) string {
 				return objOf(id).Ask
 			}
 		}
-	case k == "ned" && g.questOpen("O5"):
+	case k == "tim" && g.questOpen("O5"):
 		return objOf("O5").Ask
 	case k == "teo" && g.questOpen("O6"):
 		return g.fill(objOf("O6").Ask, g.porterRoom())
@@ -119,12 +119,12 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest, c *card) string {
 }
 
 // verbRead: what REVEAL reads of a quest guest: the quirk and the fact ("" for the card's own). O6's porter reads
-// NIGHT PORTER; O9's Ned gives the key's whereabouts.
+// NIGHT PORTER; O9's Tim gives the key's whereabouts.
 func (g *Game) verbRead(p *Party, guest *entities.Guest) (quirk, fact string) {
 	if p.Realm == Ghost && g.questOpen("O6") && p == g.porterParty() && guest == g.verbs.porter {
 		return porterQuirk, porterFact
 	}
-	if guest.Who.Key == "ned" && g.questOpen("O9") {
+	if guest.Who.Key == "tim" && g.questOpen("O9") {
 		return "", objOf("O9").Ask
 	}
 	return "", ""
@@ -140,7 +140,7 @@ func (g *Game) questTarget(p *Party) int {
 		return g.roomOfKey("celestine")
 	case k == "magda" && g.questOpen("O7"):
 		return g.roomOfKey("osvaldo")
-	case k == "morwenna" && g.questOpen("O10"):
+	case k == "magenta" && g.questOpen("O10"):
 		return g.roomOfKey("celestine")
 	}
 	return -1
@@ -164,7 +164,7 @@ func (g *Game) withTarget(p *Party, ts []int) []int {
 }
 
 // celestineName: Madame's name in the book, short enough to leave the entry's tag room.
-const celestineName = "Mme Arbogast"
+const celestineName = nameCelestineShort
 
 // The guest book's quest entries, shown only in the Dimension they belong to. outQuest ones are ghost-only.
 

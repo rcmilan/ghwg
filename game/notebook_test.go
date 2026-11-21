@@ -197,7 +197,7 @@ func TestNamedPair(t *testing.T) {
 		g.rollNamedHuman(&Party{Guests: []*entities.Guest{&a, &b}})
 		if a.Who.Key == "bealou" {
 			pairs++
-			if b.Who.Key != "bealou" || a.Who.Name != "Bea Marchetti" || b.Who.Name != "Lou Marchetti" || a.Character[:6] != "Amelia" || b.Character[:4] != "Adam" {
+			if b.Who.Key != "bealou" || a.Who.Name != nameBeaFull || b.Who.Name != nameLouFull || a.Character[:6] != "Amelia" || b.Character[:4] != "Adam" {
 				t.Fatalf("pair %+v %+v %s %s", a.Who, b.Who, a.Character, b.Character)
 			}
 		}
@@ -256,14 +256,14 @@ func TestNamedLines(t *testing.T) {
 	if namedLine("teo", 2, outFled) != "" {
 		t.Error("a Skeptic has no fled line")
 	}
-	ned := namedGhosts[1]
-	if namedLine("ned", 2, outPassed) != ned.Visit[1] || namedLine("ned", 6, outPassed) != ned.Visit[2] {
+	tim := namedGhosts[1]
+	if namedLine("tim", 2, outPassed) != tim.Visit[1] || namedLine("tim", 6, outPassed) != tim.Visit[2] {
 		t.Error("a ghost's visit lines")
 	}
 	g, _ := headless(t, 2, 1, 5)
 	p := plain(g, &Party{Guests: []*entities.Guest{{}}})
-	p.Guests[0].Who.Key, p.visit = "ned", 2
-	if g.bookLine(p, outBanished) == "" || g.bookLine(p, outBanished) == ned.Visit[1] || g.bookLine(p, outPassed) != ned.Visit[1] {
+	p.Guests[0].Who.Key, p.visit = "tim", 2
+	if g.bookLine(p, outBanished) == "" || g.bookLine(p, outBanished) == tim.Visit[1] || g.bookLine(p, outPassed) != tim.Visit[1] {
 		t.Error("a banished named ghost takes the banished table, one that passed its visit line")
 	}
 	p.Guests[0].Who.Key = "teo"
@@ -280,7 +280,7 @@ func TestVisitsSurvivePrestigeAndRestore(t *testing.T) {
 	g.persist = true
 	g.visits = map[string]int{"magda": 2, "teo": 1}
 	g.met = map[string]bool{"magda": true}
-	g.guestBook = []bookEntry{{"Magda Feltz", "x", 2, outCozy}, {"Agatha Fogg", "y", 2, outPassed}}
+	g.guestBook = []bookEntry{{nameMagdaFull, "x", 2, outCozy}, {"Agatha Fogg", "y", 2, outPassed}}
 	g.saveDawn()
 	s := g.loadSave()
 	if s == nil || s.Visits["magda"] != 2 || s.Run == nil || len(s.Run.Book) != 2 || !slices.Equal(s.Run.Met, []string{"magda"}) {

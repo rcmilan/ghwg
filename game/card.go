@@ -79,7 +79,7 @@ func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	return append(os, g.verbOpts(p, guest)...)
 }
 
-// revealCost: REVEAL's price: nothing with the Crystal ball (08 W5).
+// revealCost: REVEAL's price: nothing with Show, don't tell (08 W5).
 func (g *Game) revealCost() Num {
 	if g.itemOn(itemBall) {
 		return 0

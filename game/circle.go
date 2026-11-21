@@ -1,6 +1,6 @@
 package game
 
-// 08 W5: Morwenna's circle as data (context/08-quests/circle.md, approved 2026-11-20). Seven beats, one per Growth
+// 08 W5: Magenta's circle as data (context/08-quests/circle.md, approved 2026-11-20). Seven beats, one per Growth
 // from the 2x1 start; 13 objectives. Every number is a placeholder the W5 sim tunes. The engine is quest.go, the
 // verbs verbs.go, the cutscenes questscene.go. Lines by times done: [0] the 1st time, [1] the 2nd, [2] the 3rd and on
 // (an empty one falls back to the one before).
@@ -36,9 +36,9 @@ type beat struct {
 }
 
 var beats = [beatCount]beat{
-	{Title: "SHIFT HAPPENS", Guests: []string{"morwenna"}, Purse: 20, Item: itemBall, Speaker: "morwenna",
+	{Title: "SHIFT HAPPENS", Guests: []string{"magenta"}, Purse: 20, Item: itemBall, Speaker: "magenta",
 		Lines: [3]string{"Be not afraid. The hotel is full of noises. Most of them are the plumbing.",
-			"Again, Concierge? Oh, SHIFT. I mean, lovely to see you.",
+			"Again, Concierge? Lovely to see you.",
 			"You know the steps. Do them with more feeling."},
 		Objs: []objective{{ID: "O1", Row: "TELL HER ROOMMATE SHE'S HERE", Side: Ghost,
 			Ask:  "Tell whoever shares my room on the other side that the witch has arrived. Use those words. Say it with a cape in your voice.",
@@ -49,52 +49,52 @@ var beats = [beatCount]beat{
 		Lines: [3]string{"This is my hotel, darling. Do keep it. I'm only haunting it part-time.",
 			"You again! And the witch! It's like a family reunion, but nobody brought a casserole.",
 			"Every time the same witch, the same you. Every time I'm still dead. Consistency is a virtue."},
-		Objs: []objective{{ID: "O2", Row: "FIND OUT WHAT MADAME ORDERED", Side: Human,
+		Objs: []objective{{ID: "O2", Row: "FIND OUT WHAT " + upper(nameMadame) + " ORDERED", Side: Human,
 			Ask:  "The lady of the house left a note in the guest book. Read it to me. Do the voices.",
 			Done: "Ninety-seven years on hold. That woman has the patience of a mountain.",
 			Hard: "the entry continues on another spread"}}},
-	{Title: "A SHAFT OF LIGHT", Guests: []string{"magda"}, Purse: 40, Item: itemGerald, Speaker: "morwenna", AtEnd: true,
+	{Title: "A SHAFT OF LIGHT", Guests: []string{"magda"}, Purse: 40, Item: itemGerald, Speaker: "magenta", AtEnd: true,
 		Lines: [3]string{"Did it have a sign? That's my spirit. Bound to me till the job's done. It's an air thing.",
 			"It said five minutes last time too. That was a whole prestige ago.",
 			"It waved at me. We're on waving terms now. It still wants its freedom. Fair."},
 		Objs: []objective{
-			{ID: "O3", Row: "PUT MAGDA IN MADAME'S ROOM", Side: Human,
+			{ID: "O3", Row: "PUT " + upper(nameMagda) + " IN " + upper(nameMadame) + "'S ROOM", Side: Human,
 				Ask:  "A medium in the lady's room. Mediums are the customer service of the dead.",
 				Done: "We talked all night. Mostly about curtains.",
-				Hard: "Magda arrives with a stranger, who has to be moved somewhere less important first"},
+				Hard: nameMagda + " arrives with a stranger, who has to be moved somewhere less important first"},
 			{ID: "O4", Row: "CATCH THE SPIRIT IN A SHAFT OF LIGHT", Side: Ghost, Scene: "O4",
 				Hard: "two dashes, and both must be lit"}}},
-	{Title: "NIGHT SHIFT", Guests: []string{"ned", "teo"}, Purse: 50, Item: itemCat, Speaker: "ned",
+	{Title: "NIGHT SHIFT", Guests: []string{"tim", "teo"}, Purse: 50, Item: itemCat, Speaker: "tim",
 		Lines: [3]string{"Night shift since 1959, sir. I could murder a towel. Not literally. Mostly."},
 		Objs: []objective{
-			{ID: "O5", Row: "BRING NED WHAT HE CAN'T CARRY", Side: Ghost,
+			{ID: "O5", Row: "BRING " + upper(nameTim) + " WHAT HE CAN'T CARRY", Side: Ghost,
 				Ask:  "Night shift since 1959, sir. I could murder a towel. Not literally. Mostly.",
 				Hard: "two Supplies, one after the other"},
 			{ID: "O6", Row: "CLOCK OUT THE OTHER NIGHT PORTER", Side: Human,
-				Ask: "Chat says a ghost in Room {n} keeps whispering 'is my shift over'. What the SHIFT, chat."}}},
-	{Title: "SIFT", Guests: []string{"osvaldo"}, Purse: 60, Item: itemWard, Speaker: "ned", AtEnd: true,
+				Ask: "Chat says a ghost in Room {n} keeps whispering 'is my shift over'. Chat, honestly."}}},
+	{Title: "SIFT", Guests: []string{"osvaldo"}, Purse: 60, Item: itemWard, Speaker: "tim", AtEnd: true,
 		Lines: [3]string{"", "Same clipboard. The circle's darker. Someone's been tracing it. Me. I've been tracing it.",
 			"I don't open it anymore. I just shake it and nod."},
 		Objs: []objective{
-			{ID: "O7", Row: "LET MAGDA AND OSVALDO MEET", Side: Human,
+			{ID: "O7", Row: "LET " + upper(nameMagda) + " AND " + upper(nameOsvaldo) + " MEET", Side: Human,
 				Ask:  "The circle needs a knot of love that outlasts death. Also string. I've got the string.",
 				Done: "They said full fathom five he lies. He's in {n}. Same thing, really."},
-			{ID: "O8", Row: "A GIFT FOR MADAME", Side: Ghost,
+			{ID: "O8", Row: "A GIFT FOR " + upper(nameMadame), Side: Ghost,
 				Done: "Flowers! For waiting! Nobody has ever thanked me for waiting. I'll wait even harder."},
-			{ID: "O9", Row: "SIFT FOR THE KEY TO NED'S SUITCASE", Side: Ghost, Scene: "O9",
+			{ID: "O9", Row: "SIFT FOR THE KEY TO " + upper(nameTim) + "'S SUITCASE", Side: Ghost, Scene: "O9",
 				Ask:  "The suitcase key is with the oldest soul sleeping here. Living soul. I've sifted the dead ones.",
 				Hard: "the oldest is a Tourist, out until night"}}},
-	{Title: "GET A HAFT", Guests: nil, Purse: 80, Item: itemStorm, Speaker: "morwenna",
+	{Title: "GET A HAFT", Guests: nil, Purse: 80, Item: itemStorm, Speaker: "magenta",
 		Lines: [3]string{"Every circle needs a staff. Mine's lost its HAFT. Don't ask where the rest of it is."},
 		Objs: []objective{
 			{ID: "O10", Row: "STRANGE BEDFELLOWS", Side: Human,
 				Done: "She snores in Latin. Misery acquaints a woman with strange bedfellows. This was not misery. This was a sleepover."},
 			{ID: "O11", Row: "THE HAFT, FROM THE OTHER SIDE", Side: Human,
-				Ask:  "Ned's old luggage-trolley handle. Slightly haunted. Excellent grip.",
+				Ask:  nameTim + "'s old luggage-trolley handle. Slightly haunted. Excellent grip.",
 				Done: "A staff fit for a sorceress. Or a mop. Today, a sorceress."},
 			{ID: "O12", Row: "READ THE NAME", Side: Ghost,
 				Done: "Don't say it aloud. It RSVPs."}}},
-	{Title: "BRAVE NEW GUEST", Guests: nil, Purse: 0, Item: noItem, Speaker: "morwenna",
+	{Title: "BRAVE NEW GUEST", Guests: nil, Purse: 0, Item: noItem, Speaker: "magenta",
 		Lines: [3]string{"Thank you, Concierge. Truly. Stand back. Further. Behind the towel.",
 			"It's already here, love. It never left. It's in the minibar."},
 		Objs: []objective{{ID: "O13", Row: "THE CRATE WITH NO SENDER", Side: Human, Scene: "finale"}}},
@@ -109,8 +109,8 @@ var (
 	porterFact         = "Clocked in 1923. The clock broke. Still in."
 	keyGive            = "Found this in the bedside drawer. It hummed. I didn't like it."
 	nameEntry          = "MAGnificent stay, Couldn't Get Up For breakfast. Fine."
-	o9Lines            = [2]string{"Delivery for Madame Arbogast, night shift, 1959. Signature required.", "Sixty years I carried that. It was the floor plan for *later*."}
-	wreathRow          = "WREATH, FOR MME ARBOGAST (A THANK-YOU, 97 YEARS PENDING)"
+	o9Lines            = [2]string{"Delivery for " + nameArbogast + ", night shift, 1959. Signature required.", "Sixty years I carried that. It was the floor plan for *later*."}
+	wreathRow          = "WREATH, FOR " + upper(nameCelestineShort) + " (A THANK-YOU, 97 YEARS PENDING)"
 	crateRow           = "A CRATE. NO SENDER. ORDERED 1923. EXPRESS."
 	finaleLines        = [3]string{"I AM THE ETERNAL ELDRITCH MACGUFFIN. I WOULD LIKE A ROOM WITH A VIEW. OF EVERYTHING.", "O brave new guest, that has such stars in it.", "I ALSO DO NOTHING. VERY EXPENSIVELY."}
 	finaleSign         = "GONE. 5 STARS."
@@ -128,7 +128,7 @@ var (
 		"It's closed. The MacGuffin's in. Let's go round anyway, for the cardio."}
 )
 
-// itemID is one of Morwenna's six items (items.go), one per beat 1-6, owned for good once its beat first gives it.
+// itemID is one of Magenta's six items (items.go), one per beat 1-6, owned for good once its beat first gives it.
 type itemID int
 
 const (
@@ -143,9 +143,9 @@ const (
 )
 
 var itemNames = [itemCount][2]string{ // name, blurb
-	{"Crystal ball (slightly used)", "REVEAL costs nothing. Previous owner saw this coming."},
+	{nameShowDontTell + " (a crystal ball)", "REVEAL costs nothing. Previous owner saw this coming."},
 	{"Broom, sport model", "You walk faster in ghost. Does not sweep. Has never swept. SHIFTs gears."},
-	{"Gerald, a floating skull", "One Room's sightings pay more. Gerald is not for sale. Gerald is for rent."},
+	{nameGerald + ", a floating skull", "One Room's sightings pay more. " + nameGerald + " is not for sale. " + nameGerald + " is for rent."},
 	{"Cat (black, unionized)", "Cleans spiritual dirt in ghost. Works the night shift. Two naps per shift, contractually."},
 	{"Ward against leaving", "One Room's guests never flee. Guests may leave. Emotionally."},
 	{"Storm in a jar (shake well)", "Tonight's thunderstorm: sightings pay double. A tempest. Pocket-sized. Do not open indoors. Do not open outdoors."},
@@ -155,7 +155,7 @@ var itemNames = [itemCount][2]string{ // name, blurb
 var macguffinCard = struct {
 	Name, Age, Job, Reveal, Book string
 	Lines                        []string
-}{"The Eternal Eldritch MacGuffin", "yes", "plot device", "REVEAL: IT REVEALS YOU",
+}{nameMacguffin, "yes", "plot device", "REVEAL: IT REVEALS YOU",
 	"Lovely stay. Did nothing. Will do nothing again. SHIFTed nobody.",
 	[]string{"I am very important. Do not ask why.", "Everyone wanted me. Now I want a mint on my pillow.", "We are such stuff as receipts are made on."}}
 
@@ -187,6 +187,9 @@ var credits = []string{
 	"",
 	"Art: LimeZu, Modern Interiors (free pack)",
 	"Engine: Ebitengine. Language: Go.",
+	"",
+	"SPECIAL THANKS",
+	"LimeZu",
 	"",
 	"No MacGuffins were harmed. Nobody knows how to harm one.",
 }

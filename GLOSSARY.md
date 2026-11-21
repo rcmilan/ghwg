@@ -456,10 +456,10 @@ Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his cal
 A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid at checkout in Money (Soundproofing, Seance table and Offering box, the ghost-side ones, in Ectoplasm too), and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
 _Avoid_: perk, boost
 
-## Morwenna's circle (08 W5, 2026-11-20)
+## Magenta's circle (08 W5, 2026-11-20)
 
 **Questline**:
-Morwenna's circle (`context/08-quests/circle.md`): seven Beats played across the Growths of a Run, the same story every Run. A Level 0 Run plays 3 Beats, Level 1 plays 5, Level 2 and up all 7. What is done counts across Runs (saved).
+Magenta's circle (`context/08-quests/circle.md`): seven Beats played across the Growths of a Run, the same story every Run. A Level 0 Run plays 3 Beats, Level 1 plays 5, Level 2 and up all 7. What is done counts across Runs (saved).
 _Avoid_: story mode, campaign
 
 **Beat**:
@@ -473,7 +473,7 @@ _Avoid_: task, mission
 While the Beat under way has an Objective open, the next Growth waits: "SHIFT'S NOT OVER". The last Beat of the Run gates nothing.
 
 **Quest guest**:
-A named guest (`cast.md`) a Beat needs: Morwenna, Magda, Teo, Celestine, Ned, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
+A named guest (`cast.md`) a Beat needs: Magenta, Magda, Teo, Celestine, Tim, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
 
 **Word / thing**:
 What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them).
@@ -491,7 +491,7 @@ A one-off Terminal order shown only while its Objective is open: the Wreath, wal
 O4's helpful spirit: at night it dashes along a Corridor; caught in the Lantern beam it leaves a glowing handprint on a door, found in ghost.
 
 **Item**:
-One of Morwenna's six gifts, owned for good once its Beat is first done: Crystal ball (REVEAL is free), Broom (the Concierge walks faster in ghost), Gerald (one Room's sightings pay more), the Cat (cleans spiritual dirt in ghost, two naps a shift), the Ward (one Room's guests never flee), the Storm jar (tonight's thunderstorm: sightings pay double, once a day). Gerald and the Ward are placed on a Room from the hotel view's ring or the HOTEL tab, per Run.
+One of Magenta's six gifts, owned for good once its Beat is first done: Show, don't tell (REVEAL is free), Broom (the Concierge walks faster in ghost), Gerald (one Room's sightings pay more), the Cat (cleans spiritual dirt in ghost, two naps a shift), the Ward (one Room's guests never flee), the Storm jar (tonight's thunderstorm: sightings pay double, once a day). Gerald and the Ward are placed on a Room from the hotel view's ring or the HOTEL tab, per Run.
 _Avoid_: power-up, relic
 
 **Cutscene**:

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// 08 W5: Morwenna's sheets are Amelia's under a hat. Under any random look the hat keeps its pixels and
+// 08 W5: Magenta's sheets are Amelia's under a hat. Under any random look the hat keeps its pixels and
 // the rest dresses as Amelia would; she has her own base and is never a random walk-in.
 func TestWitchKeepsHat(t *testing.T) {
 	sheets, err := loadCharacters("Amelia", witchName)
@@ -37,10 +37,10 @@ func TestWitchKeepsHat(t *testing.T) {
 		}
 	}
 	if slices.Contains(guestCast[:], witchName) {
-		t.Fatal("Morwenna is in the random walk-ins' cast")
+		t.Fatal("Magenta is in the random walk-ins' cast")
 	}
-	h := namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == "morwenna" })]
+	h := namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == "magenta" })]
 	if h.Members[0].Sprite != witchName {
-		t.Fatalf("Morwenna's sprite is %q, want %q", h.Members[0].Sprite, witchName)
+		t.Fatalf("Magenta's sprite is %q, want %q", h.Members[0].Sprite, witchName)
 	}
 }
