@@ -366,9 +366,9 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
 	guest.Fear += n
-	m := g.upMul(SeanceTable) * g.sightingQuirkMul(p, guest)      // Seance table; Medium, Skeptic, Show-off, Gentle
-	g.earn(Ecto, Num(n)*Num(m), noFloat)                          // the haunt floats its own batched "+N"
-	g.ghostDirt(p.Room, scaleInt(dirtMood(n), g.dirtQuirkMul(p))) // a Neat freak feels the dirt twice
+	m := g.upMul(SeanceTable) * g.sightingQuirkMul(p, guest) * g.sightingPay(p.Room) // Seance table; Medium, Skeptic, Show-off, Gentle; Gerald, the storm (08 W5)
+	g.earn(Ecto, Num(n)*Num(m), noFloat)                                             // the haunt floats its own batched "+N"
+	g.ghostDirt(p.Room, scaleInt(dirtMood(n), g.dirtQuirkMul(p)))                    // a Neat freak feels the dirt twice
 	p.ectoShown += scaleInt(n, m)
 }
 

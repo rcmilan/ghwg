@@ -78,9 +78,9 @@ func (g *Game) buyNow(i, room int) string {
 
 // ringSlot: each Room action's fixed place on its ring (2026-11-15), clockwise from the top: Change type (a
 // boarded Room's key), Deluxe on the right, the Room mirror (Add mirror once it is bought) lower right, Father M lower left, Father K on the left.
-var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowAddMirror: 2, rowFatherM: 3, rowFatherK: 4}
+var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowAddMirror: 2, rowFatherM: 3, rowFatherK: 4, rowGerald: 5, rowWard: 6} // 08 W5: Gerald and the Ward, once owned
 
-const ringSlots = 5
+const ringSlots = 7
 
 // roomRows: the Room's actions, shop indexes clockwise from the top, only the ones it can take now (2026-11-15):
 // a boarded Room's key alone, never a bought one's; Change type while it has a layout to change to, or a change
@@ -104,7 +104,10 @@ func (g *Game) roomRows(room int) []int {
 
 // ring: the Room's actions by slot, -1 in an empty one.
 func (g *Game) ring(room int) [ringSlots]int {
-	r := [ringSlots]int{-1, -1, -1, -1, -1}
+	var r [ringSlots]int
+	for s := range r {
+		r[s] = -1
+	}
 	for _, i := range g.roomRows(room) {
 		r[ringSlot[shop[i].ID]] = i
 	}
