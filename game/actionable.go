@@ -69,6 +69,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	}
 	if i := g.atMat(); i >= 0 {
 		r := g.hotel.Rooms[i]
+		if g.ghost && g.ghostDoor(i) { // 08 W5: a quest ghost's Request, the wreath, the handprint
+			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
+		}
 		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
 			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
 		}
@@ -111,7 +114,11 @@ func (g *Game) space() {
 			g.fetch(g.atSupply())
 		}
 	case actDeliver:
-		g.deliver(g.atMat(), g.hands)
+		if g.ghost {
+			g.ghostDeliver(g.atMat())
+		} else {
+			g.deliver(g.atMat(), g.hands)
+		}
 	case actCard:
 		g.startCard(g.atMat())
 	case actClean:

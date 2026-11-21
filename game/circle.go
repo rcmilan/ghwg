@@ -192,3 +192,9 @@ var credits = []string{
 }
 
 const creditsEpilogue = "Our revels now are ended. The night shift's over. Let your applause set the spirit free. Thank you for staying."
+
+// 08 W5-VERBS: lines the objectives need that circle.md leaves to the code.
+var (
+	o1LongAsk     = "Tell them the witch has arrived, with her book, her staff, her opinions and one small towel. All of it, in that order, with the cape."
+	macguffinName = "Mag'ugh-Ghaal Uf-Fhinn the Eternal, Eldritch, Unclaimed and Unreturned, Third of Its Name, Keeper of the Thing Nobody Ordered, Guest of Rooms Not Yet Built, Who Is Owed A Mint"
+)

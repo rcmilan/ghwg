@@ -155,7 +155,7 @@ func (g *Game) drawRequests(s *ebiten.Image, ox, oy int, kz float64) {
 		switch icon := g.askIcon(p); {
 		case p.state == complaining: // the Room is dirty (dirt.go)
 			g.drawPill(s, p, splat, 2*balloonScale, ox, oy, kz)
-		case p.asking() && icon != nil: // its item (show, don't tell)
+		case p.asking() && icon != nil && (p.Realm == Human || g.ghost): // its item (show, don't tell); a quest ghost's (08 W5) only in ghost
 			g.drawPill(s, p, icon, balloonScale, ox, oy, kz)
 		}
 	}

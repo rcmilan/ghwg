@@ -26,6 +26,7 @@ const (
 	outFled                        // ran, or walked out of a dirty Room
 	outPassed                      // a ghost left on its own
 	outBanished                    // Father M sent a ghost over
+	outQuest                       // 08 W5: a quest entry seen in ghost only (verbs_card.go)
 )
 
 const (
@@ -241,7 +242,7 @@ func (g *Game) bookRect() image.Rectangle {
 	return image.Rect(b.Min.X, b.Min.Y+2*world.TileSize, b.Max.X, b.Max.Y-world.TileSize)
 }
 
-func (g *Game) openBook() { g.state, g.bookTop = StateBook, 0 }
+func (g *Game) openBook() { g.state, g.bookTop = StateBook, 0; g.bookRead() }
 
 // shown: the entries the open page lists, newest first: a human's view hides the ghosts'.
 func (g *Game) shown() []bookEntry {
@@ -251,7 +252,7 @@ func (g *Game) shown() []bookEntry {
 			es = append(es, e)
 		}
 	}
-	return es
+	return g.questEntries(es) // 08 W5
 }
 
 func (g *Game) updateBook() {
@@ -268,6 +269,7 @@ func (g *Game) updateBook() {
 			i--
 		}
 		g.bookTop = starts[min(max(i, 0), len(starts)-1)]
+		g.bookRead()
 	}
 }
 
@@ -309,7 +311,7 @@ func bookStarts(es []bookEntry) []int {
 	return starts
 }
 
-var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED"}
+var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED", "ON HOLD"}
 
 // The open book's geometry, px: the cover, the pages inset by bookM, the spine gutter, the ruled lines' pitch.
 const (
