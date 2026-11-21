@@ -62,6 +62,7 @@ func main() {
 	weather := flag.String("weather", "", "dev: this weather every day: rain, fog, wind, or storm (the thunderstorm)")
 	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
 	items := flag.String("items", "", "dev: own these of Morwenna's items from the start (all, or ball,broom,gerald,cat,ward,storm); Gerald and the Ward in Room 101, the Cat napping beside you (with -shot -at, -ghost; -view 0,1,0 shows the ring)")
+	quest := flag.Int("quest", 0, "dev: start a Run at questline beat n (1..7; the level raised to play it) with the earlier beats done and its guests in; -ghost shows the ghost checklist")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -98,7 +99,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -149,7 +150,8 @@ func main() {
 			g.DevNotices()
 		}
 		g.DevGrow(*grow)
-		if *pantry { // after the growth it may follow
+		g.DevQuest(*quest) // 08 W5
+		if *pantry {       // after the growth it may follow
 			g.DevPantry()
 		}
 		if *corridors >= 0 { // after the growth that makes them

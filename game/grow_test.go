@@ -162,6 +162,7 @@ func TestGrowBuy(t *testing.T) {
 		if c, r := g.hotel.Grid(); [2]int{c, r} != want[k] || g.clock > clock+1 || g.state != StatePlay {
 			t.Fatalf("%s: the hotel is %dx%d, the Clock %d frames on, state %d; want %v, the world having waited", id, c, r, g.clock-clock, g.state, want[k])
 		}
+		finish(g) // 08 W5: the beat the Growth started is played out, or the next Growth waits (questGate)
 	}
 	g.wallet[Ecto] = 1e6
 	if l := g.listed(tabHotel); slices.ContainsFunc(l, func(k int) bool { return shop[tabItems(tabHotel)[k]].Grow != 0 }) { // 08 F0-T: not listed
