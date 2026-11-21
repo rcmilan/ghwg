@@ -466,10 +466,10 @@ _Avoid_: campaign; "story mode" means only the dev mode below
 A dev mode (`-story`, web `?story`) to test the Questline fast: each Growth fires free as its Beat ends, all 7 Beats are open at any Level, the Mirror is unlocked and Quest guests check in at once.
 
 **Beat**:
-One chapter of the Questline, started by a Growth: its Quest guests check in, its Speaker says its opening line, and the HUD shows its checklist of Objectives. Done the first time ever, it pays its purse (Ectoplasm) and gives its Item; later Runs replay it with shorter lines.
+One chapter of the Questline, started by a Growth: its Quest guests check in, its Speaker says its opening line, and the HUD shows its title and checklist of Objectives (top left in real, top right in ghost) for about 5 s whenever they change, and always in the Hotel view. Done the first time ever, it pays its purse (Ectoplasm) and gives its Item; later Runs replay it with shorter lines.
 
 **Objective**:
-One row of a Beat's checklist (O1..O13), shown in both Dimensions as its next step behind the icon of the Dimension that step is done in: a word told, a thing given, a Room chosen, a Request served, a spirit lit, a delivery made. Ticked the moment it is done.
+One row of a Beat's checklist (O1..O13), shown in both Dimensions as its next step behind the icon of the Dimension that step is done in: a word told, a thing given, a Room chosen, a Request served, a spirit lit, a delivery made. Ticked the moment it is done. Shown briefly when it changes, then hidden; always shown in the Hotel view.
 _Avoid_: task, mission
 
 **Gate**:

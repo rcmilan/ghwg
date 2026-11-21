@@ -184,6 +184,7 @@ type Game struct {
 	scene    sceneState  // questscene.go
 	items    itemRun     // items.go
 	street   streetState // street.go
+	questHud questShow   // quest_hud.go: when the checklist last changed
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.

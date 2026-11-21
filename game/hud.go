@@ -164,6 +164,7 @@ func (g *Game) updateHUD() {
 	g.hud[Money].slide(want(Money))
 	g.hud[Ecto].slide(want(Ecto))
 	g.guestNote.slide(note)
+	g.questHud.update(g)
 }
 
 // drawHUD draws each counter that is in: "$N" on the left, a skull and N on the right.

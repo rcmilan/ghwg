@@ -131,3 +131,36 @@ func TestGuideRowsGrow(t *testing.T) {
 		t.Errorf("between beats: %+v", rows)
 	}
 }
+
+// The checklist shows for questHold after a change (beat, objective, Dimension), then is gone; the hotel view always shows it.
+func TestQuestHudShowRule(t *testing.T) {
+	g, _ := verbRun(t, 2, 1)
+	g.state = StatePlay
+	setQuest(g, 1)
+	age := func(n int) float32 {
+		for ; n > 0; n-- {
+			g.updateHUD()
+		}
+		return g.questHud.alpha(g)
+	}
+	if a := age(1); a != 1 {
+		t.Fatalf("after a beat starts: alpha %v", a)
+	}
+	if a := age(questHold + questFade); a != 0 {
+		t.Fatalf("after the window: alpha %v", a)
+	}
+	g.state = StateView
+	if a := g.questHud.alpha(g); a != 1 {
+		t.Fatalf("in the hotel view: alpha %v", a)
+	}
+	g.state = StatePlay
+	g.quest.Done[0] = true
+	if a := age(1); a != 1 {
+		t.Fatalf("after an objective is done: alpha %v", a)
+	}
+	age(questHold + questFade)
+	g.ghost = !g.ghost
+	if a := age(1); a != 1 {
+		t.Fatalf("after the Dimension shifts: alpha %v", a)
+	}
+}

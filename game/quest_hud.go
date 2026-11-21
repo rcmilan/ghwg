@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"image/color"
 
 	"ghosthotel/assets"
@@ -14,10 +15,12 @@ import (
 // feed (under the Ecto counter). Words on no background, outlined.
 const (
 	questRowScale = 2
-	questRowGap   = 26  // screen px from one row's top to the next
-	questTitleGap = 34  // from the title's top to the first row's
-	questDimmed   = 0.5 // a done row's alpha
-	questIcon     = 7   // an icon's width in its px (drawn at questRowScale)
+	questRowGap   = 26      // screen px from one row's top to the next
+	questTitleGap = 60      // from the title's top to the first row's: a line of air between them
+	questHold     = 5 * tps // frames the checklist stays after it changes (real time: updateHUD counts real frames)
+	questFade     = tps / 2 // and its fade out
+	questDimmed   = 0.5     // a done row's alpha
+	questIcon     = 7       // an icon's width in its px (drawn at questRowScale)
 )
 
 // The Dimension icons and the tick, in white, drawn in the Dimension's ink.
@@ -40,11 +43,57 @@ func (g *Game) hudIcon(name string, rows []string) *ebiten.Image {
 	return img
 }
 
-// questHUD draws the checklist.
+// questShow times the checklist: shown for questHold after it changes (a beat, an objective, a step's text, the
+// Dimension), always in the hotel view, else gone.
+type questShow struct {
+	sig string
+	age int
+	img *ebiten.Image // the list drawn whole, to fade as one
+}
+
+func (q *questShow) update(g *Game) {
+	title, rows := g.guideRows()
+	sig := fmt.Sprint(g.realm(), title)
+	for _, r := range rows {
+		sig += fmt.Sprint("|", r.Text, r.Done)
+	}
+	if sig != q.sig {
+		q.sig, q.age = sig, 0
+	} else {
+		q.age++
+	}
+}
+
+// alpha: 1 held, fading to 0 after.
+func (q *questShow) alpha(g *Game) float32 {
+	if g.state == StateView {
+		return 1
+	}
+	return float32(min(1, max(0, float64(questHold+questFade-q.age)/questFade)))
+}
+
+// questHUD draws the checklist while it is to show.
 func (g *Game) questHUD(dst *ebiten.Image) {
-	if g.state != StatePlay || g.intro != nil || g.quest.Beat > beatCount {
+	a := g.questHud.alpha(g)
+	if g.state != StatePlay && g.state != StateView || g.intro != nil || g.quest.Beat > beatCount || a == 0 {
 		return
 	}
+	if a == 1 {
+		g.drawQuest(dst)
+		return
+	}
+	q := &g.questHud
+	if q.img == nil || q.img.Bounds() != dst.Bounds() {
+		q.img = ebiten.NewImage(dst.Bounds().Dx(), dst.Bounds().Dy())
+	}
+	q.img.Clear()
+	g.drawQuest(q.img)
+	op := &ebiten.DrawImageOptions{}
+	op.ColorScale.ScaleAlpha(a)
+	dst.DrawImage(q.img, op)
+}
+
+func (g *Game) drawQuest(dst *ebiten.Image) {
 	title, rows := g.guideRows()
 	side := g.realm()
 	sw := dst.Bounds().Dx()
