@@ -19,8 +19,10 @@ type questRun struct {
 	At    int            // the clock Beat started
 	Said  bool           // its opening line was said (it waits for its speaker to be in the hotel)
 
-	paid   Num  // purses paid so far (the sim's Ecto check reads it)
-	naming bool // questCheckIn is booking: no other named guest rolls first
+	paid   Num    // purses paid so far (the sim's Ecto check reads it)
+	naming bool   // questCheckIn is booking: no other named guest rolls first
+	owe    string // a beat-end line its Speaker was away for: it comes back to say it (not saved)
+	oweBy  string
 }
 
 // questRecord: the questline across every Run, saved with the Level and the Bonus (saveData.Quest).
@@ -94,6 +96,9 @@ func (g *Game) questGrow() {
 // questSay: the beat's opening line, said by its Speaker over its guest as soon as that guest is in the hotel.
 func (g *Game) questSay() {
 	q := &g.quest
+	if q.owe != "" && g.sayLine(q.oweBy, q.owe) {
+		q.owe = ""
+	}
 	if q.Beat < 1 || q.Said {
 		return
 	}
@@ -135,8 +140,8 @@ func (g *Game) beatDone() {
 			g.notice("GOT " + strings.ToUpper(itemNames[bt.Item][0]))
 		}
 	}
-	if bt.AtEnd {
-		g.sayLine(bt.Speaker, byTimes(bt.Lines, n))
+	if line := byTimes(bt.Lines, n); bt.AtEnd && !g.sayLine(bt.Speaker, line) {
+		g.quest.owe, g.quest.oweBy = line, bt.Speaker
 	}
 }
 
@@ -152,34 +157,30 @@ func (g *Game) questStage() int {
 	return q.Beat
 }
 
-// questUntil: the objective each quest guest is needed through (a clamp to the Run's last beat: beatsAt).
-var questUntil = map[string]string{"morwenna": "O13", "celestine": "O13", "magda": "O7", "ned": "O13", "teo": "O6", "osvaldo": "O7"}
+// objCast: the quest guests each objective needs in the hotel (circle.md); O13's gather for the finale.
+var objCast = map[string][]string{
+	"O1": {"morwenna"}, "O2": {"morwenna", "celestine"}, "O3": {"magda", "celestine"}, "O5": {"ned"}, "O6": {"teo"},
+	"O7": {"magda", "osvaldo"}, "O8": {"celestine"}, "O9": {"ned"}, "O10": {"morwenna", "celestine"},
+	"O11": {"morwenna", "celestine", "ned"}, "O13": {"morwenna", "celestine", "ned"},
+}
 
-// questNeeds: the guest key is still needed by an open objective of this Run, once its beat has come.
+// questNeeds: the guest key is needed now: by an open objective of the beat under way (circle.md: they stay until
+// their objective is done, then leave), as its Speaker until its opening line is said, or for a line it owes.
 func (g *Game) questNeeds(key string) bool {
-	until, ok := questUntil[key]
-	if !ok {
+	q := g.quest
+	if q.Beat < 1 {
 		return false
 	}
-	q, last := g.quest, beatsAt(g.level)
-	intro, b, at := 0, 0, 0
-	for i, bt := range beats {
-		if slices.Contains(bt.Guests, key) && intro == 0 {
-			intro = i + 1
-		}
-		if j := slices.IndexFunc(bt.Objs, func(o objective) bool { return o.ID == until }); j >= 0 {
-			b, at = i+1, j
-		}
-	}
-	switch {
-	case q.Beat < max(intro, 1) || q.Beat > min(b, last):
-		return false
-	case q.Beat < min(b, last):
+	bt := beats[q.Beat-1]
+	if q.owe != "" && key == q.oweBy || key == bt.Speaker && !q.Said {
 		return true
-	case b > last: // the Run ends before its objective: it is needed while the last beat has one open
-		return slices.Contains(q.Done, false)
 	}
-	return !q.Done[at]
+	for i, o := range bt.Objs {
+		if i < len(q.Done) && !q.Done[i] && slices.Contains(objCast[o.ID], key) {
+			return true
+		}
+	}
+	return false
 }
 
 // questHolder: the Party holding the quest guest key, and the guest's index in it; nil if it is not in the hotel.

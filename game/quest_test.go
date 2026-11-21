@@ -165,20 +165,55 @@ func TestQuestPinned(t *testing.T) {
 	}
 }
 
-// Each guest is needed through its own objective: Magda and Osvaldo through O7, Ned to the finale, Teo only to O6.
-func TestQuestNeedsThrough(t *testing.T) {
+// A guest is needed only while an open objective of the beat under way needs it (circle.md: they stay until their
+// objective is done, then leave), and its Speaker until its opening line is said.
+func TestQuestNeedsWhileOpen(t *testing.T) {
 	g := questRun0(t, 2)
-	for range 4 {
+	g.questEvent(evGrow, -1, "") // beat 1: O1, Morwenna's
+	g.quest.Said = true
+	if !g.questNeeds("morwenna") {
+		t.Fatal("beat 1: Morwenna is not needed")
+	}
+	g.questEvent(evDone, -1, "O1")
+	if g.questNeeds("morwenna") {
+		t.Fatal("Morwenna still needed after O1")
+	}
+	for range 3 {
 		g.questEvent(evGrow, -1, "")
 		finish(g)
 	}
-	g.questEvent(evGrow, -1, "") // beat 5
-	if !g.questNeeds("magda") || !g.questNeeds("osvaldo") || !g.questNeeds("morwenna") || g.questNeeds("teo") {
-		t.Fatal("beat 5: Magda, Osvaldo and Morwenna are needed, Teo is not")
+	g.questEvent(evGrow, -1, "") // beat 5: O7 Magda and Osvaldo, O8 Madame, O9 Ned
+	g.quest.owe = ""             // beat 3's end line, owed by Morwenna (TestQuestOwedLine)
+	if !g.questNeeds("magda") || !g.questNeeds("osvaldo") || !g.questNeeds("celestine") || !g.questNeeds("ned") ||
+		g.questNeeds("morwenna") || g.questNeeds("teo") {
+		t.Fatal("beat 5: Magda, Osvaldo, Madame and Ned are needed, Morwenna and Teo are not")
 	}
 	g.questEvent(evDone, -1, "O7")
 	if g.questNeeds("magda") || g.questNeeds("osvaldo") || !g.questNeeds("ned") {
-		t.Fatal("after O7 Magda and Osvaldo go; Ned stays for the finale")
+		t.Fatal("after O7 Magda and Osvaldo go; Ned stays for O9")
+	}
+}
+
+// A beat-end line whose Speaker is away is owed: the Speaker is needed until it has said it.
+func TestQuestOwedLine(t *testing.T) {
+	g := questRun0(t, 2)
+	for range 2 {
+		g.questEvent(evGrow, -1, "")
+		finish(g)
+	}
+	g.questEvent(evGrow, -1, "") // beat 3: Morwenna speaks at its end, and no objective of it needs her
+	if g.questNeeds("morwenna") {
+		t.Fatal("beat 3: Morwenna needed before its end")
+	}
+	finish(g) // she is not in the hotel: the line is owed
+	if !g.questNeeds("morwenna") {
+		t.Fatal("Morwenna not needed for her owed line")
+	}
+	for range 4 { // she checks in and says it
+		g.questArrivals()
+	}
+	if p, _ := g.questHolder("morwenna"); p == nil || len(p.talk) == 0 || g.questNeeds("morwenna") {
+		t.Fatal("the owed line was not said on her return")
 	}
 }
 
@@ -287,9 +322,9 @@ func TestQuestSaveRoundTrip(t *testing.T) {
 		t.Fatal("the beat under way is not playable")
 	}
 	g2.unlock(Mirror)
-	g2.questArrivals() // Morwenna is back
-	if p, _ := g2.questHolder("morwenna"); p == nil {
-		t.Fatal("Morwenna did not come back")
+	g2.questArrivals() // Madame is back for O3 (Morwenna has no objective open)
+	if p, _ := g2.questHolder("celestine"); p == nil {
+		t.Fatal("Madame did not come back")
 	}
 	g2.questEvent(evTell, -1, "O3")
 	if g2.timesDone(3) != 1 {
