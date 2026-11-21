@@ -39,7 +39,9 @@ const (
 	evScene                  // a cutscene ended: room -1, key its id
 )
 
-// questEvent: a verb did something quest-worthy (room -1 when none). W5-QUEST ticks objectives from it.
+// questEvent: a verb did something quest-worthy (room -1 when none). The contract (W5-SEAM): VERBS plays each
+// objective and, the moment one is finished, reports it with key = its ID ("O1".."O13"); QUEST ticks an open
+// objective so reported, whatever ev. Other keys are information (evGrow, evDawn, evScene's scene id, ...).
 func (g *Game) questEvent(ev questEv, room int, key string) {}
 
 // questStart: a Run starts (startRun): the questline back to before beat 1, rolled again.
@@ -62,6 +64,20 @@ func (g *Game) questHUD(dst *ebiten.Image) {}
 
 // itemOn: the item is owned (for good, across prestiges).
 func (g *Game) itemOn(id itemID) bool { return id >= 0 && id < itemCount && g.questRec.Items[id] }
+
+// questOpen: objective id ("O1".."O13") is in the beat under way and not done yet. VERBS plays an objective only
+// while it is open, and reports it done with questEvent(ev, room, id).
+func (g *Game) questOpen(id string) bool {
+	if g.quest.Beat < 1 {
+		return false
+	}
+	for i, o := range beats[g.quest.Beat-1].Objs {
+		if o.ID == id {
+			return i < len(g.quest.Done) && !g.quest.Done[i]
+		}
+	}
+	return false
+}
 
 // timesDone: how many times beat b (1..beatCount) has been done, ever.
 func (g *Game) timesDone(b int) int { return g.questRec.Times[b-1] }

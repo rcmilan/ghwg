@@ -12,6 +12,9 @@ func (g *Game) stormJarOn() bool { return false }
 // warded: the Ward is on Room room: its human Parties never flee.
 func (g *Game) warded(room int) bool { return false }
 
+// conciergeBoost: the Concierge's walking speed multiplier (the Broom: faster in ghost).
+func (g *Game) conciergeBoost() float64 { return 1 }
+
 // itemActors: the Cat and Gerald for the y-sorted pass.
 func (g *Game) itemActors() []actor { return nil }
 

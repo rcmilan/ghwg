@@ -404,7 +404,7 @@ func (g *Game) advance(dx, dy, dt float64) {
 			g.saveDawn()
 		}
 	}
-	g.player.Move(dx, dy, conciergeSpeed*dt, g.conciergeBlocked)
+	g.player.Move(dx, dy, conciergeSpeed*g.conciergeBoost()*dt, g.conciergeBlocked) // 08 W5: the Broom
 	g.hotel.UpdateDoors(g.doorActors(), g.boarded, dt)
 	g.updateChanges()
 	g.updateParties()

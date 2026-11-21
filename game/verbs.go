@@ -18,6 +18,9 @@ func (g *Game) questRowOn(id Unlock) (on, quest bool) {
 	return false, false
 }
 
+// verbPinned: the Party is held by an objective VERBS plays (the porter, the oldest guest, ...): questPinned ORs it.
+func (g *Game) verbPinned(p *Party) bool { return false }
+
 // verbActors: the verbs' actors for the y-sorted pass (the spirit).
 func (g *Game) verbActors() []actor { return nil }
 
