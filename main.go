@@ -68,6 +68,7 @@ func main() {
 	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
 	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
+	witch := flag.Bool("witch", false, "dev: you on the Street at the Entrance beside four Morwennas, one per facing, each in a look of her own (with -shot -at)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -104,7 +105,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != "" || *witch
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -181,6 +182,9 @@ func main() {
 	}
 	if *street {
 		g.DevStreet()
+	}
+	if *witch {
+		g.DevWitch()
 	}
 	g.DevBook(*book)
 	if *ready >= 0 {

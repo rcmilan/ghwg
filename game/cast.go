@@ -113,7 +113,7 @@ var namedHumans = []namedHuman{
 			"Recommending the policy be renewed. Do not ask me why."},
 		Dread: "Risk level: unquantifiable."},
 	{Key: "morwenna", Job: "herbalist", Quirk: NightOwl,
-		Members: []member{{"Morwenna Vale", 0, "ask the moon", "Amelia", "black dress, green shawl", []string{"Lovely energy. Very... crowded.", "The walls remember. Do you?", "Don't move the salt by the door."}}},
+		Members: []member{{"Morwenna Vale", 0, "ask the moon", witchName, "black dress, green shawl", []string{"Lovely energy. Very... crowded.", "The walls remember. Do you?", "Don't move the salt by the door."}}},
 		Note:    "The Witch's setup (W3): for now an ordinary named guest whose comments hint at what she is. When W3 is built she becomes the Witch.",
 		Visit: [3]string{"Left some sage in the drawer. You'll thank me.",
 			"The darker rooms have such character. Book me one next time.",

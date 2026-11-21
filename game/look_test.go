@@ -9,7 +9,7 @@ import (
 // T120, D166: every opaque color of every character sheet has a region; a recolor moves only the pixels
 // of the regions it sets, and keeps their shades in order.
 func TestRecolor(t *testing.T) {
-	sheets, err := loadCharacters(append([]string{"Bob"}, guestCast[:]...)...)
+	sheets, err := loadCharacters(append([]string{"Bob", witchName}, guestCast[:]...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
