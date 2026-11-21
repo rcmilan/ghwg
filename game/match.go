@@ -55,7 +55,7 @@ func setNerve(p *Party, n int) {
 func (g *Game) terrify(room int, ghost *entities.Guest) {
 	_, in := g.inside(room)
 	for _, h := range in {
-		if !fits(h, ghost) {
+		if !fits(h, ghost) && !fearless(h) {
 			h.Fear = min(h.FleeAt, h.Fear+h.FleeAt/2)
 		}
 	}

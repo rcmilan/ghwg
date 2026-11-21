@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -42,9 +43,10 @@ type streetState struct {
 	rng        *rand.Rand // its own stream: the sim's never move for it
 	walkers    []*passer
 	buf        []actor
-	n          int // frames of street time
-	force      int // dev: this weather every day (0 none)
-	stormUntil int // the clock the Storm jar's storm ends at
+	lineup     image.Point // dev (-witch): where the quest characters' line-up starts, world px; zero: none (questlook.go)
+	n          int         // frames of street time
+	force      int         // dev: this weather every day (0 none)
+	stormUntil int         // the clock the Storm jar's storm ends at
 	flash      float64
 	nextFlash  int
 	over       func(s *ebiten.Image, x, y int) // the overlay's draw, made once
@@ -215,6 +217,7 @@ func (g *Game) streetActors() []actor {
 		}
 		s.buf = append(s.buf, a)
 	}
+	s.buf = g.lineup(s.buf)
 	if s.over == nil {
 		s.over = g.drawStreetOver
 	}

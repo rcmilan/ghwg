@@ -331,6 +331,9 @@ func (g *Game) sighting(p *Party, in []*entities.Guest, sh *shade) {
 	y := g.walls[sh.run].y
 	kind := kindOf(g.areaPhantasm(sh.run))
 	for _, guest := range in {
+		if fearless(guest) {
+			continue
+		}
 		lines := hallSights[kind]
 		if g.indoors(guest) {
 			lines = sightLines[kind]
@@ -365,7 +368,7 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 // frighten: n Fear to a Guest of p, but not past limit; the hotel and its Room gain the Ecto (D148).
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
-	if isMacguffin(p) { // 08 W5: immune to Fear
+	if isMacguffin(p) || fearless(guest) { // 08 W5: immune to Fear
 		return
 	}
 	guest.Fear += n

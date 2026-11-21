@@ -507,6 +507,7 @@ func (g *Game) placeNamed(room int, key string) *Party {
 		p.Guests, p.Routine, p.Nights = p.Guests[:1], homebody, 3
 		p.Guests[0].Who = entities.Identity{Name: m.Name, Age: m.Age, AgeNote: m.AgeNote, Job: h.Job, Lines: m.Lines, Quirk: h.Quirk, Key: h.Key}
 		p.Guests[0].Character = g.dressed(m.Sprite)
+		wear(p.Guests[0])
 	} else {
 		return nil
 	}

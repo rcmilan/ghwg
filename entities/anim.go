@@ -91,6 +91,12 @@ func facing(cur Facing, dx, dy float64) Facing {
 	}
 }
 
+// Posed: an Anim held on facing f, on the run sheet if moving, `frames` into its strip: an actor shown in
+// place (a dev line-up).
+func Posed(f Facing, moving bool, frames float64) Anim {
+	return Anim{Facing: f, Moving: moving, clock: frames}
+}
+
 // Frame is the index (0..23) into the 24-frame strip of the current sheet.
 func (a Anim) Frame() int {
 	return int(a.Facing)*FramesPerFacing + int(a.clock)*animFPS/tps%FramesPerFacing

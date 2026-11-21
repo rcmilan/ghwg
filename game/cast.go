@@ -49,7 +49,7 @@ type member struct {
 	Age     int
 	AgeNote string // Age in words, for Age 0
 	Sprite  string // the base character: Adam, Amelia or Alex
-	Look    string // its recolour
+	Look    string // its recolour; a quest character's is drawn into sheets of its own (questlook.go)
 	Lines   []string
 }
 
@@ -67,7 +67,7 @@ type namedHuman struct {
 
 var namedHumans = []namedHuman{
 	{Key: "magda", Job: "retired lighthouse keeper", Quirk: Medium,
-		Members: []member{{nameMagdaFull, 67, "", "Amelia", "grey hair, navy coat", []string{"My " + nameOsvaldo + " always loved a hotel.", "He whistled off-key. I'd know it anywhere.", "Forty years of lighthouse. I sleep with a lamp on."}}},
+		Members: []member{{nameMagdaFull, 67, "", "Amelia", "grey hair, navy coat, a lamp", []string{"My " + nameOsvaldo + " always loved a hotel.", "He whistled off-key. I'd know it anywhere.", "Forty years of lighthouse. I sleep with a lamp on."}}},
 		Note:    "Comes back looking for her late husband, who haunts the hotel (see Osvaldo).",
 		Visit: [3]string{"Lovely place. The walls hum. " + nameOsvaldo + " would have liked it.",
 			"I heard whistling at 3 a.m. He always whistled off-key.",
@@ -75,7 +75,7 @@ var namedHumans = []namedHuman{
 		Dread: "Something is angry here, and it isn't my husband.",
 		Fled:  "Not this time, love. Not this room."},
 	{Key: "teo", Job: "paranormal streamer", Quirk: Skeptic,
-		Members: []member{{nameTeoFull, 29, "", "Alex", "green hoodie", []string{"Smash that subscribe if you see anything.", "Is this the haunted wing? Asking for my chat.", "Battery at 4%. Ghosts, now would be great."}}},
+		Members: []member{{nameTeoFull, 29, "", "Alex", "green hoodie, phone held up", []string{"Smash that subscribe if you see anything.", "Is this the haunted wing? Asking for my chat.", "Battery at 4%. Ghosts, now would be great."}}},
 		Note:    "He hunts ghosts on camera and never sees one.",
 		Visit: [3]string{"Four hours of footage. Zero ghosts. Bed was comfy though.",
 			"My thermal camera melted. Still no ghosts. 3 stars.",
@@ -113,7 +113,7 @@ var namedHumans = []namedHuman{
 			"Recommending the policy be renewed. Do not ask me why."},
 		Dread: "Risk level: unquantifiable."},
 	{Key: "magenta", Job: "herbalist", Quirk: NightOwl,
-		Members: []member{{nameMagentaFull, 0, "ask the moon", witchName, "black dress, green shawl", []string{"Lovely energy. Very... crowded.", "The walls remember. Do you?", "Don't move the salt by the door."}}},
+		Members: []member{{nameMagentaFull, 0, "ask the moon", "Amelia", "white skin, red hair, green shawl, purple robe, pointed hat", []string{"Lovely energy. Very... crowded.", "The walls remember. Do you?", "Don't move the salt by the door."}}},
 		Note:    "The Witch's setup (W3): for now an ordinary named guest whose comments hint at what she is. When W3 is built she becomes the Witch.",
 		Visit: [3]string{"Left some sage in the drawer. You'll thank me.",
 			"The darker rooms have such character. Book me one next time.",
@@ -144,13 +144,13 @@ var namedGhosts = []namedGhost{
 		Visit: [3]string{"Nobody heard me whistle. Again.",
 			"A lady said my name tonight. I think it was her.",
 			"She danced with me. I can go now. Thank you, innkeeper."}},
-	{Key: "tim", Name: nameTimFull, Died: 1959, Kind: "Specter", Job: "the old bellhop", Sprite: "Alex", Look: "violet, bellhop hat, a suitcase", Quirk: Homebody,
+	{Key: "tim", Name: nameTimFull, Died: 1959, Kind: "Specter", Job: "the old bellhop", Sprite: "Alex", Look: "white hair, violet bellhop suit, pillbox cap", Quirk: Homebody,
 		Lines: []string{"Bags, sir? Bags? Anybody?", "Room 4? Up the stairs, I'll take it.", "Sixty years and not one tip."},
 		Fact:  "He never finished his last delivery. The suitcase is still locked.",
 		Visit: [3]string{"Carried a bag up four floors. Nobody tipped.",
 			"The new man at the counter works too hard. I like him.",
 			"Found the key to the suitcase. Not opening it yet."}},
-	{Key: "celestine", Name: nameCelestineFull, Died: 1923, Kind: "Poltergeist", Job: "the hotel's first owner", Sprite: "Amelia", Look: "rose, opera gown", Quirk: ShowOff,
+	{Key: "celestine", Name: nameCelestineFull, Died: 1923, Kind: "Poltergeist", Job: "the hotel's first owner", Sprite: "Amelia", Look: "rose opera gown, grey updo, tiara", Quirk: ShowOff,
 		Lines: []string{"This is MY hotel, darling.", "Mind the chandelier, darling.", "Who chose these curtains? Out with them."},
 		Fact:  "She sang one note so high on opening night that the chandelier fell. She was under it.",
 		Visit: [3]string{"The wallpaper is a crime. I rattled it in protest.",
