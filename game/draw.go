@@ -209,6 +209,7 @@ type actor struct {
 	plate int                             // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
 	key   any                             // what the prestige vortex lifts it off by (vortex.go); nil stays
 	z     float64                         // its sort y, set once before the sort
+	rim   bool                            // a guide outline: sorts just before what it outlines, even in a bed
 	draw  func(s *ebiten.Image, x, y int) // 08 W5: drawn by this instead (x,y its foot box center in screen px); the y-sorted pass only
 }
 
@@ -299,6 +300,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		actors[i].z = a.y
 		if b, ok := g.bedAt(a.x, a.y); ok {
 			actors[i].z = float64(b.Max.Y)
+		}
+		if a.rim {
+			actors[i].z -= 0.01
 		}
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.z, b.z) })

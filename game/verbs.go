@@ -230,7 +230,7 @@ func (g *Game) ally() string {
 	return ""
 }
 
-// verbActors: the verbs' actors for the y-sorted pass: the spirit, the parcel and the handprint, what the Concierge carries.
+// verbActors: the verbs' actors for the y-sorted pass: the spirit, the parcel and the handprint.
 func (g *Game) verbActors() (as []actor) {
 	if s := g.spiritActor(); s != nil {
 		as = append(as, *s)
@@ -242,9 +242,6 @@ func (g *Game) verbActors() (as []actor) {
 	if r := g.handprintRoom(); r >= 0 && g.ghost {
 		c := g.doorDrop(r)
 		as = append(as, actor{x: float64(c.X), y: float64(c.Y), draw: func(s *ebiten.Image, x, y int) { g.drawHandprint(s, x, y-3*world.TileSize/2*zoom) }})
-	}
-	if g.verbs.held != "" && g.state != StateTalk { // the Card has its own rows
-		as = append(as, actor{x: g.player.X, y: g.player.Y + 1, draw: func(s *ebiten.Image, x, y int) { g.drawHeldQuest(s, x, y) }})
 	}
 	return as
 }

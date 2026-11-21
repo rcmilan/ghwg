@@ -3,7 +3,11 @@ package game
 import (
 	"encoding/json"
 	"image"
+	"slices"
 	"testing"
+
+	"ghosthotel/entities"
+	"ghosthotel/world"
 )
 
 // itemsRun: a 2x1 Run with Rooms open, the Mirror bought, the given items owned.
@@ -246,5 +250,15 @@ func TestCatNeverCrossesWalls(t *testing.T) {
 				t.Fatalf("frame %d: the Cat is on a wall cell %v at %.0f,%.0f", i, cell, c.X, c.Y)
 			}
 		}
+	}
+}
+
+// The doors open for the Cat as for any actor (it once walked through shut ones).
+func TestCatIsADoorActor(t *testing.T) {
+	g := itemsRun(t, itemCat)
+	g.updateCat()
+	c := g.items.cat
+	if !slices.ContainsFunc(g.doorActors(), func(a world.Actor) bool { return a.Box == entities.FootBox(c.X, c.Y) }) {
+		t.Error("the Cat is not among the door's actors")
 	}
 }
