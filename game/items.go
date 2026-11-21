@@ -154,10 +154,16 @@ func (g *Game) updateItems() {
 	g.updateCat()
 }
 
-// catSend sets the Cat walking to `to`, through the door of room if it goes into or out of one.
-func (g *Game) catSend(c *catState, to image.Point, room int) {
+// catSend sets the Cat walking to `to`, through the door of room if it goes into or out of one. A way the corridors
+// don't give (never a straight line through walls): it stays put, false.
+func (g *Game) catSend(c *catState, to image.Point, room int) bool {
+	path := g.hotel.Path(image.Pt(int(c.X), int(c.Y)), to, room)
+	if path == nil {
+		return false
+	}
 	c.RoomIndex = room
-	g.reroute(&c.Guest, to)
+	c.SetPath(path)
+	return true
 }
 
 // catRoam: to one of the housekeepers' roaming spots.
@@ -201,12 +207,13 @@ func (g *Game) updateCat() {
 			g.catRoam(c)
 		}
 	default:
-		if room := g.spiritRoom(); room >= 0 {
+		if room := g.spiritRoom(); room >= 0 && g.catFrom(c, room) {
 			cell := slices.IndexFunc(g.spots(room), func(s spot) bool { return s.spirit })
 			s := g.spots(room)[cell].cell
-			c.cleaning, c.room, c.until = true, room, 0
-			g.catSend(c, g.hotel.Map.Center(s.X, s.Y), room)
-			break
+			if c.cleaning = g.catSend(c, g.hotel.Map.Center(s.X, s.Y), room); c.cleaning {
+				c.room, c.until = room, 0
+				break
+			}
 		}
 		if !arrived || g.clock < c.until {
 			break
@@ -219,6 +226,12 @@ func (g *Game) updateCat() {
 		c.until = g.clock + catRest*minuteFrames
 		g.catRoam(c)
 	}
+}
+
+// catFrom: the Cat can set off for the Room: not inside another one (it leaves that first, by its own door).
+func (g *Game) catFrom(c *catState, room int) bool {
+	at := g.roomAt(c.X, c.Y)
+	return at < 0 || at == room
 }
 
 // spiritRoom: the first open Room with spiritual dirt, -1 if none.

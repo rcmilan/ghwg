@@ -292,11 +292,10 @@ func (g *Game) drawCard(s *ebiten.Image, w, h, bar int, at, top image.Point) {
 		y := top.Y - 8 - (len(v.quote)-i)*lh
 		text(r, at.X-len(r.text)*glyphW*scale/2, y)
 	}
-	y0 := mid - (len(v.who)-1)*lh/2
+	y0 := mid // the columns hang from here, growing down: a long one never climbs over the line above the head
 	for i, r := range v.who {
 		text(r, at.X-gap-len(r.text)*glyphW*scale, y0+i*lh)
 	}
-	y0 = mid - (len(v.read)-1)*lh/2
 	for i, r := range v.read {
 		text(r, at.X+gap, y0+i*lh)
 	}

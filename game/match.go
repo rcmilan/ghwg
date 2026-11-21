@@ -97,7 +97,7 @@ func (g *Game) fitRoom(n, size int) int {
 	}
 	best := -1
 	for i, r := range g.hotel.Rooms {
-		if !g.isOwned(i) || !g.vacant(i, Human) || g.closed(i) || g.changing(i) || len(r.Stays) < size {
+		if !g.isOwned(i) || !g.vacant(i, Human) || g.closed(i) || g.changing(i) || g.reserved(i) || len(r.Stays) < size {
 			continue
 		}
 		if best < 0 {

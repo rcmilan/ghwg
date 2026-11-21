@@ -97,7 +97,7 @@ func fright(p *Party) (f float64) {
 func (g *Game) targets(p *Party) []int {
 	var ts []int
 	for i, r := range g.hotel.Rooms {
-		if i == p.Room || !g.isOwned(i) || g.closed(i) || g.changing(i) || len(r.Stays) < len(p.Guests) || g.roomPhantasm(i) > partyNerve(p) {
+		if i == p.Room || !g.isOwned(i) || g.closed(i) || g.changing(i) || g.reserved(i) || len(r.Stays) < len(p.Guests) || g.roomPhantasm(i) > partyNerve(p) {
 			continue
 		}
 		if q := g.humanIn(i); q != nil && (!movable(q) || len(g.hotel.Rooms[p.Room].Stays) < len(q.Guests) || g.roomPhantasm(p.Room) > partyNerve(q)) {
@@ -258,6 +258,7 @@ func (g *Game) makeOffer() {
 	p, to := t.p, t.targets[t.to]
 	c := g.offerCost(p, to, t.pick)
 	if !g.afford(Cost{Money: c}) {
+		g.notice("NOT ENOUGH MONEY FOR THAT OFFER")
 		return
 	}
 	if g.rng.Float64() >= g.offerOdds(p, to, t.pick) {

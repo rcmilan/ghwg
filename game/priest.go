@@ -176,7 +176,7 @@ func (g *Game) spiritDirt(room int) (n int) {
 func (g *Game) worstRoom() int {
 	best, most := -1, 0
 	for i := range g.hotel.Rooms {
-		if d := g.spiritDirt(i); g.isOwned(i) && d > most && !g.priestOn(i) {
+		if d := g.spiritDirt(i); g.isOwned(i) && d > most && !g.priestOn(i) && !g.questRoom(i) {
 			best, most = i, d
 		}
 	}

@@ -2,6 +2,7 @@ package game
 
 import (
 	"encoding/json"
+	"image"
 	"testing"
 )
 
@@ -227,5 +228,23 @@ func TestPlacementSurvivesSaveAndGrowth(t *testing.T) {
 	}
 	if g2.items.Gerald != 3 || g2.items.Ward != 4 || !g2.warded(3) {
 		t.Errorf("after a floor: Gerald %d Ward %d, want 3 and 4", g2.items.Gerald, g2.items.Ward)
+	}
+}
+
+// The Cat walks by the corridors and doors only: never on a wall cell, over a few days, spiritual dirt in two Rooms.
+func TestCatNeverCrossesWalls(t *testing.T) {
+	g := itemsRun(t, itemCat)
+	for _, r := range []int{0, 1} {
+		g.addDirtLevel(r, 10)
+		g.ghostDirt(r, 10)
+	}
+	for i := range 3 * dayFrames {
+		g.clock++
+		g.step(0, 0)
+		if c := g.items.cat; c != nil {
+			if cell := g.hotel.Map.Cell(image.Pt(int(c.X), int(c.Y))); g.hotel.Map.Solid(cell.X, cell.Y) {
+				t.Fatalf("frame %d: the Cat is on a wall cell %v at %.0f,%.0f", i, cell, c.X, c.Y)
+			}
+		}
 	}
 }

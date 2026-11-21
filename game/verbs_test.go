@@ -813,3 +813,24 @@ func TestVerbsInertWithoutQuest(t *testing.T) {
 	_ = world.TileSize
 	_ = image.Point{}
 }
+
+// O10: Madame's Room is reserved for Magenta (no walk-in books it) and stays offered though Closed.
+func TestO10RoomReserved(t *testing.T) {
+	g, _ := verbRun(t, 3, 6)
+	m := named(t, g, 0, "magenta")
+	named(t, g, 1, "celestine")
+	g.addMood(1, -1000)
+	if !g.closed(1) || !g.reserved(1) {
+		t.Fatal("Room 1 should be closed and reserved")
+	}
+	if !slices.Contains(g.targets(m), 1) {
+		t.Error("closed Room dropped from the talk")
+	}
+	if g.freeRoom(1) == 1 || g.fitRoom(nerveMin, 1) == 1 {
+		t.Error("a walk-in could book the reserved Room")
+	}
+	g.relocate(m, 1)
+	if g.reserved(1) || g.questRoom(1) != true {
+		t.Error("Magenta in: no longer reserved, but still no Priest")
+	}
+}

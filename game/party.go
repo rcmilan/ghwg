@@ -270,7 +270,7 @@ func (g *Game) spawnClearIn(realm Realm) bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && len(r.Stays) >= size {
+		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && !g.reserved(i) && len(r.Stays) >= size {
 			return i
 		}
 	}

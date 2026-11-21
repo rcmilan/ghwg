@@ -44,7 +44,7 @@ func TestNextStep(t *testing.T) {
 			g.saw("celestine")
 			named(t, g, 1, "celestine")
 			named(t, g, 1, "magda")
-		}, want{Human, false, tgDoor, "celestine"}},
+		}, want{Human, false, tgNone, ""}},
 		{"O4 day", "O4", 0, func(g *Game) { g.clock = 12 * hourFrames }, want{Human, false, tgNone, ""}},
 		{"O4 night", "O4", 0, func(g *Game) { g.clock = 23 * hourFrames }, want{Human, false, tgSpirit, ""}},
 		{"O4 lit", "O4", 0, func(g *Game) { g.rollSet("O4.lit", 1) }, want{Ghost, false, tgDoor, "handprint"}},
