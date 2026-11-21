@@ -347,3 +347,61 @@ func TestQuesterAdvances(t *testing.T) {
 		t.Fatalf("beat %d, beat 1 done %d times: the questline never moved", s.g.quest.Beat, s.g.timesDone(1))
 	}
 }
+
+// Story mode: a Growth fires free as each beat ends, at any Level; guests check in at once; the flag off changes nothing.
+func TestStoryMode(t *testing.T) {
+	StoryMode = true
+	t.Cleanup(func() { StoryMode = false })
+	g, _ := headless(t, 2, 1, 1)
+	g.openAtStart = false // closed Rooms: the guests get one opened
+	g.startRun()
+	g.unlock(Mirror)
+	g.wallet = [2]Num{}
+	minute := func() {
+		for range minuteFrames {
+			g.advanceClock()
+		}
+		for g.state == StateGrow {
+			g.viewT, g.growing.t = 1, 1
+			g.updateGrow()
+			g.viewT = 0
+			g.updateGrow()
+		}
+		for _, p := range g.parties {
+			g.settleIn(p)
+		}
+	}
+	for b := 1; b <= beatCount; b++ {
+		for range 6 {
+			if g.quest.Beat == b {
+				break
+			}
+			minute()
+		}
+		if g.quest.Beat != b {
+			t.Fatalf("beat %d never started on its own (at %d)", b, g.quest.Beat)
+		}
+		for range 6 {
+			minute()
+		}
+		for _, key := range beats[b-1].Guests {
+			if p, _ := g.questHolder(key); p == nil && g.questNeeds(key) {
+				t.Fatalf("beat %d: %s is not in a Room", b, key)
+			}
+		}
+		finish(g)
+	}
+	if g.level != 0 || g.quest.Beat != beatCount {
+		t.Fatalf("level %d reached beat %d", g.level, g.quest.Beat)
+	}
+}
+
+func TestStoryOff(t *testing.T) {
+	g := questRun0(t, 0)
+	for range 2 * minuteFrames {
+		g.advanceClock()
+	}
+	if g.quest.Beat != 0 || beatsAt(0) != 3 || maxGrid(0) != 3 {
+		t.Fatalf("story off: beat %d", g.quest.Beat)
+	}
+}

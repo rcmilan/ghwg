@@ -38,6 +38,7 @@ func (g *Game) advanceClock() {
 	g.updateRoomTalk()
 	g.hauntGhosts()
 	g.questArrivals() // 08 W5: ahead of the walk-ins
+	g.storyGrow()
 	g.macguffinIn()
 	g.maybeWalkIn()
 	g.maybeGhostIn()
