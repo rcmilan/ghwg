@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/game"
@@ -61,6 +62,7 @@ func main() {
 	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2), a full book turned n-3 spreads (3 and up); -ghost shows the ghost view")
 	weather := flag.String("weather", "", "dev: this weather every day: rain, fog, wind, or storm (the thunderstorm)")
 	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
+	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -97,7 +99,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *kitchenLife != ""
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -158,6 +160,9 @@ func main() {
 		g.DevCard(*card)
 	}
 	g.DevWeather(*weather)
+	if i := slices.Index([]string{"fridge", "sink", "stove"}, *kitchenLife); i >= 0 {
+		g.DevKitchenLife(i)
+	}
 	if *street {
 		g.DevStreet()
 	}
