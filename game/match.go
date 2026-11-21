@@ -196,7 +196,7 @@ func (g *Game) pairInk(room int) (color.RGBA, bool) {
 
 // movable: a human Party that can be sent to another Room: in it, on its way in or out for the day, or away.
 func movable(p *Party) bool {
-	return p.state == staying || p.state == checkingIn || p.state == goingOut || p.state == out
+	return !isMacguffin(p) && p.state == staying || p.state == checkingIn || p.state == goingOut || p.state == out
 }
 
 // relocate: the Party moves to Room to, swapping with the human Party there if any (X2). Each walks over by

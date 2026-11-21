@@ -365,6 +365,9 @@ func (g *Game) sees(guest *entities.Guest, x, y float64) bool {
 // frighten: n Fear to a Guest of p, but not past limit; the hotel and its Room gain the Ecto (D148).
 func (g *Game) frighten(p *Party, guest *entities.Guest, n, limit int) {
 	n = max(0, min(n, limit-guest.Fear))
+	if isMacguffin(p) { // 08 W5: immune to Fear
+		return
+	}
 	guest.Fear += n
 	m := g.upMul(SeanceTable) * g.sightingQuirkMul(p, guest) * g.sightingPay(p.Room) // Seance table; Medium, Skeptic, Show-off, Gentle; Gerald, the storm (08 W5)
 	g.earn(Ecto, Num(n)*Num(m), noFloat)                                             // the haunt floats its own batched "+N"

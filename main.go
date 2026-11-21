@@ -63,6 +63,9 @@ func main() {
 	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
 	items := flag.String("items", "", "dev: own these of Morwenna's items from the start (all, or ball,broom,gerald,cat,ward,storm); Gerald and the Ward in Room 101, the Cat napping beside you (with -shot -at, -ghost; -view 0,1,0 shows the ring)")
 	quest := flag.Int("quest", 0, "dev: start a Run at questline beat n (1..7; the level raised to play it) with the earlier beats done and its guests in; -ghost shows the ghost checklist")
+	scene := flag.String("scene", "", "dev: a busy hotel with Ned and Celestine in it, a quest cutscene playing: O4, O9 or finale (with -shot -at: the frame; -ghost for O4 and O9)")
+	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
+	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -99,13 +102,13 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits
 	g.DevLevel(*level)
 	if dev {
 		switch {
 		case *intro >= 0:
 			g.StartIntro(*intro)
-		case *busy || *prestige: // it starts its own Run: first, so nothing after it is lost
+		case *busy || *prestige || *scene != "" || *macguffin: // it starts its own Run: first, so nothing after it is lost
 			g.DevBusy()
 		case *ready >= 0:
 			g.Start(false)
@@ -115,6 +118,15 @@ func main() {
 		g.DevGhost(*ghost)
 		if *prestige {
 			g.DevPrestige()
+		}
+		if *scene != "" {
+			g.DevScene(*scene)
+		}
+		if *macguffin {
+			g.DevMacguffin()
+		}
+		if *credits {
+			g.DevCredits()
 		}
 		// The Room's Mood is one value, set by -dirt and -mood: the later of the two wins it. -mood also stands the
 		// Concierge in Room 101, so both go first: any start after them that places him takes him from there.

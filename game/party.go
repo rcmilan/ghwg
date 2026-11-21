@@ -109,7 +109,7 @@ func (g *Game) charge(p *Party) {
 			p.due[i] = g.clock
 		}
 		for ; g.clock >= p.due[i]; p.due[i] += hourFrames {
-			pay := g.moodPay(p.Room)
+			pay := g.partyPay(p)              // 08 W5: the MacGuffin's is 1
 			if g.pairing(p.Room) == badPair { // a bad pair pays less (X2, live test 1)
 				pay *= badRent
 			}

@@ -137,6 +137,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawReel(screen)
 		return
 	}
+	if g.scene.on() { // 08 W5
+		g.drawScene(screen)
+		return
+	}
 	g.drawFrame(screen)
 }
 
@@ -237,10 +241,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, realm := range [...]Realm{Human, Ghost} {
-		if realm == Ghost && !g.ghost && g.reel == nil { // in real a ghost shows only through its area's Shadows
+		if realm == Ghost && !g.ghost && g.reel == nil && !g.scene.on() { // in real a ghost shows only through its area's Shadows
 			continue
 		}
 		for guest := range g.guestsIn(realm) {
+			if guest.Who.Key == macguffinKey { // 08 W5: drawn by sceneActors, in both Dimensions
+				continue
+			}
 			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
 				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest), key: guest}
 			switch {

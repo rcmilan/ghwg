@@ -311,7 +311,7 @@ func (g *Game) Update() error {
 	} else {
 		g.viewT = max(0, g.viewT-1.0/viewFrames)
 	}
-	if g.reel == nil && g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
+	if g.reel == nil && !g.scene.on() && g.in.JustPressed(ebiten.KeyEscape) { // 08 W5: a cutscene plays on // closes what is open, in one press; with nothing open it pauses (U1)
 		switch {
 		case g.state == StateTitle:
 			return ebiten.Termination
@@ -339,6 +339,8 @@ func (g *Game) Update() error {
 	switch {
 	case g.reel != nil: // Father P's cutscene: no input but SPACE to skip (prestige_reel.go)
 		g.updateReel()
+	case g.scene.on(): // 08 W5: a quest cutscene or the credits (questscene.go)
+		g.stepScene()
 	case g.intro != nil: // the opening, the title included: the world waits for it
 		g.updateIntro()
 	case g.state == StateGrow:

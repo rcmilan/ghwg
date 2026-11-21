@@ -28,7 +28,7 @@ func (p *Party) asking() bool { return p.asked > 0 }
 // the Room loses moodExpire Mood. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
 	for _, p := range g.parties {
-		if p.Realm != Human { // a ghost asks for nothing
+		if p.Realm != Human || isMacguffin(p) { // a ghost asks for nothing, nor does the MacGuffin
 			continue
 		}
 		switch {
