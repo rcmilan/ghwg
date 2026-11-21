@@ -281,6 +281,9 @@ func (g *Game) updatePriest(pr *priest) bool {
 }
 
 func (g *Game) openers(pr *priest) []string {
+	if l := g.verbOpener(pr); l != nil { // 08 W5: K's retirement party, the memory lines
+		return l
+	}
 	if pr.strong {
 		return mOpen
 	}
@@ -299,6 +302,7 @@ func (g *Game) closers(pr *priest) []string {
 func (g *Game) ritualEffect(pr *priest) {
 	room := pr.RoomIndex
 	g.halveDirt(room)
+	g.verbRitual(pr) // 08 W5
 	if pr.strong {
 		g.raiseMood(room, moodClean)
 		g.shades[room] = nil  // Father M also banishes a Shadow (D169)

@@ -106,7 +106,7 @@ func (g *Game) targets(p *Party) []int {
 		ts = append(ts, i)
 	}
 	slices.SortStableFunc(ts, func(a, b int) int { return cmp.Compare(g.roomPhantasm(b), g.roomPhantasm(a)) })
-	return ts
+	return g.withTarget(p, ts) // 08 W5: the objective's Room, always
 }
 
 // talker: the Party TALK opens the card of: the Concierge stands on its Room's plate, beside the door (T381 refine 2),
@@ -130,6 +130,9 @@ func (g *Game) offerCost(p *Party, to, offer int) Num {
 
 // offerOdds: the chance the guest takes it: its base, and more for a scared guest and a cozy target Room.
 func (g *Game) offerOdds(p *Party, to, offer int) float64 {
+	if to == g.questTarget(p) { // 08 W5: sure
+		return 1
+	}
 	up := float64(g.roomMood(to)-moodMin) / (moodMax - moodMin)
 	b := offerBase[offer]
 	return min(1, b+(1-b)*offerLean*(fright(p)+up)/2)
@@ -137,6 +140,9 @@ func (g *Game) offerOdds(p *Party, to, offer int) float64 {
 
 // offers: the offers for Room to the wallet can pay, in order; the plain ask, free, always.
 func (g *Game) offers(p *Party, to int) (os []int) {
+	if to == g.questTarget(p) { // 08 W5: only the discount, which is what it costs
+		return []int{discount}
+	}
 	for o := range offerShare {
 		if g.afford(Cost{Money: g.offerCost(p, to, o)}) {
 			os = append(os, o)

@@ -53,7 +53,7 @@ func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
 func (it Item) unlock() bool {
-	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror && !isQuestRow(it.ID) || it.Once // the Corridor mirror is bought again and again; a quest row is an order (08 W5)
 }
 
 // The Services aren't unlocks; their IDs only name them.
@@ -204,7 +204,7 @@ func (g *Game) addToCart(i, room int) string {
 		return "MAX LEVEL"
 	case it.Up > 0 && g.coming(it.ID, -1): // its price is the next level's: one level at a time
 		return "ON ITS WAY"
-	case g.owned(i), it.ID == CorridorMirror && g.inCart(i) > 0: // the next one's price fixes it: one at a time
+	case g.owned(i), (it.ID == CorridorMirror || isQuestRow(it.ID)) && g.inCart(i) > 0: // the next one's price fixes it: one at a time
 		return "ALREADY IN THE CART"
 	case it.ID == rowRetain && g.fatherIn(false):
 		return "FATHER K IS ALREADY IN THE HOTEL"
@@ -334,6 +334,8 @@ func (g *Game) ship(order []cartLine) {
 			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
 		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
+		case isQuestRow(it.ID): // 08 W5: the wreath to Madame's door, the crate to the Mirror
+			c.drops = append(c.drops, g.shipQuest(l))
 		case !it.room():
 			stock.lines = append(stock.lines, l)
 		default:
@@ -356,6 +358,8 @@ func (g *Game) receive(l cartLine) {
 	switch {
 	case it.room():
 		it.Send(g, l)
+	case isQuestRow(it.ID): // 08 W5
+		g.receiveQuest(l)
 	case it.Tab == tabSupplies:
 		if g.stock == nil {
 			g.stock = map[Unlock]int{}
