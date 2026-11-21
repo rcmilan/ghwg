@@ -527,6 +527,9 @@ func (g *Game) doorActors() []world.Actor {
 	for _, pr := range g.priests {
 		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
 	}
+	if c := g.items.cat; c != nil { // the Cat too: its door opens for it, no walking through a shut one
+		as = append(as, world.Actor{Box: entities.FootBox(c.X, c.Y), Room: c.RoomIndex})
+	}
 	as = append(as, g.courierActors()...)
 	as = append(as, g.keeperActors()...)
 	return as

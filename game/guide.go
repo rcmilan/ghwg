@@ -472,7 +472,7 @@ func (g *Game) guideActors(ms []mark, ox, oy int) (as []actor) {
 		if m.guest != nil {
 			x = m.guest.X
 		}
-		as = append(as, actor{x: x, y: m.z, draw: func(s *ebiten.Image, _, _ int) { g.drawOutline(s, m, ox, oy) }})
+		as = append(as, actor{x: x, y: m.z, rim: true, draw: func(s *ebiten.Image, _, _ int) { g.drawOutline(s, m, ox, oy) }})
 	}
 	return as
 }

@@ -238,19 +238,3 @@ func (g *Game) drawParcel(s *ebiten.Image, x, y int) {
 	}
 	rect(s, x-zoom, y-9*zoom, 2*zoom, 2*zoom, color.RGBA{0xe0, 0x50, 0x60, 255})
 }
-
-// drawHeldQuest: the quest word or thing over the Concierge's head, a small pixel icon (no label).
-func (g *Game) drawHeldQuest(s *ebiten.Image, x, y int) {
-	if g.ghost {
-		y -= int(hover(g.tick, "Bob") * zoom)
-	}
-	img := g.heldIcon(g.verbs.held)
-	if img == nil {
-		return
-	}
-	b := img.Bounds()
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(zoom, zoom)
-	op.GeoM.Translate(float64(x-b.Dx()*zoom/2), float64(y+(entities.FootH/2-charH)*zoom+4*zoom-b.Dy()*zoom+int(math.Round(math.Sin(float64(g.tick)/20)*float64(zoom)))))
-	s.DrawImage(img, op)
-}

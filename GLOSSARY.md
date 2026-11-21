@@ -492,7 +492,7 @@ The step's target (a guest or its plate, the guest book, a door, a prop, the spi
 The sheets a Quest guest wears: its base LimeZu sheet in colours of its own under one accessory (hat, tiara, lamp, cap, phone), made by `tools/questlooks`. No ordinary guest, passer-by or Shadow wears one; in ghost a quest ghost has a hue of its own. Magenta is never scared.
 
 **Word / thing**:
-What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them). Shown as a pixel icon over the Concierge and in a bottom-left HUD slot, no text.
+What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them). Shown as a pixel icon in a bottom-left HUD slot, no text.
 
 **Ghost Request**:
 A quest ghost asks for a Supply: fetched in real, delivered with SPACE at its door in ghost. Only quest ghosts ask, and their pill shows only in ghost.
