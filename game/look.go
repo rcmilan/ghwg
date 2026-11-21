@@ -90,7 +90,12 @@ func (g *Game) dressed(base string) string {
 }
 
 func randomLook(r *rand.Rand) look {
-	return look{hair: hairs[r.IntN(len(hairs))], skin: skins[r.IntN(len(skins))], top: tops[r.IntN(len(tops))], bottom: bottoms[r.IntN(len(bottoms))]}
+	for {
+		l := look{hair: hairs[r.IntN(len(hairs))], skin: skins[r.IntN(len(skins))], top: tops[r.IntN(len(tops))], bottom: bottoms[r.IntN(len(bottoms))]}
+		if !questPair(l) { // a quest character's colors are its own (08 W5 R2)
+			return l
+		}
+	}
 }
 
 // recolor: a copy of sheet with each region l sets moved onto its base color.

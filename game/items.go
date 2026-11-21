@@ -182,6 +182,7 @@ func (g *Game) updateCat() {
 		speed = catWorkWalk
 	}
 	arrived := c.FollowPath(speed * g.dt)
+	c.Anim.Update(c.X, c.Y, g.dt) // drawing only: which way it faces, whether it walks
 	switch {
 	case c.napping:
 		if g.clock >= c.until {
@@ -234,8 +235,8 @@ func (g *Game) spiritRoom() int {
 func (g *Game) itemActors() []actor {
 	var as []actor
 	if c := g.items.cat; c != nil && g.ghost {
-		nap := c.napping
-		as = append(as, actor{x: c.X, y: c.Y, draw: func(s *ebiten.Image, x, y int) { g.drawCat(s, x, y, nap) }})
+		nap, anim := c.napping, c.Anim
+		as = append(as, actor{x: c.X, y: c.Y, draw: func(s *ebiten.Image, x, y int) { g.drawCat(s, x, y, nap, anim) }})
 	}
 	if r := g.itemRoom(g.items.Gerald); r >= 0 && g.ghost && g.itemOn(itemGerald) {
 		sh := g.hotel.Rooms[r].Shell()
@@ -302,8 +303,49 @@ var catNapBody = []string{
 
 var catImgs [2]*ebiten.Image
 
-// drawCat: a small black cat with a pale rim so it reads on the dark floor, yellow eyes awake, a Z when napping.
-func (g *Game) drawCat(s *ebiten.Image, x, y int, nap bool) {
+// The Cat's sheet (assets/sprites/cat.png, drawn by tools/questlooks): 16x16 frames, a row of 4 walk frames per
+// facing in entities.Facing's order, then the nap's 2 (breathing). It is drawn as it is, no palette: it lives in
+// the ghost dimension only, and its light rim is what reads on the black floor.
+const (
+	catSheet  = true // false: the code-drawn Cat below, should the sheet be thrown out
+	catFrame  = 16
+	catNapRow = 4
+	catStep   = 8  // frames of time a walk frame lasts
+	catBreath = 50 // and a nap frame
+)
+
+// drawCat: the Cat, (x,y) its feet: asleep, walking or standing the way it faces, a Z over its nap.
+func (g *Game) drawCat(s *ebiten.Image, x, y int, nap bool, a entities.Anim) {
+	row, f := int(a.Facing), 0
+	switch {
+	case nap:
+		row, f = catNapRow, g.tick/catBreath%2
+	case a.Moving:
+		f = g.tick / catStep % 4
+	}
+	if !g.drawCatFrame(s, x, y, row, f) {
+		g.drawCatRects(s, x, y, nap)
+	} else if nap {
+		g.tinted(s, "z", x+catFrame*zoom/2-2*zoom, y-catFrame*zoom/2-glyphH, color.RGBA{226, 236, 220, 255}, 1)
+	}
+}
+
+// drawCatFrame draws frame f of the sheet's row, its bottom center at (x,y); false if the sheet is off or missing.
+func (g *Game) drawCatFrame(s *ebiten.Image, x, y, row, f int) bool {
+	sheet := g.sprite("cat")
+	if !catSheet || sheet == nil {
+		return false
+	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(x-catFrame*zoom/2), float64(y-catFrame*zoom))
+	s.DrawImage(sheet.SubImage(image.Rect(f*catFrame, row*catFrame, (f+1)*catFrame, (row+1)*catFrame)).(*ebiten.Image), op)
+	return true
+}
+
+// drawCatRects: the code-drawn Cat, the sheet's fallback: a small black cat with a pale rim so it reads on the
+// dark floor, yellow eyes awake, a Z when napping.
+func (g *Game) drawCatRects(s *ebiten.Image, x, y int, nap bool) {
 	k := 0
 	rows := catBody
 	if nap {

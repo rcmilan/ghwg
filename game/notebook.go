@@ -192,9 +192,11 @@ func (g *Game) nameHuman(p *Party, h namedHuman) {
 	for i, m := range h.Members {
 		guest := p.Guests[i]
 		guest.Who = entities.Identity{Name: m.Name, Age: m.Age, AgeNote: m.AgeNote, Job: h.Job, Lines: m.Lines, Quirk: h.Quirk, Key: h.Key}
-		if _, seed, ok := strings.Cut(guest.Character, "#"); ok { // its own base character, the look seed kept
-			guest.Character = m.Sprite + "#" + seed
+		_, seed, dressed := strings.Cut(guest.Character, "#")
+		if guest.Character = m.Sprite; dressed { // its own base character, the look seed kept
+			guest.Character += "#" + seed
 		}
+		wear(guest) // a quest character's own sheets instead (08 W5 R2)
 	}
 	g.visited(p, h.Key)
 }
@@ -218,6 +220,7 @@ func (g *Game) rollNamedGhost(p *Party) {
 // nameGhost: the guest becomes n, its rolled Phantasm clamped into n's kind's band so it draws as cast.md says.
 func (g *Game) nameGhost(guest *entities.Guest, n namedGhost) {
 	guest.Who = entities.Identity{Name: n.Name, Died: n.Died, Job: n.Job, Lines: n.Lines, Quirk: n.Quirk, Key: n.Key}
+	wear(guest)
 	k := slices.IndexFunc(ghostKinds[:], func(c ghostKind) bool { return c.Name == n.Kind })
 	lo, hi := 1, phantasmMax
 	if k > 0 {
