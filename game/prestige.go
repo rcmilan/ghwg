@@ -83,12 +83,16 @@ func (g *Game) resetRun() {
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(seed, seed)), rand.New(rand.NewPCG(seed, seed+1)), rand.New(rand.NewPCG(seed, seed+2))
 	g.seedIdent(seed)
 	g.up = [upgradeCount]int{}
+	stayed := g.macguffinParty() != nil          // 08 W5: its stay is signed at the Run's end, the next notebook's first entry
 	g.guestBook, g.met, g.leftAt = nil, nil, nil // the notebook is the Run's; the visits stay
 	g.runEcto, g.prestigeAsk, g.termTab, g.termPick = 0, false, 0, 0
 	intro := g.introOn
 	g.introOn = false
 	g.startRun() // rebuilds the start grid (ungrow) and everything a Run owns
 	g.introOn = intro
+	if stayed {
+		g.guestBook = []bookEntry{{macguffinCard.Name, macguffinCard.Book, day(g.clock), outCozy}}
+	}
 	g.notice(fmt.Sprintf("LEVEL %d   BONUS X%.2f", g.level, g.bonus))
 }
 

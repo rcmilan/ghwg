@@ -63,3 +63,19 @@ func slicesContains(ps []*Party, p *Party) bool {
 	}
 	return false
 }
+
+// At a Run's end its stay is written in the guest book: the one entry the next Run's notebook opens with.
+func TestMacguffinSignsTheBook(t *testing.T) {
+	g := dressedRun(t, 1)
+	memStore(t)
+	g.questRec.MacGuffin = true
+	g.settleIn(g.macguffinCheckIn())
+	g.resetRun()
+	if len(g.guestBook) != 1 || g.guestBook[0].Name != macguffinCard.Name || g.guestBook[0].Line != macguffinCard.Book {
+		t.Fatalf("the book after its Run: %v", g.guestBook)
+	}
+	g.resetRun() // a Run it was not in
+	if len(g.guestBook) != 0 {
+		t.Fatalf("the book after a Run without it: %v", g.guestBook)
+	}
+}
