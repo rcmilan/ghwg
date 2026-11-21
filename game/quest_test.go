@@ -92,8 +92,8 @@ func TestQuestRewardOnceEver(t *testing.T) {
 	if g.wallet[Ecto]-ecto != beats[0].Purse*Num(g.bonus) || !g.itemOn(itemBall) || g.itemOn(itemBroom) {
 		t.Fatalf("Ecto +%v, ball %v: want the purse and the ball only", g.wallet[Ecto]-ecto, g.itemOn(itemBall))
 	}
-	if len(g.note.items) != 2 {
-		t.Fatalf("%d notices, want BEAT DONE and the item", len(g.note.items))
+	if len(g.note.items) != 1 {
+		t.Fatalf("%d notices, want the item only", len(g.note.items))
 	}
 	g.startRun()
 	g.questEvent(evGrow, -1, "")

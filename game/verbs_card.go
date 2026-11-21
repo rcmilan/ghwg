@@ -160,6 +160,9 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 		}
 	case k == "tim" && g.questOpen("O5"):
 		return objOf("O5").Ask
+	case k == "tim" && g.questOpen("O9"): // the talk is the asking: the step ticks
+		g.saw("O9.read")
+		return objOf("O9").Ask
 	case k == "teo" && g.questOpen("O6"):
 		return g.fill(objOf("O6").Ask, g.porterRoom())
 	}
@@ -290,4 +293,9 @@ func (g *Game) reserved(room int) bool {
 // questRoom: a Priest keeps out of it: reserved, or holding a Party a quest needs where it is.
 func (g *Game) questRoom(room int) bool {
 	return g.reserved(room) || slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Room == room && g.questPinned(p) })
+}
+
+// questHeld: a quest character's Party, or one an open objective wants where it is: the housekeepers never move it.
+func (g *Game) questHeld(p *Party) bool {
+	return g.questPinned(p) || slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return slices.Contains(questCast, guest.Who.Key) })
 }
