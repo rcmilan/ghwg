@@ -219,8 +219,8 @@ func (g *Game) questArrivals() {
 	in := false
 	for b := range g.quest.Beat {
 		for _, key := range beats[b].Guests {
-			if p, _ := g.questHolder(key); p == nil && !in && g.questNeeds(key) {
-				in = g.questCheckIn(key)
+			if p, _ := g.questHolder(key); p == nil && (!in || StoryMode) && g.questNeeds(key) { // story: all at once
+				in = g.questCheckIn(key) || in
 			}
 		}
 	}
@@ -233,6 +233,10 @@ func (g *Game) questCheckIn(key string) bool {
 	defer func() { g.quest.naming = false }()
 	if i := slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key }); i >= 0 {
 		room := g.freeRoom(1)
+		if room < 0 {
+			g.storyOpen()
+			room = g.freeRoom(1)
+		}
 		if room < 0 || !g.spawnClear() {
 			return false
 		}
@@ -244,10 +248,15 @@ func (g *Game) questCheckIn(key string) bool {
 		return false
 	}
 	room := -1
-	for k := range g.hotel.Rooms {
-		if g.isOwned(k) && !g.closed(k) && !g.changing(k) && !g.stays(k) && g.vacant(k, Ghost) {
-			room = k
-			break
+	for try := 0; try < 2 && room < 0; try++ {
+		for k := range g.hotel.Rooms {
+			if g.isOwned(k) && !g.closed(k) && !g.changing(k) && !g.stays(k) && g.vacant(k, Ghost) {
+				room = k
+				break
+			}
+		}
+		if room < 0 && try == 0 {
+			g.storyOpen()
 		}
 	}
 	if room < 0 {

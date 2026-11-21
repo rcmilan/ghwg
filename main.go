@@ -64,6 +64,7 @@ func main() {
 	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
 	items := flag.String("items", "", "dev: own these of Magenta's items from the start (all, or ball,broom,gerald,cat,ward,storm); Gerald and the Ward in Room 101, the Cat napping beside you (with -shot -at, -ghost; -view 0,1,0 shows the ring)")
 	quest := flag.Int("quest", 0, "dev: start a Run at questline beat n (1..7; the level raised to play it) with the earlier beats done and its guests in; -ghost shows the ghost checklist")
+	story := flag.Bool("story", false, "dev: story mode, to test the questline fast: each Growth fires free as its beat ends, all 7 beats open at any Level, quest guests check in at once")
 	scene := flag.String("scene", "", "dev: a busy hotel with Tim and Celestine in it, a quest cutscene playing: O4, O9 or finale (with -shot -at: the frame; -ghost for O4 and O9)")
 	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
@@ -71,6 +72,7 @@ func main() {
 	witch := flag.Bool("witch", false, "dev: you on the Street at the Entrance beside four Magentas, one per facing, each in a look of her own (with -shot -at)")
 	verb := flag.String("verb", "", "dev: start a Run at this objective (O1..O13) with its guests in, for prints (use -grid 3x1; -ghost for the ghost side; O4 at night, -at 14)")
 	flag.Parse()
+	game.StoryMode = *story
 
 	ebiten.SetWindowSize(960, 540)
 	ebiten.SetWindowTitle("Ghost Hotel")

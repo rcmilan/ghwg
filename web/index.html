@@ -20,7 +20,9 @@ if (!matchMedia("(any-pointer: fine)").matches && matchMedia("(any-pointer: coar
 } else {
   const go = new Go();
   const args = new URLSearchParams(location.search).get("args"); // dev: main's flags, e.g. ?args=-busy -ghost
-  if (args) go.argv = ["js", ...args.trim().split(/\s+/)];
+  const argv = args ? args.trim().split(/\s+/) : [];
+  if (new URLSearchParams(location.search).has("story")) argv.push("-story"); // story mode: ?story
+  if (argv.length) go.argv = ["js", ...argv];
   // itch.io serves .gz files without a Content-Encoding, so unpack it here (3.8 MB instead of 15 MB).
   // Not instantiateStreaming: it works whatever MIME type the host serves with.
   fetch("game.wasm.gz")

@@ -9,7 +9,12 @@ package game
 const beatCount = 7
 
 // beatsAt: how many beats a Run at prestige level plays.
-func beatsAt(level int) int { return [...]int{3, 5, beatCount}[min(level, 2)] }
+func beatsAt(level int) int {
+	if StoryMode {
+		return beatCount
+	}
+	return [...]int{3, 5, beatCount}[min(level, 2)]
+}
 
 // objective is one row of a beat's checklist.
 type objective struct {

@@ -46,7 +46,12 @@ func (g *Game) grown() bool {
 }
 
 // maxGrid: the hotel's limit at a prestige level, in Rooms a side (08 P1: each prestige lifts it by one).
-func maxGrid(level int) int { return 3 + level }
+func maxGrid(level int) int {
+	if StoryMode {
+		return max(3+level, storyGrowMax)
+	}
+	return 3 + level
+}
 
 func growCost(g *Game) Cost {
 	c, r := g.hotel.Grid()
