@@ -48,28 +48,40 @@ func (g *Game) questTalk() (*Party, *entities.Guest) {
 	return bp, bg
 }
 
-// questSpeak: SPACE at a quest character. It stops, faces the Concierge and says its quest line over its head; the
-// word or thing the Concierge carries that it needs goes over in the same press, and what it gives is taken.
-// Nothing quest-related to say: one of its own lines.
+// questSpeak: SPACE at a quest character. It stops and faces the Concierge, the camera closes in on it (the "talk"
+// cutscene, questscene.go) and it says its quest line; then the word or thing the Concierge carries that it needs
+// goes over, what it gives is taken (questHand) and its done line follows. Nothing quest-related to say: one of its
+// own lines.
 func (g *Game) questSpeak(p *Party, guest *entities.Guest) {
 	g.verbSync()
 	p.hold = g.tick + talkHold
 	guest.Anim.Facing = entities.Toward(g.player.X-guest.X, g.player.Y-guest.Y)
 	g.verbOpened(p)
+	g.playQuestScene("talk")
+	s := &g.scene
+	s.tp, s.tg, s.line, s.lineAt = p, guest, g.verbQuote(p, guest), sceneIn
+}
+
+// questHand: the talk's hand-over, after the quest line: Magenta's word to carry, or the quest verb that applies.
+// It returns the done line, if any.
+func (g *Game) questHand(p *Party, guest *entities.Guest) string {
 	if g.questOpen("O1") && p.Realm == Human && guest.Who.Key == "magenta" { // her word to carry across
 		g.verbs.held = "O1"
 	}
-	said := g.verbQuote(p, guest)
 	if os := g.verbOpts(p, guest); len(os) > 0 {
-		if done := g.cardVerb(os[0], p, guest); done != "" {
-			said = done
-		}
+		return g.cardVerb(os[0], p, guest)
 	}
-	if n := len(guest.Who.Lines); said == "" && n > 0 {
-		said = guest.Who.Lines[p.said%n]
-		p.said++
+	return ""
+}
+
+// ownLine: one of the guest's own lines, in turn ("" none).
+func ownLine(p *Party, guest *entities.Guest) string {
+	n := len(guest.Who.Lines)
+	if n == 0 {
+		return ""
 	}
-	speak(p, slices.Index(p.Guests, guest), said, g.tick)
+	p.said++
+	return guest.Who.Lines[(p.said-1)%n]
 }
 
 // takeId: the objective whose thing this guest has to hand over now ("" none): the oldest sleeper's key (O9), the

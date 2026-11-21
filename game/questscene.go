@@ -73,6 +73,13 @@ type sceneState struct {
 	crate image.Point // finale: the crate's foot, world px
 	buf   *ebiten.Image
 	mac   macLook
+	// talk: a quest TALK (verbs_card.go questSpeak): the card frame on tg, its line, the hand-over, its done line
+	tp     *Party
+	tg     *entities.Guest
+	line   string // what tg says now
+	lineAt int    // the t it began saying it
+	did    bool   // the hand-over is done
+	out    int    // the t the frame lets go, once did
 }
 
 // sceneCast: one who walks into the hall for the finale.
@@ -87,10 +94,13 @@ func (s *sceneState) on() bool { return s.id != "" }
 
 // playQuestScene starts cutscene id ("O4", "O9", "finale"); it reports evScene with id when it ends.
 func (g *Game) playQuestScene(id string) {
+	if g.scene.id == "talk" { // a talk's hand-over plays its cutscene (O9's GIVE): it takes the talk's place
+		g.closeScene("talk")
+	}
 	if g.scene.on() {
 		return
 	}
-	if id != "O4" && id != "O9" && id != "finale" {
+	if id != "O4" && id != "O9" && id != "finale" && id != "talk" {
 		g.questEvent(evScene, -1, id)
 		return
 	}
@@ -126,8 +136,12 @@ func (g *Game) sceneLen() int {
 func (g *Game) stepScene() {
 	s := &g.scene
 	g.tick++
-	if s.id == "credits" {
+	switch s.id {
+	case "credits":
 		g.stepCredits()
+		return
+	case "talk":
+		g.stepTalk()
 		return
 	}
 	if s.t > 0 && g.sceneSeen() && g.in.JustPressed(ebiten.KeySpace) {
@@ -168,7 +182,9 @@ func (g *Game) closeScene(id string) {
 		m.Deallocate()
 	}
 	g.scene = sceneState{}
-	sceneDone(g, id)
+	if id != "talk" { // nothing waits on a talk
+		sceneDone(g, id)
+	}
 }
 
 // sceneDone is what a cutscene's end calls; a test counts it.
@@ -277,6 +293,56 @@ func (g *Game) drawO4(screen *ebiten.Image, bg color.Color) {
 		sign = wrapAt(o4Signs[0], 22)
 	}
 	g.drawSpirit(screen, x, y, zoom*k, sign, float64(t-o4Fold)/50, ease(float64(t)/12))
+}
+
+// ---- talk
+
+// sayLen: frames a talk's line stays up, by its length; 0 for none.
+func sayLen(line string) int {
+	if line == "" {
+		return 0
+	}
+	return max(lineHold, 4*len(line))
+}
+
+// stepTalk: the frame closes in, the line, the hand-over (questHand) and its done line, the frame lets go. SPACE,
+// once closed in, cuts the line under way short.
+func (g *Game) stepTalk() {
+	s := &g.scene
+	space := s.t >= sceneIn && g.in.JustPressed(ebiten.KeySpace)
+	switch {
+	case !s.did && (space || s.t >= s.lineAt+sayLen(s.line)):
+		pre := s.line
+		done := g.questHand(s.tp, s.tg)
+		if g.scene.id != "talk" { // it played a cutscene in the talk's place
+			return
+		}
+		if done == "" && pre == "" {
+			done = ownLine(s.tp, s.tg)
+		}
+		s.did, s.line, s.lineAt = true, done, s.t
+		s.out = s.t + sayLen(done)
+	case s.did && space && s.t < s.out:
+		s.out = s.t
+	}
+	if s.t++; s.did && s.t >= s.out+sceneOut {
+		s.tp.hold = g.tick + talkHold
+		g.endScene()
+	}
+}
+
+func (g *Game) drawTalkScene(screen *ebiten.Image, bg color.Color) {
+	s := &g.scene
+	gu := s.tg
+	e := ease(float64(s.t) / sceneIn)
+	if s.did {
+		e *= 1 - ease(float64(s.t-s.out)/sceneOut)
+	}
+	on := g.drawFocused(screen, bg, gu.X, gu.Y-charH/2, 1+(sceneZoom-1)*e, e)
+	if s.line != "" && s.t >= s.lineAt && (!s.did || s.t < s.out) {
+		x, y := on(gu.X, gu.Y-charH)
+		sayText(screen, s.line, x, y-6, float32(ease(float64(s.t-s.lineAt)/8)))
+	}
 }
 
 // ---- O9
@@ -619,6 +685,8 @@ func (g *Game) drawScene(screen *ebiten.Image) {
 		g.drawO4(screen, bg)
 	case "O9":
 		g.drawO9(screen, bg)
+	case "talk":
+		g.drawTalkScene(screen, bg)
 	case "finale":
 		g.drawFinale(screen, bg)
 	case "credits":

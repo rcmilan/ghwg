@@ -34,7 +34,7 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold(ebiten.KeySpace)
 		return
 	}
-	if g.state == StateGrow { // the hotel grows: nothing to press
+	if g.state == StateGrow || g.scene.on() { // the hotel grows, or a cutscene or a quest TALK plays out by itself: nothing to press
 		a.keys.hold()
 		return
 	}

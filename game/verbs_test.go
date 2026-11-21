@@ -47,7 +47,21 @@ func talkTo(g *Game, s *script, p *Party) string {
 	for _, l := range p.talk {
 		ls = append(ls, l.text)
 	}
-	return strings.Join(ls, " ")
+	return strings.Join(append(ls, talkOut(g)...), " ")
+}
+
+// talkOut plays a quest TALK's close-in to its end, returning the lines said in it.
+func talkOut(g *Game) (ls []string) {
+	for i := 0; g.scene.id == "talk"; i++ {
+		if l := g.scene.line; l != "" && !slices.Contains(ls, l) {
+			ls = append(ls, l)
+		}
+		if i > 10000 {
+			panic("the talk never ends")
+		}
+		g.stepScene()
+	}
+	return ls
 }
 
 func hasOpt(os []cardOpt, o cardOpt) bool { return slices.Contains(os, o) }
@@ -122,6 +136,10 @@ func TestQuestTalkWalkingAndBeforeClean(t *testing.T) {
 	m.state, m.Guests[0].Path = staying, nil
 	g.settleIn(m)
 	g.questSpeak(m, m.Guests[0])
+	if g.scene.id != "talk" || g.verbs.held != "" {
+		t.Error("the talk hands the word over before the close-in and her line")
+	}
+	talkOut(g)
 	if g.verbs.held != "O1" || g.tick >= m.hold {
 		t.Errorf("walking talk: held %q", g.verbs.held)
 	}

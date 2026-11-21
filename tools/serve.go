@@ -17,6 +17,7 @@ func main() {
 	flag.Parse()
 	files := http.FileServer(http.Dir("web"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store") // a rebuild loads on a plain reload, never a cached old game
 		if r.URL.Path == "/play" { // the game page itself: FileServer would redirect /index.html to /, this wrapper
 			http.ServeFile(w, r, "web/index.html")
 			return
