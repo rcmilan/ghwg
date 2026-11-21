@@ -69,7 +69,7 @@ func main() {
 	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
 	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
-	witch := flag.Bool("witch", false, "dev: you on the Street at the Entrance beside four Magentas, one per facing, each in a look of her own (with -shot -at)")
+	witch := flag.Bool("witch", false, "dev: the six quest characters in the Lobby beside the three ordinary sheets, turning every 120 frames, then running (with -shot -at; -ghost adds the Cat's frames)")
 	verb := flag.String("verb", "", "dev: start a Run at this objective (O1..O13) with its guests in, for prints (use -grid 3x1; -ghost for the ghost side; O4 at night, -at 14)")
 	flag.Parse()
 	game.StoryMode = *story

@@ -460,13 +460,16 @@ _Avoid_: perk, boost
 
 **Questline**:
 Magenta's circle (`context/08-quests/circle.md`): seven Beats played across the Growths of a Run, the same story every Run. A Level 0 Run plays 3 Beats, Level 1 plays 5, Level 2 and up all 7. What is done counts across Runs (saved).
-_Avoid_: story mode, campaign
+_Avoid_: campaign; "story mode" means only the dev mode below
+
+**Story mode**:
+A dev mode (`-story`, web `?story`) to test the Questline fast: each Growth fires free as its Beat ends, all 7 Beats are open at any Level, the Mirror is unlocked and Quest guests check in at once.
 
 **Beat**:
 One chapter of the Questline, started by a Growth: its Quest guests check in, its Speaker says its opening line, and the HUD shows its checklist of Objectives. Done the first time ever, it pays its purse (Ectoplasm) and gives its Item; later Runs replay it with shorter lines.
 
 **Objective**:
-One row of a Beat's checklist (O1..O13), shown on the side (real or ghost) where it is finished: a word told, a thing given, a Room chosen, a Request served, a spirit lit, a delivery made. Ticked the moment it is done.
+One row of a Beat's checklist (O1..O13), shown in both Dimensions as its next step behind the icon of the Dimension that step is done in: a word told, a thing given, a Room chosen, a Request served, a spirit lit, a delivery made. Ticked the moment it is done.
 _Avoid_: task, mission
 
 **Gate**:
@@ -475,8 +478,14 @@ While the Beat under way has an Objective open, the next Growth waits: "SHIFT'S 
 **Quest guest**:
 A named guest (`cast.md`) a Beat needs: Magenta, Magda, Teo, Celestine, Tim, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
 
+**Guidance**:
+The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline and a sparkle, only in the Dimension the step is done in; in the other one the nearest Mirror wears it.
+
+**Quest look**:
+The sheets a Quest guest wears: its base LimeZu sheet in colours of its own under one accessory (hat, tiara, lamp, cap, phone), made by `tools/questlooks`. No ordinary guest, passer-by or Shadow wears one; in ghost a quest ghost has a hue of its own. Magenta is never scared.
+
 **Word / thing**:
-What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them).
+What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them). Shown as a pixel icon over the Concierge and in a bottom-left HUD slot, no text.
 
 **Ghost Request**:
 A quest ghost asks for a Supply: fetched in real, delivered with SPACE at its door in ghost. Only quest ghosts ask, and their pill shows only in ghost.
