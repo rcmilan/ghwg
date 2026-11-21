@@ -220,29 +220,29 @@ func TestBookWayToQuestPage(t *testing.T) {
 	}
 }
 
-// A step that needs Father K's call outlines the Terminal and his STAFF row until it is bought.
+// A step that needs Father M's call outlines the Terminal and his STAFF row until it is bought.
 func TestNeedsRow(t *testing.T) {
 	g, _ := verbRun(t, 3, 4)
 	g.saw("teo")
 	g.rollSet("O6.room", 2)
-	g.locked[unlockK] = true
-	if ids := g.needRows(); !slices.Contains(ids, unlockK) {
+	g.locked[unlockM] = true
+	if ids := g.needRows(); !slices.Contains(ids, unlockM) {
 		t.Fatalf("rows %v", ids)
 	}
-	if !g.onSale(row(t, unlockK)) {
+	if !g.onSale(row(t, unlockM)) {
 		t.Error("the row the step needs is not on sale")
 	}
-	g.unlock(unlockK)
-	if g.stepNeeds(unlockK) {
+	g.unlock(unlockM)
+	if g.stepNeeds(unlockM) {
 		t.Error("still needed")
 	}
-	g.locked[unlockK] = true
+	g.locked[unlockM] = true
 	g.rollSet("O6.room", 0)
-	if g.onSale(row(t, unlockK)) {
+	if g.onSale(row(t, unlockM)) {
 		t.Error("on sale with no step needing it and its gate unearned")
 	}
-	g.unlock(unlockK)
-	if ids := g.needRows(); slices.Contains(ids, unlockK) {
+	g.unlock(unlockM)
+	if ids := g.needRows(); slices.Contains(ids, unlockM) {
 		t.Fatalf("still needed: %v", ids)
 	}
 }

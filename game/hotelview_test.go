@@ -100,10 +100,10 @@ func TestRingBuys(t *testing.T) {
 	g := closedRun(t)
 	s := g.in.(*script)
 	g.own(Mirror)
-	g.own(unlockK)
+	g.own(unlockM)
 	g.own(BedsTwin)
 	g.earned = [2]Num{10000, 10000}
-	g.wallet = [2]Num{keyPrice(0) + bedKinds[1].Fee, priestWeak}
+	g.wallet = [2]Num{keyPrice(0) + bedKinds[1].Fee, priestStrong}
 	g.state = StatePlay
 	to := func(id Unlock) (ks []ebiten.Key) { // D from where the ring opens to the action
 		r := g.ring(g.termCursor)
@@ -124,10 +124,10 @@ func TestRingBuys(t *testing.T) {
 	deliver(t, g)
 	view(g, s)
 	keys(g, s, ebiten.KeyD, ebiten.KeySpace) // Room 102 again, its ring
-	keys(g, s, to(rowFatherK)...)
+	keys(g, s, to(rowFatherM)...)
 	keys(g, s, ebiten.KeySpace)
 	if !g.priestOn(1) || g.wallet[Money] != bedKinds[1].Fee {
-		t.Fatalf("Father K: on Room 102 %v, Money %v", g.priestOn(1), g.wallet[Money])
+		t.Fatalf("Father M: on Room 102 %v, Money %v", g.priestOn(1), g.wallet[Money])
 	}
 	g.priests = nil
 	p := g.arrive(1)
@@ -146,7 +146,7 @@ func TestRingBuys(t *testing.T) {
 	if g.changing(1) || g.wallet[Money] != bedKinds[1].Fee {
 		t.Fatalf("cancelled: changing %v, Money %v; want the fee back", g.changing(1), g.wallet[Money])
 	}
-	for _, id := range []Unlock{rowKey, rowFatherK, rowFatherM, rowChange, RoomMirror, rowDeluxe} {
+	for _, id := range []Unlock{rowKey, rowFatherM, rowChange, RoomMirror, rowDeluxe} {
 		if shop[row(t, id)].Tab != tabRooms {
 			t.Errorf("%s is not a Room's action", id)
 		}
@@ -171,7 +171,7 @@ func TestRing(t *testing.T) {
 		}
 		return v
 	}
-	if got := ids(0); !slices.Equal(got, []Unlock{RoomMirror, rowFatherM, rowFatherK}) {
+	if got := ids(0); !slices.Equal(got, []Unlock{RoomMirror, rowFatherM}) {
 		t.Fatalf("one bed layout, Deluxe locked: the ring %v", got)
 	}
 	if k := g.ringStart(0); k != ringSlot[RoomMirror] {
@@ -180,8 +180,8 @@ func TestRing(t *testing.T) {
 	g.own(BedsTwin)
 	g.own(BedsDouble)
 	g.own(Deluxe)
-	if got := ids(0); !slices.Equal(got, []Unlock{rowChange, rowDeluxe, RoomMirror, rowFatherM, rowFatherK}) {
-		t.Fatalf("the full ring %v, want Change type, Deluxe, Room mirror, Father M, Father K", got)
+	if got := ids(0); !slices.Equal(got, []Unlock{rowChange, rowDeluxe, RoomMirror, rowFatherM}) {
+		t.Fatalf("the full ring %v, want Change type, Deluxe, Room mirror, Father M", got)
 	}
 	g.wallet = [2]Num{}
 	view(g, s)
@@ -190,13 +190,13 @@ func TestRing(t *testing.T) {
 	for _, k := range []struct {
 		key  ebiten.Key
 		want Unlock
-	}{{ebiten.KeyD, rowDeluxe}, {ebiten.KeyS, RoomMirror}, {ebiten.KeyW, rowDeluxe}, {ebiten.KeyA, rowChange}, {ebiten.KeyA, rowFatherK}} {
+	}{{ebiten.KeyD, rowDeluxe}, {ebiten.KeyS, RoomMirror}, {ebiten.KeyW, rowDeluxe}, {ebiten.KeyA, rowChange}, {ebiten.KeyA, rowFatherM}} {
 		if keys(g, s, k.key); shop[g.ring(0)[g.termPick]].ID != k.want {
 			t.Fatalf("turned to %s, want %s", shop[g.ring(0)[g.termPick]].ID, k.want)
 		}
 	}
 	if keys(g, s, ebiten.KeySpace); g.priestOn(0) || g.termDepth != 3 || g.shake == 0 {
-		t.Fatalf("SPACE on Father K with no Money: called %v, depth %d, shake %d; want no call, the ring kept, a shake", g.priestOn(0), g.termDepth, g.shake)
+		t.Fatalf("SPACE on Father M with no Money: called %v, depth %d, shake %d; want no call, the ring kept, a shake", g.priestOn(0), g.termDepth, g.shake)
 	}
 	keys(g, s, ebiten.KeyD, ebiten.KeySpace)
 	if g.termDepth != 4 || !slices.Equal(g.changeBeds(0), []int{1, 2}) || g.termBeds != 1 {
@@ -208,9 +208,9 @@ func TestRing(t *testing.T) {
 	if keys(g, s, ebiten.KeyEscape); g.termDepth != 3 {
 		t.Fatalf("ESC on the beds: depth %d, want the ring", g.termDepth)
 	}
-	g.sendPriest(1, false)
-	if got := ids(0); slices.Contains(got, rowFatherK) || !slices.Contains(got, rowFatherM) {
-		t.Fatalf("Father K at work in Room 102: Room 101's ring %v, want Father M and not Father K", got)
+	g.sendPriest(1, true)
+	if got := ids(0); slices.Contains(got, rowFatherM) {
+		t.Fatalf("Father M at work in Room 102: Room 101's ring %v, want no Father M", got)
 	}
 	g.roomOwned = []bool{true, false}
 	if got := ids(1); !slices.Equal(got, []Unlock{rowKey}) || g.ring(1)[0] != row(t, rowKey) {

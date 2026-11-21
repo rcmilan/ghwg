@@ -29,48 +29,42 @@ func TestPriestGuestOnlyWhenUnlocked(t *testing.T) {
 		t.Fatalf("%d Priest guests with both calls locked", k+m)
 	}
 	g.unlock(unlockK)
-	if k, m := priestBookings(g, 400); k == 0 || m != 0 {
-		t.Fatalf("K unlocked only: %d K, %d M", k, m)
+	if k, m := priestBookings(g, 400); k+m != 0 {
+		t.Fatalf("K unlocked only: %d K, %d M; Father K never books", k, m)
 	}
 	g.unlock(unlockM)
-	if k, m := priestBookings(g, 400); k == 0 || m == 0 {
+	if k, m := priestBookings(g, 400); k != 0 || m == 0 {
 		t.Fatalf("both unlocked: %d K, %d M", k, m)
 	}
-}
-
-func TestPriestGuestNotWhileRetained(t *testing.T) {
-	g, _ := headless(t, 2, 1, 1)
-	g.startRun()
-	g.unlock(unlockK)
-	g.retainK()
-	if k, _ := priestBookings(g, 400); k != 0 {
-		t.Fatalf("a retained Father K booked %d times", k)
+	setQuest(g, 4) // NIGHT SHIFT: O6 needs his call, so he does not book
+	if k, m := priestBookings(g, 400); k+m != 0 {
+		t.Fatalf("O6 open: %d K, %d M", k, m)
 	}
 }
 
 func TestOneOfEachFatherBothWays(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.startRun()
-	g.unlock(unlockK)
+	g.unlock(unlockM)
 	g.wallet[Ecto] = 1000
 	p := g.arrive(0)
-	g.becomeFather(p, false)
-	if !g.fatherIn(false) || g.noFather(1, false) == "" || g.callPriest(1, false) == "" {
-		t.Fatal("Father K can be called while he is a guest")
+	g.becomeFather(p, true)
+	if !g.fatherIn(true) || g.noFather(1, true) == "" || g.callPriest(1) == "" {
+		t.Fatal("Father M can be called while he is a guest")
 	}
-	if g.noFather(1, true) != "" {
-		t.Fatal("Father M is blocked by Father K")
+	if g.noFather(1, false) != "" {
+		t.Fatal("Father K is blocked by Father M")
 	}
 	g.parties = nil
-	g.sendPriest(1, false)
+	g.sendPriest(1, true)
 	if priestBookings2(g) != 0 {
-		t.Fatal("a called Father K booked as a guest")
+		t.Fatal("a called Father M booked as a guest")
 	}
 }
 
 func priestBookings2(g *Game) int {
-	k, _ := priestBookings(g, 400)
-	return k
+	_, m := priestBookings(g, 400)
+	return m
 }
 
 func TestPriestGuestCleansAndDrivesGhostsOff(t *testing.T) {

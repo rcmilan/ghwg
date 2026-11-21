@@ -30,7 +30,7 @@ func TestCourier(t *testing.T) {
 	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
 	water, lock := row(t, SupplyWater), row(t, RoomLock)
-	for _, add := range []struct{ i, room int }{{water, -1}, {lock, -1}, {row(t, rowFatherK), 0}} {
+	for _, add := range []struct{ i, room int }{{water, -1}, {lock, -1}, {row(t, rowFatherM), 0}} {
 		if why := g.addToCart(add.i, add.room); why != "" {
 			t.Fatalf("add %s: %q", shop[add.i].ID, why)
 		}

@@ -75,9 +75,9 @@ func (goals) Act(v View, p *Pilot) {
 	smart{}.Act(v, p)
 }
 
-// fathers fights a Room's dread with the Fathers. It buys the K and M call unlocks once some Room's Mood is at or
-// below dreadMood and the wallet holds the unlock and one call; calls K at that Room if it has spiritual dirt, or
-// M if it is Closed or has a Shadow; and puts K on his retainer once the wallet holds two days of it (income
+// fathers fights a Room's dread with the Fathers. It buys the K (retainer) and M (call) unlocks once some Room's Mood is
+// at or below dreadMood and the wallet holds the unlock (and one call of M); calls M at that Room if it is Closed or
+// has a Shadow; and puts K on his retainer once the wallet holds two days of it (income
 // covers it: whatever Growth leaves piling up is spare; if he later leaves unpaid, the row waits for the same).
 func fathers(v View, p *Pilot, buy func(Unlock, int, Cost, func(View) bool) bool) bool {
 	const dreadMood = 0
@@ -92,18 +92,13 @@ func fathers(v View, p *Pilot, buy func(Unlock, int, Cost, func(View) bool) bool
 		for _, u := range []struct {
 			id   Unlock
 			cost Num
-		}{{unlockK, unlockKEcto + priestWeak}, {unlockM, unlockMEcto + priestStrong}} {
+		}{{unlockK, unlockKEcto}, {unlockM, unlockMEcto + priestStrong}} {
 			if v.Ecto >= u.cost && buy(u.id, -1, Cost{Ecto: u.cost}, func(v View) bool { return !callable(v, u.id) }) {
 				return true
 			}
 		}
-		strong := r.Closed || r.Shadow
-		switch {
-		case strong && callable(v, rowFatherM) && v.Ecto >= priestStrong && !p.FatherBusy(true):
-			p.CallPriest(worst, true)
-			return true
-		case len(r.Spirit) > 0 && callable(v, rowFatherK) && callable(v, rowRetain) && v.Ecto >= priestWeak && !p.FatherBusy(false):
-			p.CallPriest(worst, false)
+		if (r.Closed || r.Shadow) && callable(v, rowFatherM) && v.Ecto >= priestStrong && !p.FatherBusy() {
+			p.CallPriest(worst)
 			return true
 		}
 	}

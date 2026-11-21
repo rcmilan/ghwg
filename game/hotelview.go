@@ -77,14 +77,14 @@ func (g *Game) buyNow(i, room int) string {
 }
 
 // ringSlot: each Room action's fixed place on its ring (2026-11-15), clockwise from the top: Change type (a
-// boarded Room's key), Deluxe on the right, the Room mirror (Add mirror once it is bought) lower right, Father M lower left, Father K on the left.
-var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowAddMirror: 2, rowFatherM: 3, rowFatherK: 4, rowGerald: 5, rowWard: 6} // 08 W5: Gerald and the Ward, once owned
+// boarded Room's key), Deluxe on the right, the Room mirror (Add mirror once it is bought) lower right, Father M lower left.
+var ringSlot = map[Unlock]int{rowKey: 0, rowChange: 0, rowDeluxe: 1, RoomMirror: 2, rowAddMirror: 2, rowFatherM: 3, rowGerald: 5, rowWard: 6} // 08 W5: Gerald and the Ward, once owned
 
 const ringSlots = 7
 
 // roomRows: the Room's actions, shop indexes clockwise from the top, only the ones it can take now (2026-11-15):
 // a boarded Room's key alone, never a bought one's; Change type while it has a layout to change to, or a change
-// waiting to call off; a Father's call only while he is nowhere in the hotel. One the wallet can't pay stays.
+// waiting to call off; Father M's call only while he is nowhere in the hotel. One the wallet can't pay stays.
 func (g *Game) roomRows(room int) []int {
 	rows := slices.DeleteFunc(tabItems(tabRooms), func(i int) bool {
 		it := shop[i]
@@ -93,7 +93,7 @@ func (g *Game) roomRows(room int) []int {
 			return true
 		case it.ID == rowChange:
 			return g.changeFor(room) == nil && (g.changing(room) || len(g.changeBeds(room)) == 0)
-		case (it.ID == rowFatherK || it.ID == rowFatherM) && g.fatherIn(it.ID == rowFatherM):
+		case it.ID == rowFatherM && g.fatherIn(true):
 			return true
 		}
 		return !g.onSale(i) || g.owned(i) || it.Refuse != nil && it.Refuse(g, room) != "" || g.coming(it.ID, room)

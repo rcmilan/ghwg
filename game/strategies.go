@@ -85,8 +85,8 @@ func (s smart) Act(v View, p *Pilot) {
 		return
 	}
 	for i, r := range v.Rooms {
-		if !s.save && r.Closed && !r.Priest && v.Ecto >= priestWeak && callable(v, rowFatherK) {
-			p.CallPriest(i, false)
+		if !s.save && r.Closed && !r.Priest && v.Ecto >= priestStrong && callable(v, rowFatherM) {
+			p.CallPriest(i)
 			return
 		}
 	}
