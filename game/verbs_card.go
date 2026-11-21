@@ -12,6 +12,9 @@ import (
 // verbOpened: a Card was opened. Magenta's, while O1 is open, gives the Concierge the word to carry across.
 func (g *Game) verbOpened(p *Party) {
 	g.verbSync()
+	for _, guest := range p.Guests {
+		g.saw(guest.Who.Key)
+	}
 	if g.questOpen("O1") && p.Realm == Human && p.Guests[0].Who.Key == "magenta" {
 		g.verbs.held = "O1"
 	}
@@ -125,6 +128,7 @@ func (g *Game) verbRead(p *Party, guest *entities.Guest) (quirk, fact string) {
 		return porterQuirk, porterFact
 	}
 	if guest.Who.Key == "tim" && g.questOpen("O9") {
+		g.saw("O9.read")
 		return "", objOf("O9").Ask
 	}
 	return "", ""
@@ -195,6 +199,13 @@ func (g *Game) questEntries(es []bookEntry) []bookEntry {
 // carry (both parts at Lv2+, on their spreads); reading the name finishes O12.
 func (g *Game) bookRead() {
 	if !g.ghost {
+		if es := g.shown(); g.questOpen("O12") {
+			for i := range bookSpread(es, g.bookTop) {
+				if es[g.bookTop+i].Line == nameEntry {
+					g.saw("O12.odd")
+				}
+			}
+		}
 		return
 	}
 	g.verbSync()

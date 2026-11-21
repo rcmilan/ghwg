@@ -220,6 +220,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
 	}
 	g.questHUD(s) // 08 W5
+	g.drawHeldSlot(s)
 }
 
 // fresh: store item i is listed, on sale, affordable and not owned: one the Terminal's "!" can count.

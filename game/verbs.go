@@ -28,6 +28,7 @@ type verbState struct {
 	stranger *Party          // O3 Lv2+: the human in Madame's Room
 	spirit   spiritRun       // O4 (spirit.go)
 	litAt    image.Point     // O4: where the spirit was lit, world px, for the cutscene
+	seen     map[string]bool // what the Concierge has seen this beat, for the checklist's next step (guide.go): a guest's Card opened by key, "O5.ask", "O9.read", "O12.odd"
 }
 
 // The word or thing a held id stands for, as the label over the Concierge's head says it.
@@ -252,6 +253,9 @@ func (g *Game) verbActors() (as []actor) {
 func (g *Game) updateVerbs() {
 	g.verbSync()
 	g.updateSpirit()
+	if p := g.questParty("tim"); g.ghost && g.questOpen("O5") && p != nil && p.asking() {
+		g.saw("O5.ask")
+	}
 	if g.verbs.held != "" && !g.questOpen(g.verbs.held) {
 		g.verbs.held = ""
 	}
