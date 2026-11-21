@@ -100,11 +100,11 @@ func (g *Game) dirtQuirkMul(p *Party) float64 {
 
 // mayFlee: Party p's guest at its FleeAt steps out, then flees; false and it never does: Skeptic (that guest only).
 func (g *Game) mayFlee(p *Party, guest *entities.Guest) bool {
-	return guest.Who.Quirk != Skeptic && !g.questPinned(p) && !g.warded(p.Room) // 08 W5: a quest guest, the Ward
+	return guest.Who.Quirk != Skeptic && !isMacguffin(p) && !g.questPinned(p) && !g.warded(p.Room) // 08 W5: a quest guest, the Ward
 }
 
 // sleeps: Party p goes to bed at night and asks for nothing then; false and it stays up and asks at night too: Night owl.
-func (g *Game) sleeps(p *Party) bool { return !hasQuirk(p, NightOwl) }
+func (g *Game) sleeps(p *Party) bool { return !hasQuirk(p, NightOwl) && !isMacguffin(p) }
 
 // mayHaunt: the ghost may haunt its Room now; false: Shy, while a human in its Room is awake.
 func (g *Game) mayHaunt(room int, ghost *entities.Guest) bool {

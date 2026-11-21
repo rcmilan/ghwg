@@ -42,7 +42,7 @@ func (g *Game) cardParty(i int) *Party {
 		realm = Ghost
 	}
 	for _, p := range g.parties {
-		if p.Occupies(i, realm) {
+		if p.Occupies(i, realm) || isMacguffin(p) && p.Occupies(i, Human) { // 08 W5: the MacGuffin's card is the same in both Dimensions
 			return p
 		}
 	}
@@ -51,12 +51,12 @@ func (g *Game) cardParty(i int) *Party {
 
 // revealed: p's guest has been read: its Party was, or (a named guest) an earlier visit's was.
 func (g *Game) revealed(p *Party, guest *entities.Guest) bool {
-	return p.revealed || guest.Who.Key != "" && g.revealedKeys[guest.Who.Key]
+	return p.revealed || guest.Who.Key != "" && g.revealedKeys[guest.Who.Key] || isMacguffin(p) // 08 W5: nothing to reveal
 }
 
 // canMove: the human Party could be talked to about moving (the talk's conditions, minus where the Concierge stands).
 func (g *Game) canMove(p *Party) bool {
-	return p.Realm == Human && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0
+	return p.Realm == Human && !isMacguffin(p) && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0
 }
 
 // cardOpts: the options that apply to the guest now, in order. REVEAL stays while unaffordable (drawn grey).
@@ -198,7 +198,9 @@ func (g *Game) cardView() (v cardView) {
 			v.quote = append(v.quote, cardRow{l, white, 1})
 		}
 	}
-	if g.revealed(p, guest) {
+	if isMacguffin(p) { // 08 W5: REVEAL: IT REVEALS YOU
+		v.read = append(v.read, cardRow{macguffinCard.Reveal, white, 1})
+	} else if g.revealed(p, guest) {
 		stat := fmt.Sprintf("NERVE %d", nerve(guest))
 		if ghost {
 			stat = fmt.Sprintf("PHANTASM %d", guest.Phantasm)
