@@ -144,6 +144,9 @@ func (g *Game) osvaldoDue() bool { return g.met["magda"] && g.visits["osvaldo"] 
 
 // namedPick: this booking is a named guest's 1 time in namedOdds, one of the eligible keys. g.ident only.
 func (g *Game) namedPick(keys []string) (string, bool) {
+	if g.quest.naming { // 08 W5: a quest guest is being booked: it takes the Party
+		return "", false
+	}
 	if g.ident.IntN(namedOdds) != 0 {
 		return "", false
 	}
@@ -180,7 +183,11 @@ func (g *Game) rollNamedHuman(p *Party) {
 	if !ok {
 		return
 	}
-	h := namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })]
+	g.nameHuman(p, namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })])
+}
+
+// nameHuman: the Party's Guests become the named human h's Members (the quest's check-in uses it too).
+func (g *Game) nameHuman(p *Party, h namedHuman) {
 	for i, m := range h.Members {
 		guest := p.Guests[i]
 		guest.Who = entities.Identity{Name: m.Name, Age: m.Age, AgeNote: m.AgeNote, Job: h.Job, Lines: m.Lines, Quirk: h.Quirk, Key: h.Key}
@@ -188,7 +195,7 @@ func (g *Game) rollNamedHuman(p *Party) {
 			guest.Character = m.Sprite + "#" + seed
 		}
 	}
-	g.visited(p, key)
+	g.visited(p, h.Key)
 }
 
 // rollNamedGhost: a ghost Party that just booked may be a named ghost's, in its first guest's place (g.ident only);

@@ -203,7 +203,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered, serves, staffPaid, offered := g.delivered, g.serves, g.staffPaid, g.offered
+	delivered, serves, staffPaid, offered, purse := g.delivered, g.serves, g.staffPaid, g.offered, g.quest.paid
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -358,7 +358,7 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() && g.quest.paid == purse { // 08 W5: a quest purse is Ecto too. Before the frame: a Party scared then paid; after: one that fled
 			s.fail("Ecto rose %s with no ghost clean nor a shadowed Room holding its Party", fmtNum(g.wallet[Ecto]-ecto))
 		}
 	}
@@ -427,7 +427,7 @@ func (s *sim) finish() Result {
 	s.res.UpLevels, s.res.UpSpend = upTotals(s.g)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
-			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {
+			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames && !s.g.questPinned(p) { // 08 W5: a quest guest is held
 				s.fail("room %d's Booking never paid: checkout was %s", p.Room, clockText(p.Checkout))
 			}
 		}
