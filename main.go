@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/game"
@@ -66,6 +67,7 @@ func main() {
 	scene := flag.String("scene", "", "dev: a busy hotel with Ned and Celestine in it, a quest cutscene playing: O4, O9 or finale (with -shot -at: the frame; -ghost for O4 and O9)")
 	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
+	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
 	flag.Parse()
 
 	ebiten.SetWindowSize(960, 540)
@@ -102,7 +104,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != ""
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -174,6 +176,9 @@ func main() {
 		g.DevCard(*card)
 	}
 	g.DevWeather(*weather)
+	if i := slices.Index([]string{"fridge", "sink", "stove"}, *kitchenLife); i >= 0 {
+		g.DevKitchenLife(i)
+	}
 	if *street {
 		g.DevStreet()
 	}
