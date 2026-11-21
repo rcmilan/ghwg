@@ -1,23 +1,75 @@
 package game
 
 import (
+	"math"
 	"slices"
 
 	"ghosthotel/entities"
 )
 
-// 08 W5-VERBS: the Card's quest side (TELL, TAKE, GIVE, a quest guest's Ask line, REVEAL's quest facts), the talk's
+// 08 W5-VERBS: quest TALK (TELL, TAKE, GIVE, a quest guest's Ask line), the Card's REVEAL quest facts, the talk's
 // target override and the guest book's quest entries.
 
-// verbOpened: a Card was opened. Magenta's, while O1 is open, gives the Concierge the word to carry across.
+// verbOpened: a Card was opened: its guests have been seen.
 func (g *Game) verbOpened(p *Party) {
 	g.verbSync()
 	for _, guest := range p.Guests {
 		g.saw(guest.Who.Key)
 	}
-	if g.questOpen("O1") && p.Realm == Human && p.Guests[0].Who.Key == "magenta" {
+}
+
+const (
+	talkReach = 24 // px: how close the Concierge must be to a quest character to talk to it
+	talkHold  = 90 // frames a quest TALK keeps the character standing
+)
+
+// isQuestChar: the guest is one SPACE talks to as a quest character: a named one of the questline, or one with a
+// word or thing to take or give now (the ghost roommate, the oldest sleeper).
+func (g *Game) isQuestChar(p *Party, guest *entities.Guest) bool {
+	return slices.Contains(questCast, guest.Who.Key) || len(g.verbOpts(p, guest)) > 0
+}
+
+// questTalk: the quest character of the Concierge's Dimension nearest to him within reach, in his Room or both out
+// of any; walking or settled. nil if none.
+func (g *Game) questTalk() (*Party, *entities.Guest) {
+	var bp *Party
+	var bg *entities.Guest
+	best, room := float64(talkReach), g.roomAt(g.player.X, g.player.Y)
+	for _, p := range g.parties {
+		if p.Realm != g.realm() || p.abed || g.tick < p.hold { // one already stopped for a talk is not talked to again until it moves
+			continue
+		}
+		for _, guest := range p.Guests {
+			if d := math.Hypot(guest.X-g.player.X, guest.Y-g.player.Y); d <= best && p.shown(guest) && g.roomAt(guest.X, guest.Y) == room && g.isQuestChar(p, guest) {
+				bp, bg, best = p, guest, d
+			}
+		}
+	}
+	return bp, bg
+}
+
+// questSpeak: SPACE at a quest character. It stops, faces the Concierge and says its quest line over its head; the
+// word or thing the Concierge carries that it needs goes over in the same press, and what it gives is taken.
+// Nothing quest-related to say: one of its own lines.
+func (g *Game) questSpeak(p *Party, guest *entities.Guest) {
+	g.verbSync()
+	p.hold = g.tick + talkHold
+	guest.Anim.Facing = entities.Toward(g.player.X-guest.X, g.player.Y-guest.Y)
+	g.verbOpened(p)
+	if g.questOpen("O1") && p.Realm == Human && guest.Who.Key == "magenta" { // her word to carry across
 		g.verbs.held = "O1"
 	}
+	said := g.verbQuote(p, guest)
+	if os := g.verbOpts(p, guest); len(os) > 0 {
+		if done := g.cardVerb(os[0], p, guest); done != "" {
+			said = done
+		}
+	}
+	if n := len(guest.Who.Lines); said == "" && n > 0 {
+		said = guest.Who.Lines[p.said%n]
+		p.said++
+	}
+	speak(p, slices.Index(p.Guests, guest), said, g.tick)
 }
 
 // takeId: the objective whose thing this guest has to hand over now ("" none): the oldest sleeper's key (O9), the
@@ -33,7 +85,7 @@ func (g *Game) takeId(p *Party, guest *entities.Guest) string {
 	return ""
 }
 
-// verbOpts: the quest options of this guest's Card now, in order: TELL, TAKE, GIVE. Only what applies.
+// verbOpts: the quest verbs that apply to this guest now, in order: TELL, TAKE, GIVE. Only what applies.
 func (g *Game) verbOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	g.verbSync()
 	k, h := guest.Who.Key, g.verbs.held
@@ -49,53 +101,34 @@ func (g *Game) verbOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	return os
 }
 
-// verbOptText: the row of a quest option.
-func (g *Game) verbOptText(o cardOpt, p *Party, guest *entities.Guest) string {
-	switch o {
-	case optTell:
-		return "TELL THE " + heldNames[g.verbs.held]
-	case optGive:
-		return "GIVE THE " + heldNames[g.verbs.held]
-	case optTake:
-		return "TAKE THE " + heldNames[g.takeId(p, guest)]
-	}
-	return macguffinCard.Reveal // optNoReveal
-}
-
-// cardVerb: SPACE on a quest option. The Card stays open and says the done line where the guest has one; O9's
-// GIVE closes it for the cutscene.
-func (g *Game) cardVerb(o cardOpt, p *Party, guest *entities.Guest, c *card) {
+// cardVerb: the quest verb o done, the guest's done line returned where it has one; O9's GIVE plays its cutscene.
+func (g *Game) cardVerb(o cardOpt, p *Party, guest *entities.Guest) string {
 	switch o {
 	case optTell: // O1: the ghost roommate hears the word; O2: Magenta hears the entry
 		id := g.verbs.held
 		g.verbs.held = ""
-		c.say = objOf(id).Done
 		g.verbDone(evTell, p.Room, id)
+		return objOf(id).Done
 	case optTake:
 		id := g.takeId(p, guest)
 		g.rollSet(id+".took", 1)
 		g.verbs.held = id
-		c.say = ""
 	case optGive:
 		id := g.verbs.held
 		g.verbs.held = ""
-		if id == "O9" {
-			g.endTalk()
-			g.verbDone(evGive, p.Room, id)
-			g.playQuestScene("O9")
-			return
-		}
-		c.say = objOf(id).Done
 		g.verbDone(evGive, p.Room, id)
+		if id == "O9" {
+			g.playQuestScene("O9")
+			return ""
+		}
+		return objOf(id).Done
 	}
+	return ""
 }
 
-// verbQuote: what the guest's Card says instead of its regular line: the line it was last given (c.say), else the
-// Ask of the open objective that is this guest's.
-func (g *Game) verbQuote(p *Party, guest *entities.Guest, c *card) string {
-	if c.say != "" {
-		return c.say
-	}
+// verbQuote: what the guest says of its quest, or on its Card instead of its regular line: the Ask of the open
+// objective that is this guest's.
+func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 	g.verbSync()
 	switch id := g.takeId(p, guest); {
 	case id == "O9":

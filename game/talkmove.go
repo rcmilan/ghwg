@@ -106,14 +106,22 @@ func (g *Game) targets(p *Party) []int {
 		ts = append(ts, i)
 	}
 	slices.SortStableFunc(ts, func(a, b int) int { return cmp.Compare(g.roomPhantasm(b), g.roomPhantasm(a)) })
-	return g.withTarget(p, ts) // 08 W5: the objective's Room, always
+	ts = g.withTarget(p, ts) // 08 W5: the objective's Room, always
+	if q := g.questTarget(p); slices.Contains(ts, q) {
+		return []int{q} // and only it: a quest move can't be got wrong
+	}
+	return ts
 }
 
 // talker: the Party TALK opens the card of: the Concierge stands on its Room's plate, beside the door (T381 refine 2),
 // in either Dimension (a ghost Party in ghost), with nothing SPACE does there first (an asked item to hand over).
 func (g *Game) talker() *Party {
-	if act, _ := g.actionable(); act == actCard {
+	switch act, _ := g.actionable(); act {
+	case actCard:
 		return g.cardParty(g.atMat())
+	case actQuestTalk: // 08 W5 R8: the cue shows for a quest character too
+		p, _ := g.questTalk()
+		return p
 	}
 	return nil
 }

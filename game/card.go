@@ -28,7 +28,6 @@ const (
 // card is the open card: which guest of the Party, which of its options, and which of the guest's lines it says.
 type card struct {
 	who, pick, line int
-	say             string // 08 W5: the line the guest was just given (a quest verb's done line), over its regular one
 }
 
 type cardOpt int
@@ -36,7 +35,7 @@ type cardOpt int
 const (
 	optReveal cardOpt = iota
 	optMove
-	optTell // 08 W5: the quest verbs (verbs_card.go)
+	optTell // 08 W5: the quest verbs, done by quest TALK (verbs_card.go), never on the Card
 	optTake
 	optGive
 	optNoReveal // the MacGuffin: "REVEAL: IT REVEALS YOU", nothing to do
@@ -76,7 +75,7 @@ func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	if g.canMove(p) {
 		os = append(os, optMove)
 	}
-	return append(os, g.verbOpts(p, guest)...)
+	return os
 }
 
 // revealCost: REVEAL's price: nothing with Show, don't tell (08 W5).
@@ -151,8 +150,6 @@ func (g *Game) updateCard() {
 		g.endTalk()
 	case os[c.pick] == optReveal:
 		g.reveal(p)
-	case os[c.pick] >= optTell:
-		g.cardVerb(os[c.pick], p, p.Guests[c.who], c)
 	default:
 		g.endTalk()
 		g.startTalk(p)
@@ -209,7 +206,7 @@ func (g *Game) cardView() (v cardView) {
 	if n := len(w.Lines); n > 0 {
 		said = w.Lines[c.line%n]
 	}
-	if q := g.verbQuote(p, guest, c); q != "" { // 08 W5: a quest guest's Ask, or what it was just given
+	if q := g.verbQuote(p, guest); q != "" { // 08 W5: a quest guest's Ask, or what it was just given
 		said = q
 	}
 	if said != "" {
@@ -245,8 +242,8 @@ func (g *Game) cardView() (v cardView) {
 	can := g.afford(Cost{Ecto: g.revealCost()})
 	for k, o := range g.cardOpts(p, guest) {
 		text, ink, a := "MOVE", white, float32(0.6)
-		if o >= optTell {
-			text = g.verbOptText(o, p, guest)
+		if o == optNoReveal {
+			text = macguffinCard.Reveal
 		}
 		if o == optReveal {
 			text = fmt.Sprintf("REVEAL  %d ECTO", int(g.revealCost()))

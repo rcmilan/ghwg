@@ -170,6 +170,7 @@ type Party struct {
 	talk       []line        // its lines showing or about to (D165)
 	snubbed    int           // the clock until which, having refused an offer, it won't be talked to (X2, talkmove.go)
 	arrived    int           // the clock it walked in
+	hold       int           // the tick until which a quest TALK keeps it standing (verbs_card.go)
 	mess       int           // dirt its Guests leave a night (dirt.go)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
 	Booking
@@ -419,7 +420,8 @@ func (g *Game) send(guest *entities.Guest, to image.Point, avoid ...image.Point)
 func (g *Game) updateParties() {
 	kept := g.parties[:0]
 	for _, p := range g.parties {
-		if g.updateParty(p) {
+		if g.tick < p.hold || g.updateParty(p) { // a quest TALK stops it for a moment
+
 			kept = append(kept, p)
 		}
 	}

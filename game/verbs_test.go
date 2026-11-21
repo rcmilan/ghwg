@@ -35,6 +35,21 @@ func reported(g *Game, id string) bool { return slices.Contains(g.verbs.done, id
 
 func optsOf(g *Game, p *Party) (os []cardOpt) { return g.cardOpts(p, p.Guests[0]) }
 
+// verbsOf: the quest verbs that apply to the Party's first guest (quest TALK does them).
+func verbsOf(g *Game, p *Party) []cardOpt { return g.verbOpts(p, p.Guests[0]) }
+
+// talkTo: SPACE with the Concierge on the Party's first guest; what it says over its head after, wraps undone.
+func talkTo(g *Game, s *script, p *Party) string {
+	guest := p.Guests[0]
+	p.talk = nil
+	press(g, s, image.Pt(int(guest.X), int(guest.Y)))
+	var ls []string
+	for _, l := range p.talk {
+		ls = append(ls, l.text)
+	}
+	return strings.Join(ls, " ")
+}
+
 func hasOpt(os []cardOpt, o cardOpt) bool { return slices.Contains(os, o) }
 
 // named places the named guest in the Room, failing the test if it can't.
@@ -53,59 +68,93 @@ func minuteAt(g *Game, c int) {
 	g.verbMinute()
 }
 
-// O1: Magenta's Card in real gives the word; it crosses the SHIFT, and TELL shows only on the ghost roommate's Card.
+// O1: talking to Magenta in real gives the word; it crosses the SHIFT, and one SPACE on the ghost roommate, in ghost
+// only, tells it.
 func TestO1TellAcrossShift(t *testing.T) {
 	g, s := verbRun(t, 2, 1)
 	m := named(t, g, 0, "magenta")
 	if g.verbWait("O1") != true {
 		t.Error("no ghost in her Room, but the row does not wait")
 	}
-	ghostOf(g, 0, 3)
+	mate := ghostOf(g, 0, 3)
 	if g.verbWait("O1") {
 		t.Error("a ghost is in her Room, and the row still waits")
 	}
-	if hasOpt(optsOf(g, m), optTell) {
-		t.Error("TELL shows with no word held")
+	if hasOpt(verbsOf(g, m), optTell) {
+		t.Error("TELL applies with no word held")
 	}
-	press(g, s, center(g.hotel.Rooms[0].Plate()))
-	if g.state != StateTalk || g.verbs.held != "O1" {
-		t.Fatalf("her Card: state %d, held %q; want the Card open and the word held", g.state, g.verbs.held)
+	if txt := talkTo(g, s, m); g.state != StatePlay || g.verbs.held != "O1" || !strings.Contains(txt, "witch has arrived") {
+		t.Fatalf("her talk: state %d, held %q, said %q; want the word held and the Ask said", g.state, g.verbs.held, txt)
 	}
-	if txt := flat(g); !strings.Contains(txt, "witch has arrived") {
-		t.Errorf("her Card does not say the Ask:\n%s", txt)
+	if g.tick >= m.hold {
+		t.Error("she did not stop")
 	}
-	if hasOpt(optsOf(g, m), optTell) {
-		t.Error("TELL shows on Magenta's own Card")
+	if q, _ := g.questTalk(); q == mate {
+		t.Error("real: SPACE talks to the ghost")
 	}
-	keys(g, s, ebiten.KeyEscape)
 	g.ghost = true // SHIFT: the word stays
 	if g.verbs.held != "O1" {
 		t.Fatal("the word did not cross the SHIFT")
 	}
-	press(g, s, center(g.hotel.Rooms[0].Plate()))
-	if g.parley == nil || g.parley.card == nil || !hasOpt(g.cardOpts(g.parley.p, g.parley.p.Guests[0]), optTell) {
-		t.Fatal("no TELL on the ghost roommate's Card")
-	}
-	tap(g, s, ebiten.KeyS)
-	if !strings.Contains(flat(g), "TELL THE WORD") {
-		t.Errorf("the TELL row:\n%s", flat(g))
-	}
-	tap(g, s, ebiten.KeySpace)
-	if !reported(g, "O1") || g.verbs.held != "" {
-		t.Errorf("TELL: reported %v, held %q", g.verbs.done, g.verbs.held)
-	}
-	if txt := flat(g); !strings.Contains(txt, "A witch! Finally") {
-		t.Errorf("the ghost does not answer:\n%s", txt)
+	if txt := talkTo(g, s, mate); !reported(g, "O1") || g.verbs.held != "" || !strings.Contains(txt, "A witch! Finally") {
+		t.Errorf("one SPACE: reported %v, held %q, said %q", g.verbs.done, g.verbs.held, txt)
 	}
 }
 
-// Menus show only what applies: no TELL, TAKE or GIVE without a word or thing for that guest, none for a closed objective.
-func TestVerbMenusOnlyWhatApplies(t *testing.T) {
+// A quest character walking in the Corridor can be talked to, and stops for it; inside the Room SPACE talks before
+// it cleans; with nothing quest-related it says one of its lines.
+func TestQuestTalkWalkingAndBeforeClean(t *testing.T) {
+	g, s := verbRun(t, 2, 1)
+	m := named(t, g, 0, "magenta")
+	g.state = StatePlay
+	g.verbs.held = ""
+	x, y := g.hotel.Rooms[0].Door.X*world.TileSize+8, g.hotel.Rooms[0].Door.Y*world.TileSize+3*world.TileSize
+	m.Guests[0].X, m.Guests[0].Y = float64(x), float64(y)
+	m.state, m.Guests[0].Path = checkingIn, []image.Point{{x, y + 64}}
+	g.player.X, g.player.Y = float64(x), float64(y)
+	if act, _ := g.actionable(); act != actQuestTalk {
+		t.Fatalf("walking, close: SPACE is %d, want quest TALK", act)
+	}
+	g.player.X = float64(x + 3*world.TileSize)
+	if act, _ := g.actionable(); act == actQuestTalk {
+		t.Error("far from her: still quest TALK")
+	}
+	m.state, m.Guests[0].Path = staying, nil
+	g.settleIn(m)
+	g.questSpeak(m, m.Guests[0])
+	if g.verbs.held != "O1" || g.tick >= m.hold {
+		t.Errorf("walking talk: held %q", g.verbs.held)
+	}
+	at := m.Guests[0]
+	g.player.X, g.player.Y = at.X, at.Y
+	if act, _ := g.actionable(); act == actQuestTalk {
+		t.Error("SPACE talks again to her while she is stopped")
+	}
+	m.hold = 0
+	g.setDirtLevel(0, spotUnit) // something to clean in her Room
+	if room, _ := g.cleanable(); room != 0 {
+		t.Fatal("nothing to clean in her Room")
+	}
+	if act, _ := g.actionable(); act != actQuestTalk {
+		t.Errorf("inside the Room: SPACE is %d, want quest TALK before clean", act)
+	}
+	m.hold = 0
+	m.Guests[0].Who.Lines = []string{"Hmm."} // copy: placeholder line for the test
+	g.quest.Done[0], g.verbs.held, g.verbs.beat = true, "", g.quest.Beat
+	if txt := talkTo(g, s, m); txt == "" {
+		t.Error("nothing quest-related: she says nothing")
+	}
+}
+
+// The Card has no quest verbs: TELL, TAKE and GIVE are quest TALK's.
+func TestCardHasNoQuestVerbs(t *testing.T) {
 	g, _ := verbRun(t, 3, 1)
 	m, ghost := named(t, g, 0, "magenta"), ghostOf(g, 0, 3)
-	for _, held := range []string{"", "O2", "O9", "O11"} {
+	for _, held := range []string{"O1", "O2", "O9", "O11"} {
 		g.verbs.held = held
+		g.ghost = false
 		for _, p := range []*Party{m, ghost} {
+			g.ghost = p.Realm == Ghost
 			for _, o := range optsOf(g, p) {
 				if o >= optTell {
 					t.Errorf("held %q: a quest option %d on %v's Card", held, o, p.Guests[0].Who.Name)
@@ -113,12 +162,26 @@ func TestVerbMenusOnlyWhatApplies(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Quest TALK does only what applies: no TELL, TAKE or GIVE without a word or thing for that guest, none for a closed objective.
+func TestVerbMenusOnlyWhatApplies(t *testing.T) {
+	g, _ := verbRun(t, 3, 1)
+	m, ghost := named(t, g, 0, "magenta"), ghostOf(g, 0, 3)
+	for _, held := range []string{"", "O2", "O9", "O11"} {
+		g.verbs.held = held
+		for _, p := range []*Party{m, ghost} {
+			if os := verbsOf(g, p); len(os) > 0 {
+				t.Errorf("held %q: quest verbs %v on %v", held, os, p.Guests[0].Who.Name)
+			}
+		}
+	}
 	g.verbs.held = "O1"
-	if !hasOpt(optsOf(g, ghost), optTell) || hasOpt(optsOf(g, m), optTell) {
-		t.Error("held O1: TELL should show on the ghost only")
+	if !hasOpt(verbsOf(g, ghost), optTell) || hasOpt(verbsOf(g, m), optTell) {
+		t.Error("held O1: TELL should apply to the ghost only")
 	}
 	g.quest.Done[0] = true
-	if hasOpt(optsOf(g, ghost), optTell) {
+	if hasOpt(verbsOf(g, ghost), optTell) {
 		t.Error("TELL shows with O1 done")
 	}
 }
@@ -167,15 +230,12 @@ func TestO2BookEntryGhostOnly(t *testing.T) {
 			t.Fatalf("level %d: the word is %q after reading", level, g.verbs.held)
 		}
 		g.state, g.ghost = StatePlay, false
-		if !hasOpt(optsOf(g, m), optTell) {
-			t.Fatal("no TELL on Magenta's Card")
+		if !hasOpt(verbsOf(g, m), optTell) {
+			t.Fatal("no TELL for Magenta")
 		}
-		g.startCard(0)
-		g.cardVerb(optTell, m, m.Guests[0], g.parley.card)
-		if !reported(g, "O2") || !strings.Contains(flat(g), "Ninety-seven years") {
-			t.Errorf("level %d: reported %v:\n%s", level, g.verbs.done, flat(g))
+		if txt := talkTo(g, s, m); !reported(g, "O2") || !strings.Contains(txt, "Ninety-seven years") {
+			t.Errorf("level %d: reported %v: %q", level, g.verbs.done, txt)
 		}
-		_ = s
 	}
 }
 
@@ -581,29 +641,14 @@ func TestO9KeyForTim(t *testing.T) {
 	if g.verbs.oldest != old || !g.verbPinned(old) || g.verbPinned(young) {
 		t.Fatalf("oldest %v", g.verbs.oldest)
 	}
-	if hasOpt(optsOf(g, young), optTake) || !hasOpt(optsOf(g, old), optTake) {
-		t.Error("TAKE should show on the oldest only")
+	if hasOpt(verbsOf(g, young), optTake) || !hasOpt(verbsOf(g, old), optTake) {
+		t.Error("TAKE should apply to the oldest only")
 	}
-	g.startCard(2)
-	if txt := flat(g); !strings.Contains(txt, keyGive) || !strings.Contains(txt, "TAKE THE KEY") {
-		t.Errorf("the oldest's Card:\n%s", txt)
+	if txt := talkTo(g, s, old); !strings.Contains(txt, keyGive) || g.verbs.held != "O9" || g.verbPinned(old) || hasOpt(verbsOf(g, old), optTake) {
+		t.Errorf("after TALK: said %q, held %q pinned %v", txt, g.verbs.held, g.verbPinned(old))
 	}
-	g.endTalk()
-	g.cardVerb(optTake, old, old.Guests[0], &card{})
-	if g.verbs.held != "O9" || g.verbPinned(old) || hasOpt(optsOf(g, old), optTake) {
-		t.Errorf("after TAKE: held %q pinned %v", g.verbs.held, g.verbPinned(old))
-	}
-	g.ghost = true // SHIFT: Tim's Card
-	tim.revealed = true
-	g.startCard(0)
-	if txt := flat(g); !strings.Contains(txt, "oldest soul") || !strings.Contains(txt, "GIVE THE KEY") {
-		t.Errorf("Tim's Card:\n%s", txt)
-	}
-	os := g.cardOpts(tim, tim.Guests[0])
-	tap(g, s, ebiten.KeyS)
-	_ = os
-	g.endTalk()
-	g.cardVerb(optGive, tim, tim.Guests[0], &card{})
+	g.ghost = true // SHIFT: Tim
+	talkTo(g, s, tim)
 	if !reported(g, "O9") || g.verbs.held != "" {
 		t.Errorf("GIVE: reported %v held %q", g.verbs.done, g.verbs.held)
 	}
@@ -619,6 +664,17 @@ func TestO9OldestIsATouristAtLv2(t *testing.T) {
 	g.verbMinute()
 	if old.Routine != tourist {
 		t.Error("the oldest is not a Tourist")
+	}
+}
+
+// A quest move offers only its Room: with other Rooms to go to, the talk lists Madame's alone (O10).
+func TestQuestMoveOffersOnlyThatRoom(t *testing.T) {
+	g, _ := verbRun(t, 3, 6)
+	m := named(t, g, 0, "magenta")
+	named(t, g, 1, "celestine")
+	settledHuman(t, g, 2, 12) // somewhere else it could go, were it free
+	if ts := g.targets(m); len(ts) != 1 || ts[0] != 1 {
+		t.Errorf("targets %v, want only Madame's Room 1", ts)
 	}
 }
 
@@ -641,7 +697,7 @@ func TestO10StrangeBedfellows(t *testing.T) {
 
 // O11: the rolled ghost ally hands the HAFT (TAKE, ghost); Magenta takes it (GIVE, real). It crosses the SHIFT.
 func TestO11Haft(t *testing.T) {
-	g, _ := verbRun(t, 3, 6)
+	g, s := verbRun(t, 3, 6)
 	m := named(t, g, 0, "magenta")
 	cel, tim := named(t, g, 1, "celestine"), named(t, g, 2, "tim")
 	g.verbMinute()
@@ -654,21 +710,19 @@ func TestO11Haft(t *testing.T) {
 		giver, other = tim, cel
 	}
 	g.ghost = true
-	if !hasOpt(optsOf(g, giver), optTake) || hasOpt(optsOf(g, other), optTake) {
-		t.Fatal("TAKE should show on the rolled ally only")
+	if !hasOpt(verbsOf(g, giver), optTake) || hasOpt(verbsOf(g, other), optTake) {
+		t.Fatal("TAKE should apply to the rolled ally only")
 	}
-	g.cardVerb(optTake, giver, giver.Guests[0], &card{})
-	if g.verbs.held != "O11" || hasOpt(optsOf(g, giver), optTake) {
-		t.Fatalf("after TAKE: %q", g.verbs.held)
+	talkTo(g, s, giver)
+	if g.verbs.held != "O11" || hasOpt(verbsOf(g, giver), optTake) {
+		t.Fatalf("after TALK: %q", g.verbs.held)
 	}
 	g.ghost = false
-	if !hasOpt(optsOf(g, m), optGive) {
-		t.Fatal("no GIVE on Magenta's Card")
+	if !hasOpt(verbsOf(g, m), optGive) {
+		t.Fatal("no GIVE for Magenta")
 	}
-	g.startCard(0)
-	g.cardVerb(optGive, m, m.Guests[0], g.parley.card)
-	if !reported(g, "O11") || !strings.Contains(flat(g), "A staff fit for a sorceress") {
-		t.Errorf("GIVE: %v\n%s", g.verbs.done, flat(g))
+	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "A staff fit for a sorceress") {
+		t.Errorf("GIVE: %v: %q", g.verbs.done, txt)
 	}
 }
 

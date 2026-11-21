@@ -22,6 +22,7 @@ const (
 	actCard
 	actClean
 	actView
+	actQuestTalk // 08 W5 R8: SPACE talks to a quest character close by (verbs_card.go)
 )
 
 // actionable: what SPACE would do now and the world rect of the prop it acts on (for the glow; empty when there is
@@ -82,6 +83,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 			return actNone, image.Rectangle{}
 		}
 	}
+	if p, _ := g.questTalk(); p != nil { // before cleaning, the walkers' and the Room's alike
+		return actQuestTalk, image.Rectangle{}
+	}
 	if room, cell := g.cleanable(); room >= 0 {
 		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
 	}
@@ -121,6 +125,8 @@ func (g *Game) space() {
 		}
 	case actCard:
 		g.startCard(g.atMat())
+	case actQuestTalk:
+		g.questSpeak(g.questTalk())
 	case actClean:
 		g.clean(g.cleanable())
 	case actView:
