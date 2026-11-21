@@ -355,7 +355,6 @@ func TestStoryMode(t *testing.T) {
 	g, _ := headless(t, 2, 1, 1)
 	g.openAtStart = false // closed Rooms: the guests get one opened
 	g.startRun()
-	g.unlock(Mirror)
 	g.wallet = [2]Num{}
 	minute := func() {
 		for range minuteFrames {

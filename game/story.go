@@ -17,6 +17,7 @@ func (g *Game) storyGrow() {
 	if !StoryMode || g.state != StatePlay || g.growing != nil || g.growNext != 0 || q.Beat >= beatCount || slices.Contains(q.Done, false) {
 		return
 	}
+	g.unlock(Mirror) // ghost quest guests (beat 2 on) check in only through it
 	c, r := g.hotel.Grid()
 	if c > r && r < maxGrid(g.level) || c >= maxGrid(g.level) {
 		g.growNext = growFloor
