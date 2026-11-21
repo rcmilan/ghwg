@@ -243,6 +243,9 @@ func (g *Game) loadImages() (err error) {
 	g.characters[fatherP.name] = dress(g.bases["Adam"], palettes["Adam"], fatherP.look)
 	g.loadCourier()
 	g.loadKeeper()
+	if err = g.loadWitch(); err != nil { // 08 W5
+		return err
+	}
 	return nil
 }
 
