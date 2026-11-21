@@ -138,6 +138,7 @@ type sim struct {
 	seen      map[*Party]partyState // each Party's state last frame
 	paid      map[*Party]bool
 	fled      map[*Party]bool
+	held      map[*Party]bool // 08 W5: held past its checkout by the questline (questPinned)
 	phased    map[*entities.Guest]bool
 	legs      map[*Party]leg
 	called    map[*priest]bool
@@ -174,7 +175,7 @@ func newSim(cfg Config) (*sim, error) {
 		return nil, err
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
-		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
+		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{}, held: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, due: map[*priest]int{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), WalletByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
 	g.level, g.bonus = cfg.Level, max(1, cfg.Bonus)
@@ -328,10 +329,13 @@ func (s *sim) frame() bool {
 				s.res.Pairs++
 			}
 		}
+		if !p.Paid && g.clock > p.Checkout && g.questPinned(p) {
+			s.held[p] = true
+		}
 		if p.Paid && !s.paid[p] {
 			s.paid[p], banked = true, banked+p.tip
 			s.res.Paid++
-			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
+			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) && !s.held[p] {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
 		}
