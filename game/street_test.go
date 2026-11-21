@@ -3,6 +3,8 @@ package game
 import (
 	"slices"
 	"testing"
+
+	"ghosthotel/world"
 )
 
 func streetRun(t *testing.T) *Game {
@@ -101,5 +103,58 @@ func TestBonusWalkIn(t *testing.T) {
 	}
 	if g.passerTurnsIn() {
 		t.Fatal("turned in with every Room taken")
+	}
+}
+
+// Lines are said only while the Concierge is on the Street, by one passer-by at a time, never a line twice.
+func TestStreetLines(t *testing.T) {
+	g := streetRun(t)
+	for _, out := range [...]bool{false, true} {
+		g.street.walkers = nil
+		g.player.Y = float64(g.hotel.Spawn.Y)
+		if !out {
+			g.player.Y = float64(g.hotel.Spawn.Y - 4*world.TileSize)
+		}
+		spoke := false
+		for range 60000 {
+			g.updateStreet()
+			n, seen := 0, map[string]bool{}
+			for _, p := range g.street.walkers {
+				if p.sayLeft > 0 {
+					n++
+					if seen[p.say] {
+						t.Fatalf("two passers-by say %q", p.say)
+					}
+					seen[p.say] = true
+				}
+			}
+			if n > 1 || (!out && n > 0) {
+				t.Fatalf("out %v: %d passers-by talking", out, n)
+			}
+			spoke = spoke || n > 0
+		}
+		if spoke != out {
+			t.Fatalf("out %v: spoke %v", out, spoke)
+		}
+	}
+}
+
+// After a Growth every passer-by is still on the Street, not inside the hotel.
+func TestPassersFollowGrowth(t *testing.T) {
+	g := streetRun(t)
+	for range 3000 {
+		g.updateStreet()
+	}
+	if len(g.street.walkers) == 0 {
+		t.Fatal("no passers-by to test")
+	}
+	if _, err := g.grow(false); err != nil {
+		t.Fatal(err)
+	}
+	g.updateStreet()
+	for _, p := range g.street.walkers {
+		if d := int(p.Y) - g.hotel.Spawn.Y; d < -world.TileSize || d > world.TileSize {
+			t.Fatalf("passer-by at y %.0f, the Street's line is %d", p.Y, g.hotel.Spawn.Y)
+		}
 	}
 }
