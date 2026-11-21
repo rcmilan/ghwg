@@ -196,6 +196,18 @@ func TestNeedsRow(t *testing.T) {
 	if ids := g.needRows(); !slices.Contains(ids, unlockK) {
 		t.Fatalf("rows %v", ids)
 	}
+	if !g.onSale(row(t, unlockK)) {
+		t.Error("the row the step needs is not on sale")
+	}
+	g.unlock(unlockK)
+	if g.stepNeeds(unlockK) {
+		t.Error("still needed")
+	}
+	g.locked[unlockK] = true
+	g.rollSet("O6.room", 0)
+	if g.onSale(row(t, unlockK)) {
+		t.Error("on sale with no step needing it and its gate unearned")
+	}
 	g.unlock(unlockK)
 	if ids := g.needRows(); slices.Contains(ids, unlockK) {
 		t.Fatalf("still needed: %v", ids)

@@ -252,6 +252,19 @@ func (g *Game) stepNeed(id string) Unlock {
 	return ""
 }
 
+// stepNeeds: an open objective's current step needs shop row id (cheap: onSale asks it per row per frame).
+func (g *Game) stepNeeds(id Unlock) bool {
+	if g.quest.Beat < 1 {
+		return false
+	}
+	for i, o := range beats[g.quest.Beat-1].Objs {
+		if i < len(g.quest.Done) && !g.quest.Done[i] && g.stepNeed(o.ID) == id {
+			return true
+		}
+	}
+	return false
+}
+
 // needRows: the shop rows the Terminal outlines now.
 func (g *Game) needRows() (ids []Unlock) {
 	_, rows := g.guideRows()
