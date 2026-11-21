@@ -47,18 +47,19 @@ const (
 	evDoor                   // SPACE on the spirit's handprint door in ghost: room
 	evRitual                 // a Priest's Ritual landed: room, key "k" or "m"
 	evBook                   // a quest entry read in the guest book: room -1, key the entry's
-	evScene                  // a cutscene ended: room -1, key its id
+	evScene                  // a cutscene ended: room -1, key its id (information: it ticks nothing)
+	evDone                   // an objective done outside play (dev starts, tests, the quester Strategy): key its ID
 )
 
 // questEvent: a verb did something quest-worthy (room -1 when none). The contract (W5-SEAM): VERBS plays each
 // objective and, the moment one is finished, reports it with key = its ID ("O1".."O13"); QUEST ticks an open
-// objective so reported, whatever ev. Other keys are information (evGrow, evDawn, evScene's scene id, ...).
+// objective so reported, whatever ev but evScene. Other keys are information (evGrow, evDawn, ...).
 func (g *Game) questEvent(ev questEv, room int, key string) {
 	if ev == evGrow {
 		g.questGrow()
 		return
 	}
-	if !g.questOpen(key) {
+	if ev == evScene || !g.questOpen(key) { // a scene id ("O4") names its objective, which only the verb finishes
 		return
 	}
 	q := &g.quest
@@ -314,7 +315,7 @@ func (g *Game) DevQuest(n int) {
 		}
 		if b < n {
 			for _, o := range beats[b-1].Objs {
-				g.questEvent(evScene, -1, o.ID)
+				g.questEvent(evDone, -1, o.ID)
 			}
 		}
 	}

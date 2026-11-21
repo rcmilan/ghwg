@@ -18,7 +18,7 @@ func (quester) Cheat(g *Game) {
 	}
 	for i, o := range beats[q.Beat-1].Objs {
 		if !q.Done[i] && g.clock-q.At >= (i+1)*questDelay*hourFrames {
-			g.questEvent(evScene, -1, o.ID)
+			g.questEvent(evDone, -1, o.ID)
 			return
 		}
 	}

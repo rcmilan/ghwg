@@ -18,7 +18,7 @@ func questRun0(t *testing.T, lv int) *Game {
 // finish ticks every objective of the beat under way, by ID.
 func finish(g *Game) {
 	for _, o := range beats[g.quest.Beat-1].Objs {
-		g.questEvent(evScene, -1, o.ID)
+		g.questEvent(evDone, -1, o.ID)
 	}
 }
 
@@ -62,7 +62,11 @@ func TestQuestTickByID(t *testing.T) {
 			finish(g)
 		}
 	}
-	g.questEvent(evScene, -1, "O1") // not of this beat
+	g.questEvent(evDone, -1, "O1")  // not of this beat
+	g.questEvent(evScene, -1, "O9") // a cutscene's end: information, it ticks nothing
+	if g.quest.Done[2] {
+		t.Fatal("the O9 cutscene's end ticked O9")
+	}
 	g.questEvent(evTell, 3, "O9")
 	if !g.quest.Done[2] || g.quest.Done[0] || g.questOpen("O9") || !g.questOpen("O7") {
 		t.Fatalf("Done %v after O9", g.quest.Done)
@@ -99,7 +103,7 @@ func TestQuestRewardOnceEver(t *testing.T) {
 		t.Fatalf("a replay: Ecto %v -> %v, done %d times, ball %v", ecto, g.wallet[Ecto], g.timesDone(1), g.itemOn(itemBall))
 	}
 	g.quest.Beat, g.quest.Done = 7, make([]bool, 1) // the last beat pays its purse (0) and gives no item
-	g.questEvent(evScene, -1, "O13")
+	g.questEvent(evDone, -1, "O13")
 	if g.timesDone(7) != 1 || g.itemOn(itemBroom) {
 		t.Fatalf("beat 7: done %d, items %v", g.timesDone(7), g.questRec.Items)
 	}
@@ -172,7 +176,7 @@ func TestQuestNeedsThrough(t *testing.T) {
 	if !g.questNeeds("magda") || !g.questNeeds("osvaldo") || !g.questNeeds("morwenna") || g.questNeeds("teo") {
 		t.Fatal("beat 5: Magda, Osvaldo and Morwenna are needed, Teo is not")
 	}
-	g.questEvent(evScene, -1, "O7")
+	g.questEvent(evDone, -1, "O7")
 	if g.questNeeds("magda") || g.questNeeds("osvaldo") || !g.questNeeds("ned") {
 		t.Fatal("after O7 Magda and Osvaldo go; Ned stays for the finale")
 	}
@@ -262,7 +266,7 @@ func TestQuestSaveRoundTrip(t *testing.T) {
 	finish(g1)
 	g1.questEvent(evGrow, -1, "") // beat 3
 	g1.quest.Rolls["O3.room"] = 4
-	g1.questEvent(evScene, -1, "O4")
+	g1.questEvent(evDone, -1, "O4")
 	data, _, _ := memStore(t)
 	g1.persist = true
 	g1.saveDawn()

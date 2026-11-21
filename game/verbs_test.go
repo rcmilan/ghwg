@@ -303,6 +303,9 @@ func TestO4SpiritLitByTheBeam(t *testing.T) {
 	if reported(g, "O4") {
 		t.Fatal("O4 reported before the door")
 	}
+	if g.scene.on() { // the O4 cutscene stops the world: it plays out first
+		g.endScene()
+	}
 	g.ghost = true // SHIFT: SPACE on the door
 	s := &script{}
 	g.in = s
