@@ -248,6 +248,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		hushed[room(i)] = v
 	}
 	g.hushed = hushed
+	g.items.regrid(room) // 08 W5: Gerald and the Ward keep their Rooms
 	for _, c := range g.changes {
 		c.room = room(c.room)
 	}

@@ -53,7 +53,7 @@ func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
 func (it Item) unlock() bool {
-	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror && it.ID != rowStorm || it.Once // the Corridor mirror is bought again and again; the Storm jar once a day (items.go)
 }
 
 // The Services aren't unlocks; their IDs only name them.
@@ -153,6 +153,9 @@ func (g *Game) onSale(i int) bool {
 		return g.prestigeReady()
 	}
 	if on, quest := g.questRowOn(it.ID); quest { // 08 W5
+		return on
+	}
+	if on, row := g.itemRowOn(it.ID); row { // 08 W5: Gerald, the Ward
 		return on
 	}
 	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
@@ -315,6 +318,8 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case supplyOf(it.ID) >= 0:
 			stops = append(stops, drop{at: g.supplyDrop(supplyOf(it.ID)), lines: []cartLine{l}})
+		case it.ID == rowStorm: // no courier: the jar is shaken at once (items.go)
+			g.shakeJar()
 		case it.Hire: // no courier: they walk in themselves
 			g.staffPaid += l.cost()[Money]
 			for range l.n {
