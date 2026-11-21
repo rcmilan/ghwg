@@ -69,6 +69,8 @@ func (g *Game) growRefuse(kind int) string {
 		return "THE HOTEL IS AS TALL AS IT GETS"
 	case g.growNext != 0 || slices.ContainsFunc(g.cart, func(l cartLine) bool { return shop[l.item].Grow != 0 }):
 		return "ONE EXPANSION AT A TIME"
+	case g.questGate() != "": // 08 W5: the beat's objectives first
+		return g.questGate()
 	}
 	return ""
 }
@@ -84,6 +86,7 @@ func (g *Game) beginGrow() {
 	}
 	g.growing, g.state = &growth{col: col, d: d, cut: d.Y + world.TileSize}, StateGrow
 	g.refuse("")
+	g.questEvent(evGrow, -1, "") // 08 W5: a beat starts
 	if col {
 		g.growing.cut = (w - 1) * world.TileSize // the old east margin: the new Corridor
 	}

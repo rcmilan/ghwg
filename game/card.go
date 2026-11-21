@@ -70,9 +70,17 @@ func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	return os
 }
 
+// revealCost: REVEAL's price: nothing with the Crystal ball (08 W5).
+func (g *Game) revealCost() Num {
+	if g.itemOn(itemBall) {
+		return 0
+	}
+	return revealEcto
+}
+
 // reveal pays for the REVEAL of the Party: both of a pair, and every named one for good. False if it can't be paid.
 func (g *Game) reveal(p *Party) bool {
-	if p.revealed || !g.pay(Cost{Ecto: revealEcto}) {
+	if p.revealed || !g.pay(Cost{Ecto: g.revealCost()}) {
 		return false
 	}
 	p.revealed = true
@@ -206,11 +214,11 @@ func (g *Game) cardView() (v cardView) {
 			}
 		}
 	}
-	can := g.afford(Cost{Ecto: revealEcto})
+	can := g.afford(Cost{Ecto: g.revealCost()})
 	for k, o := range g.cardOpts(p, guest) {
 		text, ink, a := "MOVE", white, float32(0.6)
 		if o == optReveal {
-			text = fmt.Sprintf("REVEAL  %d ECTO", revealEcto)
+			text = fmt.Sprintf("REVEAL  %d ECTO", int(g.revealCost()))
 			if !can { // grey, as the Terminal greys what the wallet can't pay
 				ink, a = color.Gray{120}, 0.5
 			}

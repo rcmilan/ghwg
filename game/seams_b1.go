@@ -15,7 +15,7 @@ func (g *Game) staffSpeed() float64 { return 1 + shoeBoost*float64(g.shoeTier())
 // Room, each paying at once the Ectoplasm its remaining haunts would have earned. B1-P calls it.
 func (g *Game) sendOver(room int) {
 	for _, p := range g.parties {
-		if p.Realm != Ghost || p.Room != room || p.state != staying || p.Guests[0].PassAt != 0 {
+		if p.Realm != Ghost || p.Room != room || p.state != staying || p.Guests[0].PassAt != 0 || g.questPinned(p) { // 08 W5: not a quest ghost
 			continue
 		}
 		p.banished = true

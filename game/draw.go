@@ -187,6 +187,27 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 	}
 }
 
+// actor is one thing of drawWorld's y-sorted pass: a character, a plant, the notebook, a plate (W5: or anything, by draw).
+type actor struct {
+	x, y  float64 // foot box center; y sorts (T039)
+	name  string
+	anim  entities.Anim
+	fog   float64
+	fear  float64                         // of its FleeAt
+	lift  float64                         // world px off the floor: a fleeing Guest's hop (D164)
+	tint  []float32                       // ghost dimension: its flat color; nil for the character's own
+	a     float32                         // opacity; 0 is 1
+	mode  int                             // the palette shader's mode; 0 is modeActor
+	sil   bool                            // a human seen from the ghost dimension: a white silhouette with a small glow
+	up    bool                            // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
+	pot   bool                            // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+	book  bool                            // the notebook on the counter (notebook.go): y is the counter cell's sort y
+	plate int                             // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
+	key   any                             // what the prestige vortex lifts it off by (vortex.go); nil stays
+	z     float64                         // its sort y, set once before the sort
+	draw  func(s *ebiten.Image, x, y int) // 08 W5: drawn by this instead (x,y its foot box center in screen px); the y-sorted pass only
+}
+
 // drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at
 // screen-px precision so sub-pixel motion scrolls smoothly.
 func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
@@ -205,24 +226,6 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawDoors(screen, ox, oy)
 	g.drawReels(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	type actor struct {
-		x, y  float64 // foot box center; y sorts (T039)
-		name  string
-		anim  entities.Anim
-		fog   float64
-		fear  float64   // of its FleeAt
-		lift  float64   // world px off the floor: a fleeing Guest's hop (D164)
-		tint  []float32 // ghost dimension: its flat color; nil for the character's own
-		a     float32   // opacity; 0 is 1
-		mode  int       // the palette shader's mode; 0 is modeActor
-		sil   bool      // a human seen from the ghost dimension: a white silhouette with a small glow
-		up    bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
-		pot   bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
-		book  bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
-		plate int       // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
-		key   any       // what the prestige vortex lifts it off by (vortex.go); nil stays
-		z     float64   // its sort y, set once before the sort
-	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
 		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim, up: g.ghost, key: &g.player})
@@ -278,7 +281,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
 		}
 	}
-	for i, a := range actors { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+	actors = append(append(append(append(actors, g.verbActors()...), g.sceneActors()...), g.itemActors()...), g.streetActors()...) // 08 W5
+	for i, a := range actors {                                                                                                     // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		actors[i].z = a.y
 		if b, ok := g.bedAt(a.x, a.y); ok {
 			actors[i].z = float64(b.Max.Y)
@@ -359,6 +363,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 		if a.pot {
 			g.drawPlant(screen, a.name, fx, fy)
+			continue
+		}
+		if a.draw != nil {
+			a.draw(screen, fx, fy)
 			continue
 		}
 		if a.book {

@@ -13,7 +13,7 @@ func TestTerminalHints(t *testing.T) {
 	g := closedRun(t) // no Room open: only the key is on sale
 	for _, i := range append(append(append(tabItems(tabSupplies), tabItems(tabHotel)...), tabItems(tabStaff)...), tabItems(tabUpgrades)...) {
 		it := shop[i]
-		if it.Up > 0 { // an upgrade has no teaser: its row is hidden until it applies (upgrade_rows_test.go)
+		if it.Up > 0 || g.questOff(i) { // an upgrade has no teaser: its row is hidden until it applies (upgrade_rows_test.go); a quest row neither (08 W5)
 			continue
 		}
 		if g.onSale(i) {

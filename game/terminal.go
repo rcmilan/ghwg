@@ -51,7 +51,14 @@ func (g *Game) gone(i int) bool {
 	it := shop[i]
 	return it.Shoes != 0 && g.shoeGone(it.Shoes) || it.Shoes == 0 && it.unlock() && (g.unlocked(it.ID) || g.coming(it.ID, -1)) ||
 		it.Grow != 0 && strings.HasPrefix(g.growRefuse(it.Grow), "THE HOTEL") || it.Up > 0 && !g.upShows(Upgrade(it.Up-1)) || it.Hire && g.staffed() >= keeperCap(g.ownedCount()) || it.ID == rowRetain && g.fatherIn(false) ||
-		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() // every one uncovered (08 B1)
+		it.ID == CorridorMirror && g.nextCovered() < 0 && g.grown() || // every one uncovered (08 B1)
+		g.questOff(i) // 08 W5: a quest row shows only while it is on sale
+}
+
+// questOff: shop row i is a quest row (questRowOn) not on sale now: never a teaser.
+func (g *Game) questOff(i int) bool {
+	on, quest := g.questRowOn(shop[i].ID)
+	return quest && !on
 }
 
 // listed: the rows tab t shows, as indexes into tabItems(t), which g.termPick also is.

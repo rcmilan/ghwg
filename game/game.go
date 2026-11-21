@@ -177,6 +177,13 @@ type Game struct {
 	leftAt        map[string]int                 // per named guest: the clock its last Party left, this Run
 	played        int                            // real frames this Run has been played, pauses and the title not counted (saved)
 	wideAge       int                            // frames since the hotel view last redrew g.wide (hotelview.go)
+	// 08 W5 (W5-SEAM): one field per sub-slice, its type in its own file.
+	quest    questRun    // this Run's questline (quest.go)
+	questRec questRecord // the questline across Runs, saved (quest.go)
+	verbs    verbState   // verbs.go
+	scene    sceneState  // questscene.go
+	items    itemRun     // items.go
+	street   streetState // street.go
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -288,6 +295,7 @@ func (g *Game) startRun() {
 	if !g.openAtStart {
 		g.closeRooms()
 	}
+	g.questStart() // 08 W5
 	g.beginIntro()
 }
 
@@ -392,6 +400,7 @@ func (g *Game) advance(dx, dy, dt float64) {
 		g.tick++
 		g.advanceClock()
 		if g.clock%dayFrames == runStart { // dawn: the checkpoint (save.go)
+			g.questEvent(evDawn, -1, "")
 			g.saveDawn()
 		}
 	}
@@ -406,6 +415,10 @@ func (g *Game) advance(dx, dy, dt float64) {
 	g.updateFog()
 	g.updateCouriers()
 	g.updateKeepers()
+	g.updateVerbs() // 08 W5
+	g.updateScene()
+	g.updateItems()
+	g.updateStreet()
 	if g.busy {
 		g.busyStep()
 	}

@@ -460,7 +460,7 @@ func (g *Game) updateParty(p *Party) bool {
 		}
 	case staying:
 		switch {
-		case g.clock >= p.Checkout:
+		case g.clock >= p.Checkout && !g.questPinned(p): // 08 W5: a quest guest stays till its objective is done
 			p.state = checkingOut
 			g.sendParty(p, exit...)
 		case p.Out(g.clock): // a Tourist's day out (D88)

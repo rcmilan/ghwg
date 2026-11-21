@@ -28,6 +28,8 @@ type saveData struct {
 	Revealed []string `json:"revealed,omitempty"`
 	// Visits per named guest, across Runs (notebook.go): a prestige keeps them like the level.
 	Visits map[string]int `json:"visits,omitempty"`
+	// Quest: Morwenna's circle across Runs (quest.go, 08 W5): kept by a prestige like the level.
+	Quest *questRecord `json:"quest,omitempty"`
 }
 
 // upLevels: the saved levels as g.up. A save from before Bigger shelves went has 8, that upgrade the 7th: drop its slot.
@@ -64,6 +66,8 @@ type runState struct {
 	Book       []bookEntry // the notebook (notebook.go)
 	Met        []string    // the named guests that have booked this Run, sorted
 	Played     int         `json:",omitempty"` // real frames played to the checkpoint (the run timer)
+	Quest      *questRun   `json:",omitempty"` // this Run's questline (08 W5)
+	Items      *itemRun    `json:",omitempty"` // where the items are this Run (08 W5)
 }
 
 type roomState struct {
@@ -111,13 +115,13 @@ func (g *Game) Persist() { g.persist = true }
 
 // saveGame writes the save right after a prestige (level and bonus updated, the Run over): no Run in it.
 func (g *Game) saveGame() {
-	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList(), Visits: g.visits})
+	g.write(&saveData{Level: g.level, Bonus: g.bonus, Revealed: g.revealedList(), Visits: g.visits, Quest: &g.questRec})
 }
 
 // saveDawn writes the dawn checkpoint.
 func (g *Game) saveDawn() {
 	if g.persist {
-		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList(), Visits: g.visits})
+		g.write(&saveData{Level: g.level, Bonus: g.bonus, Run: g.checkpoint(), Revealed: g.revealedList(), Visits: g.visits, Quest: &g.questRec})
 	}
 }
 
@@ -171,7 +175,7 @@ func decodeSave(b []byte) (s *saveData, err error) {
 func (g *Game) checkpoint() *runState {
 	cols, rows := g.hotel.Grid()
 	r := &runState{Cols: cols, Rows: rows, Seed: g.rng.Uint64(), Day: day(g.clock), Wallet: g.wallet, Earned: g.earned, RunEcto: g.runEcto,
-		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up[:], Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met)), Played: g.played}
+		Bought: g.boughtAt, Stock: g.stock, Locked: []Unlock{}, Up: g.up[:], Book: slices.Clone(g.guestBook), Met: slices.Sorted(maps.Keys(g.met)), Played: g.played, Quest: &g.quest, Items: &g.items}
 	for _, id := range slices.Sorted(maps.Keys(g.locked)) {
 		if g.locked[id] {
 			r.Locked = append(r.Locked, id)
@@ -237,6 +241,9 @@ func (g *Game) resume(s *saveData) bool {
 		g.revealedKeys[k] = true
 	}
 	g.visits = s.Visits
+	if s.Quest != nil {
+		g.questRec = *s.Quest
+	}
 	if s.Run != nil {
 		if err := g.restore(s.Run); err != nil {
 			g.startRun()
@@ -269,6 +276,12 @@ func (g *Game) restore(r *runState) error {
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(r.Seed, r.Seed)), rand.New(rand.NewPCG(r.Seed, r.Seed+1)), rand.New(rand.NewPCG(r.Seed, r.Seed+2))
 	g.seedIdent(r.Seed)
 	g.guestBook, g.met, g.leftAt, g.played = slices.Clone(r.Book), nil, nil, r.Played
+	if r.Quest != nil {
+		g.quest = *r.Quest
+	}
+	if r.Items != nil {
+		g.items = *r.Items
+	}
 	for _, k := range r.Met {
 		if g.met == nil {
 			g.met = map[string]bool{}
