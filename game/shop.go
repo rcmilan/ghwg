@@ -149,6 +149,9 @@ func (g *Game) onSale(i int) bool {
 	if it.Up > 0 { // on sale once it applies (upShows)
 		return g.upShows(Upgrade(it.Up - 1))
 	}
+	if g.stepNeeds(it.ID) { // 08 W5 R9: a row the quest's step needs is on sale, whatever its gates
+		return true
+	}
 	if it.ID == rowFatherP {
 		return g.prestigeReady()
 	}
