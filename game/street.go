@@ -29,6 +29,7 @@ type passer struct {
 	entities.Guest
 	ghost   bool
 	dir     float64   // +1 east, -1 west
+	dy      int       // its lane: px from the Entrance's line (Spawn.Y), so a Growth moves it with the Street
 	passed  bool      // it reached the Entrance's stretch: its line is rolled
 	rolled  bool      // it reached the Entrance: its turn-in is rolled
 	tint    []float32 // a ghost's flat color, by kind
@@ -48,6 +49,7 @@ type streetState struct {
 	nextFlash  int
 	over       func(s *ebiten.Image, x, y int) // the overlay's draw, made once
 	px         *ebiten.Image
+	puffs      [3]*ebiten.Image        // fog's blobs, made once
 	op         ebiten.DrawImageOptions // the weather's strokes
 }
 
@@ -108,7 +110,8 @@ func (g *Game) spawnPasser(ghost bool) {
 		x = mw + world.TileSize/2
 	}
 	at := g.hotel.Spawn
-	at.X, at.Y = x, at.Y+(s.rng.IntN(3)-1)*world.TileSize
+	p.dy = (s.rng.IntN(3) - 1) * world.TileSize
+	at.X, at.Y = x, at.Y+p.dy
 	if ghost { // like the opening's: a Shadow Person's body, hued by a kind
 		p.Guest = entities.NewGuest(at, shadowCast[s.rng.IntN(len(shadowCast))])
 		p.Phantasm = 1 + s.rng.IntN(11)
@@ -118,6 +121,11 @@ func (g *Game) spawnPasser(ghost bool) {
 		p.Guest = entities.NewGuest(at, guestCast[s.rng.IntN(len(guestCast))]+"#"+strconv.FormatUint(s.rng.Uint64(), 10))
 	}
 	s.walkers = append(s.walkers, p)
+}
+
+// onStreet: the Concierge is out on the Street (below the Entrance's door line), not in the hotel.
+func (g *Game) onStreet() bool {
+	return g.player.Y >= float64(g.hotel.Spawn.Y-3*world.TileSize/2)
 }
 
 // updateStreet runs each step of world time.
@@ -147,8 +155,18 @@ func (g *Game) updateStreet() {
 	mw, _ := g.mapSize()
 	sx := float64(g.hotel.Spawn.X)
 	kept := s.walkers[:0]
+	out := g.onStreet() // the Street is heard only from the Street
+	talking := ""
+	for _, p := range s.walkers {
+		if out && p.sayLeft > 0 {
+			talking = p.say
+		} else {
+			p.sayLeft = 0
+		}
+	}
 	for _, p := range s.walkers {
 		p.X += p.dir * passSpeed * g.dt
+		p.Y = float64(g.hotel.Spawn.Y + p.dy) // read from the current hotel: a Growth moves the Street
 		if !g.headless {
 			p.Anim.Update(p.X, p.Y, g.dt)
 		}
@@ -156,13 +174,14 @@ func (g *Game) updateStreet() {
 			p.sayLeft--
 		}
 		if !p.passed && (p.X-sx)*p.dir > -nearHall*world.TileSize {
-			p.passed = true // reached the Entrance's stretch: roll its line
-			if s.rng.IntN(sayOdds) == 0 {
+			p.passed = true                                       // reached the Entrance's stretch: roll its line
+			if s.rng.IntN(sayOdds) == 0 && out && talking == "" { // one speaker at a time, only with the Concierge out
 				pool := gossipPool(g.questStage(), g.questRec.MacGuffin)
 				if p.ghost {
 					pool = g.ghostGossip()
 				}
 				p.say, p.sayLeft = pool[s.rng.IntN(len(pool))], gossipFrames
+				talking = p.say
 			}
 		}
 		if !p.ghost && !p.rolled && (p.X-sx)*p.dir >= 0 { // at the Entrance: turn in, or walk on
@@ -212,7 +231,7 @@ func (g *Game) drawStreetOver(dst *ebiten.Image, x, y int) {
 		g.drawWeather(dst, ox, oy)
 	}
 	for _, p := range g.street.walkers {
-		if p.ghost == g.ghost && p.sayLeft > 0 {
+		if p.ghost == g.ghost && p.sayLeft > 0 && g.onStreet() {
 			g.sayAt(dst, p.say, &p.Guest, ox, oy)
 		}
 	}
@@ -234,7 +253,8 @@ func (g *Game) DevStreet() {
 		g.spawnPasser(i%2 == 1)
 		p := s.walkers[i]
 		p.dir, p.passed, p.rolled = float64(1-2*(i/2%2)), true, true
-		p.X, p.Y = float64(at.X+(i/2-1)*3*world.TileSize), float64(at.Y+(i/2-1)*world.TileSize)
+		p.dy = (i/2 - 1) * world.TileSize
+		p.X, p.Y = float64(at.X+(i/2-1)*3*world.TileSize), float64(at.Y+p.dy)
 		if i == 2 || i == 3 {
 			pool := gossipPool(0, false)
 			if p.ghost {

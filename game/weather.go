@@ -158,11 +158,7 @@ func (g *Game) drawWeather(dst *ebiten.Image, ox, oy int) {
 			}
 		}
 	case wxFog:
-		s.stroke(dst, float64(x0), float64(y0), float64(cw), float64(ch), .85, .88, .92, .2)
-		for k := range 3 { // slow bands
-			bx := float64(x0) + float64(cw)*(.5+.45*math.Sin(float64(t)/400+float64(k)*2))
-			s.stroke(dst, bx-float64(cw)/3, float64(y0+k*ch/3), float64(cw)*2/3, float64(ch/3), .9, .92, .95, .13)
-		}
+		g.drawFog(dst, x0, y0, cw, ch)
 	case wxWind:
 		for i := range 14 { // streaks racing east
 			x := x0 + (i*97+t*7)%(cw+40) - 40
@@ -184,5 +180,47 @@ func (g *Game) DevWeather(kind string) {
 	case "storm":
 		g.street.force = wxStorm
 		g.summonStorm()
+	}
+}
+
+// fogPuffs: soft puffs drifting along the Street, each of one of a few pre-rendered pixel blobs.
+const fogPuffs = 12
+
+// fogBlob: a puff w by h px (world px, drawn at zoom): a solid core, then a checker-dithered ring, then nothing.
+func fogBlob(w, h int) *ebiten.Image {
+	img := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			dx, dy := (float64(x)+.5)/float64(w)*2-1, (float64(y)+.5)/float64(h)*2-1
+			d := dx*dx + dy*dy
+			if d < .45 || (d < 1 && (x+y)%2 == 0 && d < .75) || (d < 1 && x%2 == 0 && y%2 == 0) {
+				img.SetNRGBA(x, y, color.NRGBA{228, 234, 240, 255})
+			}
+		}
+	}
+	return ebiten.NewImageFromImage(img)
+}
+
+// drawFog: fogPuffs puffs in the box (screen px), drifting east slowly at ground level, fading toward its left
+// and right edges. No per-pixel work: a few images made once.
+func (g *Game) drawFog(dst *ebiten.Image, x0, y0, cw, ch int) {
+	s := &g.street
+	if s.puffs[0] == nil {
+		s.puffs = [3]*ebiten.Image{fogBlob(34, 12), fogBlob(24, 9), fogBlob(44, 14)}
+	}
+	for i := range fogPuffs {
+		img := s.puffs[i%3]
+		pw, ph := img.Bounds().Dx()*zoom, img.Bounds().Dy()*zoom
+		span := cw + pw
+		x := (i*span/fogPuffs + s.n*(3+i%3)/20) % span // 0.15-0.25 px a frame, each its own pace
+		fx := float64(x) / float64(span)
+		a := float32(.32 * min(1, min(fx, 1-fx)*5))
+		y := y0 + ch/3 + (i*53)%(ch*2/3-ph/2+1) + int(2*zoom*math.Sin(float64(s.n)/90+float64(i)))
+		s.op.GeoM.Reset()
+		s.op.GeoM.Scale(zoom, zoom)
+		s.op.GeoM.Translate(float64(x0+x-pw), float64(y))
+		s.op.ColorScale.Reset()
+		s.op.ColorScale.Scale(a, a, a, a)
+		dst.DrawImage(img, &s.op)
 	}
 }
