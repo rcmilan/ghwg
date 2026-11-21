@@ -201,3 +201,106 @@ var (
 	o1LongAsk     = "Tell them the witch has arrived, with her book, her staff, her opinions and one small towel. All of it, in that order, with the cape."
 	macguffinName = "Mag'ugh-Ghaal Uf-Fhinn the Eternal, Eldritch, Unclaimed and Unreturned, Third of Its Name, Keeper of the Thing Nobody Ordered, Guest of Rooms Not Yet Built, Who Is Owed A Mint"
 )
+
+// 08 W5 R1 GUIDE: the checklist's next-step rows (context/08-quests/copy.md "Next-step rows"). Each objective is an
+// ordered list of steps; guide.go's stepIdx picks the current one from the quest and verb state. Dim is where the step
+// is done (Any: the Terminal, either); Wait: nothing to do but wait (it never sends the player to a Mirror). The
+// target is what the guidance marker outlines in Dim. Texts are not final (copy pass R3): swap them here only. {n} is a
+// Room number, {item} the rolled Supply.
+type tgKind int
+
+const (
+	tgNone     tgKind = iota
+	tgGuest           // a quest guest by Key (its sprite, else its Room's plate)
+	tgDoor            // the door of the Room of the guest Key ("handprint": the glowing door)
+	tgBook            // the guest book on the counter
+	tgTerminal        // the Terminal's screen
+	tgSupply          // the Supply the ghost asked for
+	tgSpirit          // O4's spirit
+	tgLobby           // the Entrance Mirror
+)
+
+// Guest keys beyond the cast's: "ghostmate" (the ghost in Magenta's Room), "porter" (O6's ghost), "stranger" (O3 Lv2+),
+// "ally" (O11's rolled ghost).
+type target struct {
+	Kind tgKind
+	Key  string
+}
+
+type stepDef struct {
+	Dim       Realm
+	Any, Wait bool
+	Text      string
+	Tgt       target
+}
+
+var growStep = stepDef{Dim: Human, Any: true, Text: "GROW THE HOTEL", Tgt: target{tgTerminal, ""}}
+
+var objSteps = map[string][]stepDef{
+	"O1": {
+		{Dim: Human, Text: "TALK TO MAGENTA", Tgt: target{tgGuest, "magenta"}},
+		{Dim: Ghost, Text: "TELL HER ROOMMATE", Tgt: target{tgGuest, "ghostmate"}},
+		{Dim: Ghost, Wait: true, Text: "WAIT FOR HER ROOMMATE"},
+		{Dim: Human, Text: "TALK TO MAGENTA AGAIN", Tgt: target{tgGuest, "magenta"}},
+	},
+	"O2": {
+		{Dim: Ghost, Text: "READ " + upper(nameMadame) + "'S NOTE", Tgt: target{tgBook, ""}},
+		{Dim: Ghost, Text: "FIND THE REST OF THE NOTE", Tgt: target{tgBook, ""}},
+		{Dim: Human, Text: "TELL " + upper(nameMagenta) + " WHAT IT SAYS", Tgt: target{tgGuest, "magenta"}},
+	},
+	"O3": {
+		{Dim: Ghost, Text: "FIND " + upper(nameMadame) + "'S ROOM", Tgt: target{tgGuest, "celestine"}},
+		{Dim: Human, Text: "MOVE THE STRANGER OUT", Tgt: target{tgGuest, "stranger"}},
+		{Dim: Human, Text: "MOVE " + upper(nameMagda) + " TO ROOM {n}", Tgt: target{tgGuest, "magda"}},
+		{Dim: Human, Wait: true, Text: "LET THEM TALK UNTIL DAWN", Tgt: target{tgDoor, "celestine"}},
+	},
+	"O4": {
+		{Dim: Human, Wait: true, Text: "WAIT FOR NIGHT"},
+		{Dim: Human, Text: "LIGHT THE SPIRIT", Tgt: target{tgSpirit, ""}},
+		{Dim: Human, Text: "LIGHT THE SPIRIT TWICE", Tgt: target{tgSpirit, ""}},
+		{Dim: Ghost, Text: "ANSWER THE HANDPRINT", Tgt: target{tgDoor, "handprint"}},
+	},
+	"O5": {
+		{Dim: Ghost, Text: "SEE WHAT " + upper(nameTim) + " NEEDS", Tgt: target{tgGuest, "tim"}},
+		{Dim: Human, Text: "FETCH THE {item}", Tgt: target{tgSupply, ""}},
+		{Dim: Ghost, Text: "TAKE IT TO " + upper(nameTim) + "'S DOOR", Tgt: target{tgDoor, "tim"}},
+	},
+	"O6": {
+		{Dim: Human, Text: "LISTEN TO " + upper(nameTeo), Tgt: target{tgGuest, "teo"}},
+		{Dim: Ghost, Text: "REVEAL ROOM {n}'S GHOST", Tgt: target{tgGuest, "porter"}},
+		{Dim: Human, Text: "CALL " + upper(nameFatherK) + " TO ROOM {n}"},
+		{Dim: Human, Wait: true, Text: "WAIT FOR " + upper(nameFatherK)},
+	},
+	"O7": {
+		{Dim: Ghost, Text: "FIND " + upper(nameOsvaldo) + "'S ROOM", Tgt: target{tgGuest, "osvaldo"}},
+		{Dim: Human, Text: "MOVE " + upper(nameMagda) + " TO ROOM {n}", Tgt: target{tgGuest, "magda"}},
+	},
+	"O8": {
+		{Dim: Human, Any: true, Text: "BUY THE WREATH", Tgt: target{tgTerminal, ""}},
+		{Dim: Human, Wait: true, Text: "WAIT FOR THE COURIER", Tgt: target{tgDoor, "celestine"}},
+		{Dim: Ghost, Text: "GIVE " + upper(nameMadame) + " THE WREATH", Tgt: target{tgDoor, "celestine"}},
+	},
+	"O9": {
+		{Dim: Ghost, Text: "ASK " + upper(nameTim) + " ABOUT THE KEY", Tgt: target{tgGuest, "tim"}},
+		{Dim: Human, Text: "FIND THE OLDEST GUEST"},
+		{Dim: Human, Text: "FIND THE OLDEST GUEST AT NIGHT"},
+		{Dim: Ghost, Text: "GIVE " + upper(nameTim) + " THE KEY", Tgt: target{tgGuest, "tim"}},
+	},
+	"O10": {
+		{Dim: Ghost, Text: "FIND " + upper(nameMadame) + "'S ROOM", Tgt: target{tgGuest, "celestine"}},
+		{Dim: Human, Text: "MOVE " + upper(nameMagenta) + " TO ROOM {n}", Tgt: target{tgGuest, "magenta"}},
+		{Dim: Human, Wait: true, Text: "LET THEM SLEEP UNTIL DAWN", Tgt: target{tgDoor, "celestine"}},
+	},
+	"O11": {
+		{Dim: Ghost, Text: "FIND THE GHOST WITH THE HAFT", Tgt: target{tgGuest, "ally"}},
+		{Dim: Human, Text: "GIVE THE HAFT TO " + upper(nameMagenta), Tgt: target{tgGuest, "magenta"}},
+	},
+	"O12": {
+		{Dim: Human, Text: "FIND THE ODD ENTRY", Tgt: target{tgBook, ""}},
+		{Dim: Ghost, Text: "READ THE SAME PAGE", Tgt: target{tgBook, ""}},
+	},
+	"O13": {
+		{Dim: Human, Any: true, Text: "BUY THE CRATE", Tgt: target{tgTerminal, ""}},
+		{Dim: Human, Wait: true, Text: "WAIT BY THE ENTRANCE MIRROR", Tgt: target{tgLobby, ""}},
+	},
+}

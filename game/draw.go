@@ -289,7 +289,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	actors = append(append(append(append(actors, g.verbActors()...), g.sceneActors()...), g.itemActors()...), g.streetActors()...) // 08 W5
-	for i, a := range actors {                                                                                                     // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
+	var marks []mark                                                                                                               // 08 W5 R1: the guidance marker's outlines go in the same pass, just under their target
+	if screen != g.wide {
+		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+		marks = g.guideMarks(image.Rect(ox/zoom, oy/zoom, (ox+sw)/zoom+1, (oy+sh)/zoom+1))
+		actors = append(actors, g.guideActors(marks, ox, oy)...)
+	}
+	for i, a := range actors { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		actors[i].z = a.y
 		if b, ok := g.bedAt(a.x, a.y); ok {
 			actors[i].z = float64(b.Max.Y)
@@ -423,6 +429,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
+	g.drawGuideSparkles(screen, ox, oy, marks)
 	if screen != g.wide { // the hotel view draws them on the screen, over its veils (hotelview.go)
 		g.drawRequests(screen, ox, oy, zoom)
 	}
