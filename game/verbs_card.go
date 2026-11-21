@@ -150,15 +150,15 @@ func (g *Game) questTarget(p *Party) int {
 	return -1
 }
 
-// withTarget: the talk's target Rooms ts with the objective's first, even a bad pair; unless the Room can't take the
-// Party at all (not owned, shut, changing, too small, or held by a human Party that can't swap).
+// withTarget: the talk's target Rooms ts with the objective's first, even a bad pair (even a closed Room); unless the Room can't take the
+// Party at all (not owned, changing, too small, or held by a human Party that can't swap).
 func (g *Game) withTarget(p *Party, ts []int) []int {
 	q := g.questTarget(p)
 	if q < 0 || q == p.Room {
 		return ts
 	}
 	ts = slices.DeleteFunc(ts, func(i int) bool { return i == q })
-	if !g.isOwned(q) || g.closed(q) || g.changing(q) || len(g.hotel.Rooms[q].Stays) < len(p.Guests) {
+	if !g.isOwned(q) || g.changing(q) || len(g.hotel.Rooms[q].Stays) < len(p.Guests) {
 		return ts
 	}
 	if h := g.humanIn(q); h != nil && (!movable(h) || len(g.hotel.Rooms[p.Room].Stays) < len(h.Guests)) {
@@ -226,4 +226,23 @@ func (g *Game) bookRead() {
 	if need := 1 + 2*b2i(g.level >= 2); g.questOpen("O2") && !slices.Contains(g.verbs.done, "O2") && g.rollGet("O2.read")&need == need {
 		g.verbs.held = "O2"
 	}
+}
+
+// reserved: Madame's Room while O3 or O10 still needs its human guest (Magda, Magenta) moved into it: no other
+// human books or swaps into it, so once its occupant leaves it stays free for the quest guest.
+func (g *Game) reserved(room int) bool {
+	if room < 0 || room != g.roomOfKey("celestine") {
+		return false
+	}
+	for _, c := range [...]struct{ id, key string }{{"O3", "magda"}, {"O10", "magenta"}} {
+		if p := g.questParty(c.key); p != nil && g.questOpen(c.id) && p.Room != room {
+			return true
+		}
+	}
+	return false
+}
+
+// questRoom: a Priest keeps out of it: reserved, or holding a Party a quest needs where it is.
+func (g *Game) questRoom(room int) bool {
+	return g.reserved(room) || slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Room == room && g.questPinned(p) })
 }

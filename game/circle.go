@@ -257,7 +257,7 @@ var objSteps = map[string][]stepDef{
 		{Dim: Ghost, Text: "FIND " + upper(nameMadame) + "'S ROOM", Tgt: target{tgGuest, "celestine"}},
 		{Dim: Human, Text: "MOVE THE STRANGER OUT", Tgt: target{tgGuest, "stranger"}},
 		{Dim: Human, Text: "MOVE " + upper(nameMagda) + " TO ROOM {n}", Tgt: target{tgGuest, "magda"}},
-		{Dim: Human, Wait: true, Text: "LET THEM TALK UNTIL DAWN", Tgt: target{tgDoor, "celestine"}},
+		{Dim: Human, Wait: true, Text: "LET THEM TALK UNTIL DAWN"},
 	},
 	"O4": {
 		{Dim: Human, Wait: true, Text: "WAIT FOR NIGHT"},
@@ -294,7 +294,7 @@ var objSteps = map[string][]stepDef{
 	"O10": {
 		{Dim: Ghost, Text: "FIND " + upper(nameMadame) + "'S ROOM", Tgt: target{tgGuest, "celestine"}},
 		{Dim: Human, Text: "MOVE " + upper(nameMagenta) + " TO ROOM {n}", Tgt: target{tgGuest, "magenta"}},
-		{Dim: Human, Wait: true, Text: "LET THEM SLEEP UNTIL DAWN", Tgt: target{tgDoor, "celestine"}},
+		{Dim: Human, Wait: true, Text: "LET THEM SLEEP UNTIL DAWN"},
 	},
 	"O11": {
 		{Dim: Ghost, Text: "FIND THE GHOST WITH THE HAFT", Tgt: target{tgGuest, "ally"}},
