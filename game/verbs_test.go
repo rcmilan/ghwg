@@ -286,8 +286,8 @@ func TestTargetOverride(t *testing.T) {
 	if g.offerOdds(m, 1, discount) != 1 {
 		t.Error("the target's offer is not sure")
 	}
-	if to, _, _, ok := g.sureOffer(m); !ok || to != 1 {
-		t.Errorf("sureOffer %d %v", to, ok)
+	if to, _, _, ok := g.sureOffer(m); ok { // the housekeepers keep off the quest (R10)
+		t.Errorf("sureOffer %d for a quest Party", to)
 	}
 	g.startTalk(m)
 	g.parley.pick = discount
@@ -850,5 +850,48 @@ func TestO10RoomReserved(t *testing.T) {
 	g.relocate(m, 1)
 	if g.reserved(1) || g.questRoom(1) != true {
 		t.Error("Magenta in: no longer reserved, but still no Priest")
+	}
+}
+
+// O10 soft lock (live test 3): with Matchmaking and an idle housekeeper, Magenta moved into Madame's Room (a bad pair
+// by Nerve) is not sent back out; she is still there at dawn and the objective completes.
+func TestO10MatchmakingKeepsOff(t *testing.T) {
+	for _, mm := range []bool{false, true} {
+		g, _ := verbRun(t, 3, 6)
+		g.wallet[Money] = 10 * keeperWage
+		g.hire()
+		if mm {
+			g.own(Matchmaking)
+		}
+		m := named(t, g, 0, "magenta")
+		cel := named(t, g, 1, "celestine")
+		setNerve(m, 2)
+		cel.Guests[0].Phantasm = 9
+		settledHuman(t, g, 2, 12) // a free-looking Room 2 to run to
+		g.relocate(m, 1)
+		g.clock = 20 * hourFrames
+		for f := 0; g.clock < dayFrames+runStart+hourFrames && f < 3*dayFrames; f++ {
+			g.step(0, 0)
+			if f%50 == 0 && m.Room != 1 {
+				t.Fatalf("matchmaking %v: Magenta sent to Room %d at clock %d", mm, m.Room, g.clock)
+			}
+		}
+		if !reported(g, "O10") {
+			t.Errorf("matchmaking %v: not done at dawn (room %d state %v clock %d)", mm, m.Room, m.state, g.clock)
+		}
+	}
+}
+
+// O9: talking to Tim in ghost says the objective's Ask, and that ticks "ASK TIM ABOUT THE KEY".
+func TestO9TalkAsksTim(t *testing.T) {
+	g, s := verbRun(t, 2, 5)
+	tim := named(t, g, 0, "tim")
+	g.ghost = true
+	standIn(g, 0)
+	if g.sawn("O9.read") {
+		t.Fatal("seen before the talk")
+	}
+	if said := talkTo(g, s, tim); !strings.Contains(strings.Join(strings.Fields(said), " "), strings.Join(strings.Fields(objOf("O9").Ask), " ")) || !g.sawn("O9.read") {
+		t.Errorf("Tim said %q; sawn %v", said, g.sawn("O9.read"))
 	}
 }

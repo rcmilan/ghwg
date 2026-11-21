@@ -134,7 +134,6 @@ func (g *Game) beatDone() {
 	b := g.quest.Beat
 	bt, n := beats[b-1], g.timesDone(b)
 	g.questRec.Times[b-1]++
-	g.notice("BEAT DONE: " + bt.Title)
 	if n == 0 {
 		if bt.Purse > 0 {
 			g.earn(Ecto, bt.Purse, image.Pt(int(g.player.X), int(g.player.Y)-world.TileSize))

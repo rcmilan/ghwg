@@ -161,7 +161,13 @@ func (g *Game) offers(p *Party, to int) (os []int) {
 
 // sureOffer: the cheapest offer the Party is sure to take, and its Room. ok false if there is none.
 func (g *Game) sureOffer(p *Party) (to, offer int, c Num, ok bool) {
+	if g.questHeld(p) { // 08 W5 R10: Matchmaking keeps off the quest
+		return
+	}
 	for _, r := range g.targets(p) {
+		if g.questRoom(r) || slices.ContainsFunc(g.parties, func(q *Party) bool { return g.questTarget(q) == r || q.Room == r && g.questHeld(q) }) {
+			continue
+		}
 		for o := range offerShare {
 			if k := g.offerCost(p, r, o); g.offerOdds(p, r, o) >= 1 && (!ok || k < c) {
 				to, offer, c, ok = r, o, k, true

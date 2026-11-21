@@ -77,7 +77,7 @@ Money or Ectoplasm earned per real minute, averaged over the last game hour; sho
 The steady `!` by the Terminal's screen: something on sale and affordable that the open Terminal hasn't shown yet this Run Drawn only where the Terminal is on screen, never pinned to the screen's edge.
 
 **Reserved Room**:
-Madame's Room while O3 or O10 still needs Magda or Magenta moved into it: no walk-in books it, no other Party is offered it, and a retained Father K keeps out of any Room a quest needs. A closed Room is still offered to the quest guest.
+Madame's Room while O3 or O10 still needs Magda or Magenta moved into it: no walk-in books it, no other Party is offered it, a retained Father K keeps out of any Room a quest needs, and Matchmaking never moves anyone into it. A closed Room is still offered to the quest guest.
 
 **Hotel view**:
 The whole hotel seen from afar: SPACE, wherever it has nothing else to do, pulls the camera back until every Room shows, each under its number and a Room Change on its way, while the world runs on in slow motion (a quarter speed). WASD picks a Room (the camera moves half way in); SPACE opens its Room ring. Everything bought for one Room is bought there and paid at once, with no cart. ESC steps back one level: beds, ring, Room, hotel, play. A Room not bought yet lies under a dark veil there.
@@ -391,7 +391,7 @@ A taken offer for an occupied target Room: the two human Parties trade Rooms, an
 An offer whose odds are 1. Today only on the house is.
 
 **Matchmaking**:
-The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a placeholder): an idle Housekeeper walks to a bad pair's door and makes the cheapest sure offer the wallet covers, with no talk staged.
+The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a placeholder): an idle Housekeeper walks to a bad pair's door and makes the cheapest sure offer the wallet covers, with no talk staged. It keeps off the questline: it never moves a quest character's Party or one an open objective wants where it is, and never offers a Reserved Room or a Room an objective targets.
 
 **Matcher**, **asker** (`matcher`, `asker`):
 Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, whenever the guest is not snubbed. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.
