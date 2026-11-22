@@ -219,8 +219,8 @@ func (g *Game) drawHandprint(s *ebiten.Image, x, y int) {
 	pw := 5 * u // the palm: 5 wide, 4 tall (first 8 by 6; live test 6)
 	x0 := x - pw/2
 	rect(s, x0+wave/2, y-6*u, pw, 4*u, ink)
-	for f := range 4 { // four fingers, the outer ones shorter, swaying with the wave
-		rect(s, x0+f*pw/4+wave, y-(10+b2i(f == 1 || f == 2)*2)*u, pw/4-1, 5*u, ink)
+	for f := range 4 { // four fingers, as first drawn, spread past the palm; the outer ones shorter, swaying with the wave
+		rect(s, x-4*u+f*2*u+wave, y-(10+b2i(f == 1 || f == 2)*2)*u, 2*u-1, 5*u, ink)
 	}
 	rect(s, x0+pw-u+wave/2, y-7*u, 3*u, 2*u, ink) // the thumb
 }
