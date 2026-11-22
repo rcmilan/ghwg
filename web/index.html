@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ghost Hotel</title>
+<title>Loading...</title>
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   #loading { position: absolute; inset: 0; display: grid; place-items: center; color: #aaa; font: 16px monospace; }
 </style>
 </head>
 <body>
-<div id="loading">Loading Ghost Hotel...</div>
+<div id="loading">Loading...</div>
 <script src="wasm_exec.js"></script>
 <script>
 // Ebitengine makes its own canvas (filling this page, letterboxed) and focuses it on click, so keys work inside the itch.io iframe.
 const msg = document.getElementById("loading");
 if (!matchMedia("(any-pointer: fine)").matches && matchMedia("(any-pointer: coarse)").matches) { // touch only: the game needs a keyboard
-  msg.textContent = "Ghost Hotel is played with a keyboard. Please open it on a computer.";
+  msg.textContent = "This game is played with a keyboard. Please open it on a computer.";
 } else {
   const go = new Go();
   const args = new URLSearchParams(location.search).get("args"); // dev: main's flags, e.g. ?args=-busy -ghost

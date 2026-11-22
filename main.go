@@ -71,11 +71,13 @@ func main() {
 	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
 	witch := flag.Bool("witch", false, "dev: the six quest characters in the Lobby beside the three ordinary sheets, turning every 120 frames, then running (with -shot -at; -ghost adds the Cat's frames)")
 	verb := flag.String("verb", "", "dev: start a Run at this objective (O1..O13) with its guests in, for prints (use -grid 3x1; -ghost for the ghost side; O4 at night, -at 14)")
-	flag.Parse()
+	if game.Dev { // the production build takes no flags: every dev start, -story and the rest, stays off
+		flag.Parse()
+	}
 	game.StoryMode = *story
 
 	ebiten.SetWindowSize(960, 540)
-	ebiten.SetWindowTitle("Ghost Hotel")
+	ebiten.SetWindowTitle(game.Name)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if f, err := assets.FS.Open("characters/Adam_idle_anim_16x16.png"); err == nil { // the window's icon: a Shadow Person's black head (D169), as icon.ico
 		if sheet, err := png.Decode(f); err == nil {

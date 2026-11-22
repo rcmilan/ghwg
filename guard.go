@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"ghosthotel/game"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -57,7 +59,7 @@ func (w *guard) watch() {
 		stacks = stacks[:runtime.Stack(stacks, true)]
 		path := filepath.Join(os.TempDir(), "ghosthotel-guard.log")
 		os.WriteFile(path, fmt.Appendf(nil, "%s: quit, %s (heap %d MB)\n\n%s", time.Now().Format(time.RFC3339), why, m.HeapAlloc>>20, stacks), 0o644)
-		fmt.Fprintf(os.Stderr, "Ghost Hotel quit to protect the computer: %s. Details: %s\n", why, path)
+		fmt.Fprintf(os.Stderr, "%s quit to protect the computer: %s. Details: %s\n", game.Name, why, path)
 		os.Exit(3)
 	}
 }

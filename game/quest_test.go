@@ -400,7 +400,7 @@ func TestStoryOff(t *testing.T) {
 	for range 2 * minuteFrames {
 		g.advanceClock()
 	}
-	if g.quest.Beat != 0 || beatsAt(0) != 3 || maxGrid(0) != 3 {
+	if g.quest.Beat != 0 || beatsAt(0) != 3 || maxGrid(0) != 3 || maxGrid(4) != 7 || maxGrid(9) != 12 { // story mode's 7x7 floor never reaches a normal Run: Father P needs the hotel at maxGrid
 		t.Fatalf("story off: beat %d", g.quest.Beat)
 	}
 }

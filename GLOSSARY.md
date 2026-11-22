@@ -1,4 +1,4 @@
-# Ghost Hotel
+# Weird Guests
 
 A haunted-hotel management game on a real-time clock. Parties arrive already booked and pay when they leave for good. The Concierge, a living host who can see ghosts, Shifts the whole hotel between the real and the ghost Dimension.
 
@@ -470,7 +470,10 @@ Magenta's circle (`context/08-quests/circle.md`): seven Beats played across the 
 _Avoid_: campaign; "story mode" means only the dev mode below
 
 **Story mode**:
-A dev mode (`-story`, web `?story`) to test the Questline fast: each Growth fires free as its Beat ends, all 7 Beats are open at any Level, the Mirror is unlocked and Quest guests check in at once.
+A dev mode (`-story`, web `?story`) to test the Questline fast: each Growth fires free as its Beat ends, all 7 Beats are open at any Level, the Mirror is unlocked and Quest guests check in at once. Its hotel may grow to 7x7 by Terminal too, so Father P (who needs the hotel at its limit) is out of reach there; a normal Run's limit stays 3 + Level. Not in the Production build.
+
+**Production build**:
+The build for players (`sh tools/web.sh prod`, `-tags prod`, `game.Dev` false): it takes no dev flags or `?args=`, has no Story mode and no frames readout. Hold `T` stays.
 
 **Beat**:
 One chapter of the Questline, started by a Growth: its Quest guests check in, its Speaker says its opening line, and the HUD shows its title and checklist of Objectives (top left in real, top right in ghost) for about 5 s whenever they change, and always in the Hotel view. Done the first time ever, it pays its purse (Ectoplasm) and gives its Item; later Runs replay it with shorter lines.

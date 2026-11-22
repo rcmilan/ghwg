@@ -186,7 +186,7 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 	for _, l := range [...]struct {
 		v    string
 		x, y int
-	}{{"G H O S T   H O T E L", 345, 195}, {"[ SPACE ] open the hotel", 362, 335}, {"WASD move / SPACE use, or the hotel / ESC pause", 284, 485}} {
+	}{{spacedName(), (screenW - len(spacedName())*glyphW) / 2, 195}, {"[ SPACE ] open the hotel", 362, 335}, {"WASD move / SPACE use, or the hotel / ESC pause", 284, 485}} {
 		printAt(s, l.v, l.x, l.y, 1, color.White, 1)
 	}
 }
