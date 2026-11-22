@@ -326,6 +326,10 @@ func (g *Game) grow(col bool) (image.Point, error) {
 			}
 		}
 	}
+	if c := g.items.cat; c != nil { // the Cat too: left behind, it stood in another Room (live test 5: a locked one)
+		everyone = append(everyone, &c.Guest)
+		c.room = room(c.room)
+	}
 	for _, a := range everyone { // everyone walks on from where they stood, by a way of the new map
 		move(&a.X, &a.Y)
 		a.RoomIndex = room(a.RoomIndex)

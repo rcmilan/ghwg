@@ -150,10 +150,13 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 	}
 	switch k := guest.Who.Key; {
 	case k == "magenta" && p.Realm == Human:
-		for _, id := range [...]string{"O1", "O2", "O3", "O7"} {
+		for _, id := range [...]string{"O1", "O2", "O3", "O7", "O11"} {
 			if g.questOpen(id) {
 				if id == "O1" && g.rollGet("O1.long") == 1 {
 					return o1LongAsk
+				}
+				if id == "O11" {
+					return o11Magenta
 				}
 				return objOf(id).Ask
 			}

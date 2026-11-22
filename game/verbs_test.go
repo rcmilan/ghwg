@@ -735,6 +735,9 @@ func TestO11Haft(t *testing.T) {
 	m := named(t, g, 0, "magenta")
 	cel, tim := named(t, g, 1, "celestine"), named(t, g, 2, "tim")
 	g.verbMinute()
+	if q := g.verbQuote(m, m.Guests[0]); q != o11Magenta { // the fetch-quest joke (live test 5)
+		t.Fatalf("Magenta's Card while O11 is open: %q", q)
+	}
 	a := g.ally()
 	if a != "celestine" && a != "tim" {
 		t.Fatalf("ally %q", a)

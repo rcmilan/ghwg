@@ -298,3 +298,29 @@ func TestCatSpeaksInBothRealms(t *testing.T) {
 		t.Errorf("napping: said %q, want nothing", got)
 	}
 }
+
+// Live test 5: a Growth moves the Cat with the hotel; left where it stood, it ended up in a locked Room.
+func TestCatGrowsWithTheHotel(t *testing.T) {
+	g := itemsRun(t, itemCat)
+	g.updateCat()
+	c := g.items.cat
+	sh := g.hotel.Rooms[0].Shell()
+	c.X, c.Y, c.RoomIndex, c.Path = float64(sh.Min.X+sh.Dx()/2), float64(sh.Min.Y+sh.Dy()/2), 0, nil
+	was := g.roomAt(c.X, c.Y)
+	g.DevGrow("floor")
+	g.growing, g.state = nil, StatePlay
+	if at := g.roomAt(c.X, c.Y); was != 0 || at < 0 || !g.isOwned(at) || c.RoomIndex != at {
+		t.Fatalf("after a floor the Cat is in Room %d (index %d), owned %v; want its own Room, moved", at, c.RoomIndex, at >= 0 && g.isOwned(at))
+	}
+	for i := range dayFrames {
+		g.clock++
+		g.step(0, 0)
+		if i == hourFrames {
+			g.DevGrow("col")
+			g.growing, g.state = nil, StatePlay
+		}
+		if r := g.roomAt(c.X, c.Y); r >= 0 && !g.isOwned(r) {
+			t.Fatalf("frame %d: the Cat is in locked Room %d", i, r)
+		}
+	}
+}

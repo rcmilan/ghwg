@@ -107,6 +107,7 @@ var beats = [beatCount]beat{
 
 // objLines: the quest guests' other lines, by objective.
 var (
+	o11Magenta         = "Fetch me " + nameTim + "'s old trolley handle. I'd go myself, but then what would you do all day?" // her Card while O11 is open (a fetch-quest joke, live test 5)
 	celestineEntry     = "Ordered: one (1) MacGuffin, eternal, eldritch. Room service, 1923. Still waiting. Lovely hotel otherwise. Room {n}."
 	celestineEntryHard = "cont'd, still waiting, still lovely"
 	o4Lines            = [2]string{"I SERVE ANOTHER.", "STILL SERVING."}
@@ -165,9 +166,10 @@ var macguffinCard = struct {
 
 // Street gossip (street.go), said near the Entrance by a passer-by, by how far the questline has got (questStage).
 var (
-	gossipBefore     = []string{"That place grew a wing overnight. Hotels shouldn't do that.", "My cousin stayed there. Now he alphabetizes his soup."}
-	gossipEarly      = []string{"Heard a witch checked in. Pointy hat. Very polite.", "Saw a lady buying sage. Enough sage to season a cathedral."}
-	gossipLate       = []string{"The streamer guy's in there again. Says he saw nothing. Twice.", "Something works that corridor at night. It had a sign."}
+	gossipBefore = []string{"That place grew a wing overnight. Hotels shouldn't do that.", "My cousin stayed there. Now he alphabetizes his soup."}
+	gossipEarly  = []string{"Heard a witch checked in. Pointy hat. Very polite.", "Saw a lady buying sage. Enough sage to season a cathedral."}
+	gossipLate   = []string{"The streamer guy's in there again. Says he saw nothing. Twice.", "Something works that corridor at night. It had a sign.",
+		"Saw the Concierge carry a towel to nobody, flowers to a door and a key to a ghost. Odd job. Good legs."}
 	gossipAfter      = []string{"Don't look at the tall one. It looks back with stars.", "Five stars on every review. Literally. They fall out of the page."}
 	gossipAny        = []string{"Hell is empty. All the devils are on holiday in there.", "Whoever runs that place works a very long SHIFT."}
 	gossipGhost      = []string{"The old lady's hotel. She's fussier dead.", "A living man who walks with us. In this economy."}
