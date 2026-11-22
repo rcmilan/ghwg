@@ -409,7 +409,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
-		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
+		dst := screen
+		if a.up {
+			dst = g.lintelClip(screen, a.x, a.y, oy)
+		}
+		g.drawCharacterAs(dst, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
 		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
 			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
 			for j, p := range g.props {
@@ -451,6 +455,19 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		}
 	}
+}
+
+// lintelClip: where a character lifted off the floor (a ghost's hover) may be drawn: under a doorway's lintel, which
+// is drawn over it, only below the lintel's top, or its head pokes out above the wall (live test 5).
+func (g *Game) lintelClip(screen *ebiten.Image, x, feet float64, oy int) *ebiten.Image {
+	m := g.hotel.Map
+	c := m.Cell(image.Pt(int(x), int(feet)))
+	y := c.Y - 1 // the lintel over the doorway the feet are in; in its own row (inside, behind the wall) the head shows above it, as in real
+	if id := m.At(world.LayerWalls, c.X, y); id == 0 || g.ts.Tiles[id].Name != "wall_lintel" || float64(m.TileSortY(world.LayerWalls, c.X, y)) <= feet {
+		return screen
+	}
+	b := screen.Bounds()
+	return screen.SubImage(image.Rect(b.Min.X, max(b.Min.Y, screenPx(float64(y*world.TileSize))-oy), b.Max.X, b.Max.Y)).(*ebiten.Image)
 }
 
 // feetShadow: the dim patch at a living character's feet (F0 Shadows), 14x5 world px.
