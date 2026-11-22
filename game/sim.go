@@ -208,6 +208,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
+	tapAt := g.poltTap // 09: a tap earns Ecto too
 	delivered, serves, staffPaid, offered, purse := g.delivered, g.serves, g.staffPaid, g.offered, g.quest.paid
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
@@ -365,7 +366,7 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() && g.quest.paid == purse { // 08 W5: a quest purse is Ecto too. Before the frame: a Party scared then paid; after: one that fled
+		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() && g.quest.paid == purse && g.poltTap == tapAt { // 08 W5: a quest purse is Ecto too. Before the frame: a Party scared then paid; after: one that fled
 			s.fail("Ecto rose %s with no ghost clean nor a shadowed Room holding its Party", fmtNum(g.wallet[Ecto]-ecto))
 		}
 	}
@@ -396,7 +397,7 @@ func (s *sim) check(money Num, banked Num, spent int) {
 		}
 		walking := p.state != staying && slices.ContainsFunc(p.Guests, func(guest *entities.Guest) bool { return len(guest.Path) > 0 })
 		if walking && g.tick-l.from > legBudget {
-			s.fail("a Party (state %d, room %d) has walked one leg for %d frames: %s", p.state, p.Room, g.tick-l.from, where(p.Guests))
+			s.fail("a Party (state %d, room %d) has walked one leg for %d frames: %s player %v", p.state, p.Room, g.tick-l.from, where(p.Guests), image.Pt(int(g.player.X), int(g.player.Y)))
 		}
 	}
 }

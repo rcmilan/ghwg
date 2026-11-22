@@ -1144,3 +1144,13 @@ func TestMagentaOwnsTheSpirit(t *testing.T) {
 		t.Fatal("past beat 3")
 	}
 }
+
+// Live test 3: Teo said "Room {n}" while no ghost was staying to be picked as the porter.
+func TestO6TeoBeforeThePorter(t *testing.T) {
+	g, _ := verbRun(t, 3, 4)
+	named(t, g, 0, "teo")
+	g.startCard(0)
+	if txt := flat(g); strings.Contains(txt, "{n}") {
+		t.Errorf("Teo's Card says the placeholder:\n%s", txt)
+	}
+}

@@ -104,6 +104,7 @@ func (g *Game) updateTerminal() {
 	key := g.in.JustPressed
 	if g.prestigeAsk { // the card: SPACE pays, ESC closes (game.go)
 		if key(ebiten.KeySpace) {
+			g.uiStep()
 			g.confirmPrestige()
 		}
 		return
@@ -111,10 +112,12 @@ func (g *Game) updateTerminal() {
 	said := "" // a move drops the notice; SPACE says how it went
 	switch {
 	case key(ebiten.KeyA):
+		g.uiStep()
 		g.termTab, g.termPick = (g.termTab+tabs-1)%tabs, 0
 		g.snapPick()
 		g.see()
 	case key(ebiten.KeyD):
+		g.uiStep()
 		g.termTab, g.termPick = (g.termTab+1)%tabs, 0
 		g.snapPick()
 		g.see()
@@ -123,6 +126,7 @@ func (g *Game) updateTerminal() {
 	case key(ebiten.KeyS):
 		g.pickStep(1)
 	case key(ebiten.KeySpace):
+		g.uiStep()
 		said = g.press()
 	default:
 		return
@@ -272,7 +276,7 @@ func (g *Game) drawPrice(s *ebiten.Image, c Cost, x, y int, scale float64, red b
 		x += int(float64(len(v)*glyphW+glyphW) * scale)
 	}
 	if c[Ecto] > 0 {
-		g.stamp(s, g.skull, x, y+int(skullDY*scale), scale, ecto)
+		g.stamp(s, g.skull, x, iconY(y, scale, len(skullRows), scale), scale, ecto)
 		x += int(float64(len(skullRows[0])+2) * scale)
 		v := fmtNum(c[Ecto])
 		g.tintedAt(s, v, x, y, scale, ecto, 1)
@@ -368,7 +372,7 @@ func (g *Game) drawRates(s *ebiten.Image) {
 		g.tintedAt(s, v, x, barH/2-16, 2, resInk(r), 1)
 		if r == Ecto {
 			x -= (len(skullRows[0]) + 2) * 2
-			g.stamp(s, g.skull, x, barH/2-16+skullDY*2, 2, resInk(r))
+			g.stamp(s, g.skull, x, iconY(barH/2-16, 2, len(skullRows), 2), 2, resInk(r))
 		}
 		x -= 28
 	}

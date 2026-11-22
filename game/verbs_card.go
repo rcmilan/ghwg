@@ -178,7 +178,7 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 	case k == "tim" && g.questOpen("O9"): // the talk is the asking: the step ticks
 		g.saw("O9.read")
 		return objOf("O9").Ask
-	case k == "teo" && g.questOpen("O6"):
+	case k == "teo" && g.questOpen("O6") && g.porterRoom() >= 0: // before a ghost is picked there is no Room to name
 		return g.fill(objOf("O6").Ask, g.porterRoom())
 	}
 	return ""

@@ -381,39 +381,6 @@ func (g *Game) drawRing(screen *ebiten.Image, r image.Rectangle) {
 	g.tinted(screen, effect, x+w/2-len(effect)*glyphW/2, cy+22, storeInk, 1)
 }
 
-// The pause (07 U1): ESC with nothing open stops the world on Resume / Quit to title. ESC or SPACE on Resume
-// goes on; only SPACE on Quit ends the Run.
-var pauseRows = [...]string{"RESUME", "QUIT TO TITLE"}
-
-func (g *Game) updatePause() {
-	key := g.in.JustPressed
-	switch {
-	case key(ebiten.KeyW) || key(ebiten.KeyS):
-		g.pausePick = 1 - g.pausePick
-	case key(ebiten.KeySpace) && g.pausePick == 1:
-		g.toTitle()
-	case key(ebiten.KeySpace):
-		g.state = StatePlay
-	}
-}
-
-func (g *Game) drawPause(s *ebiten.Image) {
-	rect(s, 0, 0, screenW, screenH, color.RGBA{0, 0, 0, 150})
-	const w, h = 320, 150
-	x, y := (screenW-w)/2, (screenH-h)/2
-	rect(s, x, y, w, h, storeInk)
-	rect(s, x+3, y+3, w-6, h-6, storePage)
-	g.tintedAt(s, "PAUSED", x+w/2-6*glyphW, y+10, 2, storeInk, 1)
-	for k, name := range pauseRows {
-		ry := y + 56 + k*rowH
-		if k == g.pausePick {
-			rect(s, x+12, ry, w-24, rowH-4, storeCard)
-			rect(s, x+12, ry, 4, rowH-4, storeAccent)
-		}
-		g.tintedAt(s, name, x+w/2-len(name)*glyphW, ry+2, 2, storeInk, 1)
-	}
-}
-
 // The picked Room's glow (live tests 3, 4): a radial glow from its centre in the Ectoplasm ink, breathing green
 // to purple, on the floors around it only: drawn right after the floor (drawWorld), so every wall, prop and
 // actor stands in front of it, and nothing outside the hotel takes it. The Room itself is cut out of it. It

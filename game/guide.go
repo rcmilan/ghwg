@@ -196,6 +196,8 @@ func (g *Game) stepGuest(key string) (*Party, *entities.Guest) {
 	return nil, nil
 }
 
+const growRowID = "O0"
+
 // guideRow is one line of the checklist.
 type guideRow struct {
 	ID   string
@@ -209,7 +211,7 @@ type guideRow struct {
 // beat is done (or before the first), "GROW THE HOTEL" while another Growth is to come.
 func (g *Game) guideRows() (title string, rows []guideRow) {
 	q := g.quest
-	grow := guideRow{ID: "O0", Text: growStep.Text, Step: growStep}
+	grow := guideRow{ID: growRowID, Text: growStep.Text, Step: growStep}
 	if q.Beat < 1 {
 		return "", []guideRow{grow}
 	}
