@@ -282,12 +282,35 @@ func (g *Game) reserved(room int) bool {
 	if room < 0 || room != g.roomOfKey("celestine") {
 		return false
 	}
+	if g.crateHold() {
+		return true
+	}
 	for _, c := range [...]struct{ id, key string }{{"O3", "magda"}, {"O10", "magenta"}} {
 		if p := g.questParty(c.key); p != nil && g.questOpen(c.id) && p.Room != room {
 			return true
 		}
 	}
 	return false
+}
+
+// crateHold: the crate is bought and the finale not done: nobody is booked into Madame's Room (reserved, and the
+// ghost arrivals in ghostguest.go). The finale ends in a prestige, so nothing lifts it.
+func (g *Game) crateHold() bool {
+	return g.verbsComing(rowCrate) || g.scene.id == "finale" || g.scene.id == "credits"
+}
+
+// clearMadame: the crate is bought: every Party in Madame's Room but the finale's cast leaves at once, by the
+// ordinary check-out walk.
+func (g *Game) clearMadame() {
+	room := g.roomOfKey("celestine")
+	for _, p := range g.parties {
+		if p.Room != room || p.state == checkingOut || p.state == leaving || p.Paid ||
+			slices.ContainsFunc(p.Guests, func(x *entities.Guest) bool { return slices.Contains(objCast["O13"], x.Who.Key) }) {
+			continue
+		}
+		p.state = checkingOut
+		g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
+	}
 }
 
 // questRoom: a Priest keeps out of it: reserved, or holding a Party a quest needs where it is.

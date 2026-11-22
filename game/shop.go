@@ -340,6 +340,9 @@ func (g *Game) ship(order []cartLine) {
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
 		case isQuestRow(it.ID): // 08 W5: the wreath to Madame's door, the crate into Madame's Room
 			c.drops = append(c.drops, g.shipQuest(l)...)
+			if it.ID == rowCrate {
+				g.clearMadame()
+			}
 		case !it.room():
 			stock.lines = append(stock.lines, l)
 		default:

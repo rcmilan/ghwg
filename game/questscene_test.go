@@ -81,6 +81,7 @@ func TestFinaleSummonsOnce(t *testing.T) {
 	if len(*ends) != 0 || g.macguffinParty() != nil {
 		t.Fatal("the credits come before CONTINUE: no report, no guest yet")
 	}
+	g.grid0 = [2]int{} // the prestige's reset rebuilds a grown hotel; this one has no tileset to rebuild with
 	g.Update()
 	s.hold(ebiten.KeySpace) // the credits' page
 	g.Update()
@@ -90,13 +91,17 @@ func TestFinaleSummonsOnce(t *testing.T) {
 		s.hold()
 		g.Update()
 	}
-	if g.scene.on() || len(*ends) != 1 || (*ends)[0] != "finale" || g.macguffinParty() == nil {
-		t.Fatalf("CONTINUE: scene %v, reports %v, MacGuffin in: %v", g.scene.on(), *ends, g.macguffinParty() != nil)
+	if g.scene.on() || len(*ends) != 1 || (*ends)[0] != "finale" || g.level != 1 || g.quest.Beat != 0 {
+		t.Fatalf("CONTINUE: scene %v, reports %v, level %d, beat %d: want a prestige", g.scene.on(), *ends, g.level, g.quest.Beat)
 	}
-	g.playQuestScene("finale") // a replay
+	if !g.questRec.MacGuffin || g.bonus < bonus+macguffinBonus {
+		t.Fatalf("the prestige lost the MacGuffin record or its bonus: %v %v", g.questRec.MacGuffin, g.bonus)
+	}
+	g.playQuestScene("finale") // a replay: no credits, a prestige all the same, no second MacGuffin bonus
+	want := g.bonus + g.prestigeGain()
 	runScene(t, g, s, 3*fLen)
-	if g.bonus != bonus+macguffinBonus {
-		t.Fatalf("a second finale moved the bonus to %v", g.bonus)
+	if g.level != 2 || g.bonus != want {
+		t.Fatalf("a second finale: level %d, bonus %v, want 2 and %v", g.level, g.bonus, want)
 	}
 }
 

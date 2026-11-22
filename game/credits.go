@@ -7,7 +7,7 @@ import (
 )
 
 // 08 W5-SCENE: the credits, on black, after the finale's first time: the credits (circle.go), then the epilogue and a
-// CONTINUE prompt; SPACE turns the page, then continues the Run (the MacGuffin checks into the best Room).
+// CONTINUE prompt; SPACE turns the page, then a normal prestige (startPrestige).
 const (
 	creditsPage = 600 // frames the credits stay before the epilogue comes by itself
 	creditsHold = 150 // frames of the epilogue before CONTINUE shows
@@ -23,10 +23,11 @@ func (g *Game) stepCredits() {
 		return
 	}
 	if s.page == 1 && s.t >= creditsHold && (space || g.auto != nil) { // a Strategy playing never presses it
-		if s.from == "finale" {
-			g.macguffinCheckIn()
+		from := s.from
+		g.closeScene(from)
+		if from == "finale" {
+			g.startPrestige() // a normal prestige; the MacGuffin books itself in the next Run's first Growth (macguffinIn)
 		}
-		g.closeScene(s.from)
 	}
 }
 
@@ -38,7 +39,7 @@ func (g *Game) drawCredits(screen *ebiten.Image) {
 		printAt(screen, v, (screenW-len(v)*glyphW*int(scale))/2, y, scale, c, a)
 	}
 	if s.page == 0 {
-		y := 40
+		y := 16
 		for i, l := range credits {
 			sc := 2.0
 			if i == 0 {
@@ -46,6 +47,9 @@ func (g *Game) drawCredits(screen *ebiten.Image) {
 			}
 			centre(l, y, sc, color.White, a)
 			y += int(glyphH*sc) + 8
+			if l == "" { // a blank is a gap, not a line, so the whole fits the screen
+				y -= 28
+			}
 		}
 		return
 	}

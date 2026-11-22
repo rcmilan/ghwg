@@ -188,7 +188,8 @@ func (g *Game) stepScene() {
 	}
 }
 
-// endScene: the cutscene is over. The finale's first time ever goes on to the summoning and the credits.
+// endScene: the cutscene is over. The finale's first time ever goes on to the summoning and the credits; every
+// finale ends in a prestige (the credits' CONTINUE, or here on a replay).
 func (g *Game) endScene() {
 	id := g.scene.id
 	if id == "finale" {
@@ -198,6 +199,9 @@ func (g *Game) endScene() {
 			g.scene = sceneState{id: "credits", from: id}
 			return
 		}
+		g.closeScene(id)
+		g.startPrestige()
+		return
 	}
 	g.closeScene(id)
 }
