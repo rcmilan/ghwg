@@ -2,6 +2,7 @@ package game
 
 import (
 	"image"
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -1060,31 +1061,41 @@ func TestSayDoneOffScreenGoesToBook(t *testing.T) {
 	}
 }
 
-// Live test 5: the finale fades to black and sets its stage under it: nobody but the cast is drawn in Madame's
-// Room or round its door, whoever was walking out through it.
+// Live test 5: the finale fades to black and sets its stage under it. The cast, the Concierge among them (the top
+// point), walk in and stand on points evenly round the circle, each facing its centre.
 func TestFinaleStage(t *testing.T) {
-	g, _ := verbRun(t, 2, 7)
+	g, _ := verbRun(t, 3, 7)
+	for i, k := range []string{"celestine", "magenta", "tim", "magda"} { // with the Concierge, 5: a pentagram
+		named(t, g, i%3, k)
+	}
 	room := max(0, g.roomOfKey("celestine"))
 	g.rollSet("O13.crate", room+1)
-	c := finaleCrate(g.hotel.Rooms[room])
-	stranger := &entities.Guest{X: float64(c.X), Y: float64(c.Y)}
-	g.parties = append(g.parties, &Party{Guests: []*entities.Guest{stranger}})
 	g.playQuestScene("finale")
 	if g.scene.cast != nil || g.scene.t >= 0 {
 		t.Fatal("staged before the black")
 	}
-	for range fBlack {
+	for g.scene.t < fPoints {
 		g.stepScene()
 	}
-	if g.scene.cast == nil {
-		t.Fatal("no stage after the black")
+	s := &g.scene
+	if len(s.cast) < 2 || s.cast[0].g != &s.pl {
+		t.Fatalf("cast %d, the Concierge first: %v", len(s.cast), len(s.cast) > 0 && s.cast[0].g == &s.pl)
 	}
-	if !g.offStage(stranger.X, stranger.Y, stranger) {
-		t.Error("a stranger on the stage is drawn")
+	if top := s.crate.Sub(image.Pt(0, fRadius)); s.cast[0].slot != top {
+		t.Errorf("the Concierge's point %v, want the top one %v", s.cast[0].slot, top)
 	}
-	for _, cs := range g.scene.cast {
-		if g.offStage(cs.g.X, cs.g.Y, cs.g) {
-			t.Errorf("cast %q is not drawn", cs.g.Who.Key)
+	want := map[int]entities.Facing{}
+	for i, c := range s.cast {
+		d := c.slot.Sub(s.crate)
+		if r := math.Hypot(float64(d.X), float64(d.Y)); math.Abs(r-fRadius) > 1 {
+			t.Errorf("cast %d's point is %.1f from the centre, want %d", i, r, fRadius)
+		}
+		if c.g.X != float64(c.slot.X) || c.g.Y != float64(c.slot.Y) {
+			t.Errorf("cast %d at (%.0f,%.0f), not on its point %v by fPoints", i, c.g.X, c.g.Y, c.slot)
+		}
+		want[i] = entities.Toward(float64(-d.X), float64(-d.Y))
+		if c.g.Anim.Facing != want[i] {
+			t.Errorf("cast %d faces %v, want the centre (%v)", i, c.g.Anim.Facing, want[i])
 		}
 	}
 }

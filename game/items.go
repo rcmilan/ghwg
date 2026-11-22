@@ -265,7 +265,7 @@ func (g *Game) spiritRoom() int {
 // itemActors: the Cat (both realms) and Gerald (ghost only), the Ward's mark (real only), for the y-sorted pass.
 func (g *Game) itemActors() []actor {
 	var as []actor
-	if c := g.items.cat; c != nil && !g.offStage(c.X, c.Y, nil) {
+	if c := g.items.cat; c != nil {
 		nap, anim := c.napping, c.Anim
 		as = append(as, actor{x: c.X, y: c.Y, draw: func(s *ebiten.Image, x, y int) { g.drawCat(s, x, y, nap, anim) }})
 	}
