@@ -289,8 +289,8 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
 		}
 	}
-	actors = append(append(append(append(actors, g.verbActors()...), g.sceneActors()...), g.itemActors()...), g.streetActors()...) // 08 W5
-	var marks []mark                                                                                                               // 08 W5 R1: the guidance marker's outlines go in the same pass, just under their target
+	actors = append(append(append(append(append(actors, g.verbActors()...), g.sceneActors()...), g.crateActors()...), g.itemActors()...), g.streetActors()...) // 08 W5
+	var marks []mark                                                                                                                                           // 08 W5 R1: the guidance marker's outlines go in the same pass, just under their target
 	if screen != g.wide {
 		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
 		marks = g.guideMarks(image.Rect(ox/zoom, oy/zoom, (ox+sw)/zoom+1, (oy+sh)/zoom+1))

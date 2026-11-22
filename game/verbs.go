@@ -142,7 +142,7 @@ func (g *Game) questRowOn(id Unlock) (on, quest bool) {
 	case rowWreath:
 		return g.questOpen("O8") && g.roomOfKey("celestine") >= 0 && g.rollGet("O8.parcel") == 0 && !g.verbsComing(id), true
 	case rowCrate:
-		return g.questOpen("O13") && !g.verbsComing(id), true
+		return g.questOpen("O13") && !g.crateBought(), true
 	case rowStorm:
 		return g.stormJarOn(), true
 	}
@@ -161,27 +161,58 @@ func (g *Game) verbsComing(id Unlock) bool {
 	})
 }
 
-// shipQuest: the courier's stops for a bought quest row: the wreath at Madame's door, the crate inside her Room.
+// shipQuest: the courier's stops for a bought quest row: the wreath at Madame's door, the crate set down inside her
+// Room at the finale circle's centre.
 func (g *Game) shipQuest(l cartLine) []drop {
 	l.room = max(0, g.roomOfKey("celestine"))
 	if shop[l.item].ID == rowWreath {
 		return []drop{{at: g.doorDrop(l.room), lines: []cartLine{l}}}
 	}
-	return g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)
+	return g.intoRoom(l.room, finaleCrate(g.hotel.Rooms[l.room]).Add(image.Pt(0, 14)), l)
 }
 
 // receiveQuest: the courier hands a quest row over: the wreath is left at the door (a parcel in real, the wreath in
-// ghost); the crate reaches Madame's Room, and the first time ever the finale plays.
+// ghost); the crate is set down in Madame's Room (saved with the Run's rolls), and the first time ever the finale waits
+// for the courier to be out and the Concierge in (finaleWait); O13 is done there. A replay is done at delivery.
 func (g *Game) receiveQuest(l cartLine) {
 	if shop[l.item].ID == rowWreath {
 		g.rollSet("O8.parcel", l.room+1)
 		return
 	}
-	first := !g.questRec.MacGuffin
-	g.verbDone(evDeliver, -1, "O13")
-	if first {
-		g.playQuestScene("finale")
+	if g.questRec.MacGuffin {
+		g.verbDone(evDeliver, -1, "O13")
+		return
 	}
+	g.rollSet("O13.crate", l.room+1)
+}
+
+// crateIn: the crate sits in Madame's Room waiting for the finale (the first time ever).
+func (g *Game) crateIn() bool { return g.rollGet("O13.crate") > 0 && !g.questRec.MacGuffin }
+
+// finaleWait: the crate is down, the courier is out of the Room and the Concierge is in it: the finale plays.
+func (g *Game) finaleWait() {
+	if !g.crateIn() || g.scene.on() || g.state != StatePlay {
+		return
+	}
+	sh := g.finaleRoom().Shell()
+	if !image.Pt(int(g.player.X), int(g.player.Y)).In(sh) ||
+		slices.ContainsFunc(g.couriers, func(c *courier) bool { return image.Pt(int(c.X), int(c.Y)).In(sh) }) {
+		return
+	}
+	g.verbDone(evDeliver, -1, "O13")
+	g.playQuestScene("finale")
+}
+
+// crateActors: the crate on the floor of Madame's Room till the finale takes it over, in either Dimension.
+func (g *Game) crateActors() []actor {
+	if !g.crateIn() || g.scene.id == "finale" {
+		return nil
+	}
+	c := finaleCrate(g.finaleRoom())
+	if g.fogAt(c) >= .5 { // a Room the Concierge has not looked into is dark
+		return nil
+	}
+	return []actor{{x: float64(c.X), y: float64(c.Y), draw: func(s *ebiten.Image, x, y int) { g.drawCrate(s, float64(x), float64(y), 0) }}}
 }
 
 // verbPinned: the Party is held by an objective VERBS plays (the porter, the oldest guest, ...): questPinned ORs it.
@@ -258,6 +289,7 @@ func (g *Game) verbActors() (as []actor) {
 func (g *Game) updateVerbs() {
 	g.verbSync()
 	g.updateSpirit()
+	g.finaleWait()
 	if p := g.questParty("tim"); g.ghost && g.questOpen("O5") && p != nil && p.asking() {
 		g.saw("O5.ask")
 	}

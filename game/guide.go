@@ -120,7 +120,7 @@ func (g *Game) stepIdx(id string) int {
 	case "O12":
 		return b2i(g.sawn("O12.odd"))
 	case "O13":
-		return b2i(g.verbsComing(rowCrate))
+		return b2i(g.crateBought())
 	}
 	return 0
 }

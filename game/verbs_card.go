@@ -293,10 +293,13 @@ func (g *Game) reserved(room int) bool {
 	return false
 }
 
+// crateBought: a courier is carrying the crate, or it is down and waiting for the finale.
+func (g *Game) crateBought() bool { return g.verbsComing(rowCrate) || g.crateIn() }
+
 // crateHold: the crate is bought and the finale not done: nobody is booked into Madame's Room (reserved, and the
 // ghost arrivals in ghostguest.go). The finale ends in a prestige, so nothing lifts it.
 func (g *Game) crateHold() bool {
-	return g.verbsComing(rowCrate) || g.scene.id == "finale" || g.scene.id == "credits"
+	return g.crateBought() || g.scene.id == "finale" || g.scene.id == "credits"
 }
 
 // clearMadame: the crate is bought: every Party in Madame's Room but the finale's cast leaves at once, by the
