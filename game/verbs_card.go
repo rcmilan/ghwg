@@ -153,17 +153,25 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 		return objOf(id).Ask
 	}
 	switch k := guest.Who.Key; {
+	case k == "magenta" && p.Realm == Human && g.quest.Beat == 3 && g.rollGet("O4.lit") > 0:
+		return magentaHelper // the red slits were hers: the rest of their beat, before her O3 ask (live test 6)
 	case k == "magenta" && p.Realm == Human:
 		for _, id := range [...]string{"O1", "O2", "O3", "O7", "O11"} {
 			if g.questOpen(id) {
 				if id == "O1" && g.rollGet("O1.long") == 1 {
 					return o1LongAsk
 				}
+				if id == "O11" && g.verbs.held == "O11" { // the haft brought: straight to its GIVE and Done line
+					return ""
+				}
 				if id == "O11" {
 					return o11Magenta
 				}
 				return objOf(id).Ask
 			}
+		}
+		if g.questRec.MacGuffin { // nothing to ask, and the MacGuffin a regular since the finale
+			return magentaStudy
 		}
 	case k == "tim" && g.questOpen("O5"):
 		return objOf("O5").Ask

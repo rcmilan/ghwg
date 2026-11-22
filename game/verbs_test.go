@@ -754,6 +754,18 @@ func TestO11Haft(t *testing.T) {
 	if q := g.verbQuote(m, m.Guests[0]); q != o11Magenta { // the fetch-quest joke (live test 5)
 		t.Fatalf("Magenta's Card while O11 is open: %q", q)
 	}
+	g.questRec.MacGuffin = true
+	if q := g.verbQuote(m, m.Guests[0]); q != o11Magenta {
+		t.Fatalf("after the finale, an open ask still comes first: %q", q)
+	}
+	g.quest.Done = make([]bool, len(g.quest.Done))
+	for i := range g.quest.Done {
+		g.quest.Done[i] = true
+	}
+	if q := g.verbQuote(m, m.Guests[0]); q != magentaStudy {
+		t.Fatalf("Magenta with nothing to ask after the finale: %q", q)
+	}
+	g.questRec.MacGuffin, g.quest.Done = false, make([]bool, len(g.quest.Done))
 	a := g.ally()
 	if a != "celestine" && a != "tim" {
 		t.Fatalf("ally %q", a)
@@ -774,7 +786,7 @@ func TestO11Haft(t *testing.T) {
 	if !hasOpt(verbsOf(g, m), optGive) {
 		t.Fatal("no GIVE for Magenta")
 	}
-	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "Fits my staff like it grew there") {
+	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "I can use it as a staff") || strings.Contains(txt, "Fetch me") {
 		t.Errorf("GIVE: %v: %q", g.verbs.done, txt)
 	}
 }
@@ -1113,5 +1125,22 @@ func TestStarEdges(t *testing.T) {
 		if got := fmt.Sprint(starEdges(n)); got != want {
 			t.Errorf("%d points: %s, want %s", n, got, want)
 		}
+	}
+}
+
+// Live test 6: the O4 spirit is Magenta's; once caught, she owns up, on her talk and card, the rest of beat 3.
+func TestMagentaOwnsTheSpirit(t *testing.T) {
+	g, _ := verbRun(t, 3, 3)
+	m := named(t, g, 0, "magenta")
+	if q := g.verbQuote(m, m.Guests[0]); q == magentaHelper {
+		t.Fatal("before the catch")
+	}
+	g.rollSet("O4.lit", 1)
+	if q := g.verbQuote(m, m.Guests[0]); q != magentaHelper {
+		t.Fatalf("after the catch: %q", q)
+	}
+	setQuest(g, 4)
+	if q := g.verbQuote(m, m.Guests[0]); q == magentaHelper {
+		t.Fatal("past beat 3")
 	}
 }

@@ -76,12 +76,15 @@ func (g *Game) sizeFx(w, h int) {
 // paints over the screen.
 func (g *Game) warmUp(screen *ebiten.Image) {
 	g.warm = true
-	was := g.ghost
+	was, st := g.ghost, g.state
+	if st == StateTalk { // a talk draws through fx[0]: not into itself (a -card start opens one on this frame)
+		g.state = StatePlay
+	}
 	for i, img := range g.fx { // both looks: the opening only ever drew the ghost one before its shift
 		g.ghost = i == 1
 		g.drawFrame(img)
 	}
-	g.ghost = was
+	g.ghost, g.state = was, st
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
 	screen.DrawRectShader(w, h, g.transition, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{g.fx[0], g.fx[1]}})
 }

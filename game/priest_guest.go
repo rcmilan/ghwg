@@ -1,6 +1,10 @@
 package game
 
-import "ghosthotel/entities"
+import (
+	"slices"
+
+	"ghosthotel/entities"
+)
 
 // Father M as a guest (08 T379, G2): once his call is unlocked Father M may book as an ordinary solo human
 // guest, about 1 booking in priestGuestOdds. He pays priestRentMul times the Rate; while he is in his Room its
@@ -57,7 +61,11 @@ func (g *Game) maybePriestGuest(p *Party) {
 func (g *Game) becomeFather(p *Party, strong bool) {
 	guest := p.Guests[0]
 	guest.Character = fatherName(strong)
-	guest.Who = entities.Identity{Name: guest.Character, Age: 52 + 12*b2i(strong), Job: "priest", Lines: fatherLines[b2i(strong)]}
+	lines := fatherLines[b2i(strong)]
+	if g.questRec.MacGuffin { // the answer to Magenta's studies (live test 6)
+		lines = append(slices.Clip(lines), fatherSun)
+	}
+	guest.Who = entities.Identity{Name: guest.Character, Age: 52 + 12*b2i(strong), Job: "priest", Lines: lines}
 	p.Rate *= priestRentMul
 }
 

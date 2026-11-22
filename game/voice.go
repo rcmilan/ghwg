@@ -22,7 +22,7 @@ var (
 	courierIn  = []string{"Delivery!", "Package for the hotel!", "Where does this go?", "Heavy one today.", "Fragile. Probably.", odd("I'm told this box is a duck.")}
 	courierOut = []string{"All delivered!", "See you next order!", "Have a good one!", "Back to the van.", odd("If the box quacks, that's normal.")}
 	// The Cat's ghost-realm lines (placeholders for the designer); in real it only meows.
-	catRude = []string{"Your shoes are an insult to leather.", "Pet me and lose the hand.", "I was here first. You're the guest.", "Nine lives, and I'm spending this one on you.", "Feed me, or I tell the ghosts where you sleep.", "You smell like the lobby carpet.", "Don't look at me. Not like that. Not at all.", "I've seen better management from a goldfish."}
+	catRude = []string{"Stop following me.", "Pet me and lose the hand.", "I was here first. You're the guest.", "Nine lives, and I'm spending this one on you.", "Feed me, or I tell the ghosts where you sleep.", "You smell like the lobby carpet.", "Don't look at me. Not like that. Not at all.", "I've seen better management from a goldfish."}
 	// A Priest's ritual lines (B1): the opening and the closing, each Father his own.
 	kOpen         = []string{"Peace upon this house.", "Which room is troubled?", "I felt it from the street.", odd("I brought holy water. And crackers.")}
 	kClose        = []string{"It is done.", "Rest easy now.", "Keep the candles lit.", odd("The spirit asked for a sandwich.")}
