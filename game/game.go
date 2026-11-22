@@ -287,7 +287,7 @@ func (g *Game) startRun() {
 	g.busy, g.bumps, g.paces = false, 0, 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
-	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
+	g.ghostArrivals, g.areaShades, g.mirrorSlots = g.firstArrivals(), nil, nil             // mirrorSlots: a Growth regrids them, so never the last Run's length
 	g.hushed = map[int]bool{}
 	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
 	// T272); and with K1's bed layouts and in-Room Mirror to buy

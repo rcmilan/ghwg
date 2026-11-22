@@ -224,13 +224,6 @@ func (g *Game) sceneWaiting() bool {
 	return slices.Contains(g.sceneHolds(), s.t)
 }
 
-// waitKey: the blinking SPACE prompt, small, centred on x with its top at y.
-func (g *Game) waitKey(screen *ebiten.Image, x float64, y int) {
-	if g.tick/30%2 == 0 {
-		outline(screen, "SPACE", int(x)-5*glyphW/2, y, 1, color.NRGBA{190, 190, 200, 255}, 1)
-	}
-}
-
 // endScene: the cutscene is over. The finale's first time ever goes on to the summoning and the credits; every
 // finale ends in a prestige (the credits' CONTINUE, or here on a replay).
 func (g *Game) endScene() {
@@ -338,9 +331,6 @@ func (g *Game) drawO4(screen *ebiten.Image, bg color.Color) {
 		age := float64(t - o4Say - i*lineHold)
 		y := cy + float64(14*zoom+glyphH*2+2)
 		sayText(screen, o4Lines[i], cx, y, float32(ease(age/8)*(1-ease((age-lineHold+15)/15))))
-		if g.sceneWaiting() {
-			g.waitKey(screen, cx, int(y)+2)
-		}
 	}
 }
 
@@ -367,10 +357,7 @@ func (g *Game) drawHandScene(screen *ebiten.Image, bg color.Color) {
 	on := g.drawFocused(screen, bg, float64(s.at.X), float64(s.at.Y), 1+(sceneZoom-1)*e, e)
 	if s.t >= s.lineAt && s.t < s.out {
 		x, y := on(float64(s.at.X), float64(s.at.Y)-world.TileSize)
-		top := sayText(screen, handLine, x, y, float32(ease(float64(s.t-s.lineAt)/8)))
-		if g.sceneWaiting() {
-			g.waitKey(screen, x, top-glyphH-2)
-		}
+		sayText(screen, handLine, x, y, float32(ease(float64(s.t-s.lineAt)/8)))
 	}
 }
 
@@ -423,10 +410,7 @@ func (g *Game) drawTalkScene(screen *ebiten.Image, bg color.Color) {
 	on := g.drawFocused(screen, bg, gu.X, gu.Y-charH/2, 1+(sceneZoom-1)*e, e)
 	if s.line != "" && s.t >= s.lineAt && (!s.did || s.t < s.out) {
 		x, y := on(gu.X, gu.Y-charH)
-		top := sayText(screen, s.line, x, y-6, float32(ease(float64(s.t-s.lineAt)/8)))
-		if g.sceneWaiting() {
-			g.waitKey(screen, x, top-glyphH-2)
-		}
+		sayText(screen, s.line, x, y-6, float32(ease(float64(s.t-s.lineAt)/8)))
 	}
 }
 
@@ -523,10 +507,7 @@ func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
 }
 
 func (g *Game) o9Say(screen *ebiten.Image, line string, x, y float64) {
-	top := sayText(screen, line, x, y, 1)
-	if g.sceneWaiting() {
-		g.waitKey(screen, x, top-glyphH-2)
-	}
+	sayText(screen, line, x, y, 1)
 }
 
 // ---- the finale
@@ -776,9 +757,6 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 	if i, age := finaleLine(t); i >= 0 { // the lines, as subtitles: the MacGuffin's, then Celestine's
 		y := float64(b.Dy()) - 36
 		sayText(screen, finaleLines[i], float64(b.Dx())/2, y, float32(ease(float64(age)/10)*(1-ease(float64(age-lineHold+15)/15))))
-		if g.sceneWaiting() {
-			g.waitKey(screen, float64(b.Dx())/2, int(y)+2)
-		}
 	}
 }
 

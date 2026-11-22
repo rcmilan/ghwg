@@ -147,3 +147,17 @@ func TestPriceCurveAndKeeperCap(t *testing.T) {
 		}
 	}
 }
+
+// A Run starts with no Mirror slots of the last Run's hotel: a prestige from a grown hotel, then a Growth, crashed in
+// regrid (live test 5, after the finale's credits).
+func TestPrestigeThenGrow(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.DevGrow("col,floor")
+	g.mirrorSlot(len(g.hotel.Rooms) - 1)
+	g.startPrestige()
+	g.DevGrow("col")
+	if c, r := g.hotel.Grid(); c*r != len(g.mirrorSlots) && g.mirrorSlots != nil {
+		t.Fatalf("%d Mirror slots for %dx%d", len(g.mirrorSlots), c, r)
+	}
+}

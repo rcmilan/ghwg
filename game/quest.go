@@ -3,7 +3,6 @@ package game
 import (
 	"image"
 	"slices"
-	"strings"
 
 	"ghosthotel/world"
 )
@@ -141,7 +140,6 @@ func (g *Game) beatDone() {
 		}
 		if bt.Item != noItem {
 			g.questRec.Items[bt.Item] = true
-			g.notice("GOT " + strings.ToUpper(itemNames[bt.Item][0]))
 		}
 	}
 	if line := byTimes(bt.Lines, n); bt.AtEnd && !g.sayLine(bt.Speaker, line) {

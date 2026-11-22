@@ -246,7 +246,10 @@ func (g *Game) cardView() (v cardView) {
 			text = macguffinCard.Reveal
 		}
 		if o == optReveal {
-			text = fmt.Sprintf("REVEAL  %d ECTO", int(g.revealCost()))
+			text = "REVEAL"
+			if c := g.revealCost(); c > 0 { // free with Show, don't tell: no price
+				text = fmt.Sprintf("REVEAL  %d ECTO", int(c))
+			}
 			if !can { // grey, as the Terminal greys what the wallet can't pay
 				ink, a = color.Gray{120}, 0.5
 			}
