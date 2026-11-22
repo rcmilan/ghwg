@@ -646,29 +646,26 @@ func drawEyes(s *ebiten.Image, x, y, u, open float64) {
 	}
 }
 
-// drawCrate: the crate at foot (cx,cy), screen px, its lid lifted by lift (0..1).
+// drawCrate: the crate at foot (cx,cy), screen px, its lid lifted by lift (0..1): the shop's crate icon, its top
+// plank the lid (live test 5: the drawn box was ugly).
 func (g *Game) drawCrate(screen *ebiten.Image, cx, cy, lift float64) {
-	rect(screen, int(cx)-8*zoom, int(cy)-10*zoom, 16*zoom, 10*zoom, color.NRGBA{96, 62, 34, 255})
-	for _, d := range []int{-4, 0, 4} {
-		rect(screen, int(cx)+d*zoom, int(cy)-10*zoom, 1, 10*zoom, color.NRGBA{58, 36, 20, 255})
-	}
-	var p vector.Path // the lid, lifting and tilting off
-	ang, rise := lift*.7, lift*12*zoom
-	for i, c := range [...][2]float64{{-9, -10}, {9, -10}, {9, -13}, {-9, -13}} {
-		px := cx + (c[0]*math.Cos(ang)-(c[1]+10)*math.Sin(ang))*zoom
-		py := cy - 10*zoom + ((c[0])*math.Sin(ang)+(c[1]+10)*math.Cos(ang))*zoom - rise
-		if i == 0 {
-			p.MoveTo(float32(px), float32(py))
-		} else {
-			p.LineTo(float32(px), float32(py))
-		}
-	}
-	p.Close()
-	dp := &vector.DrawPathOptions{AntiAlias: true}
-	dp.ColorScale.ScaleWithColor(color.NRGBA{128, 84, 46, 255})
-	vector.FillPath(screen, &p, &vector.FillOptions{}, dp)
+	const lidH = 3 // the icon's top plank, over its seam
+	img := g.sprite("icon_crate")
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(-w/2), float64(lidH-h))
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(cx, cy)
+	screen.DrawImage(img.SubImage(image.Rect(0, lidH, w, h)).(*ebiten.Image), op)
+	top := cy - float64((h-lidH)*zoom)
+	op = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear} // the lid, lifting and tilting off
+	op.GeoM.Translate(float64(-w/2), -lidH)
+	op.GeoM.Rotate(lift * .7)
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(cx, top-lift*12*zoom)
+	screen.DrawImage(img.SubImage(image.Rect(0, 0, w, lidH)).(*ebiten.Image), op)
 	if lift > 0 {
-		g.glowAt(screen, cx, cy-10*zoom, 40*zoom*lift, moonLight, .7)
+		g.glowAt(screen, cx, top, 40*zoom*lift, moonLight, .7)
 	}
 }
 

@@ -2,7 +2,6 @@ package game
 
 import (
 	"image"
-	"image/color"
 	"math"
 
 	"ghosthotel/entities"
@@ -224,17 +223,17 @@ func (g *Game) drawHandprint(s *ebiten.Image, x, y int) {
 	rect(s, x+3*u+wave/2, y-7*u, 3*u, 2*u, ink) // the thumb
 }
 
-// drawParcel: what the Courier left at Madame's door: a parcel in real, in ghost the wreath it is.
+// drawParcel: what the Courier left at Madame's door: a parcel in real, in ghost the wreath it is; the shop's
+// icons, feet at (x,y) (live test 5: the drawn ones were ugly).
 func (g *Game) drawParcel(s *ebiten.Image, x, y int) {
-	if !g.ghost {
-		rect(s, x-5*zoom, y-6*zoom, 10*zoom, 7*zoom, color.RGBA{0xb6, 0x93, 0x7e, 255})
-		rect(s, x-5*zoom, y-6*zoom, 10*zoom, zoom, color.RGBA{0x91, 0x66, 0x62, 255})
-		rect(s, x-zoom, y-6*zoom, 2*zoom, 7*zoom, color.RGBA{0xd0, 0xbe, 0x9c, 255})
-		return
+	img := g.sprite("icon_crate")
+	if g.ghost {
+		img = g.sprite("icon_wreath")
 	}
-	for k := range 12 { // a ring of leaves round a red bow
-		a := float64(k) / 12 * 2 * math.Pi
-		rect(s, x+int(math.Round(math.Cos(a)*5*zoom))-zoom, y-4*zoom+int(math.Round(math.Sin(a)*4*zoom))-zoom, 2*zoom, 2*zoom, color.RGBA{0x5f, 0xe0, 0xb0, 255})
-	}
-	rect(s, x-zoom, y-9*zoom, 2*zoom, 2*zoom, color.RGBA{0xe0, 0x50, 0x60, 255})
+	b := img.Bounds()
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(-b.Dx()/2), float64(-b.Dy()))
+	op.GeoM.Scale(zoom, zoom)
+	op.GeoM.Translate(float64(x), float64(y))
+	s.DrawImage(img, op)
 }
