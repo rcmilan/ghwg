@@ -314,13 +314,17 @@ func (g *Game) crateHold() bool {
 func (g *Game) clearMadame() {
 	room := g.roomOfKey("celestine")
 	for _, p := range g.parties {
-		if p.Room != room || p.state == checkingOut || p.state == leaving || p.Paid ||
-			slices.ContainsFunc(p.Guests, func(x *entities.Guest) bool { return slices.Contains(objCast["O13"], x.Who.Key) }) {
+		if p.Room != room || p.state == checkingOut || p.state == leaving || p.Paid || finaleCast(p) {
 			continue
 		}
 		p.state = checkingOut
 		g.sendParty(p, g.hotel.Exit, g.hotel.Exit)
 	}
+}
+
+// finaleCast: the Party is one of the finale's cast.
+func finaleCast(p *Party) bool {
+	return slices.ContainsFunc(p.Guests, func(x *entities.Guest) bool { return slices.Contains(objCast["O13"], x.Who.Key) })
 }
 
 // questRoom: a Priest keeps out of it: reserved, or holding a Party a quest needs where it is.

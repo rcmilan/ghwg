@@ -887,6 +887,12 @@ func TestFinaleWaitsForTheCourier(t *testing.T) {
 		t.Fatal("the finale started with the courier in the Room")
 	}
 	cr.X, cr.Y = float64(g.doorDrop(room).X), float64(g.doorDrop(room).Y)
+	g.parties = append(g.parties, &Party{Guests: []*entities.Guest{{X: g.player.X, Y: g.player.Y}}}) // live test 5: a guest still in it
+	g.finaleWait()
+	if g.scene.on() {
+		t.Fatal("the finale started with a guest in the Room")
+	}
+	g.parties = g.parties[:len(g.parties)-1]
 	g.finaleWait()
 	if g.scene.id != "finale" || !reported(g, "O13") {
 		t.Fatal("the courier is out and the Concierge is in: the finale should play")

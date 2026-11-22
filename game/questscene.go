@@ -797,6 +797,7 @@ func (g *Game) DevScene(id string) {
 		g.quest = questRun{Beat: beatCount, Done: make([]bool, len(beats[beatCount-1].Objs)), Rolls: map[string]int{}} // O13 open: the finale finishes it
 		g.verbs = verbState{beat: beatCount}
 		g.rollSet("O13.crate", room+1)
+		g.clearMadame() // as buying it does
 		d := g.doorDrop(room)
 		g.fog[room] = 0
 		g.player.X, g.player.Y = float64(d.X), float64(d.Y)
