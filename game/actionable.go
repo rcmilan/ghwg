@@ -22,6 +22,7 @@ const (
 	actCard
 	actClean
 	actView
+	actQuestTalk // 08 W5 R8: SPACE talks to a quest character close by (verbs_card.go)
 )
 
 // actionable: what SPACE would do now and the world rect of the prop it acts on (for the glow; empty when there is
@@ -69,6 +70,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	}
 	if i := g.atMat(); i >= 0 {
 		r := g.hotel.Rooms[i]
+		if g.ghost && g.ghostDoor(i) { // 08 W5: a quest ghost's Request, the wreath, the handprint
+			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
+		}
 		if !g.ghost && g.wants(i, g.hands) { // the door and its mat
 			return actDeliver, image.Rect(r.Door.X*ts-ts, r.Door.Y*ts, r.Door.X*ts+2*ts, r.Door.Y*ts+4*ts)
 		}
@@ -78,6 +82,9 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		if feet.In(r.Plate()) {
 			return actNone, image.Rectangle{}
 		}
+	}
+	if p, _ := g.questTalk(); p != nil { // before cleaning, the walkers' and the Room's alike
+		return actQuestTalk, image.Rectangle{}
 	}
 	if room, cell := g.cleanable(); room >= 0 {
 		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
@@ -111,9 +118,15 @@ func (g *Game) space() {
 			g.fetch(g.atSupply())
 		}
 	case actDeliver:
-		g.deliver(g.atMat(), g.hands)
+		if g.ghost {
+			g.ghostDeliver(g.atMat())
+		} else {
+			g.deliver(g.atMat(), g.hands)
+		}
 	case actCard:
 		g.startCard(g.atMat())
+	case actQuestTalk:
+		g.questSpeak(g.questTalk())
 	case actClean:
 		g.clean(g.cleanable())
 	case actView:

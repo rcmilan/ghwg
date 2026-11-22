@@ -34,8 +34,12 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold(ebiten.KeySpace)
 		return
 	}
-	if g.state == StateGrow { // the hotel grows: nothing to press
-		a.keys.hold()
+	if g.state == StateGrow || g.scene.on() { // the hotel grows, or a cutscene or a quest TALK plays: SPACE on each line, nothing else to press
+		if g.sceneWaiting() && !a.keys.now[ebiten.KeySpace] {
+			a.keys.hold(ebiten.KeySpace)
+		} else {
+			a.keys.hold()
+		}
 		return
 	}
 	if (g.state == StateView || g.state == StateTalk) && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2), or a talk (X2): out of it
@@ -97,7 +101,7 @@ type Result struct {
 	Expired     int       // requests left to expire
 	Priests     int       // called and paid
 	PriestSpend int       // $ paid for them
-	PriestsM    int       // of Priests, the calls of Father M (Father K's are Priests - PriestsM)
+	PriestsM    int       // of Priests, the calls of Father M (K's, via sendPriest, only from the dev flags)
 	RetainDays  int       // game days Father K was on retainer: each hire and each payday paid
 	PriestEcto  int       // Ectoplasm spent on the Fathers: unlocks, calls and the retainer
 	ClosedHours int       // Room-hours spent Closed
@@ -138,6 +142,7 @@ type sim struct {
 	seen      map[*Party]partyState // each Party's state last frame
 	paid      map[*Party]bool
 	fled      map[*Party]bool
+	held      map[*Party]bool // 08 W5: held past its checkout by the questline (questPinned)
 	phased    map[*entities.Guest]bool
 	legs      map[*Party]leg
 	called    map[*priest]bool
@@ -174,7 +179,7 @@ func newSim(cfg Config) (*sim, error) {
 		return nil, err
 	}
 	s := &sim{cfg: cfg, g: g, a: g.autopilot(cfg.Strategy, cfg.React, cfg.KeyGap),
-		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{},
+		seen: map[*Party]partyState{}, paid: map[*Party]bool{}, fled: map[*Party]bool{}, held: map[*Party]bool{},
 		phased: map[*entities.Guest]bool{}, legs: map[*Party]leg{}, called: map[*priest]bool{}, due: map[*priest]int{}, shipped: map[*courier]bool{}, rent: map[*Party]Num{}, byDay: make([]Num, cfg.Days), seenGhost: map[*Party]bool{}, changed: map[*change]bool{},
 		res: Result{Seed: cfg.Seed, Strategy: cfg.Name, MoneyByDay: make([]int, cfg.Days), WalletByDay: make([]int, cfg.Days), MirrorAt: -1, RoomMirror: -1, MirrorBuy: -1, HiredAt: -1, DeluxeAt: -1, PrestigeAt: -1}}
 	g.level, g.bonus = cfg.Level, max(1, cfg.Bonus)
@@ -203,7 +208,7 @@ func (s *sim) frame() bool {
 		}
 	}
 	clock, money, ecto, title, scaring := g.clock, g.wallet[Money], g.wallet[Ecto], g.state == StateTitle, s.scaring()
-	delivered, serves, staffPaid, offered := g.delivered, g.serves, g.staffPaid, g.offered
+	delivered, serves, staffPaid, offered, purse := g.delivered, g.serves, g.staffPaid, g.offered, g.quest.paid
 	moods, cleans := slices.Clone(g.mood), slices.Clone(g.taps)
 	working := map[*priest]bool{}
 	for _, pr := range g.priests {
@@ -269,10 +274,9 @@ func (s *sim) frame() bool {
 		case !s.called[pr]:
 			s.called[pr], spent = true, spent+pr.price()
 			s.res.Priests++
-			s.res.PriestEcto += priestWeak
 			if pr.strong {
 				s.res.PriestsM++
-				s.res.PriestEcto += priestStrong - priestWeak
+				s.res.PriestEcto += priestStrong
 			}
 		case pr.retained && pr.due != s.due[pr]: // payday, paid (an unpaid one clears retained)
 			s.due[pr] = pr.due
@@ -328,10 +332,13 @@ func (s *sim) frame() bool {
 				s.res.Pairs++
 			}
 		}
+		if !p.Paid && g.clock > p.Checkout && g.questPinned(p) {
+			s.held[p] = true
+		}
 		if p.Paid && !s.paid[p] {
 			s.paid[p], banked = true, banked+p.tip
 			s.res.Paid++
-			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) {
+			if !s.cfg.NoCheck && day(g.clock) != day(p.Checkout) && !s.held[p] {
 				s.fail("a %d-night Booking paid on %s, its checkout is %s", p.Nights, clockText(g.clock), clockText(p.Checkout))
 			}
 		}
@@ -358,7 +365,7 @@ func (s *sim) frame() bool {
 	}
 	if !s.cfg.NoCheck {
 		s.check(money, banked, spent)
-		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() { // before the frame: a Party scared then paid; after: one that fled
+		if g.wallet[Ecto] > ecto && !cleaned && !slices.ContainsFunc(g.priests, func(pr *priest) bool { return pr.done && working[pr] }) && !scaring && !s.scaring() && g.quest.paid == purse { // 08 W5: a quest purse is Ecto too. Before the frame: a Party scared then paid; after: one that fled
 			s.fail("Ecto rose %s with no ghost clean nor a shadowed Room holding its Party", fmtNum(g.wallet[Ecto]-ecto))
 		}
 	}
@@ -427,7 +434,7 @@ func (s *sim) finish() Result {
 	s.res.UpLevels, s.res.UpSpend = upTotals(s.g)
 	if !s.cfg.NoCheck && len(s.res.Failures) == 0 {
 		for _, p := range s.booked {
-			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames {
+			if !p.Paid && !p.Fled && !p.Walked && s.g.clock > p.Checkout+2*hourFrames && !s.g.questPinned(p) { // 08 W5: a quest guest is held
 				s.fail("room %d's Booking never paid: checkout was %s", p.Room, clockText(p.Checkout))
 			}
 		}

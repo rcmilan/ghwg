@@ -46,7 +46,12 @@ func (g *Game) grown() bool {
 }
 
 // maxGrid: the hotel's limit at a prestige level, in Rooms a side (08 P1: each prestige lifts it by one).
-func maxGrid(level int) int { return 3 + level }
+func maxGrid(level int) int {
+	if StoryMode {
+		return max(3+level, storyGrowMax)
+	}
+	return 3 + level
+}
 
 func growCost(g *Game) Cost {
 	c, r := g.hotel.Grid()
@@ -69,6 +74,8 @@ func (g *Game) growRefuse(kind int) string {
 		return "THE HOTEL IS AS TALL AS IT GETS"
 	case g.growNext != 0 || slices.ContainsFunc(g.cart, func(l cartLine) bool { return shop[l.item].Grow != 0 }):
 		return "ONE EXPANSION AT A TIME"
+	case g.questGate() != "": // 08 W5: the beat's objectives first
+		return g.questGate()
 	}
 	return ""
 }
@@ -84,6 +91,7 @@ func (g *Game) beginGrow() {
 	}
 	g.growing, g.state = &growth{col: col, d: d, cut: d.Y + world.TileSize}, StateGrow
 	g.refuse("")
+	g.questEvent(evGrow, -1, "") // 08 W5: a beat starts
 	if col {
 		g.growing.cut = (w - 1) * world.TileSize // the old east margin: the new Corridor
 	}
@@ -245,6 +253,7 @@ func (g *Game) grow(col bool) (image.Point, error) {
 		hushed[room(i)] = v
 	}
 	g.hushed = hushed
+	g.items.regrid(room) // 08 W5: Gerald and the Ward keep their Rooms
 	for _, c := range g.changes {
 		c.room = room(c.room)
 	}
@@ -316,6 +325,10 @@ func (g *Game) grow(col bool) (image.Point, error) {
 				everyone = append(everyone, guest)
 			}
 		}
+	}
+	if c := g.items.cat; c != nil { // the Cat too: left behind, it stood in another Room (live test 5: a locked one)
+		everyone = append(everyone, &c.Guest)
+		c.room = room(c.room)
 	}
 	for _, a := range everyone { // everyone walks on from where they stood, by a way of the new map
 		move(&a.X, &a.Y)

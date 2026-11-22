@@ -77,8 +77,10 @@ func (g *Game) sizeFx(w, h int) {
 func (g *Game) warmUp(screen *ebiten.Image) {
 	g.warm = true
 	was := g.ghost
-	g.ghost = true
-	g.drawFrame(g.fx[1])
+	for i, img := range g.fx { // both looks: the opening only ever drew the ghost one before its shift
+		g.ghost = i == 1
+		g.drawFrame(img)
+	}
 	g.ghost = was
 	w, h := screen.Bounds().Dx(), screen.Bounds().Dy()
 	screen.DrawRectShader(w, h, g.transition, &ebiten.DrawRectShaderOptions{Images: [4]*ebiten.Image{g.fx[0], g.fx[1]}})

@@ -189,7 +189,7 @@ func (g *Game) maybeGhostIn() {
 		}
 		for _, a := range []*arrival{&g.ghostArrivals[i], second} {
 			if a.at > 0 && g.clock >= a.at && g.isOwned(i) && g.ghostsIn(i) < g.ghostSlots(i) && (booked < g.demand() || !g.vacant(i, Ghost)) &&
-				!g.closed(i) && !g.changing(i) && !g.stays(i) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
+				!g.closed(i) && !g.changing(i) && !g.stays(i) && !(g.crateHold() && i == g.roomOfKey("celestine")) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
 				if g.vacant(i, Ghost) {
 					booked++
 				}
@@ -304,10 +304,13 @@ func (g *Game) passing(ghost *entities.Guest) float64 {
 	return clamp((float64(g.clock-ghost.PassAt)+g.acc)/passFrames, 0, 1)
 }
 
-// ghostLook: a ghost's color, opacity and lift off the floor: its kind's hue at ghostAlpha, dimmer with each
+// ghostLook: a ghost's color, opacity and lift off the floor: its kind's hue (a quest ghost's own) at ghostAlpha, dimmer with each
 // haunt it has done, and the passing over that.
 func (g *Game) ghostLook(ghost *entities.Guest) (tint []float32, alpha float32, lift float64) {
 	h := kindHue(kindOf(ghost.Phantasm))
+	if own, ok := questHues[ghost.Who.Key]; ok { // 08 W5 R2: a quest ghost's hue is its own
+		h = own
+	}
 	left := 1 - float64(ghost.Haunted)/float64(max(1, ghost.Phantasm))
 	t := g.passing(ghost)
 	if t > 0 {

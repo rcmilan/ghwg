@@ -1,4 +1,4 @@
-# Ghost Hotel
+# Weird Guests
 
 A haunted-hotel management game on a real-time clock. Parties arrive already booked and pay when they leave for good. The Concierge, a living host who can see ghosts, Shifts the whole hotel between the real and the ghost Dimension.
 
@@ -74,14 +74,17 @@ A store item not on sale yet, listed with SOON; its detail shows its Hint, what 
 Money or Ectoplasm earned per real minute, averaged over the last game hour; shown only in the Terminal's bar.
 
 **Badge**:
-The steady `!` by the Terminal's screen: something on sale and affordable that the open Terminal hasn't shown yet this Run.
+The steady `!` by the Terminal's screen: something on sale and affordable that the open Terminal hasn't shown yet this Run Drawn only where the Terminal is on screen, never pinned to the screen's edge.
+
+**Reserved Room**:
+Madame's Room while O3 or O10 still needs Magda or Magenta moved into it: no walk-in books it, no other Party is offered it, a retained Father K keeps out of any Room a quest needs, and Matchmaking never moves anyone into it. A closed Room is still offered to the quest guest.
 
 **Hotel view**:
 The whole hotel seen from afar: SPACE, wherever it has nothing else to do, pulls the camera back until every Room shows, each under its number and a Room Change on its way, while the world runs on in slow motion (a quarter speed). WASD picks a Room (the camera moves half way in); SPACE opens its Room ring. Everything bought for one Room is bought there and paid at once, with no cart. ESC steps back one level: beds, ring, Room, hotel, play. A Room not bought yet lies under a dark veil there.
 _Avoid_: ROOMS tab, SERVICES tab, room picker, map screen
 
 **Room ring**:
-The radial menu of a Room's actions in the Hotel view, one fixed slot each: Change type on top (a boarded Room's key, alone), Father K left, Deluxe right, Father M lower left, the Room mirror lower right. Only the actions that apply show; it opens on the top slot, or the next clockwise. Change type opens an inner ring of the other unlocked beds.
+The radial menu of a Room's actions in the Hotel view, one fixed slot each: Change type on top (a boarded Room's key, alone), Deluxe right, the Room mirror lower right, Father M lower left. Only the actions that apply show; it opens on the top slot, or the next clockwise. Change type opens an inner ring of the other unlocked beds.
 _Avoid_: action card, context menu
 
 **Pause**:
@@ -159,7 +162,7 @@ A Room at Mood -100. No new Party comes to it; a Party already in it stays until
 _Avoid_: blocked, locked
 
 **Priest**:
-A visitor the Concierge calls to a Room from its ring in the Hotel view, one per Room and one of each Father in the hotel at a time; each Father's call is first unlocked once in the Terminal's STAFF tab, and every call costs Ectoplasm. He walks in, does his Ritual and leaves. A **Weak** Priest, Father K, halves the Room's dirt; a **Strong** one, Father M, also raises its Mood, banishes its Shadow and sends every ghost in it over, each paying at once the Ectoplasm its remaining haunts would have earned. Both wear a black cassock with a white collar.
+Father M is the Priest the Concierge calls to a Room from its ring in the Hotel view, one per Room and one of each Father in the hotel at a time; his call is first unlocked once in the Terminal's STAFF tab, and every call costs Ectoplasm. He walks in, does his Ritual and leaves. He is the **Strong** Priest: he halves the Room's dirt, raises its Mood, banishes its Shadow and sends every ghost in it over, each paying at once the Ectoplasm its remaining haunts would have earned. Father K, the **Weak** Priest (halves the dirt), has no call: he is only ever the Retainer. Both wear a black cassock with a white collar.
 _Avoid_: exorcist, cleaner
 
 ## Serving
@@ -181,6 +184,9 @@ The 3×2 mat below a Room's door. SPACE on it delivers the asked item; elsewhere
 
 **Pill**:
 The balloon over a Party with a Request or a dirt complaint: the Room number, then the item's icon or a dirt splat; the same size on screen at any zoom.
+
+**Easter egg**:
+A rare pair of lines a guest says in its Room (`eggLines`, one in a hundred of its Room lines, never asleep), in two balloons: a human's Riemann proof too big for the towel, a ghost's Navier-Stokes proof it had time to read.
 
 **Nonsense line**:
 A line of nonsense humour in a line group (`odd(...)`), rarer than the others.
@@ -347,7 +353,7 @@ A line that makes sense only inside a Room (what a Guest says of its Room, of a 
 What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.
 
 **Goals Strategy** (`goals`, 2026-11-14)
-The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's call unlocks, calls them on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
+The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's unlocks, calls Father M on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
 
 **Spent**, **passing on** (2026-11-14)
 A ghost has one haunt in it per point of Phantasm. Having done them all it is spent and passes on: it rises, pales and is gone, and its Room books the next ghost. It dims with each haunt on the way. The weakest ghost haunts once. A pair passes on together.
@@ -367,8 +373,12 @@ _Avoid_: match (for the pair), compatible, preference
 How a human Party picks its Room as it arrives: of the Vacant, owned, open Rooms with beds enough, the one with the strongest ghost within its Nerve; with none, the one with the weakest ghost beyond it (the closest bad fit). The Room it leaves empty takes over the booking of the Room it took. Ghost booking is unchanged: each Room books its own.
 
 **Talk** (the talk), **TALK**:
-The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands under a Room's **plate**, the brass plaque on the wall west of its door (on the mat), with a Party of the current Dimension in the Room; SPACE there opens the guest's Card, whose MOVE starts the talk when the human Party is in, awake, not snubbed and has a target Room. Inside the Room SPACE cleans (T381 refine 2). The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
+The staged conversation in which the Concierge asks a human Party to change Rooms. TALK shows on the HUD's right, in the Ectoplasm counter's style, while the Concierge stands under a Room's **plate**, the brass plaque on the wall west of its door (on the mat), with a Party of the current Dimension in the Room; SPACE there opens the guest's Card, whose MOVE starts the talk when the human Party is in, awake, not snubbed and has a target Room. Inside the Room SPACE cleans (T381 refine 2), except near a quest character (see **Quest TALK**). When the guest is a quest character the objective wants moved to a Room (O3, O7, O10), the talk offers only that Room. The camera closes in on the two, the surroundings blur into purple, the world runs in slow motion (see Time scale) and the guest stands and listens. How slow, and how heavy the blur, is the talk's **depth**: how far the Room's ghost's Phantasm is beyond the Party's Nerve, from 0 (it fits) to the most a Nerve can lack, fixed as the talk starts (a quarter speed and a light blur at 0, about a twelfth and a heavy blur at the worst; placeholders). A/D picks the target Room, W/S the offer, SPACE makes it, ESC leaves. It ends by itself if the guest leaves or no target is left, and on a refusal. Ghosts cannot be talked to or moved.
 _Avoid_: dialogue, chat (a pair's chat is an activity), move menu
+
+**Quest TALK** (08 W5 R8):
+SPACE with the Concierge close (about a tile and a half) to a quest character of his Dimension (a named questline guest, human in real, ghost in ghost; also the ghost roommate, the oldest sleeper, the HAFT's ally), walking in a Corridor or in its Room, with nothing nearer to do on the spot (the plate's Card, a delivery, a Mirror, the Terminal and the shelves come first; inside a Room it comes before CLEAN). The cue is TALK on the HUD's right, as for the plate. The character stops and faces him, the camera closes in on it in the card's frame with the world stopped (a short cutscene), and it says its quest line over its head; then the word or thing he carries that it needs is handed over (TELL, GIVE), what it gives is taken (TAKE; Magenta's word for O1), and its done line follows; then the frame lets go. Each line stays up until SPACE (no prompt shows). With nothing quest-related it says one of its own lines. Not the talk (MOVE) above.
+_Avoid_: TELL/TAKE/GIVE buttons (they are not on the Card any more)
 
 **Target Room**:
 A Room a talk can offer: another owned, open Room with beds enough whose ghost the Party fits, Vacant or held by a human Party that could swap (it is in or away, fits this Room's beds and fits this Room's ghost). Listed best fit first.
@@ -384,7 +394,7 @@ A taken offer for an occupied target Room: the two human Parties trade Rooms, an
 An offer whose odds are 1. Today only on the house is.
 
 **Matchmaking**:
-The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a placeholder): an idle Housekeeper walks to a bad pair's door and makes the cheapest sure offer the wallet covers, with no talk staged.
+The HOTEL tab's upgrade (40 Ectoplasm, on sale once a Housekeeper is hired, a placeholder): an idle Housekeeper walks to a bad pair's door and makes the cheapest sure offer the wallet covers, with no talk staged. It keeps off the questline: it never moves a quest character's Party or one an open objective wants where it is, and never offers a Reserved Room or a Room an objective targets.
 
 **Matcher**, **asker** (`matcher`, `asker`):
 Two sim Strategies that play `goals` and talk to every bad pair they can: `matcher` always on the house, in the Room where it costs least; `asker`, the dumb rule it is measured against, always the plain ask, whenever the guest is not snubbed. Both buy Matchmaking as soon as they can and leave the bad pairs to the Housekeepers from then on.
@@ -393,7 +403,7 @@ Two sim Strategies that play `goals` and talk to every bad pair they can: `match
 A Priest's work in a Room: he walks to its middle, says an opening line, chants with a small hop while sparkles rise, a burst of light lands the effect, he says a closing line and leaves. Father K's drawing is in `game/ritual_k.go`, its knobs at the top; the dev flag `-ritual k|m|kpace` loops one for tuning.
 
 **Retainer**:
-Father K's daily wage in Ectoplasm, a STAFF row once his call is unlocked. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any; his call is not offered meanwhile. Short of it on payday, he leaves at once and the row is offered again.
+Father K's daily wage in Ectoplasm, a STAFF row once Father K is unlocked there. Retained, he stays in the hotel doing his Ritual on the Room with the most spiritual dirt, one after another, and paces the Corridors when none has any. Short of it on payday, he leaves at once and the row is offered again.
 
 **Running shoes**:
 Three STAFF tiers in Ectoplasm, each +15% walking speed (added) for every Housekeeper, Priest and the Courier, later hires included; never the Concierge. Only the next tier is listed.
@@ -433,7 +443,7 @@ _Avoid_: autosave, slot
 Who a Guest is, rolled as it books, apart from the sim's dice (its own random stream): a human's name, age, job and line; a ghost's name, death year and cause, and line; for either, maybe a Quirk.
 
 **Card**:
-What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), in the talk's frame: the camera closes in on the guest and the world runs very slow (0.06). Its line shows over its head (each guest has 3 and says the next at each opening), who it is on its left, what REVEAL read on its right, the options below (T381 refine 3). A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk).
+What TALK opens at the Room's plate: the Guest's Identity (a ghost's, in ghost), in the talk's frame: the camera closes in on the guest and the world runs very slow (0.06). Its line shows over its head (each guest has 3 and says the next at each opening), who it is on its left, what REVEAL read on its right, the options below (T381 refine 3). A/D flips a Party of two; its options are only those that apply: REVEAL, and MOVE (a human Party: the talk). It has no quest verbs (those are **Quest TALK**).
 _Avoid_: profile, sheet
 
 **REVEAL**:
@@ -450,8 +460,73 @@ The book on the entrance counter, read with SPACE beside it. Every Party writes 
 _Avoid_: notebook (in game text), log
 
 **Priest guest**:
-Father K or M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel (a retained Father K never books). He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One of each Father hotel-wide still holds.
+Father M booking a Room as a solo Guest, about 1 booking in 20 once his call is unlocked and he is not in the hotel, and never while O6 is open (it needs his call). Father K never books. He pays three times the Rate, sends the Room's ghosts on (no Ectoplasm), books none, and scrubs its spiritual dirt each hour. One Father M hotel-wide still holds.
 
 **Upgrade**:
 A row of the Terminal's UPGRADES tab: SPACE puts its next level in the cart, one at a time, paid at checkout in Money (Soundproofing, Seance table and Offering box, the ghost-side ones, in Ectoplasm too), and the Courier brings it to the stock, where it counts from the drop: Lobby decor (Rate), Brochures (the wait between Parties), Soundproofing (Mood lost to haunts), Seance table (Ectoplasm from sightings), Tip jar (tips), Cleaning kit (clean time) and Offering box (Ectoplasm each Priest ritual pays). Hidden until it applies; each level costs one step more and does 10% less than the last; reset at the Prestige, saved in the Run. Its level is not the hotel's Level.
 _Avoid_: perk, boost
+
+## Magenta's circle (08 W5, 2026-11-20)
+
+**Questline**:
+Magenta's circle (`context/08-quests/circle.md`): seven Beats played across the Growths of a Run, the same story every Run. A Level 0 Run plays 3 Beats, Level 1 plays 5, Level 2 and up all 7. What is done counts across Runs (saved).
+_Avoid_: campaign; "story mode" means only the dev mode below
+
+**Story mode**:
+A dev mode (`-story`, web `?story`) to test the Questline fast: each Growth fires free as its Beat ends, all 7 Beats are open at any Level, the Mirror is unlocked and Quest guests check in at once. Its hotel may grow to 7x7 by Terminal too, so Father P (who needs the hotel at its limit) is out of reach there; a normal Run's limit stays 3 + Level. Not in the Production build.
+
+**Production build**:
+The build for players (`sh tools/web.sh prod`, `-tags prod`, `game.Dev` false): it takes no dev flags or `?args=`, has no Story mode and no frames readout. Hold `T` stays.
+
+**Beat**:
+One chapter of the Questline, started by a Growth: its Quest guests check in, its Speaker says its opening line, and the HUD shows its title and checklist of Objectives (top left in real, top right in ghost) for about 5 s whenever they change, and always in the Hotel view. Done the first time ever, it pays its purse (Ectoplasm) and gives its Item; later Runs replay it with shorter lines.
+
+**Objective**:
+One row of a Beat's checklist (O1..O13), shown in both Dimensions as its next step behind the icon of the Dimension that step is done in: a word told, a thing given, a Room chosen, a Request served, a spirit lit, a delivery made. Ticked the moment it is done. Shown briefly when it changes, then hidden; always shown in the Hotel view.
+_Avoid_: task, mission
+
+**Gate**:
+While the Beat under way has an Objective open, the next Growth waits: "SHIFT'S NOT OVER". The last Beat of the Run gates nothing.
+
+**Quest guest**:
+A named guest (`cast.md`) a Beat needs: Magenta, Magda, Teo, Celestine, Tim, Osvaldo. It checks in ahead of the walk-ins, one a minute, and is held (no checkout, flight, passing on or Father M) while an Objective needs it.
+
+**Guidance**:
+The step's target (a guest or its plate, the guest book, a door, a prop, the spirit) wears a gold (real) or silver (ghost) outline, only in the Dimension the step is done in; in the other one the nearest Mirror wears it. A quest guest under a Room's Fog keeps its outline (hollow, drawn over the Fog; the sprite stays covered). A step that needs something not bought yet (Father M's call, the Wreath, the Crate, the Supply asked for) outlines the Terminal and, inside it, that row (and its tab); a row a step needs is on sale. In the guest book the questline's entries are written in a deep purple (the rest in black or dark blue), and while a step needs one, the page-turn key toward its spread wears the outline; reading counts only on the open spread.
+
+**Quest look**:
+The sheets a Quest guest wears: its base LimeZu sheet in colours of its own under one accessory (hat, tiara, lamp, cap, phone), made by `tools/questlooks`. No ordinary guest, passer-by or Shadow wears one; in ghost a quest ghost has a hue of its own. Magenta is never scared.
+
+**Word / thing**:
+What the Concierge carries for a quest guest, one at a time, across a SHIFT: TELL hands over a word, GIVE a thing, TAKE collects one (Card options shown only while an Objective wants them). Shown as a pixel icon in a bottom-left HUD slot, no text.
+
+**Ghost Request**:
+A quest ghost asks for a Supply: fetched in real, delivered with SPACE at its door in ghost. Only quest ghosts ask, and their pill shows only in ghost.
+
+**Target override**:
+While an Objective wants a guest in a given Room, the talk always offers that Room, sure, for the discount alone.
+
+**Quest row**:
+A one-off Terminal order shown only while its Objective is open: the Wreath, walked by the Courier to Madame's door (a box there in real, the wreath in ghost, where `Space` picks it up with the hands free; then `Space` on Madame gives it and she thanks for it; the wreath taken is saved, so a resumed game keeps it in hand); the Crate, carried by the Courier into Madame's room and set down on the floor at the middle of the finale's circle, after which he walks out. Buying the Crate makes everyone else in her room check out at once and books nobody into it until the finale is done. The Crate stays on the floor (both Dimensions) until the Concierge is inside the room and the Courier is out of it: then O13 is done and the finale plays (the screen fades to black and back in on its stage, where nobody but its cast is drawn in the room or round its door) (first time ever; a replay is done at delivery, no scene). It is saved with the Run's rolls, so a resumed game keeps it.
+
+**Spirit**:
+O4's spirit: at night it dashes along a Corridor; caught in the Lantern beam it shows only two eyes ("I SERVE ANOTHER.") and is gone, leaving a glowing handprint on a door, found in ghost, that waves.
+
+**Item**:
+One of Magenta's six gifts, owned for good once its Beat is first done: Show, don't tell (REVEAL is free, and its option shows no price), Broom (the Concierge walks faster in ghost), Gerald (one Room's sightings pay more), the Cat (cleans spiritual dirt in ghost, two naps a shift; seen in both realms, meows in real and says rude things in ghost, silent asleep), the Ward (one Room's guests never flee), the Storm jar (tonight's thunderstorm: sightings pay double, once a day). Gerald and the Ward are placed on a Room from the hotel view's ring or the HOTEL tab, per Run.
+_Avoid_: power-up, relic
+
+**Cutscene**:
+O4's two (the spirit's eyes in the dark, the handprint close-up), O9's key (a close-in on Tim's hands, the gem rising) and the finale (Madame's room alone, staged: no furniture, no Corridor, only its floor, walls, windows and mirror; the cast, the Concierge among them, walks in to points evenly round the circle, facing its centre, the lines between the points a triangle, a square, a pentagram, or for 6 a hexagon with its three long diagonals through the Crate (a wheel); the walls slide away, leaving the floor, the cast and the circle in green, purple, gold and silver in the void, and the MacGuffin rises from the Crate): the world stops, every line waits for SPACE (no prompt shows); it plays in full the first time and SPACE skips a replay, except while a line waits (then SPACE only moves that line on). The spirit's eyes are drawn at twice their first size. Money and Ecto stay off the screen during a talk, a card or a cutscene.
+
+**MacGuffin**:
+The Eternal Eldritch MacGuffin, summoned once ever by the finale (the Concierge walking into Madame's room once the Crate is on its floor and the Courier has left, where the circle is drawn around it). From then on it books the best Room every Run from the first Growth, pays 5 times the Rate, never leaves, asks or flees, is immune to Mood and Fear, and cannot be REVEALed. The finale adds 0.25 to the bonus. Every finale ends in a normal prestige (level +1, the usual gain, a fresh Run); the first one shows the credits first. It signs the guest book at the Run's end.
+
+**Passer-by**:
+Someone walking the street outside the Entrance, living in real, dead in ghost. Near the door one may say a line of gossip, which follows how far the Questline has got; a living one sometimes turns in as a walk-in.
+
+**Weather**:
+Each day may bring rain, fog or wind, drawn over the street and windows (visual only, rolled by the day). The Thunderstorm comes only from the Storm jar: lightning flashes, and every sighting pays double until the next 08:00.
+
+**Kitchen life**:
+An idle Housekeeper sometimes goes to the fridge, the counter or the stove and says a line there; any job pulls it away at once.

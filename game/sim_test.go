@@ -122,7 +122,7 @@ func TestGoalsCallsPriests(t *testing.T) {
 		for _, f := range r.Failures {
 			t.Errorf("seed %d %s: %s", seed, f.Clock, f.Reason)
 		}
-		if r.Priests == 0 || r.PriestEcto < unlockKEcto+priestWeak {
+		if r.Priests == 0 || r.PriestEcto < unlockKEcto+priestStrong {
 			t.Errorf("seed %d: %d Priests called for %d Ectoplasm, want some", seed, r.Priests, r.PriestEcto)
 		}
 		if r.RetainDays > 0 {

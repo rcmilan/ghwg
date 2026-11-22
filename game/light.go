@@ -157,6 +157,9 @@ func (g *Game) lights() []light {
 		if p.Y >= h.HallY { // the front's: the hall's light, out on the street
 			l.rgb = warmLight
 		}
+		if f := g.street.flash; f > 0 { // 08 W5: lightning, through the windows
+			l.rgb, l.cut = [3]float32{.85, .9, 1}, min(1, windowCut+float32(f)*.6)
+		}
 		ls = append(ls, l)
 	}
 	if _, r := g.actionable(); !r.Empty() && g.state == StatePlay { // the action glow now sits under the dark: keep it seen at night
@@ -227,7 +230,7 @@ func lightPool(radius int) *ebiten.Image {
 // drawDarkness lays the hour's darkness over dst (the world drawn with top-left ox,oy screen px), with
 // each light's pool cut out of it and a faint glow of its color added (D94, D95).
 func (g *Game) drawDarkness(dst *ebiten.Image, ox, oy int) {
-	t := tint(g.clock)
+	t := g.weatherTint(tint(g.clock)) // 08 W5
 	if t[3] == 0 {
 		return
 	}

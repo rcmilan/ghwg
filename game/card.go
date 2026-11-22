@@ -26,13 +26,19 @@ const (
 )
 
 // card is the open card: which guest of the Party, which of its options, and which of the guest's lines it says.
-type card struct{ who, pick, line int }
+type card struct {
+	who, pick, line int
+}
 
 type cardOpt int
 
 const (
 	optReveal cardOpt = iota
 	optMove
+	optTell // 08 W5: the quest verbs, done by quest TALK (verbs_card.go), never on the Card
+	optTake
+	optGive
+	optNoReveal // the MacGuffin: "REVEAL: IT REVEALS YOU", nothing to do
 )
 
 // cardParty: the Party the plate of Room i shows: its human Party, or in the ghost dimension its ghost one.
@@ -42,7 +48,7 @@ func (g *Game) cardParty(i int) *Party {
 		realm = Ghost
 	}
 	for _, p := range g.parties {
-		if p.Occupies(i, realm) {
+		if p.Occupies(i, realm) || isMacguffin(p) && p.Occupies(i, Human) { // 08 W5: the MacGuffin's card is the same in both Dimensions
 			return p
 		}
 	}
@@ -51,17 +57,19 @@ func (g *Game) cardParty(i int) *Party {
 
 // revealed: p's guest has been read: its Party was, or (a named guest) an earlier visit's was.
 func (g *Game) revealed(p *Party, guest *entities.Guest) bool {
-	return p.revealed || guest.Who.Key != "" && g.revealedKeys[guest.Who.Key]
+	return p.revealed || guest.Who.Key != "" && g.revealedKeys[guest.Who.Key] || isMacguffin(p) // 08 W5: nothing to reveal
 }
 
 // canMove: the human Party could be talked to about moving (the talk's conditions, minus where the Concierge stands).
 func (g *Game) canMove(p *Party) bool {
-	return p.Realm == Human && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0
+	return p.Realm == Human && !isMacguffin(p) && g.inRoom(p) && !p.abed && g.clock >= p.snubbed && len(g.targets(p)) > 0
 }
 
 // cardOpts: the options that apply to the guest now, in order. REVEAL stays while unaffordable (drawn grey).
 func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
-	if _, priest := guestFather(p); !priest && !g.revealed(p, guest) { // a Father has nothing to reveal
+	if _, priest := guestFather(p); guest.Who.Key == "macguffin" {
+		os = append(os, optNoReveal)
+	} else if !priest && !g.revealed(p, guest) { // a Father has nothing to reveal
 		os = append(os, optReveal)
 	}
 	if g.canMove(p) {
@@ -70,9 +78,17 @@ func (g *Game) cardOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	return os
 }
 
+// revealCost: REVEAL's price: nothing with Show, don't tell (08 W5).
+func (g *Game) revealCost() Num {
+	if g.itemOn(itemBall) {
+		return 0
+	}
+	return revealEcto
+}
+
 // reveal pays for the REVEAL of the Party: both of a pair, and every named one for good. False if it can't be paid.
 func (g *Game) reveal(p *Party) bool {
-	if p.revealed || !g.pay(Cost{Ecto: revealEcto}) {
+	if p.revealed || !g.pay(Cost{Ecto: g.revealCost()}) {
 		return false
 	}
 	p.revealed = true
@@ -95,6 +111,7 @@ func (g *Game) startCard(i int) {
 	}
 	g.state, g.parley = StateTalk, &parley{p: p, card: &card{line: p.said}, scale: g.scale}
 	p.said++ // the next opening says the guest's next line (T381 refine 5)
+	g.verbOpened(p)
 	g.scale *= cardSlow
 }
 
@@ -185,12 +202,21 @@ func (g *Game) cardView() (v cardView) {
 	for _, l := range wrapAt(about, sideWrap) {
 		v.who = append(v.who, cardRow{l, white, 1})
 	}
+	said := ""
 	if n := len(w.Lines); n > 0 {
-		for _, l := range wrap("\"" + w.Lines[c.line%n] + "\"") {
+		said = w.Lines[c.line%n]
+	}
+	if q := g.verbQuote(p, guest); q != "" { // 08 W5: a quest guest's Ask, or what it was just given
+		said = q
+	}
+	if said != "" {
+		for _, l := range wrap("\"" + said + "\"") {
 			v.quote = append(v.quote, cardRow{l, white, 1})
 		}
 	}
-	if g.revealed(p, guest) {
+	if isMacguffin(p) { // 08 W5: REVEAL: IT REVEALS YOU
+		v.read = append(v.read, cardRow{macguffinCard.Reveal, white, 1})
+	} else if g.revealed(p, guest) {
 		stat := fmt.Sprintf("NERVE %d", nerve(guest))
 		if ghost {
 			stat = fmt.Sprintf("PHANTASM %d", guest.Phantasm)
@@ -199,24 +225,37 @@ func (g *Game) cardView() (v cardView) {
 		if w.Quirk != NoQuirk {
 			q = "QUIRK " + strings.ToUpper(quirkName(w.Quirk))
 		}
+		rq, rf := g.verbRead(p, guest) // 08 W5: a quest guest's quirk and fact
+		if rq != "" {
+			q = "QUIRK " + rq
+		}
 		v.read = append(v.read, cardRow{stat, white, 1}, cardRow{q, white, 1})
-		if f := ghostFact(w.Key); ghost && f != "" {
+		if f := ghostFact(w.Key); rf != "" || ghost && f != "" {
+			if rf != "" {
+				f = rf
+			}
 			for _, l := range wrapAt(f, sideWrap) {
 				v.read = append(v.read, cardRow{l, white, 0.8})
 			}
 		}
 	}
-	can := g.afford(Cost{Ecto: revealEcto})
+	can := g.afford(Cost{Ecto: g.revealCost()})
 	for k, o := range g.cardOpts(p, guest) {
 		text, ink, a := "MOVE", white, float32(0.6)
+		if o == optNoReveal {
+			text = macguffinCard.Reveal
+		}
 		if o == optReveal {
-			text = fmt.Sprintf("REVEAL  %d ECTO", revealEcto)
+			text = "REVEAL"
+			if c := g.revealCost(); c > 0 { // free with Show, don't tell: no price
+				text = fmt.Sprintf("REVEAL  %d ECTO", int(c))
+			}
 			if !can { // grey, as the Terminal greys what the wallet can't pay
 				ink, a = color.Gray{120}, 0.5
 			}
 		}
 		if k == c.pick {
-			if o == optMove || can {
+			if o != optReveal && o != optNoReveal || o == optReveal && can {
 				ink = resInk(Ecto)
 			}
 			a = 1
@@ -256,11 +295,10 @@ func (g *Game) drawCard(s *ebiten.Image, w, h, bar int, at, top image.Point) {
 		y := top.Y - 8 - (len(v.quote)-i)*lh
 		text(r, at.X-len(r.text)*glyphW*scale/2, y)
 	}
-	y0 := mid - (len(v.who)-1)*lh/2
+	y0 := mid // the columns hang from here, growing down: a long one never climbs over the line above the head
 	for i, r := range v.who {
 		text(r, at.X-gap-len(r.text)*glyphW*scale, y0+i*lh)
 	}
-	y0 = mid - (len(v.read)-1)*lh/2
 	for i, r := range v.read {
 		text(r, at.X+gap, y0+i*lh)
 	}

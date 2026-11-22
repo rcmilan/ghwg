@@ -22,7 +22,7 @@ type Pilot struct {
 	readyAt int
 	lastTap int
 	keys    []ebiten.Key // this frame's
-	called  [2]int       // the frame each Father (K, M) was last sent for: the View doesn't say which one is in the hotel
+	called  int          // the frame Father M was last sent for: the View doesn't say which one is in the hotel
 }
 
 // action runs one frame; done once finished, ok if it got what it wanted. A failed action drops the queue.
@@ -282,19 +282,14 @@ func (p *Pilot) Clean(room int, at image.Point) {
 
 // CallPriest buys a Priest for the Room at the Terminal. It fails when the Terminal refuses (no money,
 // or a Priest is already on the Room).
-func (p *Pilot) CallPriest(room int, strong bool) {
-	row := rowFatherK
-	if strong {
-		row = rowFatherM
-	}
-	p.called[b2i(strong)] = p.frame
-	p.Buy(row, room, func(v View) bool { return v.Rooms[room].Priest })
+func (p *Pilot) CallPriest(room int) {
+	p.called = p.frame
+	p.Buy(rowFatherM, room, func(v View) bool { return v.Rooms[room].Priest })
 }
 
-// FatherBusy: that Father was sent for less than an hour ago, so likely still in the hotel (his walk and chant).
-func (p *Pilot) FatherBusy(strong bool) bool {
-	at := p.called[b2i(strong)]
-	return at > 0 && p.frame-at < 2*priestMinutes*minuteFrames
+// FatherBusy: Father M was sent for less than an hour ago, so likely still in the hotel (his walk and chant).
+func (p *Pilot) FatherBusy() bool {
+	return p.called > 0 && p.frame-p.called < 2*priestMinutes*minuteFrames
 }
 
 // Change orders a Room's change to a bed layout (K1): Buy, picking the layout with W/S once the Room's

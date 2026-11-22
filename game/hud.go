@@ -65,6 +65,9 @@ func (g *Game) notice(text string) {
 }
 
 // noticesHidden: the open Terminal covers every notice (they keep ticking meanwhile).
+// talkUp: a talk, a card or a cutscene is up: Money and Ecto stay off the screen.
+func (g *Game) talkUp() bool { return g.scene.on() || g.parley != nil || g.state == StateTalk }
+
 func (g *Game) noticesHidden() bool { return g.state == StateTerminal }
 
 // slot: a notice's place in its side column: how far in it is slid, and its top, screen px.
@@ -164,6 +167,7 @@ func (g *Game) updateHUD() {
 	g.hud[Money].slide(want(Money))
 	g.hud[Ecto].slide(want(Ecto))
 	g.guestNote.slide(note)
+	g.questHud.update(g)
 }
 
 // drawHUD draws each counter that is in: "$N" on the left, a skull and N on the right.
@@ -198,7 +202,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 	}
 	for r, c := range g.hud {
 		y := int(c.y)
-		if c.in == 0 || g.state == StateTerminal { // the Terminal's own bar shows the wallet (08 F0-T)
+		if c.in == 0 || g.state == StateTerminal || g.talkUp() { // the Terminal's own bar shows the wallet (08 F0-T); a talk, a card or a cutscene shows none
 			continue
 		}
 		ease := c.in * c.in * (3 - 2*c.in)
@@ -219,6 +223,8 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
 	}
+	g.questHUD(s) // 08 W5
+	g.drawHeldSlot(s)
 }
 
 // fresh: store item i is listed, on sale, affordable and not owned: one the Terminal's "!" can count.
@@ -240,7 +246,7 @@ func (g *Game) newBuy() bool {
 const badgeScale = 3 // the "!" over the Terminal's screen, as big as the counters
 
 // drawBadge shows a "!" at the top right of the Terminal's screen while newBuy, in play, clear of the Concierge
-// behind it; off screen it waits at the nearest edge, seen from anywhere.
+// behind it; only where the Terminal is on screen.
 func (g *Game) drawBadge(s *ebiten.Image) {
 	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || !g.newBuy() {
 		return
@@ -249,8 +255,11 @@ func (g *Game) drawBadge(s *ebiten.Image) {
 	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
 	t := g.hotel.Terminal
 	w, h := glyphW*badgeScale, glyphH*badgeScale
-	x := min(max(t.Max.X*zoom-ox, hudMargin), s.Bounds().Dx()-w-hudMargin)
-	y := min(max((t.Min.Y+world.TileSize+10)*zoom-oy-13*badgeScale, hudMargin), s.Bounds().Dy()-h-hudMargin) // the glyph's foot (row 12) on the screen's top, 10 px into its cell
+	x := t.Max.X*zoom - ox
+	y := (t.Min.Y+world.TileSize+10)*zoom - oy - 13*badgeScale // the glyph's foot (row 12) on the screen's top, 10 px into its cell
+	if x < -w || y < -h || x > s.Bounds().Dx() || y > s.Bounds().Dy() {
+		return
+	}
 	outline(s, "!", x, y, badgeScale, resInk(Money), 1)
 }
 

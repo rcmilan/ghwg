@@ -29,7 +29,7 @@ func storeRun(t *testing.T) *Game {
 func TestStoreCatalog(t *testing.T) {
 	g := storeRun(t)
 	basic := []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror}
-	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, rowFatherK, rowFatherM, unlockK, unlockM, rowRetain} {
+	for _, id := range []Unlock{SupplyWater, SupplyFood, SupplyTowel, Mirror, RoomLock, rowFatherM, unlockK, unlockM, rowRetain} {
 		if got := g.onSale(row(t, id)); got != slices.Contains(basic, id) {
 			t.Errorf("%s on sale at the start: %v", id, got)
 		}
@@ -79,14 +79,14 @@ func TestCheckout(t *testing.T) {
 	g.unlock(unlockK)
 	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{1000, 1000}, [2]Num{1000, 1000}
-	water, k := row(t, SupplyWater), row(t, rowFatherK)
+	water, k := row(t, SupplyWater), row(t, rowFatherM)
 	for _, add := range []struct{ i, room int }{{water, -1}, {water, -1}, {row(t, RoomLock), -1}, {k, 1}} {
 		if why := g.addToCart(add.i, add.room); why != "" {
 			t.Fatalf("add %s: %q", shop[add.i].ID, why)
 		}
 	}
 	total := g.cartTotal()
-	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, RoomLock)].Cost[Money], shop[row(t, RoomLock)].Cost[Ecto] + priestWeak}); total != want {
+	if want := (Cost{2*shop[water].Cost[Money] + shop[row(t, RoomLock)].Cost[Money], shop[row(t, RoomLock)].Cost[Ecto] + priestStrong}); total != want {
 		t.Fatalf("total %v, want %v", total, want)
 	}
 	g.wallet = [2]Num{total[Money] - 1, total[Ecto]}
@@ -113,14 +113,14 @@ func TestCartRules(t *testing.T) {
 	g.unlock(unlockK)
 	g.unlock(unlockM)
 	g.earned, g.wallet = [2]Num{10000, 10000}, [2]Num{10000, 10000}
-	m, k, fm := row(t, Mirror), row(t, rowFatherK), row(t, rowFatherM)
+	m, fm := row(t, Mirror), row(t, rowFatherM)
 	if g.addToCart(m, -1) == "" {
 		t.Error("an owned unlock went in the cart")
 	}
 	if g.addToCart(row(t, RoomLock), -1) != "" || g.addToCart(row(t, RoomLock), -1) == "" {
 		t.Error("an unlock went in the cart twice")
 	}
-	if g.addToCart(k, 0) != "" || g.addToCart(fm, 0) == "" || g.addToCart(fm, 1) != "" {
+	if g.addToCart(fm, 0) != "" || g.addToCart(fm, 0) == "" {
 		t.Error("Priests: want one per Room")
 	}
 	g.cart, g.wallet = nil, [2]Num{75, 0}

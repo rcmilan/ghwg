@@ -177,6 +177,14 @@ type Game struct {
 	leftAt        map[string]int                 // per named guest: the clock its last Party left, this Run
 	played        int                            // real frames this Run has been played, pauses and the title not counted (saved)
 	wideAge       int                            // frames since the hotel view last redrew g.wide (hotelview.go)
+	// 08 W5 (W5-SEAM): one field per sub-slice, its type in its own file.
+	quest    questRun    // this Run's questline (quest.go)
+	questRec questRecord // the questline across Runs, saved (quest.go)
+	verbs    verbState   // verbs.go
+	scene    sceneState  // questscene.go
+	items    itemRun     // items.go
+	street   streetState // street.go
+	questHud questShow   // quest_hud.go: when the checklist last changed
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -236,6 +244,9 @@ func (g *Game) loadImages() (err error) {
 	g.characters[fatherP.name] = dress(g.bases["Adam"], palettes["Adam"], fatherP.look)
 	g.loadCourier()
 	g.loadKeeper()
+	if err = g.loadWitch(); err != nil { // 08 W5
+		return err
+	}
 	return nil
 }
 
@@ -276,7 +287,7 @@ func (g *Game) startRun() {
 	g.busy, g.bumps, g.paces = false, 0, 0
 	g.walls, g.wallCell = wallRuns(g.hotel.Map)
 	g.dirt, g.dirtN, g.wiped, g.arrivals, g.stains = nil, nil, nil, g.firstArrivals(), nil // stains clip to this Run's furniture
-	g.ghostArrivals, g.areaShades = g.firstArrivals(), nil
+	g.ghostArrivals, g.areaShades, g.mirrorSlots = g.firstArrivals(), nil, nil             // mirrorSlots: a Growth regrids them, so never the last Run's length
 	g.hushed = map[int]bool{}
 	// a normal Run starts with the Mirror locked: humans only, until it's bought and delivered (07 G1, B1's
 	// T272); and with K1's bed layouts and in-Room Mirror to buy
@@ -288,6 +299,7 @@ func (g *Game) startRun() {
 	if !g.openAtStart {
 		g.closeRooms()
 	}
+	g.questStart() // 08 W5
 	g.beginIntro()
 }
 
@@ -303,7 +315,7 @@ func (g *Game) Update() error {
 	} else {
 		g.viewT = max(0, g.viewT-1.0/viewFrames)
 	}
-	if g.reel == nil && g.in.JustPressed(ebiten.KeyEscape) { // closes what is open, in one press; with nothing open it pauses (U1)
+	if g.reel == nil && !g.scene.on() && g.in.JustPressed(ebiten.KeyEscape) { // 08 W5: a cutscene plays on // closes what is open, in one press; with nothing open it pauses (U1)
 		switch {
 		case g.state == StateTitle:
 			return ebiten.Termination
@@ -331,6 +343,8 @@ func (g *Game) Update() error {
 	switch {
 	case g.reel != nil: // Father P's cutscene: no input but SPACE to skip (prestige_reel.go)
 		g.updateReel()
+	case g.scene.on(): // 08 W5: a quest cutscene or the credits (questscene.go)
+		g.stepScene()
 	case g.intro != nil: // the opening, the title included: the world waits for it
 		g.updateIntro()
 	case g.state == StateGrow:
@@ -392,10 +406,11 @@ func (g *Game) advance(dx, dy, dt float64) {
 		g.tick++
 		g.advanceClock()
 		if g.clock%dayFrames == runStart { // dawn: the checkpoint (save.go)
+			g.questEvent(evDawn, -1, "")
 			g.saveDawn()
 		}
 	}
-	g.player.Move(dx, dy, conciergeSpeed*dt, g.conciergeBlocked)
+	g.player.Move(dx, dy, conciergeSpeed*g.conciergeBoost()*dt, g.conciergeBlocked) // 08 W5: the Broom
 	g.hotel.UpdateDoors(g.doorActors(), g.boarded, dt)
 	g.updateChanges()
 	g.updateParties()
@@ -406,6 +421,10 @@ func (g *Game) advance(dx, dy, dt float64) {
 	g.updateFog()
 	g.updateCouriers()
 	g.updateKeepers()
+	g.updateVerbs() // 08 W5
+	g.updateScene()
+	g.updateItems()
+	g.updateStreet()
 	if g.busy {
 		g.busyStep()
 	}
@@ -507,6 +526,9 @@ func (g *Game) doorActors() []world.Actor {
 	}
 	for _, pr := range g.priests {
 		as = append(as, world.Actor{Box: entities.FootBox(pr.X, pr.Y), Room: -1})
+	}
+	if c := g.items.cat; c != nil { // the Cat too: its door opens for it, no walking through a shut one
+		as = append(as, world.Actor{Box: entities.FootBox(c.X, c.Y), Room: c.RoomIndex})
 	}
 	as = append(as, g.courierActors()...)
 	as = append(as, g.keeperActors()...)

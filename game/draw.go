@@ -130,11 +130,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawShift(screen)
 		return
 	}
-	if !g.warm && g.state != StateTitle && g.intro == nil && g.fx[0] != nil { // the opening draws no hotel to warm
+	if !g.warm && (g.state != StateTitle || g.intro != nil) && g.fx[0] != nil { // the opening warms on its title: its first shift was a 350 ms stall in Chrome
 		g.warmUp(screen)
 	}
 	if g.reel != nil {
 		g.drawReel(screen)
+		return
+	}
+	if g.scene.on() { // 08 W5
+		g.drawScene(screen)
 		return
 	}
 	g.drawFrame(screen)
@@ -182,9 +186,31 @@ func (g *Game) drawTitle(s *ebiten.Image) {
 	for _, l := range [...]struct {
 		v    string
 		x, y int
-	}{{"G H O S T   H O T E L", 345, 195}, {"[ SPACE ] open the hotel", 362, 335}, {"WASD move / SPACE use, or the hotel / ESC pause", 284, 485}} {
+	}{{spacedName(), (screenW - len(spacedName())*glyphW) / 2, 195}, {"[ SPACE ] open the hotel", 362, 335}, {"WASD move / SPACE use, or the hotel / ESC pause", 284, 485}} {
 		printAt(s, l.v, l.x, l.y, 1, color.White, 1)
 	}
+}
+
+// actor is one thing of drawWorld's y-sorted pass: a character, a plant, the notebook, a plate (W5: or anything, by draw).
+type actor struct {
+	x, y  float64 // foot box center; y sorts (T039)
+	name  string
+	anim  entities.Anim
+	fog   float64
+	fear  float64                         // of its FleeAt
+	lift  float64                         // world px off the floor: a fleeing Guest's hop (D164)
+	tint  []float32                       // ghost dimension: its flat color; nil for the character's own
+	a     float32                         // opacity; 0 is 1
+	mode  int                             // the palette shader's mode; 0 is modeActor
+	sil   bool                            // a human seen from the ghost dimension: a white silhouette with a small glow
+	up    bool                            // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
+	pot   bool                            // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
+	book  bool                            // the notebook on the counter (notebook.go): y is the counter cell's sort y
+	plate int                             // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
+	key   any                             // what the prestige vortex lifts it off by (vortex.go); nil stays
+	z     float64                         // its sort y, set once before the sort
+	rim   bool                            // a guide outline: sorts just before what it outlines, even in a bed
+	draw  func(s *ebiten.Image, x, y int) // 08 W5: drawn by this instead (x,y its foot box center in screen px); the y-sorted pass only
 }
 
 // drawWorld draws the view with top-left (ox,oy) screen px ×zoom (nearest-neighbor) onto dst, at
@@ -205,24 +231,6 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	g.drawDoors(screen, ox, oy)
 	g.drawReels(screen, ox, oy)
 	at := func(x, y float64) (int, int) { return screenPx(x) - ox, screenPx(y) - oy }
-	type actor struct {
-		x, y  float64 // foot box center; y sorts (T039)
-		name  string
-		anim  entities.Anim
-		fog   float64
-		fear  float64   // of its FleeAt
-		lift  float64   // world px off the floor: a fleeing Guest's hop (D164)
-		tint  []float32 // ghost dimension: its flat color; nil for the character's own
-		a     float32   // opacity; 0 is 1
-		mode  int       // the palette shader's mode; 0 is modeActor
-		sil   bool      // a human seen from the ghost dimension: a white silhouette with a small glow
-		up    bool      // a ghost, or the Concierge in ghost: it floats and casts no shadow (F0)
-		pot   bool      // a plant (F0 Decor): name is its sprite, drawn standing on (x,y)
-		book  bool      // the notebook on the counter (notebook.go): y is the counter cell's sort y
-		plate int       // a Room's guest plate (card.go), its index + 1: y is its wall cell's sort y
-		key   any       // what the prestige vortex lifts it off by (vortex.go); nil stays
-		z     float64   // its sort y, set once before the sort
-	}
 	var actors []actor
 	if g.intro == nil || g.intro.phase == introEnter { // the opening hides the Concierge until he walks in
 		actors = append(actors, actor{x: g.player.X, y: g.player.Y, name: "Bob", anim: g.player.Anim, up: g.ghost, key: &g.player})
@@ -234,10 +242,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, realm := range [...]Realm{Human, Ghost} {
-		if realm == Ghost && !g.ghost && g.reel == nil { // in real a ghost shows only through its area's Shadows
+		if realm == Ghost && !g.ghost && g.reel == nil && (!g.scene.on() || g.scene.id == "talk" || g.scene.id == "finale") { // in real a ghost shows only through its area's Shadows
 			continue
 		}
 		for guest := range g.guestsIn(realm) {
+			if guest.Who.Key == macguffinKey { // 08 W5: drawn by sceneActors, in both Dimensions
+				continue
+			}
 			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
 				fear: min(1, float64(guest.Fear)/float64(guest.FleeAt)), lift: g.lift(guest), key: guest}
 			switch {
@@ -278,10 +289,20 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			actors = append(actors, actor{y: float64(g.hotel.Map.TileSortY(world.LayerDecor, c.X, c.Y)), plate: i + 1})
 		}
 	}
+	actors = append(append(append(append(append(actors, g.verbActors()...), g.sceneActors()...), g.crateActors()...), g.itemActors()...), g.streetActors()...) // 08 W5
+	var marks []mark                                                                                                                                           // 08 W5 R1: the guidance marker's outlines go in the same pass, just under their target
+	if screen != g.wide {
+		sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
+		marks = g.guideMarks(image.Rect(ox/zoom, oy/zoom, (ox+sw)/zoom+1, (oy+sh)/zoom+1))
+		actors = append(actors, g.guideActors(marks, ox, oy)...)
+	}
 	for i, a := range actors { // sort y: in bed, the bed's bottom, so the blanket goes over it (D167)
 		actors[i].z = a.y
 		if b, ok := g.bedAt(a.x, a.y); ok {
 			actors[i].z = float64(b.Max.Y)
+		}
+		if a.rim {
+			actors[i].z -= 0.01
 		}
 	}
 	slices.SortStableFunc(actors, func(a, b actor) int { return cmp.Compare(a.z, b.z) })
@@ -327,11 +348,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			stocked = true
 		}
 	}
-	_, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
+	act, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
 	glowed := lit.Empty() || g.state != StatePlay || g.intro != nil
 	glow := func() {
 		if !glowed {
-			if lit.Max.Y <= int(stockY)+world.TileSize { // a kitchen shelf: its props first
+			if shelfGlow(act, lit, g.hotel.Stock) { // a kitchen shelf: its props first
 				stock()
 			}
 			propsUpTo(float64(lit.Max.Y))
@@ -361,6 +382,10 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			g.drawPlant(screen, a.name, fx, fy)
 			continue
 		}
+		if a.draw != nil {
+			a.draw(screen, fx, fy)
+			continue
+		}
 		if a.book {
 			g.drawBookProp(screen, ox, oy)
 			continue
@@ -384,7 +409,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.ghost && a.fear > 0 {
 			g.drawFear(screen, x, y, a.fear)
 		}
-		g.drawCharacterAs(screen, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
+		dst := screen
+		if a.up {
+			dst = g.lintelClip(screen, a.x, a.y, oy)
+		}
+		g.drawCharacterAs(dst, x, y, a.name, a.anim, a.fog, a.tint, a.a, a.mode)
 		if b, ok := g.bedAt(a.x, a.y); ok { // the blanket: the bed's bottom row, from under the pillow, again over the sleeper
 			c := image.Pt(b.Min.X, b.Max.Y-1).Div(world.TileSize)
 			for j, p := range g.props {
@@ -408,10 +437,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 	if !g.ghost { // the palette replaces the day and night (D160)
 		g.drawDarkness(screen, ox, oy)
 	}
-	if screen != g.wide { // the hotel view draws them on the screen, over its veils (hotelview.go)
+	g.drawFogOutlines(screen, ox, oy, marks) // over the darkness: a guest under the Fog keeps its outline, its sprite covered
+	if screen != g.wide && !g.scene.on() {   // the hotel view draws them on the screen, over its veils (hotelview.go); a cutscene's world is stopped: a guest's pill would show as a second diamond over Tim's head (O9)
 		g.drawRequests(screen, ox, oy, zoom)
 	}
-	g.drawTalk(screen, ox, oy)
+	if !g.scene.on() { // a cutscene's world is stopped: no chatter bubbles
+		g.drawTalk(screen, ox, oy)
+	}
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
 	g.drawRituals(screen, ox, oy, false)
@@ -423,6 +455,19 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			g.tinted(screen, f.text, x-3*len(f.text), y, resInk(Res(f.kind)), 1)
 		}
 	}
+}
+
+// lintelClip: where a character lifted off the floor (a ghost's hover) may be drawn: under a doorway's lintel, which
+// is drawn over it, only below the lintel's top, or its head pokes out above the wall (live test 5).
+func (g *Game) lintelClip(screen *ebiten.Image, x, feet float64, oy int) *ebiten.Image {
+	m := g.hotel.Map
+	c := m.Cell(image.Pt(int(x), int(feet)))
+	y := c.Y - 1 // the lintel over the doorway the feet are in; in its own row (inside, behind the wall) the head shows above it, as in real
+	if id := m.At(world.LayerWalls, c.X, y); id == 0 || g.ts.Tiles[id].Name != "wall_lintel" || float64(m.TileSortY(world.LayerWalls, c.X, y)) <= feet {
+		return screen
+	}
+	b := screen.Bounds()
+	return screen.SubImage(image.Rect(b.Min.X, max(b.Min.Y, screenPx(float64(y*world.TileSize))-oy), b.Max.X, b.Max.Y)).(*ebiten.Image)
 }
 
 // feetShadow: the dim patch at a living character's feet (F0 Shadows), 14x5 world px.
@@ -566,4 +611,10 @@ func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entitie
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1-fog) * alpha)
 	g.blitPart(s, sheet, image.Rect(f*charW, 0, (f+1)*charW, charH), op, mode, 0, tint, 0)
+}
+
+// shelfGlow: the lit thing is a kitchen shelf, whose props go before its glow. Only a supply: a stain's
+// glow drew the shelf first too, and with it every wall above the kitchen, under the Concierge (live test 5).
+func shelfGlow(act spaceAct, lit, stock image.Rectangle) bool {
+	return act == actSupply && lit.Max.Y <= stock.Max.Y+world.TileSize
 }

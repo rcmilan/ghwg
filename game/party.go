@@ -109,7 +109,7 @@ func (g *Game) charge(p *Party) {
 			p.due[i] = g.clock
 		}
 		for ; g.clock >= p.due[i]; p.due[i] += hourFrames {
-			pay := g.moodPay(p.Room)
+			pay := g.partyPay(p)              // 08 W5: the MacGuffin's is 1
 			if g.pairing(p.Room) == badPair { // a bad pair pays less (X2, live test 1)
 				pay *= badRent
 			}
@@ -170,6 +170,7 @@ type Party struct {
 	talk       []line        // its lines showing or about to (D165)
 	snubbed    int           // the clock until which, having refused an offer, it won't be talked to (X2, talkmove.go)
 	arrived    int           // the clock it walked in
+	hold       int           // the tick until which a quest TALK keeps it standing (verbs_card.go)
 	mess       int           // dirt its Guests leave a night (dirt.go)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
 	Booking
@@ -269,7 +270,7 @@ func (g *Game) spawnClearIn(realm Realm) bool {
 // freeRoom: the first Vacant Room, not Closed, with a Stay Spot for each of size Guests, or -1.
 func (g *Game) freeRoom(size int) int {
 	for i, r := range g.hotel.Rooms {
-		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && len(r.Stays) >= size {
+		if g.isOwned(i) && g.vacant(i, Human) && !g.closed(i) && !g.changing(i) && !g.reserved(i) && len(r.Stays) >= size {
 			return i
 		}
 	}
@@ -419,7 +420,8 @@ func (g *Game) send(guest *entities.Guest, to image.Point, avoid ...image.Point)
 func (g *Game) updateParties() {
 	kept := g.parties[:0]
 	for _, p := range g.parties {
-		if g.updateParty(p) {
+		if g.tick < p.hold || g.updateParty(p) { // a quest TALK stops it for a moment
+
 			kept = append(kept, p)
 		}
 	}
@@ -460,7 +462,7 @@ func (g *Game) updateParty(p *Party) bool {
 		}
 	case staying:
 		switch {
-		case g.clock >= p.Checkout:
+		case g.clock >= p.Checkout && !g.questPinned(p): // 08 W5: a quest guest stays till its objective is done
 			p.state = checkingOut
 			g.sendParty(p, exit...)
 		case p.Out(g.clock): // a Tourist's day out (D88)

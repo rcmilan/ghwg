@@ -26,6 +26,7 @@ const (
 	outFled                        // ran, or walked out of a dirty Room
 	outPassed                      // a ghost left on its own
 	outBanished                    // Father M sent a ghost over
+	outQuest                       // 08 W5: a quest entry seen in ghost only (verbs_card.go)
 )
 
 const (
@@ -46,6 +47,9 @@ type bookEntry struct {
 
 func (e bookEntry) ghost() bool { return e.Out >= outPassed }
 
+// quest: a questline entry (verbs_card.go), written in its own ink; O12's odd entry reads as a cozy stay in real.
+func (e bookEntry) quest() bool { return e.Out == outQuest || e.Line == nameEntry }
+
 func b2o(b bool, yes, no bookOutcome) bookOutcome {
 	if b {
 		return yes
@@ -58,16 +62,21 @@ func (g *Game) stayOutcome(p *Party) bookOutcome {
 	return b2o(p.scares > 0 || g.roomMood(p.Room) <= dreadMood, outDread, outCozy)
 }
 
+// bookAdd: e is the newest entry; the oldest fall off past bookMax.
+func (g *Game) bookAdd(e bookEntry) {
+	g.guestBook = append(g.guestBook, e)
+	if len(g.guestBook) > bookMax {
+		g.guestBook = slices.Delete(g.guestBook, 0, len(g.guestBook)-bookMax)
+	}
+}
+
 // logStay writes the Party's entry as it leaves and notes when its named guest left.
 func (g *Game) logStay(p *Party, out bookOutcome) {
 	names := make([]string, len(p.Guests))
 	for i, guest := range p.Guests {
 		names[i] = guest.Who.Name
 	}
-	g.guestBook = append(g.guestBook, bookEntry{strings.Join(names, " & "), g.bookLine(p, out), day(g.clock), out})
-	if len(g.guestBook) > bookMax {
-		g.guestBook = slices.Delete(g.guestBook, 0, len(g.guestBook)-bookMax)
-	}
+	g.bookAdd(bookEntry{strings.Join(names, " & "), g.bookLine(p, out), day(g.clock), out})
 	if k := p.Guests[0].Who.Key; k != "" {
 		if g.leftAt == nil {
 			g.leftAt = map[string]int{}
@@ -144,6 +153,9 @@ func (g *Game) osvaldoDue() bool { return g.met["magda"] && g.visits["osvaldo"] 
 
 // namedPick: this booking is a named guest's 1 time in namedOdds, one of the eligible keys. g.ident only.
 func (g *Game) namedPick(keys []string) (string, bool) {
+	if g.quest.naming { // 08 W5: a quest guest is being booked: it takes the Party
+		return "", false
+	}
 	if g.ident.IntN(namedOdds) != 0 {
 		return "", false
 	}
@@ -180,15 +192,21 @@ func (g *Game) rollNamedHuman(p *Party) {
 	if !ok {
 		return
 	}
-	h := namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })]
+	g.nameHuman(p, namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })])
+}
+
+// nameHuman: the Party's Guests become the named human h's Members (the quest's check-in uses it too).
+func (g *Game) nameHuman(p *Party, h namedHuman) {
 	for i, m := range h.Members {
 		guest := p.Guests[i]
 		guest.Who = entities.Identity{Name: m.Name, Age: m.Age, AgeNote: m.AgeNote, Job: h.Job, Lines: m.Lines, Quirk: h.Quirk, Key: h.Key}
-		if _, seed, ok := strings.Cut(guest.Character, "#"); ok { // its own base character, the look seed kept
-			guest.Character = m.Sprite + "#" + seed
+		_, seed, dressed := strings.Cut(guest.Character, "#")
+		if guest.Character = m.Sprite; dressed { // its own base character, the look seed kept
+			guest.Character += "#" + seed
 		}
+		wear(guest) // a quest character's own sheets instead (08 W5 R2)
 	}
-	g.visited(p, key)
+	g.visited(p, h.Key)
 }
 
 // rollNamedGhost: a ghost Party that just booked may be a named ghost's, in its first guest's place (g.ident only);
@@ -210,6 +228,7 @@ func (g *Game) rollNamedGhost(p *Party) {
 // nameGhost: the guest becomes n, its rolled Phantasm clamped into n's kind's band so it draws as cast.md says.
 func (g *Game) nameGhost(guest *entities.Guest, n namedGhost) {
 	guest.Who = entities.Identity{Name: n.Name, Died: n.Died, Job: n.Job, Lines: n.Lines, Quirk: n.Quirk, Key: n.Key}
+	wear(guest)
 	k := slices.IndexFunc(ghostKinds[:], func(c ghostKind) bool { return c.Name == n.Kind })
 	lo, hi := 1, phantasmMax
 	if k > 0 {
@@ -234,7 +253,7 @@ func (g *Game) bookRect() image.Rectangle {
 	return image.Rect(b.Min.X, b.Min.Y+2*world.TileSize, b.Max.X, b.Max.Y-world.TileSize)
 }
 
-func (g *Game) openBook() { g.state, g.bookTop = StateBook, 0 }
+func (g *Game) openBook() { g.state, g.bookTop = StateBook, 0; g.bookRead() }
 
 // shown: the entries the open page lists, newest first: a human's view hides the ghosts'.
 func (g *Game) shown() []bookEntry {
@@ -244,7 +263,7 @@ func (g *Game) shown() []bookEntry {
 			es = append(es, e)
 		}
 	}
-	return es
+	return g.questEntries(es) // 08 W5
 }
 
 func (g *Game) updateBook() {
@@ -261,6 +280,7 @@ func (g *Game) updateBook() {
 			i--
 		}
 		g.bookTop = starts[min(max(i, 0), len(starts)-1)]
+		g.bookRead()
 	}
 }
 
@@ -302,7 +322,7 @@ func bookStarts(es []bookEntry) []int {
 	return starts
 }
 
-var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED"}
+var outTag = [...]string{"COZY", "DREAD", "FLED", "PASSED ON", "BANISHED", "ON HOLD"}
 
 // The open book's geometry, px: the cover, the pages inset by bookM, the spine gutter, the ruled lines' pitch.
 const (
@@ -397,10 +417,20 @@ func (g *Game) drawBookPage(s *ebiten.Image) {
 		g.tintedAt(s, pos, rx+bookPW-74-len(pos)*glyphW, y+bookM+22, 1, storeDim, 1)
 	}
 	g.tintedAt(s, "A/D TURN THE PAGE   SPACE OR ESC CLOSE", lx, y+bookM+bookPH-18, 1, storeDim, 1)
+	if d := g.bookWay(); d != 0 { // 08 W5 R9: the way to the page the step needs
+		w := []string{"< A", "D >"}[(d+1)/2]
+		bx := []int{lx + 4*glyphW, rx + bookPW - 52 - 2*glyphW*len(w)}[(d+1)/2]
+		by := y + bookM + bookPH - 52
+		g.tintedAt(s, w, bx, by, 2, storeInk, 1)
+		g.frame(s, bx-4, by-2, 2*glyphW*len(w)+8, 2*glyphH-6)
+	}
 }
 
-// bookInks: the pens a human writes with; a ghost writes in the Ectoplasm accent.
-var bookInks = [...]color.RGBA{storeInk, {0x23, 0x3a, 0x7a, 255}, {0x5a, 0x34, 0x22, 255}}
+// bookInks: the pens a human writes with (black, dark blue); a ghost writes in the Ectoplasm accent; the questline's
+// entries in a deep purple, 4.7:1 on the page even in its gutter's shade (notebook_test.go).
+var bookInks = [...]color.RGBA{storeInk, {0x23, 0x3a, 0x7a, 255}}
+
+var questInk = color.RGBA{0x4b, 0x16, 0x70, 255}
 
 // writeEntry writes e by hand: its name on the ruled line at y, its words on the next ones, the day and how it
 // went at the right. Each hand is its own, from a hash of the entry (no rng): its pen, a nudge along the line, and
@@ -409,8 +439,11 @@ func (g *Game) writeEntry(s *ebiten.Image, e bookEntry, ls []string, x, y, right
 	h := fnv.New32a()
 	h.Write([]byte(e.Name + e.Line + strconv.Itoa(e.Day)))
 	v := h.Sum32()
-	ink := color.Color(bookInks[v%3])
-	if e.ghost() {
+	ink := color.Color(bookInks[v%2])
+	switch {
+	case e.quest():
+		ink = questInk
+	case e.ghost():
 		ink = storeAccent
 	}
 	x += int(v>>4%7) - 3
@@ -475,10 +508,10 @@ func (g *Game) DevBook(n int) {
 		return
 	}
 	g.guestBook = append(g.guestBook,
-		bookEntry{"Magda Feltz", namedHumans[0].Visit[0], 1, outCozy}, bookEntry{"Teo Barros", namedHumans[1].Dread, 1, outDread},
+		bookEntry{nameMagdaFull, namedHumans[0].Visit[0], 1, outCozy}, bookEntry{nameTeoFull, namedHumans[1].Dread, 1, outDread},
 		bookEntry{"Noor Haddad", namedHumans[3].Fled, 2, outFled}, bookEntry{"Ana Costa", notebookCozy[0], 2, outCozy},
 		bookEntry{"Agatha Fogg", notebookPassed[0], 2, outPassed}, bookEntry{"Silas Wick", notebookBanished[1], 3, outBanished},
-		bookEntry{"Osvaldo Feltz", namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
+		bookEntry{nameOsvaldoFull, namedGhosts[0].Visit[0], 3, outPassed}, bookEntry{"Hugo Pike", "", 3, outFled})
 	pools := [...][]string{notebookCozy, notebookDread, notebookFled, notebookPassed, notebookBanished}
 	for i := 0; n > 2 && len(g.guestBook) < bookMax; i++ { // 3 and up: a full book, turned n-3 spreads
 		g.guestBook = append(g.guestBook, bookEntry{"Guest " + strconv.Itoa(i+1), pools[i%5][i%len(pools[i%5])], 4 + i/10, bookOutcome(i % 5)})

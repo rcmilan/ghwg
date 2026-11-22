@@ -55,7 +55,7 @@ func setNerve(p *Party, n int) {
 func (g *Game) terrify(room int, ghost *entities.Guest) {
 	_, in := g.inside(room)
 	for _, h := range in {
-		if !fits(h, ghost) {
+		if !fits(h, ghost) && !fearless(h) {
 			h.Fear = min(h.FleeAt, h.Fear+h.FleeAt/2)
 		}
 	}
@@ -97,7 +97,7 @@ func (g *Game) fitRoom(n, size int) int {
 	}
 	best := -1
 	for i, r := range g.hotel.Rooms {
-		if !g.isOwned(i) || !g.vacant(i, Human) || g.closed(i) || g.changing(i) || len(r.Stays) < size {
+		if !g.isOwned(i) || !g.vacant(i, Human) || g.closed(i) || g.changing(i) || g.reserved(i) || len(r.Stays) < size {
 			continue
 		}
 		if best < 0 {
@@ -196,7 +196,7 @@ func (g *Game) pairInk(room int) (color.RGBA, bool) {
 
 // movable: a human Party that can be sent to another Room: in it, on its way in or out for the day, or away.
 func movable(p *Party) bool {
-	return p.state == staying || p.state == checkingIn || p.state == goingOut || p.state == out
+	return !isMacguffin(p) && p.state == staying || p.state == checkingIn || p.state == goingOut || p.state == out
 }
 
 // relocate: the Party moves to Room to, swapping with the human Party there if any (X2). Each walks over by

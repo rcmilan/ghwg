@@ -28,7 +28,7 @@ func (p *Party) asking() bool { return p.asked > 0 }
 // the Room loses moodExpire Mood. One that leaves its Room lapses unpunished.
 func (g *Game) updateAsks() {
 	for _, p := range g.parties {
-		if p.Realm != Human { // a ghost asks for nothing
+		if p.Realm != Human || isMacguffin(p) { // a ghost asks for nothing, nor does the MacGuffin
 			continue
 		}
 		switch {
@@ -130,20 +130,8 @@ var (
 	splat *ebiten.Image             // the dirt complaint's, white (splatRows)
 )
 
-// foodIcons: the sprites a Food ask rotates through in its balloon (cosmetic: the held item and the stock keep the
-// store's icon).
-var foodIcons = []string{"food_3", "food_4", "food_5"}
-
-// askIcon: the icon of what p asks for. A Food ask shows one of foodIcons, picked from the Party and the ask's time,
-// so g.rng, which drives the sim, is not drawn from.
-func (g *Game) askIcon(p *Party) *ebiten.Image {
-	if p.want == SupplyFood {
-		if img := g.sprite(foodIcons[(p.asked/minuteFrames+p.Room)%len(foodIcons)]); img != nil {
-			return img
-		}
-	}
-	return g.supplyIcon(p.want)
-}
+// askIcon: the icon of what p asks for: the store's, the one sprite for Food everywhere.
+func (g *Game) askIcon(p *Party) *ebiten.Image { return g.supplyIcon(p.want) }
 
 // drawRequests draws a pill by each asking or complaining Party's leader, in
 // both dimensions and over the Fog and the dark. The world shows at kz screen px a world px, its top left at (ox,oy).
@@ -155,7 +143,7 @@ func (g *Game) drawRequests(s *ebiten.Image, ox, oy int, kz float64) {
 		switch icon := g.askIcon(p); {
 		case p.state == complaining: // the Room is dirty (dirt.go)
 			g.drawPill(s, p, splat, 2*balloonScale, ox, oy, kz)
-		case p.asking() && icon != nil: // its item (show, don't tell)
+		case p.asking() && icon != nil && (p.Realm == Human || g.ghost): // its item (show, don't tell); a quest ghost's (08 W5) only in ghost
 			g.drawPill(s, p, icon, balloonScale, ox, oy, kz)
 		}
 	}

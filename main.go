@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"os"
+	"slices"
 
 	"ghosthotel/assets"
 	"ghosthotel/game"
@@ -59,10 +60,24 @@ func main() {
 	shifts := flag.Bool("shifts", false, "dev: the dimension shifts every 150 frames, to profile the transition (with ?args= on the web build)")
 	pantry := flag.Bool("pantry", false, "dev: start a Run at prestige level 1 with the pantry bought and the hotel grown by a floor, you on its spot (with -shot -at)")
 	book := flag.Int("book", 0, "dev: stand at the notebook on the counter (1), or with its page open and filled (2), a full book turned n-3 spreads (3 and up); -ghost shows the ghost view")
-	flag.Parse()
+	weather := flag.String("weather", "", "dev: this weather every day: rain, fog, wind, or storm (the thunderstorm)")
+	street := flag.Bool("street", false, "dev: you on the Street at the Entrance, passers-by of both Dimensions about and two saying a line (with -shot -at a few frames; -ghost)")
+	items := flag.String("items", "", "dev: own these of Magenta's items from the start (all, or ball,broom,gerald,cat,ward,storm); Gerald and the Ward in Room 101, the Cat napping beside you (with -shot -at, -ghost; -view 0,1,0 shows the ring)")
+	quest := flag.Int("quest", 0, "dev: start a Run at questline beat n (1..7; the level raised to play it) with the earlier beats done and its guests in; -ghost shows the ghost checklist")
+	story := flag.Bool("story", false, "dev: story mode, to test the questline fast: each Growth fires free as its beat ends, all 7 beats open at any Level, quest guests check in at once")
+	scene := flag.String("scene", "", "dev: a busy hotel with Tim and Celestine in it, a quest cutscene playing: O4, O9, finale or crate (with -shot -at: the frame; -ghost for O4 and O9)")
+	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
+	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
+	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
+	witch := flag.Bool("witch", false, "dev: the six quest characters in the Lobby beside the three ordinary sheets, turning every 120 frames, then running (with -shot -at; -ghost adds the Cat's frames)")
+	verb := flag.String("verb", "", "dev: start a Run at this objective (O1..O13) with its guests in, for prints (use -grid 3x1; -ghost for the ghost side; O4 at night, -at 14)")
+	if game.Dev { // the production build takes no flags: every dev start, -story and the rest, stays off
+		flag.Parse()
+	}
+	game.StoryMode = *story
 
 	ebiten.SetWindowSize(960, 540)
-	ebiten.SetWindowTitle("Ghost Hotel")
+	ebiten.SetWindowTitle(game.Name)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	if f, err := assets.FS.Open("characters/Adam_idle_anim_16x16.png"); err == nil { // the window's icon: a Shadow Person's black head (D169), as icon.ico
 		if sheet, err := png.Decode(f); err == nil {
@@ -95,13 +110,13 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != "" || *witch || *verb != ""
 	g.DevLevel(*level)
 	if dev {
 		switch {
 		case *intro >= 0:
 			g.StartIntro(*intro)
-		case *busy || *prestige: // it starts its own Run: first, so nothing after it is lost
+		case *busy || *prestige || *scene != "" || *macguffin: // it starts its own Run: first, so nothing after it is lost
 			g.DevBusy()
 		case *ready >= 0:
 			g.Start(false)
@@ -111,6 +126,15 @@ func main() {
 		g.DevGhost(*ghost)
 		if *prestige {
 			g.DevPrestige()
+		}
+		if *scene != "" {
+			g.DevScene(*scene)
+		}
+		if *macguffin {
+			g.DevMacguffin()
+		}
+		if *credits {
+			g.DevCredits()
 		}
 		// The Room's Mood is one value, set by -dirt and -mood: the later of the two wins it. -mood also stands the
 		// Concierge in Room 101, so both go first: any start after them that places him takes him from there.
@@ -146,14 +170,27 @@ func main() {
 			g.DevNotices()
 		}
 		g.DevGrow(*grow)
-		if *pantry { // after the growth it may follow
+		g.DevQuest(*quest) // 08 W5
+		if *pantry {       // after the growth it may follow
 			g.DevPantry()
 		}
 		if *corridors >= 0 { // after the growth that makes them
 			g.DevCorridors(*corridors)
 		}
+		g.DevItems(*items)
 		g.DevMatch(*match) // after DevGrow, which puts the game back in play: the talk stays open
 		g.DevCard(*card)
+		g.DevVerb(*verb)
+	}
+	g.DevWeather(*weather)
+	if i := slices.Index([]string{"fridge", "sink", "stove"}, *kitchenLife); i >= 0 {
+		g.DevKitchenLife(i)
+	}
+	if *street {
+		g.DevStreet()
+	}
+	if *witch {
+		g.DevWitch()
 	}
 	g.DevBook(*book)
 	if *ready >= 0 {

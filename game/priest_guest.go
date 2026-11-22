@@ -2,7 +2,7 @@ package game
 
 import "ghosthotel/entities"
 
-// Fathers K and M as guests (08 T379, G2): once his call is unlocked a Father may book as an ordinary solo human
+// Father M as a guest (08 T379, G2): once his call is unlocked Father M may book as an ordinary solo human
 // guest, about 1 booking in priestGuestOdds. He pays priestRentMul times the Rate; while he is in his Room its
 // ghosts leave (no Ecto) and it books none, and each game hour he cleans its spiritual dirt. Placeholders.
 const (
@@ -40,14 +40,12 @@ func (g *Game) fatherGuest(strong bool) bool {
 // maybePriestGuest turns a fresh solo booking into a Father's, when one is unlocked and not already in the hotel
 // (fatherIn counts a retained or called Father, and a guest). The roll hashes g.walkIns, drawing from no stream.
 func (g *Game) maybePriestGuest(p *Party) {
-	if len(p.Guests) != 1 || p.Guests[0].Who.Key != "" { // a named guest stays who it is
+	if len(p.Guests) != 1 || p.Guests[0].Who.Key != "" || g.quest.naming { // a named guest stays who it is
 		return
 	}
 	var from []bool
-	for _, u := range [2]Unlock{unlockK, unlockM} {
-		if strong := u == unlockM; g.unlocked(u) && !g.fatherIn(strong) {
-			from = append(from, strong)
-		}
+	if g.unlocked(unlockM) && !g.fatherIn(true) && !g.questOpen("O6") { // only Father M books; not while O6 needs his call
+		from = append(from, true)
 	}
 	h := uint32(g.walkIns) * 2654435761 // a hash of the booking count: no random stream is drawn, so the sim's never shifts
 	if len(from) == 0 || h>>8%priestGuestOdds != 0 {

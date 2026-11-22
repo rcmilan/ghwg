@@ -89,13 +89,16 @@ const (
 type housekeeper struct {
 	entities.Guest // RoomIndex is the Room it walks into or out of, whose door is open to its path; -1 otherwise
 	job            job
-	room           int    // the Room its job is for
-	item           Unlock // the Supply it fetches, then carries
-	due            int    // the clock of its next payday
-	unpaid         bool   // its last wage is owed: it does nothing until it is paid
-	rest           int    // the clock it next moves about the kitchen
-	work           int    // cleaning, at the stains: the clock the clean is done, 0 until it starts
-	voice                 // it speaks as the Concierge comes near, and to welcome a Party walking in
+	room           int         // the Room its job is for
+	item           Unlock      // the Supply it fetches, then carries
+	due            int         // the clock of its next payday
+	unpaid         bool        // its last wage is owed: it does nothing until it is paid
+	rest           int         // the clock it next moves about the kitchen
+	lifeAt         image.Point // idle kitchen life (kitchenlife.go): where its visit or line ends,
+	lifeLine       string      // the line it says there, empty for none,
+	lifeProp       bool        // and whether that is a prop it faces
+	work           int         // cleaning, at the stains: the clock the clean is done, 0 until it starts
+	voice                      // it speaks as the Concierge comes near, and to welcome a Party walking in
 }
 
 // staffed: the housekeepers on the payroll: every one not walking out.
@@ -308,8 +311,10 @@ func (g *Game) updateKeepers() {
 			if !in && g.nextJob(k) {
 				break
 			}
+			g.lifeSpeak(k)
 			if arrived && (in || g.clock >= k.rest) {
 				g.goRest(k)
+				g.lifeVisit(k)
 			}
 		case (k.job == fetching || k.job == serving) && !g.wants(k.room, k.item): // the ask is gone: turn back at once (08 F0)
 			g.goRest(k)

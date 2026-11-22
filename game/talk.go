@@ -62,11 +62,22 @@ var (
 		"Rattle, rattle.", "This wallpaper died too.", "Who's haunting who?", "Cold spots, just right.", odd("I am mostly elbows now.")}
 )
 
+// eggLines: an easter egg (live test 5), said in a Room one eggOdds of the times: a human's, a ghost's.
+var eggLines = map[Realm][2]string{
+	Human: {"I have a proof of the Riemann hypothesis.", "This towel is too small to contain it."},
+	Ghost: {"The Navier-Stokes proof checks out.", "I'm dead. I had time to read it."},
+}
+
+var eggOdds = 1.0 / 100 // a var: the tests set it
+
 // roomOnly: the lines that make sense only in a Room (2026-11-14: "GET ME OUT!" was heard in the hall). One is
 // never shown by a Guest outside the Rooms: said inside, it ends at the door.
 var roomOnly = map[string]bool{"Zzz...": true}
 
 func init() {
+	for _, e := range eggLines {
+		roomOnly[e[0]], roomOnly[e[1]] = true, true
+	}
 	for _, tier := range calmLines {
 		for _, set := range tier {
 			for _, l := range set {
@@ -147,6 +158,10 @@ func (g *Game) updateRoomTalk() {
 			continue
 		}
 		who := g.words.IntN(len(p.Guests))
+		if egg := eggLines[p.Realm]; g.words.Float64() < eggOdds && !(asleep && g.sleeps(p)) { // the rare easter egg, in two balloons
+			p.talk = append(p.talk, line{who, egg[0], g.tick}, line{who, egg[1], g.tick + answerFrames})
+			continue
+		}
 		if p.Realm == Ghost {
 			p.talk = append(p.talk, line{who, g.pickLine(ghostCalm), g.tick})
 			continue

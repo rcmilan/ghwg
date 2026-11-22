@@ -97,7 +97,7 @@ func fright(p *Party) (f float64) {
 func (g *Game) targets(p *Party) []int {
 	var ts []int
 	for i, r := range g.hotel.Rooms {
-		if i == p.Room || !g.isOwned(i) || g.closed(i) || g.changing(i) || len(r.Stays) < len(p.Guests) || g.roomPhantasm(i) > partyNerve(p) {
+		if i == p.Room || !g.isOwned(i) || g.closed(i) || g.changing(i) || g.reserved(i) || len(r.Stays) < len(p.Guests) || g.roomPhantasm(i) > partyNerve(p) {
 			continue
 		}
 		if q := g.humanIn(i); q != nil && (!movable(q) || len(g.hotel.Rooms[p.Room].Stays) < len(q.Guests) || g.roomPhantasm(p.Room) > partyNerve(q)) {
@@ -106,14 +106,22 @@ func (g *Game) targets(p *Party) []int {
 		ts = append(ts, i)
 	}
 	slices.SortStableFunc(ts, func(a, b int) int { return cmp.Compare(g.roomPhantasm(b), g.roomPhantasm(a)) })
+	ts = g.withTarget(p, ts) // 08 W5: the objective's Room, always
+	if q := g.questTarget(p); slices.Contains(ts, q) {
+		return []int{q} // and only it: a quest move can't be got wrong
+	}
 	return ts
 }
 
 // talker: the Party TALK opens the card of: the Concierge stands on its Room's plate, beside the door (T381 refine 2),
 // in either Dimension (a ghost Party in ghost), with nothing SPACE does there first (an asked item to hand over).
 func (g *Game) talker() *Party {
-	if act, _ := g.actionable(); act == actCard {
+	switch act, _ := g.actionable(); act {
+	case actCard:
 		return g.cardParty(g.atMat())
+	case actQuestTalk: // 08 W5 R8: the cue shows for a quest character too
+		p, _ := g.questTalk()
+		return p
 	}
 	return nil
 }
@@ -130,6 +138,9 @@ func (g *Game) offerCost(p *Party, to, offer int) Num {
 
 // offerOdds: the chance the guest takes it: its base, and more for a scared guest and a cozy target Room.
 func (g *Game) offerOdds(p *Party, to, offer int) float64 {
+	if to == g.questTarget(p) { // 08 W5: sure
+		return 1
+	}
 	up := float64(g.roomMood(to)-moodMin) / (moodMax - moodMin)
 	b := offerBase[offer]
 	return min(1, b+(1-b)*offerLean*(fright(p)+up)/2)
@@ -137,6 +148,9 @@ func (g *Game) offerOdds(p *Party, to, offer int) float64 {
 
 // offers: the offers for Room to the wallet can pay, in order; the plain ask, free, always.
 func (g *Game) offers(p *Party, to int) (os []int) {
+	if to == g.questTarget(p) { // 08 W5: only the discount, which is what it costs
+		return []int{discount}
+	}
 	for o := range offerShare {
 		if g.afford(Cost{Money: g.offerCost(p, to, o)}) {
 			os = append(os, o)
@@ -147,7 +161,13 @@ func (g *Game) offers(p *Party, to int) (os []int) {
 
 // sureOffer: the cheapest offer the Party is sure to take, and its Room. ok false if there is none.
 func (g *Game) sureOffer(p *Party) (to, offer int, c Num, ok bool) {
+	if g.questHeld(p) { // 08 W5 R10: Matchmaking keeps off the quest
+		return
+	}
 	for _, r := range g.targets(p) {
+		if g.questRoom(r) || slices.ContainsFunc(g.parties, func(q *Party) bool { return g.questTarget(q) == r || q.Room == r && g.questHeld(q) }) {
+			continue
+		}
 		for o := range offerShare {
 			if k := g.offerCost(p, r, o); g.offerOdds(p, r, o) >= 1 && (!ok || k < c) {
 				to, offer, c, ok = r, o, k, true
@@ -244,6 +264,7 @@ func (g *Game) makeOffer() {
 	p, to := t.p, t.targets[t.to]
 	c := g.offerCost(p, to, t.pick)
 	if !g.afford(Cost{Money: c}) {
+		g.notice("NOT ENOUGH MONEY FOR THAT OFFER")
 		return
 	}
 	if g.rng.Float64() >= g.offerOdds(p, to, t.pick) {

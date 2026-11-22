@@ -44,7 +44,7 @@ const (
 var fatherP = struct {
 	name string
 	look look
-}{"Father P", look{hair: 0xeceaf2, skin: 0x7a4e36, top: 0x1c1a22, bottom: 0x141218}}
+}{nameFatherP, look{hair: 0xeceaf2, skin: 0x7a4e36, top: 0x1c1a22, bottom: 0x141218}}
 
 var pLines = [...]string{"Welcome, all. Living, dead, and late.", "Nothing ends. It only begins again.", "Mind your feet. The floor is leaving."}
 

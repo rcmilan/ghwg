@@ -181,7 +181,7 @@ func (g *Game) drawIntro(screen *ebiten.Image) {
 	}
 	if in.phase == introTitle {
 		rect(screen, 0, 12, sw, glyphH*(introTextSize+3)+16, color.RGBA{0, 0, 0, 170}) // at the top: the street stays clear
-		center("G H O S T   H O T E L", 20, introTextSize, assets.Ghost, 1)
+		center(spacedName(), 20, introTextSize, assets.Ghost, 1)
 		start := "[ SPACE ] open the hotel"
 		if in.save != nil {
 			start = "[ SPACE ] continue"

@@ -99,10 +99,12 @@ func (g *Game) dirtQuirkMul(p *Party) float64 {
 }
 
 // mayFlee: Party p's guest at its FleeAt steps out, then flees; false and it never does: Skeptic (that guest only).
-func (g *Game) mayFlee(p *Party, guest *entities.Guest) bool { return guest.Who.Quirk != Skeptic }
+func (g *Game) mayFlee(p *Party, guest *entities.Guest) bool {
+	return guest.Who.Quirk != Skeptic && !fearless(guest) && !isMacguffin(p) && !g.questPinned(p) && !g.warded(p.Room) // 08 W5: a quest guest, the Ward
+}
 
 // sleeps: Party p goes to bed at night and asks for nothing then; false and it stays up and asks at night too: Night owl.
-func (g *Game) sleeps(p *Party) bool { return !hasQuirk(p, NightOwl) }
+func (g *Game) sleeps(p *Party) bool { return !hasQuirk(p, NightOwl) && !isMacguffin(p) }
 
 // mayHaunt: the ghost may haunt its Room now; false: Shy, while a human in its Room is awake.
 func (g *Game) mayHaunt(room int, ghost *entities.Guest) bool {
@@ -115,7 +117,7 @@ func (g *Game) mayHaunt(room int, ghost *entities.Guest) bool {
 
 // mayPass: ghost Party p may pass on by itself once spent, and leave at its Checkout; false: Homebody (either of a
 // pair), until Father M sends it over (sendOver sets PassAt, which this does not gate).
-func (g *Game) mayPass(p *Party) bool { return !hasQuirk(p, Homebody) }
+func (g *Game) mayPass(p *Party) bool { return !hasQuirk(p, Homebody) && !g.questPinned(p) } // 08 W5: a quest ghost stays
 
 // hauntGap: the ghost's game minutes between haunts, 0 for one that does not haunt (Haunt of 0).
 func (g *Game) hauntGap(ghost *entities.Guest) int {

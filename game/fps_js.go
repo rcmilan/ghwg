@@ -16,9 +16,10 @@ import (
 // ponytail: on by default, flip to opt-in (?fps) before the itch release.
 var fpsOn = func() bool {
 	loc := js.Global().Get("location")
-	if loc.IsUndefined() { // the Node test runner has no page
+	if !Dev || loc.IsUndefined() { // not in the production build; the Node test runner has no page
 		return false
 	}
+	js.Global().Get("document").Set("title", Name)
 	q, _ := url.ParseQuery(strings.TrimPrefix(loc.Get("search").String(), "?"))
 	return !q.Has("nofps")
 }()

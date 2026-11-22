@@ -53,16 +53,14 @@ func (it Item) room() bool { return it.Send != nil }
 
 // unlock: the item is an unlock, owned once bought: a HOTEL item not for a Room, or a Once one.
 func (it Item) unlock() bool {
-	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror || it.Once // the Corridor mirror is bought again and again
+	return it.Tab == tabHotel && !it.room() && it.Grow == 0 && it.Up == 0 && it.ID != CorridorMirror && it.ID != rowStorm && !isQuestRow(it.ID) || it.Once // the Corridor mirror is bought again and again; the Storm jar once a day (items.go); a quest row is an order (08 W5)
 }
 
 // The Services aren't unlocks; their IDs only name them.
 const (
-	rowFatherK Unlock = "father-k"
 	rowFatherM Unlock = "father-m"
 )
 
-func noFatherK(g *Game, room int) string { return g.noFather(room, false) }
 func noFatherM(g *Game, room int) string { return g.noFather(room, true) }
 
 // shop is the catalog, in its order: a tab lists its rows as they stand here, so a new row goes next to its
@@ -99,14 +97,18 @@ var shop = []Item{
 	{ID: shoeIDs[0], Tab: tabStaff, Shoes: 1, Name: "Running shoes I", Blurb: "Staff walk 15% faster. Laces not included.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[0]}},
 	{ID: shoeIDs[1], Tab: tabStaff, Shoes: 2, Name: "Running shoes II", Blurb: "Staff walk another 15% faster.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[1]}},
 	{ID: shoeIDs[2], Tab: tabStaff, Shoes: 3, Name: "Running shoes III", Blurb: "Staff walk another 15% faster. Rude to ghosts.", Hint: "Hire a housekeeper to unlock.", Icon: keeperName, Head: true, Cost: Cost{Ecto: shoePrice[2]}},
-	{ID: unlockK, Tab: tabStaff, Once: true, Name: "Call Father K", Blurb: "Father K halves a Room's dirt. Each call costs Ectoplasm.", Hint: "Earn $250 after the Mirror to unlock.", Icon: fatherK.name, Head: true,
+	{ID: unlockK, Tab: tabStaff, Once: true, Name: nameFatherK, Blurb: nameFatherK + " can be kept on, for his Ritual round the Rooms.", Hint: "Earn $250 after the Mirror to unlock.", Icon: fatherK.name, Head: true,
 		Cost: Cost{Ecto: unlockKEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 250}},
-	{ID: unlockM, Tab: tabStaff, Once: true, Name: "Call Father M", Blurb: "Father M clears a Room, banishes its Shadow, sends its ghosts over.", Hint: "Earn $750 after the Mirror to unlock.", Icon: fatherM.name, Head: true,
+	{ID: unlockM, Tab: tabStaff, Once: true, Name: "Call " + nameFatherM, Blurb: nameFatherM + " clears a Room, banishes its Shadow, sends its ghosts over.", Hint: "Earn $750 after the Mirror to unlock.", Icon: fatherM.name, Head: true,
 		Cost: Cost{Ecto: unlockMEcto}, Needs: []Unlock{Mirror}, Earned: Cost{Money: 750}},
-	{ID: rowRetain, Tab: tabStaff, Name: "Retain Father K", Blurb: "Father K stays and cleans the ghostliest Room. Ectoplasm a day, or gone.", Hint: "Buy Call Father K to unlock.", Icon: fatherK.name, Head: true,
+	{ID: rowRetain, Tab: tabStaff, Name: "Retain " + nameFatherK, Blurb: nameFatherK + " stays and cleans the ghostliest Room. Ectoplasm a day, or gone.", Hint: "Buy " + nameFatherK + " to unlock.", Icon: fatherK.name, Head: true,
 		Cost: Cost{Ecto: retainerEcto}, Needs: []Unlock{unlockK}},
-	{ID: rowFatherP, Tab: tabStaff, Name: "Father P", Blurb: "Takes the hotel, gives a bonus on all income. Begin again.", Hint: "Fill the biggest hotel and buy every Room key to unlock.", Icon: fatherP.name, Head: true,
+	{ID: rowFatherP, Tab: tabStaff, Name: nameFatherP, Blurb: "Takes the hotel, gives a bonus on all income. Begin again.", Hint: "Fill the biggest hotel and buy every Room key to unlock.", Icon: fatherP.name, Head: true,
 		Cost: Cost{Ecto: prestigeEcto}}, // SPACE opens his card (prestige.go), no cart
+	// 08 W5: the quest rows (verbs.go, items.go); questRowOn says when they are on sale.
+	{ID: rowWreath, Tab: tabHotel, Name: "Wreath", Blurb: wreathRow, Icon: "icon_wreath", Cost: Cost{Money: 200}},
+	{ID: rowCrate, Tab: tabHotel, Name: "A crate", Blurb: crateRow, Icon: "icon_crate", Cost: Cost{Money: 2000, Ecto: 500}},
+	{ID: rowStorm, Tab: tabHotel, Name: "Storm in a jar", Blurb: "Tonight's thunderstorm: sightings pay double. Free, once a day.", Icon: "icon_storm"},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},
@@ -117,9 +119,7 @@ var shop = []Item{
 		}},
 	{ID: rowDeluxe, Tab: tabRooms, Name: "Deluxe", Blurb: "This Room, finer. Once it's empty.", Icon: "icon_deluxe", Cost: Cost{Ecto: deluxeFee},
 		Needs: []Unlock{Deluxe}, Send: func(g *Game, l cartLine) {}}, // its Send and Refuse are set in roomtype_change.go's init
-	{ID: rowFatherK, Tab: tabRooms, Name: "Father K", Blurb: "Halves a Room's dirt. Paid per call.", Icon: fatherK.name, Head: true, Cost: Cost{Ecto: priestWeak},
-		Needs: []Unlock{unlockK}, Refuse: noFatherK, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, false) }},
-	{ID: rowFatherM, Tab: tabRooms, Name: "Father M", Blurb: "Clears a Room, banishes its Shadow, sends its ghosts over.", Icon: fatherM.name, Head: true, Cost: Cost{Ecto: priestStrong},
+	{ID: rowFatherM, Tab: tabRooms, Name: nameFatherM, Blurb: "Clears a Room, banishes its Shadow, sends its ghosts over.", Icon: fatherM.name, Head: true, Cost: Cost{Ecto: priestStrong},
 		Needs: []Unlock{unlockM}, Refuse: noFatherM, Send: func(g *Game, l cartLine) { g.sendPriest(l.room, true) }},
 	{ID: RoomMirror, Tab: tabRooms, Once: true, Name: "Room mirror", Blurb: "A Mirror per Room. A second ghost checks in through it.", Icon: "icon_mirror", Cost: Cost{Money: roomMirrorMoney, Ecto: roomMirrorEcto},
 		Needs: []Unlock{Mirror}, Send: (*Game).buyRoomMirror},
@@ -145,8 +145,17 @@ func (g *Game) onSale(i int) bool {
 	if it.Up > 0 { // on sale once it applies (upShows)
 		return g.upShows(Upgrade(it.Up - 1))
 	}
+	if g.stepNeeds(it.ID) { // 08 W5 R9: a row the quest's step needs is on sale, whatever its gates
+		return true
+	}
 	if it.ID == rowFatherP {
 		return g.prestigeReady()
+	}
+	if on, quest := g.questRowOn(it.ID); quest { // 08 W5
+		return on
+	}
+	if on, row := g.itemRowOn(it.ID); row { // 08 W5: Gerald, the Ward
+		return on
 	}
 	if it.ID == CorridorMirror { // on sale while one is covered, however the Run got its New floor (08 B1 live test 3)
 		return g.nextCovered() >= 0
@@ -197,7 +206,7 @@ func (g *Game) addToCart(i, room int) string {
 		return "MAX LEVEL"
 	case it.Up > 0 && g.coming(it.ID, -1): // its price is the next level's: one level at a time
 		return "ON ITS WAY"
-	case g.owned(i), it.ID == CorridorMirror && g.inCart(i) > 0: // the next one's price fixes it: one at a time
+	case g.owned(i), (it.ID == CorridorMirror || isQuestRow(it.ID)) && g.inCart(i) > 0: // the next one's price fixes it: one at a time
 		return "ALREADY IN THE CART"
 	case it.ID == rowRetain && g.fatherIn(false):
 		return "FATHER K IS ALREADY IN THE HOTEL"
@@ -257,7 +266,7 @@ func (g *Game) affords(i int) bool {
 
 // sameKind: both Priests (one per Room), both changes to a Room (its type, its Mirror), or the same Service.
 func sameKind(a, b int) bool {
-	priest := func(i int) bool { return shop[i].ID == rowFatherK || shop[i].ID == rowFatherM }
+	priest := func(i int) bool { return shop[i].ID == rowFatherM }
 	change := func(i int) bool {
 		return shop[i].ID == rowChange || shop[i].ID == RoomMirror || shop[i].ID == rowAddMirror
 	}
@@ -308,6 +317,8 @@ func (g *Game) ship(order []cartLine) {
 		switch it := shop[l.item]; {
 		case supplyOf(it.ID) >= 0:
 			stops = append(stops, drop{at: g.supplyDrop(supplyOf(it.ID)), lines: []cartLine{l}})
+		case it.ID == rowStorm: // no courier: the jar is shaken at once (items.go)
+			g.shakeJar()
 		case it.Hire: // no courier: they walk in themselves
 			g.staffPaid += l.cost()[Money]
 			for range l.n {
@@ -327,6 +338,11 @@ func (g *Game) ship(order []cartLine) {
 			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
 		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
+		case isQuestRow(it.ID): // 08 W5: the wreath to Madame's door, the crate into Madame's Room
+			c.drops = append(c.drops, g.shipQuest(l)...)
+			if it.ID == rowCrate {
+				g.clearMadame()
+			}
 		case !it.room():
 			stock.lines = append(stock.lines, l)
 		default:
@@ -349,6 +365,8 @@ func (g *Game) receive(l cartLine) {
 	switch {
 	case it.room():
 		it.Send(g, l)
+	case isQuestRow(it.ID): // 08 W5
+		g.receiveQuest(l)
 	case it.Tab == tabSupplies:
 		if g.stock == nil {
 			g.stock = map[Unlock]int{}

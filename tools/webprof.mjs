@@ -15,7 +15,7 @@ import os from "node:os";
 const opt = process.argv.slice(2).filter(a => a.startsWith("--")), pos = process.argv.slice(2).filter(a => !a.startsWith("--"));
 const [args = "", secs = "6"] = pos;
 const chrome = process.env.CHROME ?? "C:/Program Files/Google/Chrome/Application/chrome.exe";
-const port = 9333, settle = +(process.env.SETTLE ?? 4000);
+const port = +(process.env.DEBUGPORT ?? 9333), site = process.env.SITE ?? "localhost:8080", settle = +(process.env.SETTLE ?? 4000);
 const browser = spawn(chrome, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${os.tmpdir()}/webprof`, "--use-angle=d3d11",
   "--enable-gpu", "--ignore-gpu-blocklist", "--window-size=960,540", "--no-first-run", "about:blank"], { stdio: "ignore" });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -34,7 +34,7 @@ try {
   const s = (m, p) => send(m, p, sessionId);
   await s("Runtime.enable"); await s("Profiler.enable");
   await s("Emulation.setDeviceMetricsOverride", { width: 960, height: 540, deviceScaleFactor: 1, mobile: false });
-  await s("Page.navigate", { url: `http://localhost:8080/play?fps&args=${encodeURIComponent(args)}` });
+  await s("Page.navigate", { url: `http://${site}/play?fps&args=${encodeURIComponent(args)}` });
   await sleep(settle);
   const ev = async e => (await s("Runtime.evaluate", { expression: e, awaitPromise: true, returnByValue: true })).result?.value;
   const gpu = await ev(`(()=>{const c=document.createElement('canvas').getContext('webgl2');const x=c&&c.getExtension('WEBGL_debug_renderer_info');return x?c.getParameter(x.UNMASKED_RENDERER_WEBGL):'?'})()`);

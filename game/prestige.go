@@ -20,7 +20,20 @@ const (
 	prestigeEcto          = 300        // Ectoplasm: Father P's fee
 	prestigeDonate        = 10         // Money that counts as 1 Ectoplasm in the bonus: $1000 is 100 Ecto
 	prestigeUnit          = 6000       // Ectoplasm (donated Money included) that gives +1 of bonus (08 W3 sim: keeps a Run near 30 min)
+	macguffinBonus        = 0.25       // 08 W5: the one Bonus step the MacGuffin's summoning adds, once ever (placeholder)
 )
+
+// fatherPLine: what Father P adds on his confirm card about the questline (08 W5): once beat 3 has ever been done, and
+// after the finale, "" before.
+func (g *Game) fatherPLine() string {
+	switch {
+	case g.questRec.MacGuffin:
+		return fatherPQuest[1]
+	case g.timesDone(3) > 0:
+		return fatherPQuest[0]
+	}
+	return ""
+}
 
 // prestigeReady: the hotel is at its largest and every Room is owned.
 func (g *Game) prestigeReady() bool {
@@ -70,12 +83,16 @@ func (g *Game) resetRun() {
 	g.rng, g.chat, g.words = rand.New(rand.NewPCG(seed, seed)), rand.New(rand.NewPCG(seed, seed+1)), rand.New(rand.NewPCG(seed, seed+2))
 	g.seedIdent(seed)
 	g.up = [upgradeCount]int{}
+	stayed := g.macguffinParty() != nil          // 08 W5: its stay is signed at the Run's end, the next notebook's first entry
 	g.guestBook, g.met, g.leftAt = nil, nil, nil // the notebook is the Run's; the visits stay
 	g.runEcto, g.prestigeAsk, g.termTab, g.termPick = 0, false, 0, 0
 	intro := g.introOn
 	g.introOn = false
 	g.startRun() // rebuilds the start grid (ungrow) and everything a Run owns
 	g.introOn = intro
+	if stayed {
+		g.guestBook = []bookEntry{{macguffinCard.Name, macguffinCard.Book, day(g.clock), outCozy}}
+	}
 	g.notice(fmt.Sprintf("LEVEL %d   BONUS X%.2f", g.level, g.bonus))
 }
 
@@ -92,6 +109,9 @@ func (g *Game) drawPrestigeCard(s *ebiten.Image) {
 	g.tintedAt(s, fmt.Sprintf("            BONUS X%.2f -> X%.2f ON ALL INCOME", g.bonus, g.bonus+g.prestigeGain()), x, y+90, 1, storeEcto, 1)
 	g.tintedAt(s, "YOU LOSE   THE HOTEL, MONEY, ECTOPLASM,", x, y+130, 1, assets.Locked, 1)
 	g.tintedAt(s, "            UNLOCKS AND STAFF. LEVEL AND BONUS STAY.", x, y+150, 1, assets.Locked, 1)
+	for i, l := range wrapAt(g.fatherPLine(), 78) {
+		g.tintedAt(s, l, x, y+172+i*14, 1, storeDim, 1)
+	}
 	g.tintedAt(s, "SPACE PAY", x, y+h-44, 2, storeInk, 1)
 	g.drawPrice(s, Cost{Ecto: prestigeEcto}, x+9*2*glyphW+12, y+h-44, 2, false)
 	g.tintedAt(s, "ESC BACK", x+w-40-8*glyphW, y+h-40, 1, storeDim, 1)
