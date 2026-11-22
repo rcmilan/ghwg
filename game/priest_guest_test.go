@@ -134,3 +134,16 @@ func TestPriestGuestNeverNamed(t *testing.T) {
 		}
 	}
 }
+
+// After the finale a Father guest's card also has the sun line, an answer to Magenta's studies (live test 6).
+func TestFatherSunAfterFinale(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.becomeFather(g.arrive(0), false)
+	g.questRec.MacGuffin = true
+	g.becomeFather(g.arrive(1), true)
+	k, m := g.parties[0].Guests[0].Who.Lines, g.parties[1].Guests[0].Who.Lines
+	if slices.Contains(k, fatherSun) || !slices.Contains(m, fatherSun) || slices.Contains(fatherLines[1], fatherSun) {
+		t.Fatalf("before: %q; after: %q", k, m)
+	}
+}

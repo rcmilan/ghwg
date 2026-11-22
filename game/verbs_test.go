@@ -754,6 +754,18 @@ func TestO11Haft(t *testing.T) {
 	if q := g.verbQuote(m, m.Guests[0]); q != o11Magenta { // the fetch-quest joke (live test 5)
 		t.Fatalf("Magenta's Card while O11 is open: %q", q)
 	}
+	g.questRec.MacGuffin = true
+	if q := g.verbQuote(m, m.Guests[0]); q != o11Magenta {
+		t.Fatalf("after the finale, an open ask still comes first: %q", q)
+	}
+	g.quest.Done = make([]bool, len(g.quest.Done))
+	for i := range g.quest.Done {
+		g.quest.Done[i] = true
+	}
+	if q := g.verbQuote(m, m.Guests[0]); q != magentaStudy {
+		t.Fatalf("Magenta with nothing to ask after the finale: %q", q)
+	}
+	g.questRec.MacGuffin, g.quest.Done = false, make([]bool, len(g.quest.Done))
 	a := g.ally()
 	if a != "celestine" && a != "tim" {
 		t.Fatalf("ally %q", a)

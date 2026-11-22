@@ -168,6 +168,9 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 				return objOf(id).Ask
 			}
 		}
+		if g.questRec.MacGuffin { // nothing to ask, and the MacGuffin a regular since the finale
+			return magentaStudy
+		}
 	case k == "tim" && g.questOpen("O5"):
 		return objOf("O5").Ask
 	case k == "tim" && g.questOpen("O9"): // the talk is the asking: the step ticks

@@ -327,10 +327,10 @@ func (g *Game) drawO4(screen *ebiten.Image, bg color.Color) {
 	open := ease(float64(t-o4Eyes)/15) * (1 - ease(float64(t-end)/15))
 	open *= 1 - max(0, 1-math.Abs(float64(t-o4Say-70))/4) // one blink
 	cx, cy := float64(b.Dx())/2, float64(b.Dy())/2-10*zoom
-	for _, d := range []float64{-eyeDx, eyeDx} {
-		g.glowAt(screen, cx+d*zoom, cy, 2*14*zoom, moonLight, .35*open)
+	for _, d := range []float64{-6, 6} {
+		g.glowAt(screen, cx+d*zoom, cy, 14*zoom, [3]float32{1, .15, .1}, .4*open)
 	}
-	drawEyes(screen, cx, cy, zoom, open)
+	drawSlits(screen, cx, cy, zoom, open)
 	if i := (t - o4Say) / lineHold; t >= o4Say && i < dashes(g.level) {
 		age := float64(t - o4Say - i*lineHold)
 		y := cy + float64(14*zoom+glyphH*2+2)
@@ -622,20 +622,29 @@ func finaleLine(t int) (i, age int) {
 	return -1, 0
 }
 
-// eyeDx: each eye's offset from the middle, world px (the eyes are drawn at twice their first size).
-const eyeDx = 14
-
-// drawEyes: the spirit's two eyes at (x,y), u screen px a world px; open 0..1.
+// drawEyes: the MacGuffin's two eyes at (x,y), u screen px a world px; open 0..1.
 func drawEyes(s *ebiten.Image, x, y, u, open float64) {
+	eyePair(s, x, y, 2*u, open, 7, 4.4, 3, color.White)
+}
+
+// drawSlits: the O4 spirit's eyes, two small red slits: a servant, not the MacGuffin (live test 6).
+func drawSlits(s *ebiten.Image, x, y, u, open float64) {
+	eyePair(s, x, y, u, open, 6, .9, 4.5, slitRed)
+}
+
+var slitRed = color.NRGBA{230, 40, 40, 255}
+
+// eyePair: two eyes dx apart either side of (x,y), each an ellipse rx by ry (u screen px a unit), closed to a line
+// as open goes to 0.
+func eyePair(s *ebiten.Image, x, y, u, open, dx, rx, ry float64, c color.Color) {
 	if open <= 0 {
 		return
 	}
-	u *= 2
-	for _, d := range []float64{-7, 7} {
+	for _, d := range []float64{-dx, dx} {
 		var p vector.Path
 		for i := 0; i < 24; i++ {
 			a := 2 * math.Pi * float64(i) / 24
-			px, py := float32(x+(d+4.4*math.Cos(a))*u), float32(y+3*open*math.Sin(a)*u)
+			px, py := float32(x+(d+rx*math.Cos(a))*u), float32(y+ry*open*math.Sin(a)*u)
 			if i == 0 {
 				p.MoveTo(px, py)
 			} else {
@@ -644,7 +653,7 @@ func drawEyes(s *ebiten.Image, x, y, u, open float64) {
 		}
 		p.Close()
 		dp := &vector.DrawPathOptions{AntiAlias: true}
-		dp.ColorScale.ScaleWithColor(color.White)
+		dp.ColorScale.ScaleWithColor(c)
 		vector.FillPath(s, &p, &vector.FillOptions{}, dp)
 	}
 }

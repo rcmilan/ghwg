@@ -565,6 +565,7 @@ var devCast = map[string][]string{
 	"O1": {"magenta@0", "ghost@0"}, "O2": {"magenta@0", "celestine@1"}, "O3": {"magda@0", "celestine@1"},
 	"O5": {"tim@0"}, "O6": {"teo@0", "ghost@1"}, "O7": {"magda@0", "osvaldo@1"}, "O8": {"celestine@1"},
 	"O9": {"tim@0", "human@1", "human@2"}, "O10": {"magenta@0", "celestine@1"}, "O11": {"magenta@0", "celestine@1", "tim@2"},
+	"O13": {"magenta@0"}, // with -macguffin: Magenta with nothing to ask, after the finale
 }
 
 // DevVerb is main's -verb O<n>: a Run at that objective with its guests in, for prints. In ghost (-ghost) it shows the
@@ -647,6 +648,8 @@ func (g *Game) DevVerb(id string) {
 		g.rollSet("O9.took", 1)
 		g.saw("O9.read")
 		g.verbs.held = "O9"
+		at(g.hotel.Rooms[0].Mat())
+	case "O13":
 		at(g.hotel.Rooms[0].Mat())
 	case "O11": // the haft in hand, by Magenta's Room: GIVE gets her Done line
 		g.rollSet("O11.took", 1)
