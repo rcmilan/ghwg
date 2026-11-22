@@ -17,7 +17,7 @@ import (
 // 08 W5-SCENE: the questline's three cutscenes, each built only from staging the game already has and speaking in
 // one-liners (circle.md "Cutscenes: very few"). The world stops (as Father P's does: nothing steps, g.tick runs) and
 // Update/Draw hand over to the scene while g.scene.id is set. Each plays in full the first time and SPACE skips it
-// on a replay. When one ends it reports questEvent(evScene, -1, id).
+// on a replay (not while a line waits: then SPACE only moves that line on). Every line waits for SPACE (sceneHolds). When one ends it reports questEvent(evScene, -1, id).
 //
 //	O4      the whole screen fades to black, two eyes open in it and say o4Lines, they close, the screen fades back; the
 //	        running spirit is removed while it is fully black
@@ -126,7 +126,7 @@ func (g *Game) playQuestScene(id string) {
 		g.finaleStart()
 	case "hand":
 		g.scene.line, g.scene.lineAt = handLine, sceneIn
-		g.scene.out = sceneIn + sayLen(handLine)
+		g.scene.out = untilSpace
 	}
 }
 
@@ -163,7 +163,12 @@ func (g *Game) stepScene() {
 		g.stepHand()
 		return
 	}
-	if s.t > 0 && g.sceneSeen() && g.in.JustPressed(ebiten.KeySpace) {
+	space := g.in.JustPressed(ebiten.KeySpace)
+	if g.sceneWaiting() {
+		if !space {
+			return
+		}
+	} else if s.t > 0 && g.sceneSeen() && space {
 		g.endScene()
 		return
 	}
@@ -185,6 +190,44 @@ func (g *Game) stepScene() {
 	}
 	if s.t++; s.t >= g.sceneLen() {
 		g.endScene()
+	}
+}
+
+// sceneHolds: the frames a line is fully up and waits for SPACE, the timeline stopped there. The fade-out the
+// line's draw starts at lineHold-15 (or the scene's let-go) plays after SPACE.
+func (g *Game) sceneHolds() []int {
+	switch g.scene.id {
+	case "O4":
+		var hs []int
+		for i := range dashes(g.level) {
+			hs = append(hs, o4Say+(i+1)*lineHold-15)
+		}
+		return hs
+	case "O9":
+		return []int{o9Click - 1, o9Len - sceneOut - 1}
+	case "finale":
+		return []int{fLines + lineHold - 15, fLine2 + lineHold - 15}
+	}
+	return nil
+}
+
+// sceneWaiting: a line is up and waits for SPACE (the prompt shows). The talk and the hand wait from the moment
+// their line is closed in on; their stepX reads the SPACE.
+func (g *Game) sceneWaiting() bool {
+	s := &g.scene
+	switch s.id {
+	case "talk":
+		return s.line != "" && s.t >= max(s.lineAt, sceneIn) && (!s.did || s.t < s.out)
+	case "hand":
+		return s.t >= max(s.lineAt, sceneIn) && s.t < s.out
+	}
+	return slices.Contains(g.sceneHolds(), s.t)
+}
+
+// waitKey: the blinking SPACE prompt, small, centred on x with its top at y.
+func (g *Game) waitKey(screen *ebiten.Image, x float64, y int) {
+	if g.tick/30%2 == 0 {
+		outline(screen, "SPACE", int(x)-5*glyphW/2, y, 1, color.NRGBA{190, 190, 200, 255}, 1)
 	}
 }
 
@@ -263,11 +306,13 @@ func (g *Game) drawFocused(screen *ebiten.Image, bg color.Color, wx, wy, k, e fl
 }
 
 // sayText: the line, centred over (x,y) in outlined words, wrapped, its bottom line at y.
-func sayText(s *ebiten.Image, line string, x, y float64, a float32) {
+// It returns the block's top.
+func sayText(s *ebiten.Image, line string, x, y float64, a float32) int {
 	ls := wrapAt(line, 40)
 	for i, l := range ls {
 		outline(s, l, int(x)-len(l)*glyphW, int(y)-(len(ls)-i)*(glyphH*2+2), 2, color.White, a)
 	}
+	return int(y) - len(ls)*(glyphH*2+2)
 }
 
 // o4End: the frame the eyes start to close, after one line per dash.
@@ -285,20 +330,24 @@ func (g *Game) drawO4(screen *ebiten.Image, bg color.Color) {
 	open := ease(float64(t-o4Eyes)/15) * (1 - ease(float64(t-end)/15))
 	open *= 1 - max(0, 1-math.Abs(float64(t-o4Say-70))/4) // one blink
 	cx, cy := float64(b.Dx())/2, float64(b.Dy())/2-10*zoom
-	for _, d := range []float64{-7, 7} {
-		g.glowAt(screen, cx+d*zoom, cy, 14*zoom, moonLight, .35*open)
+	for _, d := range []float64{-eyeDx, eyeDx} {
+		g.glowAt(screen, cx+d*zoom, cy, 2*14*zoom, moonLight, .35*open)
 	}
 	drawEyes(screen, cx, cy, zoom, open)
 	if i := (t - o4Say) / lineHold; t >= o4Say && i < dashes(g.level) {
 		age := float64(t - o4Say - i*lineHold)
-		sayText(screen, o4Lines[i], cx, cy+float64(14*zoom+glyphH*2+2), float32(ease(age/8)*(1-ease((age-lineHold+15)/15))))
+		y := cy + float64(14*zoom+glyphH*2+2)
+		sayText(screen, o4Lines[i], cx, y, float32(ease(age/8)*(1-ease((age-lineHold+15)/15))))
+		if g.sceneWaiting() {
+			g.waitKey(screen, cx, int(y)+2)
+		}
 	}
 }
 
 // handLine: what the handprint says, up close.
 const handLine = "Five fingers, pressed from the other side. It's waving."
 
-// stepHand: the frame closes in on the handprint, its line (SPACE, once closed in, cuts it short), the frame lets go;
+// stepHand: the frame closes in on the handprint, its line (until SPACE, once closed in), the frame lets go;
 // then the door's O4 is done.
 func (g *Game) stepHand() {
 	s := &g.scene
@@ -318,27 +367,33 @@ func (g *Game) drawHandScene(screen *ebiten.Image, bg color.Color) {
 	on := g.drawFocused(screen, bg, float64(s.at.X), float64(s.at.Y), 1+(sceneZoom-1)*e, e)
 	if s.t >= s.lineAt && s.t < s.out {
 		x, y := on(float64(s.at.X), float64(s.at.Y)-world.TileSize)
-		sayText(screen, handLine, x, y, float32(ease(float64(s.t-s.lineAt)/8)))
+		top := sayText(screen, handLine, x, y, float32(ease(float64(s.t-s.lineAt)/8)))
+		if g.sceneWaiting() {
+			g.waitKey(screen, x, top-glyphH-2)
+		}
 	}
 }
 
 // ---- talk
 
-// sayLen: frames a talk's line stays up, by its length; 0 for none.
+// untilSpace: a line's end, while it waits for SPACE.
+const untilSpace = 1 << 30
+
+// sayLen: when a talk's line ends from frame 0: at once for none, else when SPACE says so.
 func sayLen(line string) int {
 	if line == "" {
 		return 0
 	}
-	return max(lineHold, 4*len(line))
+	return untilSpace
 }
 
-// stepTalk: the frame closes in, the line, the hand-over (questHand) and its done line, the frame lets go. SPACE,
-// once closed in, cuts the line under way short.
+// stepTalk: the frame closes in, the line, the hand-over (questHand) and its done line, the frame lets go. Each
+// line stays up until SPACE (once closed in).
 func (g *Game) stepTalk() {
 	s := &g.scene
 	space := s.t >= sceneIn && g.in.JustPressed(ebiten.KeySpace)
 	switch {
-	case !s.did && (space || s.t >= s.lineAt+sayLen(s.line)):
+	case !s.did && (space || s.line == "" && s.t >= s.lineAt):
 		pre := s.line
 		done := g.questHand(s.tp, s.tg)
 		if g.scene.id != "talk" { // it played a cutscene in the talk's place
@@ -368,7 +423,10 @@ func (g *Game) drawTalkScene(screen *ebiten.Image, bg color.Color) {
 	on := g.drawFocused(screen, bg, gu.X, gu.Y-charH/2, 1+(sceneZoom-1)*e, e)
 	if s.line != "" && s.t >= s.lineAt && (!s.did || s.t < s.out) {
 		x, y := on(gu.X, gu.Y-charH)
-		sayText(screen, s.line, x, y-6, float32(ease(float64(s.t-s.lineAt)/8)))
+		top := sayText(screen, s.line, x, y-6, float32(ease(float64(s.t-s.lineAt)/8)))
+		if g.sceneWaiting() {
+			g.waitKey(screen, x, top-glyphH-2)
+		}
 	}
 }
 
@@ -433,7 +491,7 @@ func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
 	x, y := on(nx, ny)
 	u := zoom * k
 	if t >= o9Line1 && t < o9Click {
-		sayText(screen, o9Lines[0], x, y-(charH+2)*u, 1)
+		g.o9Say(screen, o9Lines[0], x, y-(charH+2)*u)
 	}
 	if t >= o9Gem {
 		img := g.gemIcon()
@@ -460,7 +518,14 @@ func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
 		}
 	}
 	if t >= o9Line2 && t < o9Len-sceneOut {
-		sayText(screen, o9Lines[1], x, y-(charH+2)*u, 1)
+		g.o9Say(screen, o9Lines[1], x, y-(charH+2)*u)
+	}
+}
+
+func (g *Game) o9Say(screen *ebiten.Image, line string, x, y float64) {
+	top := sayText(screen, line, x, y, 1)
+	if g.sceneWaiting() {
+		g.waitKey(screen, x, top-glyphH-2)
 	}
 }
 
@@ -580,11 +645,15 @@ func finaleLine(t int) (i, age int) {
 	return -1, 0
 }
 
+// eyeDx: each eye's offset from the middle, world px (the eyes are drawn at twice their first size).
+const eyeDx = 14
+
 // drawEyes: the spirit's two eyes at (x,y), u screen px a world px; open 0..1.
 func drawEyes(s *ebiten.Image, x, y, u, open float64) {
 	if open <= 0 {
 		return
 	}
+	u *= 2
 	for _, d := range []float64{-7, 7} {
 		var p vector.Path
 		for i := 0; i < 24; i++ {
@@ -705,7 +774,11 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 		drawEyes(screen, float64(b.Dx())/2, float64(b.Dy())/2, zoom, open)
 	}
 	if i, age := finaleLine(t); i >= 0 { // the lines, as subtitles: the MacGuffin's, then Celestine's
-		sayText(screen, finaleLines[i], float64(b.Dx())/2, float64(b.Dy())-36, float32(ease(float64(age)/10)*(1-ease(float64(age-lineHold+15)/15))))
+		y := float64(b.Dy()) - 36
+		sayText(screen, finaleLines[i], float64(b.Dx())/2, y, float32(ease(float64(age)/10)*(1-ease(float64(age-lineHold+15)/15))))
+		if g.sceneWaiting() {
+			g.waitKey(screen, float64(b.Dx())/2, int(y)+2)
+		}
 	}
 }
 

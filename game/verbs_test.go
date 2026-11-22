@@ -59,7 +59,7 @@ func talkOut(g *Game) (ls []string) {
 		if i > 10000 {
 			panic("the talk never ends")
 		}
-		g.stepScene()
+		stepPressing(g)
 	}
 	return ls
 }
@@ -390,8 +390,9 @@ func TestO4SpiritLitByTheBeam(t *testing.T) {
 	if g.verbs.spirit.on || g.verbs.spirit.fold != 0 {
 		t.Error("the spirit is still there in the black")
 	}
+	g.in = &script{}
 	for g.scene.on() {
-		g.stepScene()
+		stepPressing(g)
 	}
 	g.ghost = true // SHIFT: SPACE on the door
 	s := &script{}
@@ -401,7 +402,7 @@ func TestO4SpiritLitByTheBeam(t *testing.T) {
 		t.Fatalf("SPACE on the handprint door should start its close-up first (scene %q)", g.scene.id)
 	}
 	for i := 0; g.scene.on() && i < 1000; i++ {
-		g.stepScene()
+		stepPressing(g)
 	}
 	if !reported(g, "O4") {
 		t.Error("the handprint close-up did not finish O4")

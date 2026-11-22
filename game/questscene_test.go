@@ -27,7 +27,11 @@ func runScene(t *testing.T, g *Game, s *script, max int) int {
 		if i > max {
 			t.Fatalf("scene %q never ended", g.scene.id)
 		}
-		s.hold()
+		if g.sceneWaiting() && !s.now[ebiten.KeySpace] {
+			s.hold(ebiten.KeySpace)
+		} else {
+			s.hold()
+		}
 		g.Update()
 	}
 }
@@ -72,7 +76,11 @@ func TestFinaleSummonsOnce(t *testing.T) {
 		if i > 3*fLen {
 			t.Fatal("the finale never ended")
 		}
-		s.hold()
+		if g.sceneWaiting() && !s.now[ebiten.KeySpace] {
+			s.hold(ebiten.KeySpace)
+		} else {
+			s.hold()
+		}
 		g.Update()
 	}
 	if g.scene.id != "credits" || !g.questRec.MacGuffin || g.bonus != bonus+macguffinBonus {
@@ -118,5 +126,36 @@ func TestFatherPQuestLine(t *testing.T) {
 	g.questRec.MacGuffin = true
 	if g.fatherPLine() != fatherPQuest[1] {
 		t.Fatalf("after the finale: %q", g.fatherPLine())
+	}
+}
+
+// stepPressing: one scene step, SPACE down on the frames a line waits for it and up in between.
+func stepPressing(g *Game) {
+	s := g.in.(*script)
+	if g.sceneWaiting() && !s.now[ebiten.KeySpace] {
+		s.hold(ebiten.KeySpace)
+	} else {
+		s.hold()
+	}
+	g.stepScene()
+}
+
+// Every line waits: with no SPACE the scene never ends, and each SPACE moves exactly one line on.
+func TestSceneLinesWaitForSpace(t *testing.T) {
+	g, s, _ := sceneGame(t)
+	g.level = 1
+	g.playQuestScene("O9")
+	for range 3 * o9Len {
+		s.hold()
+		g.Update()
+	}
+	if g.scene.t != o9Click-1 || !g.sceneWaiting() {
+		t.Fatalf("O9 should wait at its first line, t = %d", g.scene.t)
+	}
+	for i := 0; g.scene.on(); i++ {
+		if i > 2*o9Len {
+			t.Fatal("O9 never ended")
+		}
+		stepPressing(g)
 	}
 }

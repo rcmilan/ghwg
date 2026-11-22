@@ -65,6 +65,9 @@ func (g *Game) notice(text string) {
 }
 
 // noticesHidden: the open Terminal covers every notice (they keep ticking meanwhile).
+// talkUp: a talk, a card or a cutscene is up: Money and Ecto stay off the screen.
+func (g *Game) talkUp() bool { return g.scene.on() || g.parley != nil || g.state == StateTalk }
+
 func (g *Game) noticesHidden() bool { return g.state == StateTerminal }
 
 // slot: a notice's place in its side column: how far in it is slid, and its top, screen px.
@@ -199,7 +202,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 	}
 	for r, c := range g.hud {
 		y := int(c.y)
-		if c.in == 0 || g.state == StateTerminal { // the Terminal's own bar shows the wallet (08 F0-T)
+		if c.in == 0 || g.state == StateTerminal || g.talkUp() { // the Terminal's own bar shows the wallet (08 F0-T); a talk, a card or a cutscene shows none
 			continue
 		}
 		ease := c.in * c.in * (3 - 2*c.in)
