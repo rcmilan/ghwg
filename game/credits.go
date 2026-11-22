@@ -39,17 +39,21 @@ func (g *Game) drawCredits(screen *ebiten.Image) {
 		printAt(screen, v, (screenW-len(v)*glyphW*int(scale))/2, y, scale, c, a)
 	}
 	if s.page == 0 {
-		y := 16
-		for i, l := range credits {
-			sc := 2.0
-			if i == 0 {
-				sc = 3
-			}
-			centre(l, y, sc, color.White, a)
-			y += int(glyphH*sc) + 8
+		scale := func(i int) int { return 2 + b2i(i == 0) } // the title larger
+		step := func(i int, l string) int {                 // the line's height and the gap after it
 			if l == "" { // a blank is a gap, not a line, so the whole fits the screen
-				y -= 28
+				return 12
 			}
+			return glyphH*scale(i) + 8
+		}
+		h := -8 // no gap after the last line
+		for i, l := range credits {
+			h += step(i, l)
+		}
+		y := (screenH - h) / 2 // centred on the screen
+		for i, l := range credits {
+			centre(l, y, float64(scale(i)), color.White, a)
+			y += step(i, l)
 		}
 		return
 	}
