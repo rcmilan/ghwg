@@ -65,7 +65,7 @@ func main() {
 	items := flag.String("items", "", "dev: own these of Magenta's items from the start (all, or ball,broom,gerald,cat,ward,storm); Gerald and the Ward in Room 101, the Cat napping beside you (with -shot -at, -ghost; -view 0,1,0 shows the ring)")
 	quest := flag.Int("quest", 0, "dev: start a Run at questline beat n (1..7; the level raised to play it) with the earlier beats done and its guests in; -ghost shows the ghost checklist")
 	story := flag.Bool("story", false, "dev: story mode, to test the questline fast: each Growth fires free as its beat ends, all 7 beats open at any Level, quest guests check in at once")
-	scene := flag.String("scene", "", "dev: a busy hotel with Tim and Celestine in it, a quest cutscene playing: O4, O9 or finale (with -shot -at: the frame; -ghost for O4 and O9)")
+	scene := flag.String("scene", "", "dev: a busy hotel with Tim and Celestine in it, a quest cutscene playing: O4, O9, finale or crate (with -shot -at: the frame; -ghost for O4 and O9)")
 	macguffin := flag.Bool("macguffin", false, "dev: a busy Run with the MacGuffin summoned and checked into the best Room (with -shot -at, -ghost)")
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
 	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")

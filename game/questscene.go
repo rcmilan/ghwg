@@ -51,21 +51,19 @@ const (
 	fWalk       = 10  // everyone walks in by the door
 	fRingAt     = 90  // Magenta traces the circle
 	fPoints     = 240 // the five take their points (over 50)
-	fCourier    = 320 // the Courier walks in with the crate...
-	fSet        = 380 // ...sets it down in the middle, and walks out
-	fLight      = 450 // the circle lights up
-	fLid        = 480 // the lid lifts; stars pour up
-	fFigure     = 540 // the starry figure unfolds (over 90)
-	fLines      = 680 // the MacGuffin's line
-	fCap        = 840 // Tim takes his cap off (over fCapLift), then fades (over fFade)
+	fLight      = 330 // the circle lights up (the crate has been on the floor since before the scene)
+	fLid        = 360 // the lid lifts; stars pour up
+	fFigure     = 420 // the starry figure unfolds (over 90)
+	fLines      = 560 // the MacGuffin's line
+	fCap        = 720 // Tim takes his cap off (over fCapLift), then fades (over fFade)
 	fCapLift    = 40
 	fFade       = 50
 	fGone       = fCap + fCapLift + fFade
-	fDark       = 930  // the screen goes dark (over 40)
-	fEyes       = 1000 // the spirit's eyes open (30), stay (fEyesHold), close for good (30)
+	fDark       = 810 // the screen goes dark (over 40)
+	fEyes       = 880 // the spirit's eyes open (30), stay (fEyesHold), close for good (30)
 	fEyesHold   = 50
-	fLine2      = 1140 // Celestine's line, over the dark
-	fLen        = 1300
+	fLine2      = 1020 // Celestine's line, over the dark
+	fLen        = 1180
 
 	lineHold = 140
 )
@@ -81,7 +79,6 @@ type sceneState struct {
 	pl    entities.Guest
 	crate image.Point // finale: the circle's centre and the crate's foot, world px
 	door  image.Point // finale: Madame's door, where they walk in
-	cour  entities.Guest
 	timAt image.Point
 	buf   *ebiten.Image
 	mac   macLook
@@ -515,8 +512,17 @@ func (g *Game) o9Say(screen *ebiten.Image, line string, x, y float64) {
 // finaleKeys: who takes a point on the circle, in order; the Concierge stands outside it.
 var finaleKeys = [...]string{"magenta", "celestine", "tim", "magda", "osvaldo"}
 
-// finaleRoom: Madame's Room (the first Room if she is not in the hotel).
+// finaleCrate: the circle's centre on Room r's floor, where the courier sets the crate down.
+func finaleCrate(r world.Room) image.Point {
+	sh := r.Shell()
+	return image.Pt((sh.Min.X+sh.Max.X)/2, (sh.Min.Y+sh.Max.Y)/2+fCircleDy)
+}
+
+// finaleRoom: the Room the crate was set down in, else Madame's (the first Room if she is not in the hotel).
 func (g *Game) finaleRoom() world.Room {
+	if v := g.rollGet("O13.crate"); v > 0 && v <= len(g.hotel.Rooms) {
+		return g.hotel.Rooms[v-1]
+	}
 	i := g.roomOfKey("celestine")
 	if c := g.findGuest("celestine"); i < 0 && c != nil {
 		i = g.roomAt(c.X, c.Y)
@@ -529,16 +535,11 @@ func (g *Game) finaleRoom() world.Room {
 func (g *Game) finaleStart() {
 	s := &g.scene
 	r := g.finaleRoom()
-	sh := r.Shell()
-	s.crate = image.Pt((sh.Min.X+sh.Max.X)/2, (sh.Min.Y+sh.Max.Y)/2+fCircleDy)
+	s.crate = finaleCrate(r)
 	s.door = image.Pt(r.Door.X*gts+gts/2, r.Door.Y*gts+gts/2)
 	if i := slices.IndexFunc(g.hotel.Rooms, func(x world.Room) bool { return x.Origin == r.Origin }); i < len(g.fog) {
 		g.fog[i] = 0 // the Room is clear for the staging
 	}
-	for _, c := range g.couriers {
-		c.out = false // his own walk is shown by the scene
-	}
-	s.cour = entities.NewGuest(s.door, courierBox)
 	home := image.Pt(int(g.player.X), int(g.player.Y))
 	s.pl = entities.NewGuest(home, "Bob")
 	s.pl.X, s.pl.Y = g.player.X, g.player.Y
@@ -603,14 +604,6 @@ func (g *Game) stepFinale() {
 			s.timAt = image.Pt(int(tim.X), int(tim.Y))
 		}
 		tim.X, tim.Y = -1000, -1000
-	}
-	if t >= fSet { // the Courier: in with the crate, sets it down, out
-		s.cour.X, s.cour.Y = lerpPt(s.crate, s.door, float64(t-fSet)/60)
-	} else {
-		s.cour.X, s.cour.Y = lerpPt(s.door, s.crate.Add(image.Pt(0, 14)), float64(t-fCourier)/60)
-	}
-	if t >= fCourier {
-		s.cour.Anim.Update(s.cour.X, s.cour.Y, 1)
 	}
 	mw, mh := g.mapSize()
 	g.cam.Follow(float64(s.crate.X), float64(s.crate.Y), mw, mh)
@@ -700,17 +693,8 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 		drawRing(screen, cx, cy, fRadius*zoom, 1, 4, kTint, lit)
 		g.glowAt(screen, cx, cy, fRadius*zoom*2.6, moonLight, .35*lit)
 	}
-	if t >= fCourier && t < fSet+60 { // the Courier, the crate in his arms till he sets it down
-		x, y := at(s.cour.X, s.cour.Y)
-		name := courierBox
-		if t >= fSet {
-			name = courierName
-		}
-		g.drawCharacter(screen, int(x), int(y), name, s.cour.Anim, 0)
-	}
-	if t >= fSet && t < fDark {
-		fall := 8 * (1 - ease(float64(t-fSet)/10)) * zoom
-		g.drawCrate(screen, cx, cy-fall, ease(float64(t-fLid)/60))
+	if t < fDark {
+		g.drawCrate(screen, cx, cy, ease(float64(t-fLid)/60))
 	}
 	for i := range 70 { // stars pour up out of it
 		j := jitter(i)
@@ -810,6 +794,17 @@ func (g *Game) DevScene(id string) {
 			g.nameHuman(p, namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })])
 			g.settleIn(p)
 		}
+	}
+	if id == "crate" { // the crate sits in Madame's Room before the finale; the Concierge waits in the Corridor at her door
+		room := max(0, g.roomOfKey("celestine"))
+		g.rollSet("O13.crate", room+1)
+		d := g.doorDrop(room)
+		g.fog[room] = 0
+		g.player.X, g.player.Y = float64(d.X), float64(d.Y)
+		mw, mh := g.mapSize()
+		c := finaleCrate(g.hotel.Rooms[room])
+		g.cam.Snap(float64(c.X), float64(c.Y), mw, mh)
+		return
 	}
 	if id == "hand" {
 		g.scene.at = image.Pt(int(g.player.X), int(g.player.Y)-world.TileSize)

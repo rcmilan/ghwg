@@ -504,7 +504,7 @@ A quest ghost asks for a Supply: fetched in real, delivered with SPACE at its do
 While an Objective wants a guest in a given Room, the talk always offers that Room, sure, for the discount alone.
 
 **Quest row**:
-A one-off Terminal order shown only while its Objective is open: the Wreath, walked by the Courier to Madame's door; the Crate, to Madame's room. Buying the Crate makes everyone else in her room check out at once and books nobody into it until the finale is done.
+A one-off Terminal order shown only while its Objective is open: the Wreath, walked by the Courier to Madame's door; the Crate, carried by the Courier into Madame's room and set down on the floor at the middle of the finale's circle, after which he walks out. Buying the Crate makes everyone else in her room check out at once and books nobody into it until the finale is done. The Crate stays on the floor (both Dimensions) until the Concierge is inside the room and the Courier is out of it: then O13 is done and the finale plays (first time ever; a replay is done at delivery, no scene). It is saved with the Run's rolls, so a resumed game keeps it.
 
 **Spirit**:
 O4's spirit: at night it dashes along a Corridor; caught in the Lantern beam it shows only two eyes ("I SERVE ANOTHER.") and is gone, leaving a glowing handprint on a door, found in ghost, that waves.
@@ -517,7 +517,7 @@ _Avoid_: power-up, relic
 O4's two (the spirit's eyes in the dark, the handprint close-up), O9's key (a close-in on Tim's hands, the gem rising) and the finale (Madame's room, the circle drawn on its floor): the world stops, every line waits for SPACE (no prompt shows); it plays in full the first time and SPACE skips a replay, except while a line waits (then SPACE only moves that line on). The spirit's eyes are drawn at twice their first size. Money and Ecto stay off the screen during a talk, a card or a cutscene.
 
 **MacGuffin**:
-The Eternal Eldritch MacGuffin, summoned once ever by the finale (the Crate reaching Madame's room, where the circle is drawn on the floor). From then on it books the best Room every Run from the first Growth, pays 5 times the Rate, never leaves, asks or flees, is immune to Mood and Fear, and cannot be REVEALed. The finale adds 0.25 to the bonus. Every finale ends in a normal prestige (level +1, the usual gain, a fresh Run); the first one shows the credits first. It signs the guest book at the Run's end.
+The Eternal Eldritch MacGuffin, summoned once ever by the finale (the Concierge walking into Madame's room once the Crate is on its floor and the Courier has left, where the circle is drawn around it). From then on it books the best Room every Run from the first Growth, pays 5 times the Rate, never leaves, asks or flees, is immune to Mood and Fear, and cannot be REVEALed. The finale adds 0.25 to the bonus. Every finale ends in a normal prestige (level +1, the usual gain, a fresh Run); the first one shows the credits first. It signs the guest book at the Run's end.
 
 **Passer-by**:
 Someone walking the street outside the Entrance, living in real, dead in ghost. Near the door one may say a line of gossip, which follows how far the Questline has got; a living one sometimes turns in as a walk-in.

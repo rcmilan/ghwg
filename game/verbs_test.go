@@ -788,7 +788,8 @@ func TestO12ReadTheName(t *testing.T) {
 	}
 }
 
-// O13: the Crate row is on sale while O13 is open; the Courier carries it into Madame's Room.
+// O13: the Crate row is on sale while O13 is open; the Courier sets the crate down at the finale circle's centre in
+// Madame's Room and leaves. The finale waits for the Concierge to be in the Room and the Courier out of it.
 func TestO13Crate(t *testing.T) {
 	g, _ := verbRun(t, 2, 7)
 	g.own(Mirror)
@@ -803,23 +804,95 @@ func TestO13Crate(t *testing.T) {
 	if why := g.placeOrder(); why != "" {
 		t.Fatal(why)
 	}
-	shell := g.hotel.Rooms[max(0, g.roomOfKey("celestine"))].Shell()
+	room := max(0, g.roomOfKey("celestine"))
+	shell := g.hotel.Rooms[room].Shell()
+	centre := finaleCrate(g.hotel.Rooms[room])
 	in := false
 	for _, d := range g.couriers[0].drops {
-		in = in || len(d.lines) > 0 && d.at.In(shell)
+		in = in || len(d.lines) > 0 && d.at.In(shell) && d.at.Sub(centre).Y == 14 && d.at.X == centre.X
 	}
 	if !in {
-		t.Error("the crate's drop is not inside Madame's Room")
+		t.Error("the crate's drop is not at the circle's centre in Madame's Room")
 	}
-	for i := 0; i < 4000 && !reported(g, "O13"); i++ {
+	g.player.X, g.player.Y = float64(g.hotel.Exit.X), float64(g.hotel.Exit.Y) // the Concierge waits outside
+	inside := func() bool {
+		for _, c := range g.couriers {
+			if image.Pt(int(c.X), int(c.Y)).In(shell) {
+				return true
+			}
+		}
+		return false
+	}
+	sawIn := false
+	for i := 0; i < 6000 && !(g.crateIn() && len(g.couriers) == 0); i++ {
 		g.step(0, 0)
+		if len(g.couriers) > 1 {
+			t.Fatal("two couriers")
+		}
+		sawIn = sawIn || inside()
+		if g.scene.on() || reported(g, "O13") {
+			t.Fatalf("the finale started with the Concierge outside (courier in the Room: %v)", inside())
+		}
 	}
-	if !reported(g, "O13") {
-		t.Error("the crate never reached Madame's Room")
+	if !sawIn || !g.crateIn() || g.rollGet("O13.crate") != room+1 {
+		t.Fatalf("the crate never was set down in Madame's Room: seen in %v, crate %v", sawIn, g.rollGet("O13.crate"))
 	}
-	g.quest.Done[0] = true
-	if g.onSale(c) {
-		t.Error("on sale with O13 done")
+	if g.fog[room] >= .5 && len(g.crateActors()) != 0 {
+		t.Error("the crate shows through the Room's Fog")
+	}
+	g.fog[room] = 0
+	if g.scene.on() || reported(g, "O13") || !g.crateHold() || g.onSale(c) || g.stepIdx("O13") != 1 || len(g.crateActors()) != 1 {
+		t.Fatal("waiting for the Concierge: nothing plays, O13 is open, the Room is held, the crate shows, no second crate to buy")
+	}
+	g.player.X, g.player.Y = float64(centre.X), float64(centre.Y+20)
+	g.step(0, 0)
+	if g.scene.id != "finale" || !reported(g, "O13") || len(g.crateActors()) != 0 {
+		t.Fatalf("the Concierge walked in: scene %q, reported %v", g.scene.id, reported(g, "O13"))
+	}
+	if s := g.scene.crate; s != centre {
+		t.Errorf("the scene's crate %v is not where it was set down %v", s, centre)
+	}
+}
+
+// The finale waits while a courier is still in the Room, even with the Concierge inside.
+func TestFinaleWaitsForTheCourier(t *testing.T) {
+	g, _ := verbRun(t, 2, 7)
+	g.own(Mirror)
+	room := max(0, g.roomOfKey("celestine"))
+	g.rollSet("O13.crate", room+1)
+	r := g.hotel.Rooms[room]
+	g.player.X, g.player.Y = float64(finaleCrate(r).X), float64(finaleCrate(r).Y+20)
+	cr := &courier{out: true}
+	cr.X, cr.Y = float64(finaleCrate(r).X), float64(finaleCrate(r).Y+14)
+	g.couriers = []*courier{cr}
+	g.finaleWait()
+	if g.scene.on() {
+		t.Fatal("the finale started with the courier in the Room")
+	}
+	cr.X, cr.Y = float64(g.doorDrop(room).X), float64(g.doorDrop(room).Y)
+	g.finaleWait()
+	if g.scene.id != "finale" || !reported(g, "O13") {
+		t.Fatal("the courier is out and the Concierge is in: the finale should play")
+	}
+}
+
+// A replay (the MacGuffin already summoned): delivery finishes O13 at once, no crate waits, no finale.
+func TestCrateReplayDeliversAtOnce(t *testing.T) {
+	g, _ := verbRun(t, 2, 7)
+	g.questRec.MacGuffin = true
+	g.receiveQuest(cartLine{item: slices.IndexFunc(shop, func(it Item) bool { return it.ID == rowCrate }), room: 0})
+	if !reported(g, "O13") || g.crateIn() || g.scene.on() {
+		t.Fatalf("replay: reported %v, crate %v, scene %v", reported(g, "O13"), g.crateIn(), g.scene.on())
+	}
+}
+
+// Every Room type's circle centre can be walked to from its door (the courier sets the crate down there).
+func TestCrateSpotReachable(t *testing.T) {
+	g, _ := verbRun(t, 2, 7)
+	for i, r := range g.hotel.Rooms {
+		if g.hotel.Path(g.doorDrop(i), finaleCrate(r).Add(image.Pt(0, 14)), i) == nil {
+			t.Errorf("Room %d: no path to the crate's spot", i)
+		}
 	}
 }
 
