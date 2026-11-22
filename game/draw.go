@@ -130,7 +130,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.drawShift(screen)
 		return
 	}
-	if !g.warm && g.state != StateTitle && g.intro == nil && g.fx[0] != nil { // the opening draws no hotel to warm
+	if !g.warm && (g.state != StateTitle || g.intro != nil) && g.fx[0] != nil { // the opening warms on its title: its first shift was a 350 ms stall in Chrome
 		g.warmUp(screen)
 	}
 	if g.reel != nil {
