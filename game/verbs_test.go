@@ -866,6 +866,9 @@ func TestO13Crate(t *testing.T) {
 	if g.scene.id != "finale" || !reported(g, "O13") || len(g.crateActors()) != 0 {
 		t.Fatalf("the Concierge walked in: scene %q, reported %v", g.scene.id, reported(g, "O13"))
 	}
+	for range fBlack { // the stage is set under the black
+		g.stepScene()
+	}
 	if s := g.scene.crate; s != centre {
 		t.Errorf("the scene's crate %v is not where it was set down %v", s, centre)
 	}
@@ -887,12 +890,6 @@ func TestFinaleWaitsForTheCourier(t *testing.T) {
 		t.Fatal("the finale started with the courier in the Room")
 	}
 	cr.X, cr.Y = float64(g.doorDrop(room).X), float64(g.doorDrop(room).Y)
-	g.parties = append(g.parties, &Party{Guests: []*entities.Guest{{X: g.player.X, Y: g.player.Y}}}) // live test 5: a guest still in it
-	g.finaleWait()
-	if g.scene.on() {
-		t.Fatal("the finale started with a guest in the Room")
-	}
-	g.parties = g.parties[:len(g.parties)-1]
 	g.finaleWait()
 	if g.scene.id != "finale" || !reported(g, "O13") {
 		t.Fatal("the courier is out and the Concierge is in: the finale should play")
@@ -1060,5 +1057,34 @@ func TestSayDoneOffScreenGoesToBook(t *testing.T) {
 	g.sayDone(cel, "boo")
 	if e := g.guestBook[1]; e.Name != celestineName || !e.ghost() {
 		t.Fatalf("entry %+v", e)
+	}
+}
+
+// Live test 5: the finale fades to black and sets its stage under it: nobody but the cast is drawn in Madame's
+// Room or round its door, whoever was walking out through it.
+func TestFinaleStage(t *testing.T) {
+	g, _ := verbRun(t, 2, 7)
+	room := max(0, g.roomOfKey("celestine"))
+	g.rollSet("O13.crate", room+1)
+	c := finaleCrate(g.hotel.Rooms[room])
+	stranger := &entities.Guest{X: float64(c.X), Y: float64(c.Y)}
+	g.parties = append(g.parties, &Party{Guests: []*entities.Guest{stranger}})
+	g.playQuestScene("finale")
+	if g.scene.cast != nil || g.scene.t >= 0 {
+		t.Fatal("staged before the black")
+	}
+	for range fBlack {
+		g.stepScene()
+	}
+	if g.scene.cast == nil {
+		t.Fatal("no stage after the black")
+	}
+	if !g.offStage(stranger.X, stranger.Y, stranger) {
+		t.Error("a stranger on the stage is drawn")
+	}
+	for _, cs := range g.scene.cast {
+		if g.offStage(cs.g.X, cs.g.Y, cs.g) {
+			t.Errorf("cast %q is not drawn", cs.g.Who.Key)
+		}
 	}
 }

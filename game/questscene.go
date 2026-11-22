@@ -48,6 +48,7 @@ const (
 	finaleFaint = .45 // the cast's ghosts' opacity
 	fCircleDy   = 8   // the circle's centre, below the Room's centre (the back wall is thick)
 	fRadius     = 30  // the circle's, world px
+	fBlack      = 40  // frames to fade to black before it, and back in on its stage (live test 5)
 	fWalk       = 10  // everyone walks in by the door
 	fRingAt     = 90  // Magenta traces the circle
 	fPoints     = 240 // the five take their points (over 50)
@@ -77,8 +78,9 @@ type sceneState struct {
 	page  int         // credits: 0 the credits, 1 the epilogue
 	cast  []sceneCast // finale: whoever gathers, the Concierge first
 	pl    entities.Guest
-	crate image.Point // finale: the circle's centre and the crate's foot, world px
-	door  image.Point // finale: Madame's door, where they walk in
+	crate image.Point     // finale: the circle's centre and the crate's foot, world px
+	door  image.Point     // finale: Madame's door, where they walk in
+	stage image.Rectangle // finale: the Room and round its door, where nobody but the cast is drawn
 	timAt image.Point
 	buf   *ebiten.Image
 	mac   macLook
@@ -119,8 +121,8 @@ func (g *Game) playQuestScene(id string) {
 	g.state, g.shifting, g.viewT, g.viewIn, g.hands, g.prestigeAsk = StatePlay, nil, 0, 0, "", false
 	g.scene = sceneState{id: id, at: g.scene.at}
 	switch id {
-	case "finale":
-		g.finaleStart()
+	case "finale": // the screen goes black first; finaleStart sets the stage under it
+		g.scene.t = -fBlack
 	case "hand":
 		g.scene.line, g.scene.lineAt = handLine, sceneIn
 		g.scene.out = untilSpace
@@ -537,6 +539,7 @@ func (g *Game) finaleStart() {
 	r := g.finaleRoom()
 	s.crate = finaleCrate(r)
 	s.door = image.Pt(r.Door.X*gts+gts/2, r.Door.Y*gts+gts/2)
+	s.stage = r.Shell().Inset(-2 * gts)
 	if i := slices.IndexFunc(g.hotel.Rooms, func(x world.Room) bool { return x.Origin == r.Origin }); i < len(g.fog) {
 		g.fog[i] = 0 // the Room is clear for the staging
 	}
@@ -578,6 +581,12 @@ func lerpPt(a, b image.Point, f float64) (float64, float64) {
 func (g *Game) stepFinale() {
 	s := &g.scene
 	t := s.t
+	if t < 0 { // fading to black over the hotel as it is
+		if t == -1 {
+			g.finaleStart()
+		}
+		return
+	}
 	shell := g.finaleRoom().Shell()
 	for i := range s.cast {
 		c := &s.cast[i]
@@ -678,6 +687,14 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 	at := func(x, y float64) (float64, float64) { return x*zoom - float64(ox), y*zoom - float64(oy) }
 	screen.Fill(bg)
 	g.drawWorld(screen, ox, oy) // the real Room; the cast's ghosts show faint over it
+	if t < fBlack {             // black over the hotel as it was, then the stage coming up out of it
+		defer func() {
+			rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{0, 0, 0, uint8(255 * ease(float64(t+fBlack)/fBlack) * (1 - ease(float64(t)/fBlack)))})
+		}()
+	}
+	if t < 0 {
+		return
+	}
 	cx, cy := at(float64(s.crate.X), float64(s.crate.Y))
 	lit := ease(float64(t-fLight) / 40)
 	grow := ease(float64(t-fRingAt) / (fPoints - fRingAt - 20))
@@ -810,4 +827,11 @@ func (g *Game) DevScene(id string) {
 		g.scene.at = image.Pt(int(g.player.X), int(g.player.Y)-world.TileSize)
 	}
 	g.playQuestScene(id)
+}
+
+// offStage: who, at (x,y), is not drawn: the finale's stage holds only its cast (live test 5: a guest walked out
+// through it). who is nil for staff and the Cat.
+func (g *Game) offStage(x, y float64, who *entities.Guest) bool {
+	return g.scene.id == "finale" && image.Pt(int(x), int(y)).In(g.scene.stage) &&
+		!slices.ContainsFunc(g.scene.cast, func(c sceneCast) bool { return c.g == who })
 }

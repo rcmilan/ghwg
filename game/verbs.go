@@ -189,18 +189,14 @@ func (g *Game) receiveQuest(l cartLine) {
 // crateIn: the crate sits in Madame's Room waiting for the finale (the first time ever).
 func (g *Game) crateIn() bool { return g.rollGet("O13.crate") > 0 && !g.questRec.MacGuffin }
 
-// finaleWait: the crate is down, the courier and every guest but the cast are out of the Room (clearMadame sent them)
-// and the Concierge is in it: the finale plays (live test 5: a guest was in it).
+// finaleWait: the crate is down, the courier is out of the Room and the Concierge is in it: the finale plays.
 func (g *Game) finaleWait() {
 	if !g.crateIn() || g.scene.on() || g.state != StatePlay {
 		return
 	}
 	sh := g.finaleRoom().Shell()
 	if !image.Pt(int(g.player.X), int(g.player.Y)).In(sh) ||
-		slices.ContainsFunc(g.couriers, func(c *courier) bool { return image.Pt(int(c.X), int(c.Y)).In(sh) }) ||
-		slices.ContainsFunc(g.parties, func(p *Party) bool {
-			return !finaleCast(p) && slices.ContainsFunc(p.Guests, func(x *entities.Guest) bool { return image.Pt(int(x.X), int(x.Y)).In(sh) })
-		}) {
+		slices.ContainsFunc(g.couriers, func(c *courier) bool { return image.Pt(int(c.X), int(c.Y)).In(sh) }) {
 		return
 	}
 	g.verbDone(evDeliver, -1, "O13")

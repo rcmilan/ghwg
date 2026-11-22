@@ -246,7 +246,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			continue
 		}
 		for guest := range g.guestsIn(realm) {
-			if guest.Who.Key == macguffinKey { // 08 W5: drawn by sceneActors, in both Dimensions
+			if guest.Who.Key == macguffinKey || g.offStage(guest.X, guest.Y, guest) { // 08 W5: drawn by sceneActors, in both Dimensions
 				continue
 			}
 			a := actor{x: guest.X, y: guest.Y, name: guest.Character, anim: guest.Anim, fog: g.fogAt(image.Pt(int(guest.X), int(guest.Y))),
@@ -263,10 +263,13 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, pr := range g.priests {
+		if g.offStage(pr.X, pr.Y, nil) {
+			continue
+		}
 		actors = append(actors, actor{x: pr.X, y: pr.Y, name: pr.Character, anim: pr.Anim, fog: g.fogAt(image.Pt(int(pr.X), int(pr.Y))), lift: pr.lift()})
 	}
 	for _, c := range g.couriers {
-		if !c.out { // ordered, the store or the hotel view still open: he walks in once it closes
+		if !c.out || g.offStage(c.X, c.Y, nil) { // ordered, the store or the hotel view still open: he walks in once it closes
 			continue
 		}
 		name := courierName
@@ -276,6 +279,9 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		actors = append(actors, actor{x: c.X, y: c.Y, name: name, anim: c.Anim, fog: g.fogAt(image.Pt(int(c.X), int(c.Y))), key: &c.Guest})
 	}
 	for _, k := range g.keepers {
+		if g.offStage(k.X, k.Y, nil) {
+			continue
+		}
 		actors = append(actors, actor{x: k.X, y: k.Y, name: keeperName, anim: k.Anim, fog: g.fogAt(image.Pt(int(k.X), int(k.Y))), key: &k.Guest})
 	}
 	for i, p := range g.hotel.Plants {
