@@ -262,3 +262,39 @@ func TestCatIsADoorActor(t *testing.T) {
 		t.Error("the Cat is not among the door's actors")
 	}
 }
+
+// The Cat is drawn in both realms, and says "Meow." in real, a catRude line in ghost, nothing asleep.
+func TestCatSpeaksInBothRealms(t *testing.T) {
+	g := itemsRun(t, itemCat)
+	g.updateCat()
+	c := g.items.cat
+	for _, ghost := range []bool{false, true} {
+		g.ghost = ghost
+		if len(g.itemActors()) == 0 {
+			t.Errorf("ghost=%v: the Cat is not among the actors", ghost)
+		}
+	}
+	say := func(ghost, nap bool) string {
+		g.ghost, c.napping = ghost, nap
+		c.X, c.Y = g.player.X+8, g.player.Y // beside the Concierge, outside any Room's wall
+		c.voice = voice{}
+		for range 400 { // `sometimes` is a coin: ask until it speaks
+			g.tick += sayFrames
+			c.voice.near = false
+			g.comeNear(&c.Guest, &c.voice, func() []string { return g.catLines(c) })
+			if c.said.text != "" {
+				return c.said.text
+			}
+		}
+		return ""
+	}
+	if got := say(false, false); got != "Meow." {
+		t.Errorf("real: said %q, want Meow.", got)
+	}
+	if got := say(true, false); !slices.Contains(catRude, got) {
+		t.Errorf("ghost: said %q, want a catRude line", got)
+	}
+	if got := say(true, true); got != "" {
+		t.Errorf("napping: said %q, want nothing", got)
+	}
+}

@@ -47,6 +47,7 @@ type catState struct {
 	napping     bool
 	until       int // the clock its clean or nap is done, or it roams on; 0 none
 	naps, shift int // naps taken this shift (game day)
+	voice
 }
 
 // regrid: a Growth renumbers the Rooms (grow.go).
@@ -188,6 +189,7 @@ func (g *Game) updateCat() {
 		speed = catWorkWalk
 	}
 	arrived := c.FollowPath(speed * g.dt)
+	g.comeNear(&c.Guest, &c.voice, func() []string { return g.catLines(c) })
 	c.Anim.Update(c.X, c.Y, g.dt) // drawing only: which way it faces, whether it walks
 	switch {
 	case c.napping:
@@ -228,6 +230,22 @@ func (g *Game) updateCat() {
 	}
 }
 
+// catLines: silent asleep; "Meow." in real, something rude in ghost.
+func (g *Game) catLines(c *catState) []string {
+	switch {
+	case c.napping:
+		return nil
+	case g.ghost:
+		return g.sometimes(catRude)
+	}
+	return g.sometimes([]string{"Meow."})
+}
+
+// isCat: the familiar is in both realms.
+func (g *Game) isCat(guest *entities.Guest) bool {
+	return g.items.cat != nil && guest == &g.items.cat.Guest
+}
+
 // catFrom: the Cat can set off for the Room: not inside another one (it leaves that first, by its own door).
 func (g *Game) catFrom(c *catState, room int) bool {
 	at := g.roomAt(c.X, c.Y)
@@ -244,10 +262,10 @@ func (g *Game) spiritRoom() int {
 	return -1
 }
 
-// itemActors: the Cat and Gerald (ghost only), the Ward's mark (real only), for the y-sorted pass.
+// itemActors: the Cat (both realms) and Gerald (ghost only), the Ward's mark (real only), for the y-sorted pass.
 func (g *Game) itemActors() []actor {
 	var as []actor
-	if c := g.items.cat; c != nil && g.ghost {
+	if c := g.items.cat; c != nil {
 		nap, anim := c.napping, c.Anim
 		as = append(as, actor{x: c.X, y: c.Y, draw: func(s *ebiten.Image, x, y int) { g.drawCat(s, x, y, nap, anim) }})
 	}

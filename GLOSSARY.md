@@ -510,7 +510,7 @@ A one-off Terminal order shown only while its Objective is open: the Wreath, wal
 O4's spirit: at night it dashes along a Corridor; caught in the Lantern beam it shows only two eyes ("I SERVE ANOTHER.") and is gone, leaving a glowing handprint on a door, found in ghost, that waves.
 
 **Item**:
-One of Magenta's six gifts, owned for good once its Beat is first done: Show, don't tell (REVEAL is free, and its option shows no price), Broom (the Concierge walks faster in ghost), Gerald (one Room's sightings pay more), the Cat (cleans spiritual dirt in ghost, two naps a shift), the Ward (one Room's guests never flee), the Storm jar (tonight's thunderstorm: sightings pay double, once a day). Gerald and the Ward are placed on a Room from the hotel view's ring or the HOTEL tab, per Run.
+One of Magenta's six gifts, owned for good once its Beat is first done: Show, don't tell (REVEAL is free, and its option shows no price), Broom (the Concierge walks faster in ghost), Gerald (one Room's sightings pay more), the Cat (cleans spiritual dirt in ghost, two naps a shift; seen in both realms, meows in real and says rude things in ghost, silent asleep), the Ward (one Room's guests never flee), the Storm jar (tonight's thunderstorm: sightings pay double, once a day). Gerald and the Ward are placed on a Room from the hotel view's ring or the HOTEL tab, per Run.
 _Avoid_: power-up, relic
 
 **Cutscene**:
