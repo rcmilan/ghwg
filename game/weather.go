@@ -135,17 +135,16 @@ func (g *Game) drawWeather(dst *ebiten.Image, ox, oy int) {
 		return
 	}
 	mw, mh := g.mapSize()
-	b := dst.Bounds()
-	x0, x1 := max(-ox, b.Min.X), min(mw*zoom-ox, b.Max.X)
-	y0, y1 := max((g.hotel.Spawn.Y-3*world.TileSize/2)*zoom-oy, b.Min.Y), min(mh*zoom-oy, b.Max.Y)
-	if x1 <= x0 || y1 <= y0 {
+	// the whole Street's box, not just its part on screen, so the weather keeps its place as the camera moves
+	x0, y0 := -ox, (g.hotel.Spawn.Y-3*world.TileSize/2)*zoom-oy
+	cw, ch := mw*zoom, mh*zoom-(y0+oy)
+	if !image.Rect(x0, y0, x0+cw, y0+ch).Overlaps(dst.Bounds()) {
 		return
 	}
-	cw, ch := x1-x0, y1-y0
 	t := s.n
 	switch w {
 	case wxRain, wxStorm:
-		for i := range 70 { // streaks falling
+		for i := range 70 * cw / screenW { // streaks falling, as thick as on one screen
 			x := x0 + (i*61+t*2)%cw
 			y := y0 + (i*127+t*9)%ch
 			s.stroke(dst, float64(x), float64(y), 2, 9, .75, .85, 1, .55)
