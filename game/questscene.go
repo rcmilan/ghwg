@@ -8,6 +8,7 @@ import (
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -21,10 +22,10 @@ import (
 //	O4      the card frame closes in on the spirit: its sign (o4Signs), then it folds into the floor
 //	O9      the card frame on Tim: the suitcase opens (a case, a clipboard), then the hotel view pulls back and the
 //	        clipboard's 5x5 hotel with a circle round it is drawn over it
-//	finale  everyone gathers in the hall, both Dimensions show split down the Mirror, the crate's lid lifts, stars pour
-//	        up, a tall starry figure unfolds, a ring of light cracks round the Mirror, the vortex spins backwards, the
-//	        flash; then the lines, the spirit's sign flips and blows away. First time ever: the summoning, the credits
-//	        (credits.go), CONTINUE.
+//	finale  in Madame's Room, the ghosts faint over the real Room: everyone walks in, Magenta traces a circle on the
+//	        floor, five take a point on it, the Courier sets the crate in the middle, the circle lights, the lid
+//	        lifts, a tall starry figure unfolds and speaks, Tim takes off his cap and fades, the dark: the spirit's
+//	        eyes open and close, Celestine's line. First time ever: the summoning, the credits (credits.go), CONTINUE.
 const (
 	sceneIn   = 24  // frames the card frame takes to close in
 	sceneOut  = 20  // and to let go
@@ -45,20 +46,29 @@ const (
 	o9Line2 = 400
 	o9Len   = 540
 
-	fGather = 240 // the walk in; whoever is not there yet is put there
-	fSplit  = 240 // both Dimensions open down the Mirror (over splitFrames)
-	fLid    = 300 // the crate's lid lifts; stars pour up
-	fFigure = 360 // the tall figure unfolds (over 90)
-	fRing   = 450 // the ring of light, the vortex backwards
-	fFlash  = 570 // white over 60, and out over 60
-	fLines  = 700 // the MacGuffin's line; Celestine's at fLines+150
-	fFlip   = 960 // the spirit's sign flips to finaleSign...
-	fBlow   = 1000
-	fLine3  = 1080 // ...the MacGuffin's last line
-	fLen    = 1220
+	finaleFaint = .45 // the cast's ghosts' opacity
+	fCircleDy   = 8   // the circle's centre, below the Room's centre (the back wall is thick)
+	fRadius     = 30  // the circle's, world px
+	fWalk       = 10  // everyone walks in by the door
+	fRingAt     = 90  // Magenta traces the circle
+	fPoints     = 240 // the five take their points (over 50)
+	fCourier    = 320 // the Courier walks in with the crate...
+	fSet        = 380 // ...sets it down in the middle, and walks out
+	fLight      = 450 // the circle lights up
+	fLid        = 480 // the lid lifts; stars pour up
+	fFigure     = 540 // the starry figure unfolds (over 90)
+	fLines      = 680 // the MacGuffin's line
+	fCap        = 840 // Tim takes his cap off (over fCapLift), then fades (over fFade)
+	fCapLift    = 40
+	fFade       = 50
+	fGone       = fCap + fCapLift + fFade
+	fDark       = 930  // the screen goes dark (over 40)
+	fEyes       = 1000 // the spirit's eyes open (30), stay (fEyesHold), close for good (30)
+	fEyesHold   = 50
+	fLine2      = 1140 // Celestine's line, over the dark
+	fLen        = 1300
 
-	splitFrames = 40
-	lineHold    = 140
+	lineHold = 140
 )
 
 // sceneState: the cutscene playing, if any (id "" is none).
@@ -70,7 +80,10 @@ type sceneState struct {
 	page  int         // credits: 0 the credits, 1 the epilogue
 	cast  []sceneCast // finale: whoever gathers, the Concierge first
 	pl    entities.Guest
-	crate image.Point // finale: the crate's foot, world px
+	crate image.Point // finale: the circle's centre and the crate's foot, world px
+	door  image.Point // finale: Madame's door, where they walk in
+	cour  entities.Guest
+	timAt image.Point
 	buf   *ebiten.Image
 	mac   macLook
 	// talk: a quest TALK (verbs_card.go questSpeak): the card frame on tg, its line, the hand-over, its done line
@@ -433,69 +446,51 @@ func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
 
 // ---- the finale
 
-// finaleStart: the Concierge and everyone walk into the hall, the living on the Mirror's left, the dead on its right.
+// finaleKeys: who takes a point on the circle, in order; the Concierge stands outside it.
+var finaleKeys = [...]string{"magenta", "celestine", "tim", "magda", "osvaldo"}
+
+// finaleRoom: Madame's Room (the first Room if she is not in the hotel).
+func (g *Game) finaleRoom() world.Room {
+	i := g.roomOfKey("celestine")
+	if c := g.findGuest("celestine"); i < 0 && c != nil {
+		i = g.roomAt(c.X, c.Y)
+	}
+	return g.hotel.Rooms[max(0, i)]
+}
+
+// finaleStart: the cast (the Concierge first, then whoever of finaleKeys is in the hotel) is set to walk into
+// Madame's Room by its door, the circle's centre on the Room's floor.
 func (g *Game) finaleStart() {
 	s := &g.scene
-	hall, sp := g.hotel.Lobby, g.hotel.MirrorSpot
-	mx := sp.Min.X + sp.Dx()/2
-	s.crate = image.Pt(mx, sp.Max.Y-4)
-	front := image.Pt(mx, sp.Max.Y+20)
-	dist := func(a, b image.Point) float64 { return math.Hypot(float64(a.X-b.X), float64(a.Y-b.Y)) }
-	var slots []image.Point // walkable spots of the hall, off the kitchen, none behind the Mirror or on the crate or the spirit
-	for y := hall.Min.Y + 8; y < hall.Max.Y-4; y += 13 {
-		for x := hall.Min.X + 8; x < hall.Max.X-8; x += 13 {
-			p := image.Pt(x, y)
-			if !p.In(g.hotel.Kitchen) && !g.blocked(entities.FootBox(float64(x), float64(y))) && p.Y > s.crate.Y+4 && dist(p, s.crate) > 14 && dist(p, spiritAt(s.crate)) > 14 {
-				slots = append(slots, p)
-			}
-		}
+	r := g.finaleRoom()
+	sh := r.Shell()
+	s.crate = image.Pt((sh.Min.X+sh.Max.X)/2, (sh.Min.Y+sh.Max.Y)/2+fCircleDy)
+	s.door = image.Pt(r.Door.X*gts+gts/2, r.Door.Y*gts+gts/2)
+	if i := slices.IndexFunc(g.hotel.Rooms, func(x world.Room) bool { return x.Origin == r.Origin }); i < len(g.fog) {
+		g.fog[i] = 0 // the Room is clear for the staging
 	}
-	if len(slots) == 0 {
-		slots = []image.Point{front}
+	for _, c := range g.couriers {
+		c.out = false // his own walk is shown by the scene
 	}
-	slices.SortFunc(slots, func(a, b image.Point) int { return int(dist(a, front) - dist(b, front)) })
-	side := func(left bool) (out []image.Point) {
-		for _, p := range slots {
-			if left == (p.X < mx) {
-				out = append(out, p)
-			}
-		}
-		return orAll(out, slots)
-	}
-	left, right := side(true), side(false)
-	mw, mh := g.mapSize()
-	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	seen := image.Rect(ox/zoom, oy/zoom, ox/zoom+viewW, oy/zoom+viewH)
-	s.pl = entities.NewGuest(image.Pt(int(g.player.X), int(g.player.Y)), "Bob")
+	s.cour = entities.NewGuest(s.door, courierBox)
+	home := image.Pt(int(g.player.X), int(g.player.Y))
+	s.pl = entities.NewGuest(home, "Bob")
 	s.pl.X, s.pl.Y = g.player.X, g.player.Y
-	nl, nr := 0, 0
-	for i, gu := range append([]*entities.Guest{&s.pl}, g.actors()...) {
-		c := sceneCast{g: gu, home: image.Pt(int(gu.X), int(gu.Y))}
-		if i == 0 || g.realmOf(gu) == Human {
-			c.slot, nl = left[nl%len(left)], nl+1
-		} else {
-			c.slot, nr = right[nr%len(right)], nr+1
+	s.cast = []sceneCast{{g: &s.pl, home: home, slot: s.crate.Add(image.Pt(0, fRadius+22))}}
+	for _, k := range finaleKeys {
+		if gu := g.findGuest(k); gu != nil {
+			s.cast = append(s.cast, sceneCast{g: gu, home: image.Pt(int(gu.X), int(gu.Y))})
 		}
-		if !c.home.In(seen) {
-			c.pop = 20 + i*37%180 // not on screen: appears in the hall
-		} else {
-			g.reelRoute(gu, c.slot)
-		}
-		s.cast = append(s.cast, c)
 	}
-	g.cam.Snap(float64(mx), float64(front.Y), mw, mh)
-}
-
-// orAll: out, or all if out is empty.
-func orAll(out, all []image.Point) []image.Point {
-	if len(out) == 0 {
-		return all
+	n := len(s.cast) - 1
+	for i := 1; i <= n; i++ { // the points of the circle, from the top, round
+		a := 2*math.Pi*float64(i-1)/float64(n) - math.Pi/2
+		s.cast[i].slot = s.crate.Add(image.Pt(int(fRadius*math.Cos(a)), int(fRadius*math.Sin(a))))
 	}
-	return out
+	mw, mh := g.mapSize()
+	g.ghost = false
+	g.cam.Snap(float64(s.crate.X), float64(s.crate.Y), mw, mh)
 }
-
-// spiritAt: where the spirit stands for the finale, beside the crate on the dead's side.
-func spiritAt(crate image.Point) image.Point { return crate.Add(image.Pt(70, 24)) }
 
 // restoreCast puts everyone back where the cutscene found them.
 func (g *Game) restoreCast() {
@@ -507,35 +502,57 @@ func (g *Game) restoreCast() {
 	}
 }
 
+// lerpPt: a to b, f (0..1) of the way.
+func lerpPt(a, b image.Point, f float64) (float64, float64) {
+	f = min(1, max(0, f))
+	return float64(a.X) + float64(b.X-a.X)*f, float64(a.Y) + float64(b.Y-a.Y)*f
+}
+
 func (g *Game) stepFinale() {
 	s := &g.scene
 	t := s.t
+	shell := g.finaleRoom().Shell()
 	for i := range s.cast {
 		c := &s.cast[i]
-		switch {
-		case t == fGather:
-			c.g.X, c.g.Y, c.g.Path = float64(c.slot.X), float64(c.slot.Y), nil
-		case t < fGather && t >= c.pop:
-			if c.pop > 0 && t == c.pop {
-				c.g.X, c.g.Y = float64(c.slot.X), float64(c.slot.Y)
-			}
-			if c.pop == 0 {
-				c.g.FollowPath(reelWalk)
-			}
+		from := s.door // in through the door, unless already in the Room
+		if i > 0 && c.home.In(shell) {
+			from = c.home
+		}
+		wait := c.slot.Add(image.Pt(0, fRadius/2+8)) // below its point, off the circle, till they take their points
+		if i == 0 {
+			wait = c.slot
+		}
+		if t < fPoints {
+			c.g.X, c.g.Y = lerpPt(from, wait, float64(t-fWalk-i*20)/70)
+		} else {
+			c.g.X, c.g.Y = lerpPt(wait, c.slot, float64(t-fPoints)/50)
+		}
+		if t >= fWalk+i*20 {
+			c.g.Anim.Update(c.g.X, c.g.Y, 1)
 		}
 	}
 	g.player.X, g.player.Y = s.pl.X, s.pl.Y
-	g.player.Anim.Update(g.player.X, g.player.Y, 1)
-	for _, c := range s.cast[1:] {
-		c.g.Anim.Update(c.g.X, c.g.Y, 1)
+	if tim := g.findGuest("tim"); tim != nil && t >= fCap { // the scene draws him from here
+		if t == fCap {
+			s.timAt = image.Pt(int(tim.X), int(tim.Y))
+		}
+		tim.X, tim.Y = -1000, -1000
+	}
+	if t >= fSet { // the Courier: in with the crate, sets it down, out
+		s.cour.X, s.cour.Y = lerpPt(s.crate, s.door, float64(t-fSet)/60)
+	} else {
+		s.cour.X, s.cour.Y = lerpPt(s.door, s.crate.Add(image.Pt(0, 14)), float64(t-fCourier)/60)
+	}
+	if t >= fCourier {
+		s.cour.Anim.Update(s.cour.X, s.cour.Y, 1)
 	}
 	mw, mh := g.mapSize()
-	g.cam.Follow(float64(s.crate.X), float64(s.crate.Y+20), mw, mh)
+	g.cam.Follow(float64(s.crate.X), float64(s.crate.Y), mw, mh)
 }
 
 // finaleLine: which line of finaleLines is up at frame t, and how far into it (frames); -1 for none.
 func finaleLine(t int) (i, age int) {
-	for j, at := range [...]int{fLines, fLines + 150, fLine3} {
+	for j, at := range [...]int{fLines, fLine2} {
 		if t >= at && t < at+lineHold {
 			return j, t - at
 		}
@@ -543,66 +560,92 @@ func finaleLine(t int) (i, age int) {
 	return -1, 0
 }
 
-func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
-	s := &g.scene
-	t := s.t
-	b := screen.Bounds()
-	if s.buf == nil {
-		s.buf = ebiten.NewImage(b.Dx(), b.Dy())
+// drawEyes: the spirit's two eyes at (x,y), u screen px a world px; open 0..1.
+func drawEyes(s *ebiten.Image, x, y, u, open float64) {
+	if open <= 0 {
+		return
 	}
-	mw, mh := g.mapSize()
-	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
-	at := func(x, y float64) (float64, float64) { return x*zoom - float64(ox), y*zoom - float64(oy) }
-	mx, my := at(float64(s.crate.X), float64(s.crate.Y)-16) // the Mirror's middle
-	was := g.ghost
-	if f := float64(t-fSplit) / splitFrames; t >= fSplit && t < fFlash+60 { // both Dimensions, split down the Mirror
-		g.ghost = true
-		screen.Fill(color.Black)
-		g.drawWorld(screen, ox, oy)
-		g.ghost = false
-		s.buf.Fill(assets.Night)
-		g.drawWorld(s.buf, ox, oy)
-		g.ghost = was
-		half := int(mx * min(1, f)) // the real half opens from the seam outward
-		x0 := int(mx) - half
-		screen.DrawImage(s.buf.SubImage(image.Rect(x0, 0, int(mx), b.Dy())).(*ebiten.Image), &ebiten.DrawImageOptions{GeoM: translate(x0, 0)})
-		rect(screen, int(mx)-1, 0, 3, b.Dy(), color.NRGBA{255, 255, 255, uint8(200 * min(1, f))})
-		g.glowAt(screen, mx, float64(b.Dy())/2, float64(b.Dy())*1.2, moonLight, .25*min(1, f))
-	} else {
-		screen.Fill(bg)
-		g.drawWorld(screen, ox, oy)
-	}
-	cx, cy := at(float64(s.crate.X), float64(s.crate.Y))
-	flashed := t >= fFlash+60
-	if !flashed { // the crate
-		lift := ease(float64(t-fLid) / 60)
-		rect(screen, int(cx-8*zoom), int(cy-10*zoom), 16*zoom, 10*zoom, color.NRGBA{96, 62, 34, 255})
-		for _, d := range []int{-4, 0, 4} {
-			rect(screen, int(cx)+d*zoom, int(cy-10*zoom), 1, 10*zoom, color.NRGBA{58, 36, 20, 255})
-		}
-		var p vector.Path // the lid, lifting and tilting off
-		ang, rise := lift*.7, lift*12*zoom
-		for i, c := range [...][2]float64{{-9, -10}, {9, -10}, {9, -13}, {-9, -13}} {
-			px := cx + (c[0]*math.Cos(ang)-(c[1]+10)*math.Sin(ang))*zoom
-			py := cy - 10*zoom + ((c[0])*math.Sin(ang)+(c[1]+10)*math.Cos(ang))*zoom - rise
+	for _, d := range []float64{-7, 7} {
+		var p vector.Path
+		for i := 0; i < 24; i++ {
+			a := 2 * math.Pi * float64(i) / 24
+			px, py := float32(x+(d+4.4*math.Cos(a))*u), float32(y+3*open*math.Sin(a)*u)
 			if i == 0 {
-				p.MoveTo(float32(px), float32(py))
+				p.MoveTo(px, py)
 			} else {
-				p.LineTo(float32(px), float32(py))
+				p.LineTo(px, py)
 			}
 		}
 		p.Close()
 		dp := &vector.DrawPathOptions{AntiAlias: true}
-		dp.ColorScale.ScaleWithColor(color.NRGBA{128, 84, 46, 255})
-		vector.FillPath(screen, &p, &vector.FillOptions{}, dp)
-		if lift > 0 {
-			g.glowAt(screen, cx, cy-10*zoom, 40*zoom*lift, moonLight, .7)
+		dp.ColorScale.ScaleWithColor(color.White)
+		vector.FillPath(s, &p, &vector.FillOptions{}, dp)
+	}
+}
+
+// drawCrate: the crate at foot (cx,cy), screen px, its lid lifted by lift (0..1).
+func (g *Game) drawCrate(screen *ebiten.Image, cx, cy, lift float64) {
+	rect(screen, int(cx)-8*zoom, int(cy)-10*zoom, 16*zoom, 10*zoom, color.NRGBA{96, 62, 34, 255})
+	for _, d := range []int{-4, 0, 4} {
+		rect(screen, int(cx)+d*zoom, int(cy)-10*zoom, 1, 10*zoom, color.NRGBA{58, 36, 20, 255})
+	}
+	var p vector.Path // the lid, lifting and tilting off
+	ang, rise := lift*.7, lift*12*zoom
+	for i, c := range [...][2]float64{{-9, -10}, {9, -10}, {9, -13}, {-9, -13}} {
+		px := cx + (c[0]*math.Cos(ang)-(c[1]+10)*math.Sin(ang))*zoom
+		py := cy - 10*zoom + ((c[0])*math.Sin(ang)+(c[1]+10)*math.Cos(ang))*zoom - rise
+		if i == 0 {
+			p.MoveTo(float32(px), float32(py))
+		} else {
+			p.LineTo(float32(px), float32(py))
 		}
+	}
+	p.Close()
+	dp := &vector.DrawPathOptions{AntiAlias: true}
+	dp.ColorScale.ScaleWithColor(color.NRGBA{128, 84, 46, 255})
+	vector.FillPath(screen, &p, &vector.FillOptions{}, dp)
+	if lift > 0 {
+		g.glowAt(screen, cx, cy-10*zoom, 40*zoom*lift, moonLight, .7)
+	}
+}
+
+func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
+	s := &g.scene
+	t := s.t
+	b := screen.Bounds()
+	mw, mh := g.mapSize()
+	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	at := func(x, y float64) (float64, float64) { return x*zoom - float64(ox), y*zoom - float64(oy) }
+	screen.Fill(bg)
+	g.drawWorld(screen, ox, oy) // the real Room; the cast's ghosts show faint over it
+	cx, cy := at(float64(s.crate.X), float64(s.crate.Y))
+	lit := ease(float64(t-fLight) / 40)
+	grow := ease(float64(t-fRingAt) / (fPoints - fRingAt - 20))
+	drawRing(screen, cx, cy, fRadius*zoom, grow, 3, [3]float32{.95, .93, .85}, .8-.3*lit)
+	if grow > 0 && grow < 1 { // Magenta's staff at the circle's growing end
+		a := 2*math.Pi*grow - math.Pi/2
+		g.glowAt(screen, cx+fRadius*zoom*math.Cos(a), cy+fRadius*zoom*math.Sin(a), 14*zoom, mEdge, .8)
+	}
+	if lit > 0 {
+		drawRing(screen, cx, cy, fRadius*zoom, 1, 4, kTint, lit)
+		g.glowAt(screen, cx, cy, fRadius*zoom*2.6, moonLight, .35*lit)
+	}
+	if t >= fCourier && t < fSet+60 { // the Courier, the crate in his arms till he sets it down
+		x, y := at(s.cour.X, s.cour.Y)
+		name := courierBox
+		if t >= fSet {
+			name = courierName
+		}
+		g.drawCharacter(screen, int(x), int(y), name, s.cour.Anim, 0)
+	}
+	if t >= fSet && t < fDark {
+		fall := 8 * (1 - ease(float64(t-fSet)/10)) * zoom
+		g.drawCrate(screen, cx, cy-fall, ease(float64(t-fLid)/60))
 	}
 	for i := range 70 { // stars pour up out of it
 		j := jitter(i)
 		age := float64(t - fLid - 10 - i*3)
-		if age < 0 || age > 110 || flashed {
+		if age < 0 || age > 110 || t >= fDark {
 			continue
 		}
 		x := cx + (j.ph-math.Pi)*4*zoom + math.Sin(age*.08+j.ph)*8*zoom*(.4+j.wob)
@@ -611,60 +654,38 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 		rect(screen, int(x), int(y), 2*zoom/2+1, 2*zoom/2+1, color.NRGBA{235, 230, 255, uint8(255 * a)})
 		g.glowAt(screen, x, y, 9*zoom, moonLight, .5*a)
 	}
-	if u := ease(float64(t-fFigure) / 90); u > 0 { // a tall figure unfolds: the Concierge's shape, stretched
+	if u := ease(float64(t-fFigure) / 90); u > 0 && t < fDark { // a tall figure unfolds: the Concierge's shape, stretched
 		g.drawMacguffin(screen, int(cx), int(cy), 1+.7*(1-u), math.Max(.05, macguffinTall*u), entities.NewAnim(), 1)
 	}
-	if t >= fRing && !flashed { // a ring of light cracks round the Mirror; the vortex spins backwards
-		ph := float64(t - fRing)
-		ramp := ease(ph / 70)
-		r := 2.4 * 16 * zoom
-		g.glowAt(screen, mx, my, r*2.6, moonLight, .3*ramp)
-		drawRing(screen, mx, my, r, ramp, 3, kTint, .95)
-		drawRing(screen, mx, my, r*1.12, ramp, 1.5, mEdge, .7)
-		for i := range 10 {
-			if (t/3+i)%5 < 3 {
-				a := float64(i)*.628 + .3
-				var p vector.Path
-				p.MoveTo(float32(mx+math.Cos(a)*r*.94), float32(my+math.Sin(a)*r*.94))
-				p.LineTo(float32(mx+math.Cos(a+.05)*r*1.22), float32(my+math.Sin(a+.05)*r*1.22))
-				strokeP(screen, &p, 2, [3]float32{1, 1, 1}, ramp)
-			}
+	for _, c := range s.cast[1:] { // the ghosts of the cast, faint over the Room (Tim fades out after his cap)
+		if g.realmOf(c.g) != Ghost {
+			continue
 		}
-		spin := -(ph*.02 + ph*ph*.0004)
-		for i := range 90 {
-			q := float64(i) / 90
-			a := spin*(1.6-q) + float64(i%3)*2*math.Pi/3 + q*6
-			rr := r*.15 + q*r*2.2
-			x, y := mx+rr*math.Cos(a), my+rr*math.Sin(a)*.8
-			al := ramp * (1 - q)
-			rect(screen, int(x), int(y), 3, 3, color.NRGBA{235, 230, 255, uint8(255 * al)})
-			g.glowAt(screen, x, y, 12*zoom, mEdge, .4*al)
+		x, y, a := c.g.X, c.g.Y, float32(finaleFaint)
+		cap := c.g.Who.Key == "tim" && t >= fCap
+		if cap {
+			x, y, a = float64(s.timAt.X), float64(s.timAt.Y), a*float32(1-ease(float64(t-fCap-fCapLift)/fFade))
+		}
+		if cap && t >= fGone {
+			continue
+		}
+		tint, _, _ := g.ghostLook(c.g)
+		sx, sy := at(x, y)
+		g.drawCharacterAs(screen, int(sx), int(sy), c.g.Character, c.g.Anim, 0, tint, a, modeFlat)
+		if cap { // his cap, lifted off
+			w, up := 8*zoom, int(ease(float64(t-fCap)/fCapLift)*14*zoom)+zoom
+			top := int(sy) + (entities.FootH/2-charH+10)*zoom - up
+			rect(screen, int(sx)-w/2, top, w, 3*zoom, color.NRGBA{110, 70, 170, uint8(255 * a)})
+			rect(screen, int(sx)-w/2, top+3*zoom, w, zoom, color.NRGBA{60, 36, 100, uint8(255 * a)})
 		}
 	}
-	if t >= fFlash+60 { // it stands where the crate was
-		g.drawMacguffin(screen, int(cx), int(cy), 1, macguffinTall, entities.NewAnim(), 1)
-	}
-	sx, sy := at(float64(spiritAt(s.crate).X), float64(spiritAt(s.crate).Y))
-	if t >= fSplit-60 && t < fBlow+60 {
-		sign, a := wrapAt(o4Signs[0], 18), 1.0
-		if t >= fFlip {
-			sign = wrapAt(finaleSign, 18)
-		}
-		if t >= fBlow { // it blows away
-			f := float64(t-fBlow) / 60
-			sx, sy, a = sx+f*f*500, sy-f*60, 1-f
-		}
-		g.drawSpirit(screen, sx, sy, zoom, sign, 0, a*ease(float64(t-fSplit+60)/20))
+	if d := ease(float64(t-fDark) / 40); d > 0 { // the dark, and the spirit's eyes in it
+		rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{0, 0, 0, uint8(255 * d)})
+		open := ease(float64(t-fEyes)/30) * (1 - ease(float64(t-fEyes-fEyesHold)/30))
+		drawEyes(screen, float64(b.Dx())/2, float64(b.Dy())/2, zoom, open)
 	}
 	if i, age := finaleLine(t); i >= 0 { // the lines, as subtitles: the MacGuffin's, then Celestine's
 		sayText(screen, finaleLines[i], float64(b.Dx())/2, float64(b.Dy())-36, float32(ease(float64(age)/10)*(1-ease(float64(age-lineHold+15)/15))))
-	}
-	if f := float64(t-fFlash) / 60; f > 0 { // the flash: white, then out
-		a := min(1, f)
-		if t >= fFlash+60 {
-			a = 1 - float64(t-fFlash-60)/60
-		}
-		rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{255, 255, 255, uint8(255 * max(0, a))})
 	}
 }
 
@@ -694,14 +715,26 @@ func (g *Game) drawScene(screen *ebiten.Image) {
 	}
 }
 
-// DevScene is main's -scene: a busy hotel a few hours in, with Tim and Celestine in it, the cutscene playing.
+// DevScene is main's -scene: a busy hotel a few hours in, with the finale's cast in it, the cutscene playing.
 func (g *Game) DevScene(id string) {
 	for range 3 * hourFrames {
 		g.step(0, 0)
 	}
-	for i, key := range []string{"tim", "celestine"} {
-		if p := g.arriveGhost(i); p != nil {
-			g.nameGhost(p.Guests[0], namedGhosts[slices.IndexFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })])
+	g.roomOwned = nil // every Room open, as the other dev starts
+	room := 0         // each into the next Room that takes them
+	for _, key := range []string{"celestine", "tim", "osvaldo"} {
+		for ; room < len(g.hotel.Rooms); room++ {
+			if p := g.arriveGhost(room); p != nil {
+				g.nameGhost(p.Guests[0], namedGhosts[slices.IndexFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })])
+				g.settleIn(p)
+				room++
+				break
+			}
+		}
+	}
+	for i, key := range []string{"magenta", "magda"} {
+		if p := g.arrive(room + i); p != nil {
+			g.nameHuman(p, namedHumans[slices.IndexFunc(namedHumans, func(h namedHuman) bool { return h.Key == key })])
 			g.settleIn(p)
 		}
 	}

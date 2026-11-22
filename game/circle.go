@@ -99,7 +99,7 @@ var beats = [beatCount]beat{
 				Done: "A staff fit for a sorceress. Or a mop. Today, a sorceress."},
 			{ID: "O12", Row: "READ THE NAME", Side: Ghost,
 				Done: "Don't say it aloud. It RSVPs."}}},
-	{Title: "BRAVE NEW GUEST", Guests: nil, Purse: 0, Item: noItem, Speaker: "magenta",
+	{Title: "MELTED INTO AIR", Guests: nil, Purse: 0, Item: noItem, Speaker: "magenta",
 		Lines: [3]string{"Thank you, Concierge. Truly. Stand back. Further. Behind the towel.",
 			"It's already here, love. It never left. It's in the minibar."},
 		Objs: []objective{{ID: "O13", Row: "THE CRATE WITH NO SENDER", Side: Human, Scene: "finale"}}},
@@ -117,8 +117,7 @@ var (
 	o9Lines            = [2]string{"Delivery for " + nameArbogast + ", night shift, 1959. Signature required.", "Sixty years I carried that. It was the floor plan for *later*."}
 	wreathRow          = "WREATH, FOR " + upper(nameCelestineShort) + " (A THANK-YOU, 97 YEARS PENDING)"
 	crateRow           = "A CRATE. NO SENDER. ORDERED 1923. EXPRESS."
-	finaleLines        = [3]string{"I AM THE ETERNAL ELDRITCH MACGUFFIN. I WOULD LIKE A ROOM WITH A VIEW. OF EVERYTHING.", "O brave new guest, that has such stars in it.", "I ALSO DO NOTHING. VERY EXPENSIVELY."}
-	finaleSign         = "GONE. 5 STARS."
+	finaleLines        = [2]string{"I AM THE ETERNAL ELDRITCH MACGUFFIN. I WOULD LIKE A ROOM WITH A VIEW. OF EVERYTHING.", "Ninety-seven years awake. Maybe we're all just dreams, rounded off with a nap."}
 	gateRefuse         = "SHIFT'S NOT OVER"
 )
 
@@ -222,7 +221,6 @@ const (
 	tgTerminal        // the Terminal's screen
 	tgSupply          // the Supply the ghost asked for
 	tgSpirit          // O4's spirit
-	tgLobby           // the Entrance Mirror
 )
 
 // Guest keys beyond the cast's: "ghostmate" (the ghost in Magenta's Room), "porter" (O6's ghost), "stranger" (O3 Lv2+),
@@ -306,6 +304,6 @@ var objSteps = map[string][]stepDef{
 	},
 	"O13": {
 		{Dim: Human, Any: true, Text: "BUY THE CRATE", Tgt: target{tgTerminal, ""}},
-		{Dim: Human, Wait: true, Text: "WAIT BY THE ENTRANCE MIRROR", Tgt: target{tgLobby, ""}},
+		{Dim: Human, Wait: true, Text: "WAIT IN " + upper(nameMadame) + "'S ROOM", Tgt: target{tgDoor, "celestine"}},
 	},
 }

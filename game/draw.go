@@ -242,7 +242,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		}
 	}
 	for _, realm := range [...]Realm{Human, Ghost} {
-		if realm == Ghost && !g.ghost && g.reel == nil && (!g.scene.on() || g.scene.id == "talk") { // in real a ghost shows only through its area's Shadows
+		if realm == Ghost && !g.ghost && g.reel == nil && (!g.scene.on() || g.scene.id == "talk" || g.scene.id == "finale") { // in real a ghost shows only through its area's Shadows
 			continue
 		}
 		for guest := range g.guestsIn(realm) {

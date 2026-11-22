@@ -772,7 +772,7 @@ func TestO12ReadTheName(t *testing.T) {
 	}
 }
 
-// O13: the Crate row is on sale while O13 is open; the Courier carries it to the Entrance Mirror.
+// O13: the Crate row is on sale while O13 is open; the Courier carries it into Madame's Room.
 func TestO13Crate(t *testing.T) {
 	g, _ := verbRun(t, 2, 7)
 	g.own(Mirror)
@@ -787,11 +787,19 @@ func TestO13Crate(t *testing.T) {
 	if why := g.placeOrder(); why != "" {
 		t.Fatal(why)
 	}
+	shell := g.hotel.Rooms[max(0, g.roomOfKey("celestine"))].Shell()
+	in := false
+	for _, d := range g.couriers[0].drops {
+		in = in || len(d.lines) > 0 && d.at.In(shell)
+	}
+	if !in {
+		t.Error("the crate's drop is not inside Madame's Room")
+	}
 	for i := 0; i < 4000 && !reported(g, "O13"); i++ {
 		g.step(0, 0)
 	}
 	if !reported(g, "O13") {
-		t.Error("the crate never reached the Mirror")
+		t.Error("the crate never reached Madame's Room")
 	}
 	g.quest.Done[0] = true
 	if g.onSale(c) {
