@@ -187,24 +187,20 @@ var (
 
 // The credits (credits.go), after the finale; then CONTINUE.
 var credits = []string{
-	"THE MACGUFFIN HAS CHECKED IN",
-	"",
-	"A GAME BY",
-	"RICARDO MILAN",
-	"GABRIEL RODRIGUES",
-	"",
 	"Made for GitHub Game Off 2026, theme SHIFT",
 	"",
-	"Art: LimeZu, Modern Interiors (free pack)",
+	"A GAME BY",
+	"RICARDO MILAN     GABRIEL RODRIGUES",
+	"",
 	"Engine: Ebitengine. Language: Go.",
 	"",
 	"SPECIAL THANKS",
-	"LimeZu",
+	"LimeZu, for the free Modern Interiors pack",
 	"",
 	"No MacGuffins were harmed. Nobody knows how to harm one.",
 }
 
-const creditsEpilogue = "Our revels now are ended. The night shift's over. Let your applause set the spirit free. Thank you for staying."
+const creditsEpilogue = "The night shift's over. Thank you for staying."
 
 // 08 W5-VERBS: lines the objectives need that circle.md leaves to the code.
 var (
