@@ -638,6 +638,11 @@ func (g *Game) DevVerb(id string) {
 			p.asked, p.want = g.clock, SupplyTowel
 		}
 		at(g.hotel.Rooms[0].Mat())
+	case "O9": // the key in hand, by Tim's Room: GIVE plays the cutscene (use -ghost)
+		g.rollSet("O9.took", 1)
+		g.saw("O9.read")
+		g.verbs.held = "O9"
+		at(g.hotel.Rooms[0].Mat())
 	case "O8":
 		g.openTerminal()
 		g.termTab = tabHotel

@@ -797,6 +797,8 @@ func (g *Game) DevScene(id string) {
 	}
 	if id == "crate" { // the crate sits in Madame's Room before the finale; the Concierge waits in the Corridor at her door
 		room := max(0, g.roomOfKey("celestine"))
+		g.quest = questRun{Beat: beatCount, Done: make([]bool, len(beats[beatCount-1].Objs)), Rolls: map[string]int{}} // O13 open: the finale finishes it
+		g.verbs = verbState{beat: beatCount}
 		g.rollSet("O13.crate", room+1)
 		d := g.doorDrop(room)
 		g.fog[room] = 0
