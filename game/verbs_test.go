@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"slices"
@@ -1096,6 +1097,21 @@ func TestFinaleStage(t *testing.T) {
 		want[i] = entities.Toward(float64(-d.X), float64(-d.Y))
 		if c.g.Anim.Facing != want[i] {
 			t.Errorf("cast %d faces %v, want the centre (%v)", i, c.g.Anim.Facing, want[i])
+		}
+	}
+}
+
+// Live test 5: the finale's figure: a triangle, a square, a pentagram, and for 6 a hexagon with its three long
+// diagonals (never two triangles).
+func TestStarEdges(t *testing.T) {
+	for n, want := range map[int]string{
+		3: "[[0 1] [1 2] [2 0]]",
+		4: "[[0 1] [1 2] [2 3] [3 0]]",
+		5: "[[0 2] [1 3] [2 4] [3 0] [4 1]]",
+		6: "[[0 1] [1 2] [2 3] [3 4] [4 5] [5 0] [0 3] [1 4] [2 5]]",
+	} {
+		if got := fmt.Sprint(starEdges(n)); got != want {
+			t.Errorf("%d points: %s, want %s", n, got, want)
 		}
 	}
 }

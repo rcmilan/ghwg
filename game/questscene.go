@@ -853,19 +853,29 @@ func drawRing4(s *ebiten.Image, x, y, r, frac, spin float64, w float32, a float6
 	}
 }
 
-// drawStar: the figure the cast's points make, each line grown by grow (0..1): a polygon for up to 4 of them, a
-// star (each point to the one two on) for 5 and more: a pentagram, two triangles for 6.
-func drawStar(s *ebiten.Image, pts [][2]float64, grow, a float64) {
-	n := len(pts)
-	if n < 3 || grow <= 0 {
-		return
-	}
+// starEdges: the lines between n points round the circle: the polygon, but a pentagram for 5, and for 6 a hexagon
+// with its three long diagonals, a wheel (live test 5: two triangles were out).
+func starEdges(n int) (es [][2]int) {
 	step := 1
-	if n >= 5 {
+	if n == 5 {
 		step = 2
 	}
 	for i := range n {
-		p, q := pts[i], pts[(i+step)%n]
+		es = append(es, [2]int{i, (i + step) % n})
+	}
+	for i := range n / 2 * b2i(n == 6) {
+		es = append(es, [2]int{i, i + 3})
+	}
+	return es
+}
+
+// drawStar: the figure the cast's points make (starEdges), each line grown by grow (0..1).
+func drawStar(s *ebiten.Image, pts [][2]float64, grow, a float64) {
+	if len(pts) < 3 || grow <= 0 {
+		return
+	}
+	for i, e := range starEdges(len(pts)) {
+		p, q := pts[e[0]], pts[e[1]]
 		var path vector.Path
 		path.MoveTo(float32(p[0]), float32(p[1]))
 		path.LineTo(float32(p[0]+(q[0]-p[0])*grow), float32(p[1]+(q[1]-p[1])*grow))
