@@ -287,7 +287,8 @@ var objSteps = map[string][]stepDef{
 	"O8": {
 		{Dim: Human, Any: true, Text: "BUY THE WREATH", Tgt: target{tgTerminal, ""}},
 		{Dim: Human, Wait: true, Text: "WAIT FOR THE COURIER", Tgt: target{tgDoor, "celestine"}},
-		{Dim: Ghost, Text: "GIVE " + upper(nameMadame) + " THE WREATH", Tgt: target{tgDoor, "celestine"}},
+		{Dim: Ghost, Text: "PICK UP THE WREATH", Tgt: target{tgDoor, "celestine"}},
+		{Dim: Ghost, Text: "GIVE " + upper(nameMadame) + " THE WREATH", Tgt: target{tgGuest, "celestine"}},
 	},
 	"O9": {
 		{Dim: Ghost, Text: "ASK " + upper(nameTim) + " ABOUT THE KEY", Tgt: target{tgGuest, "tim"}},

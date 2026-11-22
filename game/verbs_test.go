@@ -618,7 +618,7 @@ func TestO7MagdaMeetsOsvaldo(t *testing.T) {
 }
 
 // O8: the Wreath row is on sale while O8 is open; bought, the Courier leaves it at Madame's door: a parcel in real,
-// the wreath in ghost, where SPACE gives it.
+// the wreath in ghost, where SPACE picks it up; GIVE it to Madame and she thanks for it (live test 5).
 func TestO8Wreath(t *testing.T) {
 	g, s := verbRun(t, 2, 5)
 	named(t, g, 1, "celestine")
@@ -660,8 +660,20 @@ func TestO8Wreath(t *testing.T) {
 	g.state = StatePlay
 	g.ghost = true
 	press(g, s, center(g.hotel.Rooms[1].Mat()))
-	if !reported(g, "O8") || g.rollGet("O8.parcel") != 0 {
-		t.Errorf("the wreath: reported %v parcel %d", g.verbs.done, g.rollGet("O8.parcel"))
+	if reported(g, "O8") || g.rollGet("O8.parcel") != 0 || g.verbs.held != "O8" {
+		t.Fatalf("picked up: reported %v parcel %d held %q", g.verbs.done, g.rollGet("O8.parcel"), g.verbs.held)
+	}
+	if g.onSale(w) {
+		t.Error("on sale with the wreath in hand")
+	}
+	g.verbs.held = "" // a reload: held is not saved, the roll gives it back
+	g.updateVerbs()
+	if g.verbs.held != "O8" {
+		t.Fatalf("after a reload: held %q", g.verbs.held)
+	}
+	madame := g.questParty("celestine")
+	if txt := talkTo(g, s, madame); txt != objOf("O8").Done || !reported(g, "O8") || g.verbs.held != "" {
+		t.Errorf("GIVE: said %q reported %v held %q", txt, g.verbs.done, g.verbs.held)
 	}
 }
 

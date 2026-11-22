@@ -186,6 +186,9 @@ var heldPal = map[rune]color.RGBA{
 
 // heldIcon: the picture of the word or thing held (verbs.held).
 func (g *Game) heldIcon(held string) *ebiten.Image {
+	if held == "O8" { // the shop's wreath
+		return g.sprite("icon_wreath")
+	}
 	kind := map[string]string{"O1": "word", "O2": "word", "O9": "key", "O11": "haft"}[held]
 	rows := heldRows[kind]
 	if rows == nil {

@@ -140,7 +140,7 @@ func (g *Game) sayDone(p *Party, text string) {
 func (g *Game) questRowOn(id Unlock) (on, quest bool) {
 	switch id {
 	case rowWreath:
-		return g.questOpen("O8") && g.roomOfKey("celestine") >= 0 && g.rollGet("O8.parcel") == 0 && !g.verbsComing(id), true
+		return g.questOpen("O8") && g.roomOfKey("celestine") >= 0 && g.rollGet("O8.parcel") == 0 && g.rollGet("O8.took") == 0 && !g.verbsComing(id), true
 	case rowCrate:
 		return g.questOpen("O13") && !g.crateBought(), true
 	case rowStorm:
@@ -295,6 +295,11 @@ func (g *Game) updateVerbs() {
 	}
 	if g.verbs.held != "" && !g.questOpen(g.verbs.held) {
 		g.verbs.held = ""
+	}
+	for _, id := range [...]string{"O8", "O9", "O11"} { // what was taken and not given yet: held is not saved, the roll is
+		if g.verbs.held == "" && g.rollGet(id+".took") == 1 && g.questOpen(id) && !slices.Contains(g.verbs.done, id) {
+			g.verbs.held = id
+		}
 	}
 	if g.ticked && g.clock%minuteFrames == 0 {
 		g.verbMinute()
@@ -460,9 +465,9 @@ func (g *Game) ghostDoor(i int) bool {
 	return g.ghostWants(i, g.hands) || g.wreathAt(i) || g.handprintRoom() == i
 }
 
-// wreathAt: the wreath lies at Room i's door and Madame is in it.
+// wreathAt: the wreath lies at Room i's door, Madame is in it and the Concierge's hands are free.
 func (g *Game) wreathAt(i int) bool {
-	return g.questOpen("O8") && g.rollGet("O8.parcel") == i+1 && g.roomOfKey("celestine") == i
+	return g.questOpen("O8") && g.rollGet("O8.parcel") == i+1 && g.roomOfKey("celestine") == i && g.verbs.held == ""
 }
 
 // ghostDeliver: what ghostDoor said happens.
@@ -470,10 +475,10 @@ func (g *Game) ghostDeliver(i int) {
 	switch {
 	case g.ghostWants(i, g.hands):
 		g.serveGhost(i)
-	case g.wreathAt(i):
+	case g.wreathAt(i): // picked up: GIVE it to her, who thanks for it (live test 5)
 		g.rollSet("O8.parcel", 0)
-		g.sayDone(g.questParty("celestine"), objOf("O8").Done)
-		g.verbDone(evDeliver, i, "O8")
+		g.rollSet("O8.took", 1)
+		g.verbs.held = "O8"
 	case g.handprintRoom() == i:
 		c := g.doorDrop(i) // the close-up on the handprint; its end finishes O4
 		g.scene.at = image.Pt(c.X, c.Y-3*world.TileSize/2)

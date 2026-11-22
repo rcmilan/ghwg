@@ -111,7 +111,7 @@ func (g *Game) verbOpts(p *Party, guest *entities.Guest) (os []cardOpt) {
 	if g.takeId(p, guest) != "" {
 		os = append(os, optTake)
 	}
-	if h == "O9" && g.questOpen("O9") && k == "tim" || h == "O11" && g.questOpen("O11") && k == "magenta" {
+	if h == "O9" && g.questOpen("O9") && k == "tim" || h == "O11" && g.questOpen("O11") && k == "magenta" || h == "O8" && g.questOpen("O8") && k == "celestine" && p.Realm == Ghost {
 		os = append(os, optGive)
 	}
 	return os

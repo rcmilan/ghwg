@@ -74,6 +74,7 @@ func TestNextStep(t *testing.T) {
 		{"O7 move", "O7", 0, func(g *Game) { g.saw("osvaldo") }, want{Human, false, tgGuest, "magda"}},
 		{"O8 buy", "O8", 0, func(g *Game) {}, want{Human, true, tgTerminal, ""}},
 		{"O8 parcel", "O8", 0, func(g *Game) { g.rollSet("O8.parcel", 1) }, want{Ghost, false, tgDoor, "celestine"}},
+		{"O8 give", "O8", 0, func(g *Game) { g.verbs.held = "O8" }, want{Ghost, false, tgGuest, "celestine"}},
 		{"O9 ask", "O9", 0, func(g *Game) {}, want{Ghost, false, tgGuest, "tim"}},
 		{"O9 find", "O9", 0, func(g *Game) { g.saw("O9.read") }, want{Human, false, tgNone, ""}},
 		{"O9 give", "O9", 0, func(g *Game) { g.verbs.held = "O9" }, want{Ghost, false, tgGuest, "tim"}},

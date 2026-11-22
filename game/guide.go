@@ -102,6 +102,8 @@ func (g *Game) stepIdx(id string) int {
 		return b2i(g.sawn("osvaldo"))
 	case "O8":
 		switch {
+		case held == "O8":
+			return 3
 		case g.rollGet("O8.parcel") > 0:
 			return 2
 		case g.verbsComing(rowWreath):
