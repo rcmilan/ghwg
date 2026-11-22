@@ -108,6 +108,7 @@ var beats = [beatCount]beat{
 // objLines: the quest guests' other lines, by objective.
 var (
 	fatherSun          = "Point a magnifier at the sun and it will burn your eyes."                                          // a Father guest's card line once the MacGuffin is summoned (live test 6)
+	magentaHelper      = "It said it serves another? It means me. It's shy about it."                                        // her talk once O4's spirit is caught, the rest of beat 3 (live test 6)
 	magentaStudy       = "I'm studying this eldritch creature, so it doesn't stay beyond my understanding."                  // her talk once the MacGuffin is summoned and she asks nothing (live test 6)
 	o11Magenta         = "Fetch me " + nameTim + "'s old trolley handle. I'd go myself, but then what would you do all day?" // her Card while O11 is open (a fetch-quest joke, live test 5)
 	celestineEntry     = "Ordered: one (1) MacGuffin, eternal, eldritch. Room service, 1923. Still waiting. Lovely hotel otherwise. Room {n}."

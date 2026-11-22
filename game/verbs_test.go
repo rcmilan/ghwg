@@ -1127,3 +1127,20 @@ func TestStarEdges(t *testing.T) {
 		}
 	}
 }
+
+// Live test 6: the O4 spirit is Magenta's; once caught, she owns up, on her talk and card, the rest of beat 3.
+func TestMagentaOwnsTheSpirit(t *testing.T) {
+	g, _ := verbRun(t, 3, 3)
+	m := named(t, g, 0, "magenta")
+	if q := g.verbQuote(m, m.Guests[0]); q == magentaHelper {
+		t.Fatal("before the catch")
+	}
+	g.rollSet("O4.lit", 1)
+	if q := g.verbQuote(m, m.Guests[0]); q != magentaHelper {
+		t.Fatalf("after the catch: %q", q)
+	}
+	setQuest(g, 4)
+	if q := g.verbQuote(m, m.Guests[0]); q == magentaHelper {
+		t.Fatal("past beat 3")
+	}
+}
