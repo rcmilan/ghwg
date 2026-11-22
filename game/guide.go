@@ -287,6 +287,14 @@ func (g *Game) needInk(a float32) color.NRGBA {
 // ---- the marker ----
 
 // mark is one outlined target: how to draw its outline, and its box (world px).
+// markPart: part src of img, drawn with its top-left at world px at, shifted by dread.
+type markPart struct {
+	img   *ebiten.Image
+	src   image.Rectangle
+	at    image.Point
+	dread float32
+}
+
 type mark struct {
 	tint   []float32
 	ink    color.RGBA
@@ -294,6 +302,7 @@ type mark struct {
 	party  *Party
 	spirit bool            // the spirit's
 	props  []int           // indexes in g.props: their silhouettes (a Mirror, the Terminal)
+	parts  []markPart      // pictures outside g.props (a kitchen prop, a door's leaves): their silhouettes
 	ring   image.Rectangle // a frame round a plain shape: the book, a plate, a door, a shelf
 	box    image.Rectangle
 	z      float64 // sort y of its outline
@@ -376,7 +385,7 @@ func (g *Game) markOf(t target, vis image.Rectangle) *mark {
 		}
 		d := g.hotel.Rooms[room].Door
 		r := image.Rect(d.X*gts, d.Y*gts, d.X*gts+gts, d.Y*gts+2*gts)
-		return &mark{ring: r, box: r, z: float64(r.Max.Y) + 1}
+		return &mark{parts: g.doorParts(room), ring: r, box: r, z: float64(r.Max.Y) + 1}
 	case tgBook:
 		b := g.bookRect()
 		r := image.Rect(b.Min.X+4, b.Min.Y+3, b.Min.X+12, b.Min.Y+8)
@@ -390,6 +399,11 @@ func (g *Game) markOf(t target, vis image.Rectangle) *mark {
 			if k := supplyOf(p.want); k >= 0 {
 				r := supplySpot(g.hotel, k)
 				r = image.Rect(r.Min.X, r.Min.Y-gts, r.Max.X, r.Max.Y-gts)
+				if img := g.sprite(supplies[k].Prop); img != nil {
+					sz := img.Bounds().Size() // where drawKitchen puts it
+					at := image.Pt(r.Min.X+r.Dx()/2-sz.X/2, g.hotel.Stock.Max.Y-sz.Y)
+					return &mark{parts: []markPart{{img, img.Bounds(), at, 0}}, box: r, z: float64(r.Max.Y) + 1}
+				}
 				return &mark{ring: r, box: r, z: float64(r.Max.Y) + 1}
 			}
 		}
@@ -399,6 +413,26 @@ func (g *Game) markOf(t target, vis image.Rectangle) *mark {
 		}
 	}
 	return nil
+}
+
+// doorParts: the Room's door leaves as drawDoors draws them now; none (the ring shows) while it is out of sight.
+func (g *Game) doorParts(room int) (ps []markPart) {
+	m := g.hotel.Map
+	for _, d := range g.hotel.Doors {
+		if d.Room != room || !g.isOwned(room) || g.reeling(room) {
+			continue
+		}
+		off := int(math.Round(d.Open() * gts))
+		c0, c1 := m.Cell(d.Rect.Min), m.Cell(d.Rect.Max.Sub(image.Pt(1, 1)))
+		for y := c0.Y; y <= c1.Y && off < gts; y++ {
+			for x := c0.X; x <= c1.X; x++ {
+				if id := m.At(world.LayerDecor, x, y); m.TS.Tiles[id].Door {
+					ps = append(ps, markPart{g.tiles[id], image.Rect(0, 0, gts-off, gts), image.Pt(m.Origin(x, y).X+off, y*gts), g.roomShift(room)})
+				}
+			}
+		}
+	}
+	return ps
 }
 
 // plateMark: the Room's guest plate by its door, outlined (a guest inside is out of sight).
@@ -520,6 +554,16 @@ func (g *Game) drawOutline(s *ebiten.Image, m mark, ox, oy int) {
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate(float64(o.X*zoom-ox), float64(o.Y*zoom-oy))
 			g.blit(s, g.tiles[p.id], op, modeProp, 0, nil, 0)
+		}
+	case len(m.parts) > 0:
+		for _, p := range m.parts {
+			g.outlineImg(s, m, p.img, p.src, float64(p.at.X*zoom-ox), float64(p.at.Y*zoom-oy), a)
+		}
+		for _, p := range m.parts { // then the pictures themselves over their outline
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(zoom, zoom)
+			op.GeoM.Translate(float64(p.at.X*zoom-ox), float64(p.at.Y*zoom-oy))
+			g.blitPart(s, p.img, p.src, op, modeProp, 0, nil, p.dread)
 		}
 	case !m.ring.Empty():
 		r, c := m.ring, withAlpha(m.ink, a)
