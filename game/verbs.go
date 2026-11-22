@@ -648,6 +648,10 @@ func (g *Game) DevVerb(id string) {
 		g.saw("O9.read")
 		g.verbs.held = "O9"
 		at(g.hotel.Rooms[0].Mat())
+	case "O11": // the haft in hand, by Magenta's Room: GIVE gets her Done line
+		g.rollSet("O11.took", 1)
+		g.verbs.held = "O11"
+		at(g.hotel.Rooms[0].Mat())
 	case "O8":
 		g.openTerminal()
 		g.termTab = tabHotel

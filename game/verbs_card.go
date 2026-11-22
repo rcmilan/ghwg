@@ -159,6 +159,9 @@ func (g *Game) verbQuote(p *Party, guest *entities.Guest) string {
 				if id == "O1" && g.rollGet("O1.long") == 1 {
 					return o1LongAsk
 				}
+				if id == "O11" && g.verbs.held == "O11" { // the haft brought: straight to its GIVE and Done line
+					return ""
+				}
 				if id == "O11" {
 					return o11Magenta
 				}

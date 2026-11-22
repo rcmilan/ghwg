@@ -96,7 +96,7 @@ var beats = [beatCount]beat{
 				Done: "She snores in Latin. Misery acquaints a woman with strange bedfellows. This was not misery. This was a sleepover."},
 			{ID: "O11", Row: "THE HAFT, FROM THE OTHER SIDE", Side: Human,
 				Ask:  nameTim + "'s old luggage-trolley handle. Slightly haunted. Excellent grip.",
-				Done: "Tim's trolley handle. Fits my staff like it grew there. HAFT found."},
+				Done: "Tim's trolley handle. Yeah, I can use it as a staff."},
 			{ID: "O12", Row: "READ THE NAME", Side: Ghost,
 				Done: "Don't say it aloud. It RSVPs."}}},
 	{Title: "MELTED INTO AIR", Guests: nil, Purse: 0, Item: noItem, Speaker: "magenta",

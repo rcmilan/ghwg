@@ -774,7 +774,7 @@ func TestO11Haft(t *testing.T) {
 	if !hasOpt(verbsOf(g, m), optGive) {
 		t.Fatal("no GIVE for Magenta")
 	}
-	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "Fits my staff like it grew there") {
+	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "I can use it as a staff") || strings.Contains(txt, "Fetch me") {
 		t.Errorf("GIVE: %v: %q", g.verbs.done, txt)
 	}
 }
