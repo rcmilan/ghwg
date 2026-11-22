@@ -434,10 +434,12 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		g.drawDarkness(screen, ox, oy)
 	}
 	g.drawFogOutlines(screen, ox, oy, marks) // over the darkness: a guest under the Fog keeps its outline, its sprite covered
-	if screen != g.wide {                    // the hotel view draws them on the screen, over its veils (hotelview.go)
+	if screen != g.wide && !g.scene.on() {   // the hotel view draws them on the screen, over its veils (hotelview.go); a cutscene's world is stopped: a guest's pill would show as a second diamond over Tim's head (O9)
 		g.drawRequests(screen, ox, oy, zoom)
 	}
-	g.drawTalk(screen, ox, oy)
+	if !g.scene.on() { // a cutscene's world is stopped: no chatter bubbles
+		g.drawTalk(screen, ox, oy)
+	}
 	g.drawKeepers(screen, ox, oy)
 	g.drawVoices(screen, ox, oy)
 	g.drawRituals(screen, ox, oy, false)

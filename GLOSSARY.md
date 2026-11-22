@@ -374,7 +374,7 @@ The staged conversation in which the Concierge asks a human Party to change Room
 _Avoid_: dialogue, chat (a pair's chat is an activity), move menu
 
 **Quest TALK** (08 W5 R8):
-SPACE with the Concierge close (about a tile and a half) to a quest character of his Dimension (a named questline guest, human in real, ghost in ghost; also the ghost roommate, the oldest sleeper, the HAFT's ally), walking in a Corridor or in its Room, with nothing nearer to do on the spot (the plate's Card, a delivery, a Mirror, the Terminal and the shelves come first; inside a Room it comes before CLEAN). The cue is TALK on the HUD's right, as for the plate. The character stops and faces him, the camera closes in on it in the card's frame with the world stopped (a short cutscene), and it says its quest line over its head; then the word or thing he carries that it needs is handed over (TELL, GIVE), what it gives is taken (TAKE; Magenta's word for O1), and its done line follows; then the frame lets go. SPACE cuts the line under way short. With nothing quest-related it says one of its own lines. Not the talk (MOVE) above.
+SPACE with the Concierge close (about a tile and a half) to a quest character of his Dimension (a named questline guest, human in real, ghost in ghost; also the ghost roommate, the oldest sleeper, the HAFT's ally), walking in a Corridor or in its Room, with nothing nearer to do on the spot (the plate's Card, a delivery, a Mirror, the Terminal and the shelves come first; inside a Room it comes before CLEAN). The cue is TALK on the HUD's right, as for the plate. The character stops and faces him, the camera closes in on it in the card's frame with the world stopped (a short cutscene), and it says its quest line over its head; then the word or thing he carries that it needs is handed over (TELL, GIVE), what it gives is taken (TAKE; Magenta's word for O1), and its done line follows; then the frame lets go. Each line stays up until SPACE (a small blinking SPACE under or over it). With nothing quest-related it says one of its own lines. Not the talk (MOVE) above.
 _Avoid_: TELL/TAKE/GIVE buttons (they are not on the Card any more)
 
 **Target Room**:
@@ -511,7 +511,7 @@ One of Magenta's six gifts, owned for good once its Beat is first done: Show, do
 _Avoid_: power-up, relic
 
 **Cutscene**:
-O4's two (the spirit's eyes in the dark, the handprint close-up), O9's key (a close-in on Tim's hands, the gem rising) and the finale (Madame's room, the circle drawn on its floor): the world stops, it plays in full the first time and SPACE skips a replay.
+O4's two (the spirit's eyes in the dark, the handprint close-up), O9's key (a close-in on Tim's hands, the gem rising) and the finale (Madame's room, the circle drawn on its floor): the world stops, every line waits for SPACE (a small blinking SPACE shows); it plays in full the first time and SPACE skips a replay, except while a line waits (then SPACE only moves that line on). The spirit's eyes are drawn at twice their first size. Money and Ecto stay off the screen during a talk, a card or a cutscene.
 
 **MacGuffin**:
 The Eternal Eldritch MacGuffin, summoned once ever by the finale (the Crate reaching Madame's room, where the circle is drawn on the floor). From then on it books the best Room every Run from the first Growth, pays 5 times the Rate, never leaves, asks or flees, is immune to Mood and Fear, and cannot be REVEALed. The finale adds 0.25 to the bonus. It signs the guest book at the Run's end.

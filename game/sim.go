@@ -34,8 +34,12 @@ func (a *autopilot) drive(g *Game) {
 		a.keys.hold(ebiten.KeySpace)
 		return
 	}
-	if g.state == StateGrow || g.scene.on() { // the hotel grows, or a cutscene or a quest TALK plays out by itself: nothing to press
-		a.keys.hold()
+	if g.state == StateGrow || g.scene.on() { // the hotel grows, or a cutscene or a quest TALK plays: SPACE on each line, nothing else to press
+		if g.sceneWaiting() && !a.keys.now[ebiten.KeySpace] {
+			a.keys.hold(ebiten.KeySpace)
+		} else {
+			a.keys.hold()
+		}
 		return
 	}
 	if (g.state == StateView || g.state == StateTalk) && a.pilot.Idle() { // a SPACE that found nothing to do opened the hotel view (U2), or a talk (X2): out of it
