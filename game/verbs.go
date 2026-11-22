@@ -447,7 +447,7 @@ func (g *Game) verbOpener(pr *priest) []string {
 		return nil
 	}
 	if g.questOpen("O6") && g.porterRoom() == room {
-		return []string{byTimes(fatherKParty, g.timesDone(4))}
+		return []string{byTimes(fatherMParty, g.timesDone(4))}
 	}
 	n := g.timesDone(g.quest.Beat)
 	if n == 0 || !slices.ContainsFunc(g.parties, func(p *Party) bool { return p.Room == room && slices.Contains(questCast, p.Guests[0].Who.Key) }) {

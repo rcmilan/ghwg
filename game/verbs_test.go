@@ -535,11 +535,11 @@ func TestO6RetirementParty(t *testing.T) {
 	g.endTalk()
 	pr := &priest{strong: true}
 	pr.RoomIndex = 1
-	if l := g.verbOpener(pr); len(l) != 1 || l[0] != fatherKParty[0] {
+	if l := g.verbOpener(pr); len(l) != 1 || l[0] != fatherMParty[0] {
 		t.Errorf("M's opener: %v", l)
 	}
 	g.questRec.Times[3] = 1
-	if l := g.verbOpener(pr); l[0] != fatherKParty[1] {
+	if l := g.verbOpener(pr); l[0] != fatherMParty[1] {
 		t.Errorf("M's opener the 2nd time: %v", l)
 	}
 	g.ritualEffect(&priest{Guest: entities.Guest{RoomIndex: 1}}) // K's Ritual: no party
@@ -739,7 +739,7 @@ func TestO11Haft(t *testing.T) {
 	if !hasOpt(verbsOf(g, m), optGive) {
 		t.Fatal("no GIVE for Magenta")
 	}
-	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "A staff fit for a sorceress") {
+	if txt := talkTo(g, s, m); !reported(g, "O11") || !strings.Contains(txt, "Fits my staff like it grew there") {
 		t.Errorf("GIVE: %v: %q", g.verbs.done, txt)
 	}
 }
