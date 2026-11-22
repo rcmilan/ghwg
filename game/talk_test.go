@@ -71,6 +71,9 @@ func TestGreetPair(t *testing.T) {
 // line; a pair says some.
 func TestRoomTalk(t *testing.T) {
 	g, _, p := settled(t)
+	old := eggOdds
+	eggOdds = 0 // the easter egg has its own test
+	t.Cleanup(func() { eggOdds = old })
 	said := func(minutes int) []string {
 		var lines []string
 		for range minutes {
@@ -150,5 +153,31 @@ func TestLinesByPlace(t *testing.T) {
 	g.keeperTalk(k)
 	if k.said.text != "" {
 		t.Fatalf("it welcomed the same Party twice: %q", k.said.text)
+	}
+}
+
+// Live test 5: the easter egg, rare, in two balloons by one speaker: a human's Riemann, a ghost's Navier-Stokes;
+// never asleep.
+func TestEasterEgg(t *testing.T) {
+	g, _, p := settled(t)
+	old := eggOdds
+	eggOdds = 1
+	t.Cleanup(func() { eggOdds = old })
+	g.clock = (g.clock/dayFrames+1)*dayFrames + 9*hourFrames
+	for _, realm := range []Realm{Human, Ghost} {
+		p.Realm, p.talk = realm, nil
+		for i := 0; len(p.talk) == 0; i++ {
+			if i > 10*60 {
+				t.Fatalf("realm %d: no line in 10 hours", realm)
+			}
+			g.clock += minuteFrames
+			g.updateRoomTalk()
+		}
+		if e := eggLines[realm]; len(p.talk) != 2 || p.talk[0].text != e[0] || p.talk[1].text != e[1] || p.talk[0].who != p.talk[1].who {
+			t.Fatalf("realm %d said %+v, want %v by one speaker", realm, p.talk, e)
+		}
+	}
+	if old > .02 {
+		t.Fatalf("eggOdds %v: an easter egg is rare", old)
 	}
 }

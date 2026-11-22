@@ -185,6 +185,9 @@ The 3×2 mat below a Room's door. SPACE on it delivers the asked item; elsewhere
 **Pill**:
 The balloon over a Party with a Request or a dirt complaint: the Room number, then the item's icon or a dirt splat; the same size on screen at any zoom.
 
+**Easter egg**:
+A rare pair of lines a guest says in its Room (`eggLines`, one in a hundred of its Room lines, never asleep), in two balloons: a human's Riemann proof too big for the towel, a ghost's Navier-Stokes proof it had time to read.
+
 **Nonsense line**:
 A line of nonsense humour in a line group (`odd(...)`), rarer than the others.
 
