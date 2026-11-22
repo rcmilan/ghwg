@@ -348,11 +348,11 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 			stocked = true
 		}
 	}
-	_, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
+	act, lit := g.actionable() // the action glow (F0 Glow): over the prop it lights, under any actor standing in front of it
 	glowed := lit.Empty() || g.state != StatePlay || g.intro != nil
 	glow := func() {
 		if !glowed {
-			if lit.Max.Y <= int(stockY)+world.TileSize { // a kitchen shelf: its props first
+			if shelfGlow(act, lit, g.hotel.Stock) { // a kitchen shelf: its props first
 				stock()
 			}
 			propsUpTo(float64(lit.Max.Y))
@@ -611,4 +611,10 @@ func (g *Game) drawCharacterAs(s *ebiten.Image, x, y int, name string, a entitie
 	op.GeoM.Translate(float64(x-charW/2*zoom), float64(y+(entities.FootH/2-charH)*zoom))
 	op.ColorScale.ScaleAlpha(float32(1-fog) * alpha)
 	g.blitPart(s, sheet, image.Rect(f*charW, 0, (f+1)*charW, charH), op, mode, 0, tint, 0)
+}
+
+// shelfGlow: the lit thing is a kitchen shelf, whose props go before its glow. Only a supply: a stain's
+// glow drew the shelf first too, and with it every wall above the kitchen, under the Concierge (live test 5).
+func shelfGlow(act spaceAct, lit, stock image.Rectangle) bool {
+	return act == actSupply && lit.Max.Y <= stock.Max.Y+world.TileSize
 }

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"testing"
 
 	"ghosthotel/world"
@@ -34,5 +35,18 @@ func TestLintelClip(t *testing.T) {
 		if got := g.lintelClip(screen, x, feet(row), oy); got != screen {
 			t.Errorf("feet in row %d (lintel %d): clipped to %v, want the whole screen", row, l, got.Bounds())
 		}
+	}
+}
+
+// Live test 5: a stain's glow (above the kitchen) drew the kitchen shelf's props first, every Room wall
+// above it with them, so the Concierge stood over the Room's bottom wall.
+func TestShelfGlowOnlyForSupply(t *testing.T) {
+	stock, ts := image.Rect(312, 224, 408, 240), world.TileSize
+	stain := image.Rect(5*ts, 7*ts, 6*ts, 8*ts)
+	if shelfGlow(actClean, stain, stock) {
+		t.Error("a stain's glow draws the kitchen shelf first")
+	}
+	if !shelfGlow(actSupply, image.Rect(312, 208, 328, 224), stock) {
+		t.Error("a shelf's glow doesn't draw its props first")
 	}
 }
