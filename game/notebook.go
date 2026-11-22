@@ -62,16 +62,21 @@ func (g *Game) stayOutcome(p *Party) bookOutcome {
 	return b2o(p.scares > 0 || g.roomMood(p.Room) <= dreadMood, outDread, outCozy)
 }
 
+// bookAdd: e is the newest entry; the oldest fall off past bookMax.
+func (g *Game) bookAdd(e bookEntry) {
+	g.guestBook = append(g.guestBook, e)
+	if len(g.guestBook) > bookMax {
+		g.guestBook = slices.Delete(g.guestBook, 0, len(g.guestBook)-bookMax)
+	}
+}
+
 // logStay writes the Party's entry as it leaves and notes when its named guest left.
 func (g *Game) logStay(p *Party, out bookOutcome) {
 	names := make([]string, len(p.Guests))
 	for i, guest := range p.Guests {
 		names[i] = guest.Who.Name
 	}
-	g.guestBook = append(g.guestBook, bookEntry{strings.Join(names, " & "), g.bookLine(p, out), day(g.clock), out})
-	if len(g.guestBook) > bookMax {
-		g.guestBook = slices.Delete(g.guestBook, 0, len(g.guestBook)-bookMax)
-	}
+	g.bookAdd(bookEntry{strings.Join(names, " & "), g.bookLine(p, out), day(g.clock), out})
 	if k := p.Guests[0].Who.Key; k != "" {
 		if g.leftAt == nil {
 			g.leftAt = map[string]int{}

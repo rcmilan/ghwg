@@ -918,3 +918,21 @@ func TestO9TalkAsksTim(t *testing.T) {
 		t.Errorf("Tim said %q; sawn %v", said, g.sawn("O9.read"))
 	}
 }
+
+// R19: a done line whose speaker is not on screen goes into the guest book, signed by it, with no notice.
+func TestSayDoneOffScreenGoesToBook(t *testing.T) {
+	g, _ := verbRun(t, 2, 3)
+	magda, cel := named(t, g, 0, "magda"), named(t, g, 1, "celestine")
+	g.ghost = true // Magda (human) is out of sight, Madame is in view
+	n := len(g.note.items)
+	g.sayDone(cel, "here")
+	g.sayDone(magda, "gone")
+	if len(g.note.items) != n || len(cel.talk) != 1 || len(g.guestBook) != 1 || g.guestBook[0].Line != "gone" || g.guestBook[0].Name != magda.Guests[0].Who.Name {
+		t.Fatalf("notices %d->%d, talk %d, book %+v", n, len(g.note.items), len(cel.talk), g.guestBook)
+	}
+	g.ghost = false // and the ghost's entry is hidden from a human
+	g.sayDone(cel, "boo")
+	if e := g.guestBook[1]; e.Name != celestineName || !e.ghost() {
+		t.Fatalf("entry %+v", e)
+	}
+}

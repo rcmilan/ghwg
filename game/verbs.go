@@ -119,13 +119,21 @@ func (g *Game) together(a, b string) bool {
 }
 
 // sayDone: the guest's Party says an objective's done line: over its head if it is in the Dimension the Concierge is
-// in, else on the HUD.
+// in, else in the guest book, signed by it (a ghost's in ghost only), with no notice.
 func (g *Game) sayDone(p *Party, text string) {
-	if p != nil && p.Realm == g.realm() {
+	switch {
+	case p == nil:
+		g.notice(text)
+	case p.Realm == g.realm():
 		p.talk = append(p.talk, line{0, text, g.tick})
-		return
+	default:
+		who := p.Guests[0].Who
+		name := who.Name
+		if who.Key == "celestine" {
+			name = celestineName
+		}
+		g.bookAdd(bookEntry{name, text, day(g.clock), b2o(p.Realm == Ghost, outPassed, outCozy)})
 	}
-	g.notice(text)
 }
 
 // questRowOn: id is a quest row of the Terminal (quest true); on: it is on sale now.
