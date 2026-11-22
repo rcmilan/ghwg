@@ -96,7 +96,7 @@ var beats = [beatCount]beat{
 				Done: "She snores in Latin. Misery acquaints a woman with strange bedfellows. This was not misery. This was a sleepover."},
 			{ID: "O11", Row: "THE HAFT, FROM THE OTHER SIDE", Side: Human,
 				Ask:  nameTim + "'s old luggage-trolley handle. Slightly haunted. Excellent grip.",
-				Done: "A staff fit for a sorceress. Or a mop. Today, a sorceress."},
+				Done: "Tim's trolley handle. Fits my staff like it grew there. HAFT found."},
 			{ID: "O12", Row: "READ THE NAME", Side: Ghost,
 				Done: "Don't say it aloud. It RSVPs."}}},
 	{Title: "BRAVE NEW GUEST", Guests: nil, Purse: 0, Item: noItem, Speaker: "magenta",
@@ -122,9 +122,9 @@ var (
 	gateRefuse         = "SHIFT'S NOT OVER"
 )
 
-// Father K's retirement party (O6) and the Fathers' memory lines, by times done.
+// Father M's retirement party (O6) and the Fathers' memory lines, by times done.
 var (
-	fatherKParty = [3]string{"I don't do exorcisms. I do retirement parties. There's cake. Spiritual cake.",
+	fatherMParty = [3]string{"I don't do exorcisms. I do retirement parties. There's cake. Spiritual cake.",
 		"Didn't I retire you last prestige? Fine. Speech, cake, light.",
 		"Same porter, same room, same cake. Bless the cake."}
 	fatherKQuest = "The witch's room again. Smells of sage and opinions." // 2nd and on, a Ritual in a questline Room
