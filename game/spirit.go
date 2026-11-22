@@ -223,10 +223,10 @@ func (g *Game) drawHandprint(s *ebiten.Image, x, y int) {
 	rect(s, x+3*u+wave/2, y-7*u, 3*u, 2*u, ink) // the thumb
 }
 
-// drawParcel: what the Courier left at Madame's door: a parcel in real, in ghost the wreath it is; the shop's
-// icons, feet at (x,y) (live test 5: the drawn ones were ugly).
+// drawParcel: what the Courier left at Madame's door: a box in real, in ghost the wreath it is, in the ghost
+// palette like the hotel (live test 5); feet at (x,y).
 func (g *Game) drawParcel(s *ebiten.Image, x, y int) {
-	img := g.sprite("icon_crate")
+	img := g.sprite("box")
 	if g.ghost {
 		img = g.sprite("icon_wreath")
 	}
@@ -235,5 +235,5 @@ func (g *Game) drawParcel(s *ebiten.Image, x, y int) {
 	op.GeoM.Translate(float64(-b.Dx()/2), float64(-b.Dy()))
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(float64(x), float64(y))
-	s.DrawImage(img, op)
+	g.blit(s, img, op, modeProp, 0, nil, 0)
 }

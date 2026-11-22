@@ -646,24 +646,24 @@ func drawEyes(s *ebiten.Image, x, y, u, open float64) {
 	}
 }
 
-// drawCrate: the crate at foot (cx,cy), screen px, its lid lifted by lift (0..1): the shop's crate icon, its top
-// plank the lid (live test 5: the drawn box was ugly).
+// drawCrate: the crate at foot (cx,cy), screen px, its lid lifted by lift (0..1): the sheet's box, seen from above
+// like the hotel, its top face the lid (live test 5: the shop's icon is flat on).
 func (g *Game) drawCrate(screen *ebiten.Image, cx, cy, lift float64) {
-	const lidH = 3 // the icon's top plank, over its seam
-	img := g.sprite("icon_crate")
+	const lidH = 7 // the box's top face
+	img := g.sprite("box")
 	w, h := img.Bounds().Dx(), img.Bounds().Dy()
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(-w/2), float64(lidH-h))
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(cx, cy)
-	screen.DrawImage(img.SubImage(image.Rect(0, lidH, w, h)).(*ebiten.Image), op)
+	g.blitPart(screen, img, image.Rect(0, lidH, w, h), op, modeProp, 0, nil, 0)
 	top := cy - float64((h-lidH)*zoom)
-	op = &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear} // the lid, lifting and tilting off
+	op = &ebiten.DrawImageOptions{} // the lid, lifting and tilting off
 	op.GeoM.Translate(float64(-w/2), -lidH)
 	op.GeoM.Rotate(lift * .7)
 	op.GeoM.Scale(zoom, zoom)
 	op.GeoM.Translate(cx, top-lift*12*zoom)
-	screen.DrawImage(img.SubImage(image.Rect(0, 0, w, lidH)).(*ebiten.Image), op)
+	g.blitPart(screen, img, image.Rect(0, 0, w, lidH), op, modeProp, 0, nil, 0)
 	if lift > 0 {
 		g.glowAt(screen, cx, top, 40*zoom*lift, moonLight, .7)
 	}

@@ -53,6 +53,7 @@ var cuts = []cut{
 	{"fridge", box(192, 641, 15, 31), toWhite},
 	{"drawer_a", box(52, 885, 25, 21), toKitchen},
 	{"drawer_b", box(80, 885, 32, 21), toKitchen},
+	{"box", box(177, 170, 14, 13), nil}, // the parcel at a door and the finale's crate (live test 5: in the map's perspective, not the shop icon)
 	{"shelf_a", box(32, 296, 16, 31), nil},
 	{"shelf_b", box(48, 296, 16, 31), nil},
 	{"food_1", box(180, 197, 9, 8), nil},
