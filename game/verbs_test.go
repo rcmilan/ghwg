@@ -381,15 +381,30 @@ func TestO4SpiritLitByTheBeam(t *testing.T) {
 	if reported(g, "O4") {
 		t.Fatal("O4 reported before the door")
 	}
-	if g.scene.on() { // the O4 cutscene stops the world: it plays out first
-		g.endScene()
+	if g.scene.id != "O4" || !g.verbs.spirit.on {
+		t.Fatal("the O4 scene should be playing with the spirit still standing in the fade")
+	}
+	for g.scene.t <= o4Fade { // the spirit is gone once the screen is black
+		g.stepScene()
+	}
+	if g.verbs.spirit.on || g.verbs.spirit.fold != 0 {
+		t.Error("the spirit is still there in the black")
+	}
+	for g.scene.on() {
+		g.stepScene()
 	}
 	g.ghost = true // SHIFT: SPACE on the door
 	s := &script{}
 	g.in = s
 	press(g, s, center(g.hotel.Rooms[1].Mat()))
+	if g.scene.id != "hand" || reported(g, "O4") {
+		t.Fatalf("SPACE on the handprint door should start its close-up first (scene %q)", g.scene.id)
+	}
+	for i := 0; g.scene.on() && i < 1000; i++ {
+		g.stepScene()
+	}
 	if !reported(g, "O4") {
-		t.Error("SPACE on the handprint door did not finish O4")
+		t.Error("the handprint close-up did not finish O4")
 	}
 }
 
