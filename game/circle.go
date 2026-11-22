@@ -78,8 +78,8 @@ var beats = [beatCount]beat{
 			{ID: "O6", Row: "CLOCK OUT THE OTHER NIGHT PORTER", Side: Human,
 				Ask: "Chat says a ghost in Room {n} keeps whispering 'is my shift over'. Chat, honestly."}}},
 	{Title: "SIFT", Guests: []string{"osvaldo"}, Purse: 60, Item: itemWard, Speaker: "tim", AtEnd: true,
-		Lines: [3]string{"", "Same clipboard. The circle's darker. Someone's been tracing it. Me. I've been tracing it.",
-			"I don't open it anymore. I just shake it and nod."},
+		Lines: [3]string{"", "Paid in full. Again. The change keeps turning up in my pocket.",
+			"Same change, every time. I've stopped counting it."},
 		Objs: []objective{
 			{ID: "O7", Row: "LET " + upper(nameMagda) + " AND " + upper(nameOsvaldo) + " MEET", Side: Human,
 				Ask:  "The circle needs a knot of love that outlasts death. Also string. I've got the string.",
@@ -115,7 +115,7 @@ var (
 	porterFact         = "Clocked in 1923. The clock broke. Still in."
 	keyGive            = "Found this in the bedside drawer. It hummed. I didn't like it."
 	nameEntry          = "MAGnificent stay, Couldn't Get Up For breakfast. Fine."
-	o9Lines            = [2]string{"Delivery for " + nameArbogast + ", night shift, 1959. Signature required.", "Sixty years I carried that. It was the floor plan for *later*."}
+	o9Lines            = [2]string{"Delivery for " + nameArbogast + ", night shift, 1959. Signature required.", "Paid in full, 1923. I've been carrying the change."}
 	wreathRow          = "WREATH, FOR " + upper(nameCelestineShort) + " (A THANK-YOU, 97 YEARS PENDING)"
 	crateRow           = "A CRATE. NO SENDER. ORDERED 1923. EXPRESS."
 	finaleLines        = [3]string{"I AM THE ETERNAL ELDRITCH MACGUFFIN. I WOULD LIKE A ROOM WITH A VIEW. OF EVERYTHING.", "O brave new guest, that has such stars in it.", "I ALSO DO NOTHING. VERY EXPENSIVELY."}

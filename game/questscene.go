@@ -22,8 +22,8 @@ import (
 //	O4      the whole screen fades to black, two eyes open in it and say o4Lines, they close, the screen fades back; the
 //	        running spirit is removed while it is fully black
 //	hand    (not a quest scene: nothing waits on it) the frame closes in on the handprint on the door, its line, SPACE in ghost
-//	O9      the card frame on Tim: the suitcase opens (a case, a clipboard), then the hotel view pulls back and the
-//	        clipboard's 5x5 hotel with a circle round it is drawn over it
+//	O9      the card frame closes in on Tim's chest and hands: his line, a click from below (he glances down, the
+//	        frame nudges), the gem rises into his hands and glints, his second line
 //	finale  everyone gathers in the hall, both Dimensions show split down the Mirror, the crate's lid lifts, stars pour
 //	        up, a tall starry figure unfolds, a ring of light cracks round the Mirror, the vortex spins backwards, the
 //	        flash; then the lines, the spirit's sign flips and blows away. First time ever: the summoning, the credits
@@ -38,15 +38,12 @@ const (
 	o4Eyes = 45 // the eyes open (over 15)
 	o4Say  = 75 // the first line; each takes lineHold
 
-	o9Line1 = 30 // Tim's first line
-	o9Case  = 70 // the suitcase opens (30 frames), the small one rises at o9Small, the clipboard at o9Board
-	o9Small = 130
-	o9Board = 170
-	o9Hotel = 230 // the dissolve into the pulled-back hotel
-	o9Grid  = 290 // the clipboard's grid is drawn over 70 frames, the circle after it over 60
-	o9Ring  = 360
-	o9Line2 = 400
-	o9Len   = 540
+	o9Line1 = 30  // Tim's first line
+	o9Click = 150 // a click from below the frame: he glances down, the frame nudges
+	o9Gem   = 190 // the gem rises into his hands (over 50), then glints
+	o9Line2 = 260
+	o9Len   = 420
+	o9Zoom  = 2.6 // closer than sceneZoom: chest and hands
 
 	fGather = 240 // the walk in; whoever is not there yet is put there
 	fSplit  = 240 // both Dimensions open down the Mirror (over splitFrames)
@@ -164,7 +161,13 @@ func (g *Game) stepScene() {
 			g.verbs.spirit.on, g.verbs.spirit.fold = false, 0
 		}
 	case "O9":
-		g.viewT = min(1, max(0, float64(s.t-o9Hotel)/(viewFrames*3)))
+		if tim := g.findGuest("tim"); tim != nil { // he looks off until the click, then down
+			f := entities.FaceRight
+			if s.t >= o9Click {
+				f = entities.FaceDown
+			}
+			tim.Anim = entities.Posed(f, false, 0)
+		}
 	case "finale":
 		g.stepFinale()
 	}
@@ -417,77 +420,83 @@ func (g *Game) findGuest(key string) *entities.Guest {
 	return nil
 }
 
+var gemRows = []string{
+	"..KKKKKKK..",
+	".KWWCCCBBK.",
+	"KWCCCCCCBBK",
+	"KKKKKKKKKKK",
+	".KCCCCCBBK.",
+	"..KCCCBBK..",
+	"...KCCBK...",
+	"....KCK....",
+	".....K.....",
+}
+
+// gemIcon: the change Tim has carried since 1923, a small cut gem.
+func (g *Game) gemIcon() *ebiten.Image {
+	if g.icons == nil {
+		g.icons = map[string]*ebiten.Image{}
+	}
+	if img, ok := g.icons["gem"]; ok {
+		return img
+	}
+	pal := map[rune]color.RGBA{'K': {26, 20, 40, 255}, 'W': {255, 255, 255, 255}, 'C': {170, 235, 245, 255}, 'B': {90, 170, 210, 255}}
+	img := ebiten.NewImage(len(gemRows[0]), len(gemRows))
+	for y, row := range gemRows {
+		for x, ch := range row {
+			if c, ok := pal[ch]; ok {
+				img.Set(x, y, c)
+			}
+		}
+	}
+	g.icons["gem"] = img
+	return img
+}
+
 func (g *Game) drawO9(screen *ebiten.Image, bg color.Color) {
-	s := &g.scene
-	t := s.t
+	t := g.scene.t
 	nx, ny := g.player.X, g.player.Y
 	if tim := g.findGuest("tim"); tim != nil {
 		nx, ny = tim.X, tim.Y
 	}
-	e := ease(float64(t)/sceneIn) * (1 - ease(float64(t-o9Hotel-30)/30))
-	k := 1 + (sceneZoom-1)*e
-	on := g.drawFocused(screen, bg, nx, ny-charH/2, k, e)
+	e := ease(float64(t)/sceneIn) * (1 - ease(float64(t-o9Len+sceneOut)/sceneOut))
+	k := 1 + (o9Zoom-1)*e
+	wy := ny - charH*.3 // a little below his face
+	if d := t - o9Click; d >= 0 && d < 8 {
+		wy += .4 * float64(d%4/2*2-1) // the click: no audio, so the frame jolts
+	}
+	on := g.drawFocused(screen, bg, nx, wy, k, e)
 	x, y := on(nx, ny)
 	u := zoom * k
-	if t >= o9Line1 && t < o9Case+70 {
-		sayText(screen, o9Lines[0], x, y-(charH+6)*k*zoom, 1)
+	if t >= o9Line1 && t < o9Click {
+		sayText(screen, o9Lines[0], x, y-(charH+2)*u, 1)
 	}
-	if t >= o9Case && t < o9Hotel { // the suitcase at his feet: lid up, a smaller one rises out of it, then a clipboard
-		cx, cy := x+14*u, y+2*u
-		open := ease(float64(t-o9Case) / 30)
-		rect(screen, int(cx-9*u), int(cy-8*u), int(18*u), int(8*u), color.NRGBA{110, 70, 40, 255})
-		rect(screen, int(cx-9*u), int(cy-8*u), int(18*u), int(u), color.NRGBA{60, 36, 20, 255})
-		lid := int(4 * u * (1 - open))
-		rect(screen, int(cx-9*u), int(cy-8*u)-lid-int(2*u*open), int(18*u), lid+int(u), color.NRGBA{140, 90, 50, 255})
-		if t >= o9Small {
-			r := ease(float64(t-o9Small) / 30)
-			rect(screen, int(cx-5*u), int(cy-8*u-9*u*r), int(10*u), int(6*u), color.NRGBA{150, 100, 60, 255})
+	if t >= o9Gem {
+		img := g.gemIcon()
+		b := img.Bounds()
+		r := ease(float64(t-o9Gem) / 50)
+		hx, hy := x, y-charH*.25*u // his hands, at the belt
+		from := float64(screen.Bounds().Dy()) + 10
+		cy := from + (hy-from)*r
+		sc := u * .7
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(-float64(b.Dx())/2, -float64(b.Dy())/2)
+		op.GeoM.Scale(sc, sc)
+		op.GeoM.Translate(hx, cy)
+		screen.DrawImage(img, op)
+		if d := float64(t - o9Gem - 50); d > 0 && d < 40 { // the glint
+			a := math.Sin(d / 40 * math.Pi)
+			gx, gy, l := hx-sc*3, cy-sc*2, sc*4*a
+			var p vector.Path
+			p.MoveTo(float32(gx-l), float32(gy))
+			p.LineTo(float32(gx+l), float32(gy))
+			p.MoveTo(float32(gx), float32(gy-l))
+			p.LineTo(float32(gx), float32(gy+l))
+			strokeP(screen, &p, 3, [3]float32{1, 1, .9}, a)
 		}
-		if t >= o9Board {
-			r := ease(float64(t-o9Board) / 30)
-			rect(screen, int(cx-3*u), int(cy-8*u-20*u*r), int(7*u), int(10*u), color.NRGBA{240, 236, 226, 255})
-			rect(screen, int(cx-1*u), int(cy-8*u-18*u*r), int(3*u), int(u*.6), color.NRGBA{60, 60, 80, 255})
-		}
 	}
-	if t < o9Hotel {
-		return
-	}
-	// the hotel view pulled back, dissolving in over the card frame
-	b := screen.Bounds()
-	if s.buf == nil {
-		s.buf = ebiten.NewImage(b.Dx(), b.Dy())
-	}
-	s.buf.Fill(bg)
-	g.drawView(s.buf, bg)
-	op := &ebiten.DrawImageOptions{}
-	op.ColorScale.ScaleAlpha(float32(ease(float64(t-o9Hotel) / 40)))
-	screen.DrawImage(s.buf, op)
-	if t < o9Grid-30 {
-		return
-	}
-	// the clipboard's drawing over it: a 5x5 hotel with a circle round it
-	vk, tx, ty := g.viewAt()
-	mw, mh := g.mapSize()
-	cx, cy := float64(mw)/2*vk+tx, float64(mh)/2*vk+ty
-	rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{0, 0, 0, uint8(150 * ease(float64(t-o9Grid+30)/30))})
-	side := min(math.Max(float64(mw), float64(mh))*vk, 340)
-	ink := [3]float32{.95, .93, .85}
-	lines := int(11 * min(1, float64(t-o9Grid)/70)) // the 6 + 6 lines, one after another
-	for i := 0; i < min(lines, 11)+1 && t >= o9Grid; i++ {
-		var p vector.Path
-		f := float64(i/2) / 5
-		if i%2 == 0 {
-			p.MoveTo(float32(cx-side/2+f*side), float32(cy-side/2))
-			p.LineTo(float32(cx-side/2+f*side), float32(cy+side/2))
-		} else {
-			p.MoveTo(float32(cx-side/2), float32(cy-side/2+f*side))
-			p.LineTo(float32(cx+side/2), float32(cy-side/2+f*side))
-		}
-		strokeP(screen, &p, 2, ink, .9)
-	}
-	drawRing(screen, cx, cy, side/2*math.Sqrt2+8, ease(float64(t-o9Ring)/60), 3, ink, .95)
-	if t >= o9Line2 && t < o9Line2+lineHold+60 {
-		sayText(screen, o9Lines[1], float64(b.Dx())/2, 70, 1)
+	if t >= o9Line2 && t < o9Len-sceneOut {
+		sayText(screen, o9Lines[1], x, y-(charH+2)*u, 1)
 	}
 }
 
