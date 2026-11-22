@@ -175,7 +175,7 @@ func TestIntro(t *testing.T) {
 	if g.clock == clock {
 		t.Error("the world is still waiting after the opening")
 	}
-	keys(g, s, ebiten.KeyEscape, ebiten.KeyS, ebiten.KeySpace) // the pause's Quit: back to the title, a new hotel waiting behind it
+	keys(g, s, ebiten.KeyEscape, ebiten.KeyW, ebiten.KeySpace) // the pause's Quit: back to the title, a new hotel waiting behind it
 	if g.state != StateTitle || g.intro == nil || g.intro.phase != introTitle {
 		t.Error("ESC did not bring the title's opening back")
 	}

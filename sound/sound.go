@@ -1,0 +1,110 @@
+// Package sound is 09's audio: one mixer behind one Ebitengine player, the score read from a MIDI file, a sample
+// bank and a sequencer that walks the score at the music position the game gives it (context/09-sound/).
+//
+// Nothing here knows the game: the game (game/sound.go) decides each frame where the music is, which voices are
+// heard and how loud, and which effects play. The package runs headless (tests, -render) without an audio
+// context; only Open touches Ebitengine's audio.
+package sound
+
+import (
+	"embed"
+	"math"
+)
+
+// Rate is the mixer's sample rate (T398): 22050 Hz halves the mixing cost in wasm.
+// ponytail: raise to 44100 if the live listen finds it dull.
+const Rate = 22050
+
+// Voice is one line of the fugue, in the MIDI file's track order (decisions.md "Voices and instruments").
+type Voice int
+
+const (
+	Concierge Voice = iota
+	Magenta
+	Magda
+	Celestine
+	Tim
+	Osvaldo
+	Voices // the count
+)
+
+// VoiceNames are the MIDI track names, by Voice.
+var VoiceNames = [Voices]string{"Concierge", "Magenta", "Magda", "Celestine", "Tim", "Osvaldo"}
+
+// Ghost: the voice belongs to the ghost realm (the Concierge plays in both).
+func (v Voice) Ghost() bool { return v == Celestine || v == Tim || v == Osvaldo }
+
+// Channels of the mixer: one per Voice, then the effects channel.
+const (
+	SFX      = int(Voices)
+	Channels = SFX + 1
+)
+
+// Bus is a volume slider: Music (the voices) or Effects (the SFX channel).
+type Bus int
+
+const (
+	Music Bus = iota
+	Effects
+)
+
+func busOf(ch int) Bus {
+	if ch == SFX {
+		return Effects
+	}
+	return Music
+}
+
+// Time: a 60 BPM ballad at ×1, a beat is 6 game minutes (decisions.md "Time"; live test 2, from 120).
+const (
+	BeatFrames = 60 // game frames a beat
+	BarBeats   = 4  // 4/4
+	LoopBars   = 20 // the loop in play: 8 game hours
+	LoopBeats  = LoopBars * BarBeats
+)
+
+// Note is one note of a voice, in beats from the score's start.
+type Note struct {
+	Pitch      int     // MIDI note number
+	Start, Len float64 // beats
+	Vel        float32 // 0..1
+}
+
+// Score is the parsed MIDI file: each voice's notes, sorted by Start. The loop is beats [0, LoopBeats); the coda
+// is [Coda, End), Coda at the `coda` marker (LoopBeats when the file is well formed).
+type Score struct {
+	Notes     [Voices][]Note
+	Real      []Note // the Concierge's line in the real dimension (track RealConcierge); none: Notes[Concierge] in both
+	Coda, End float64
+}
+
+// RealConcierge names the track of the Concierge's real-dimension line: the humans play in F major over his walk
+// there, the ghosts in D minor over the Concierge track (live test 2).
+const RealConcierge = "Concierge real"
+
+// Sample is mono PCM at Rate, its pitch Root (MIDI note number).
+type Sample struct {
+	PCM  []float32
+	Root int
+}
+
+// RateFor: the playback rate that sounds pitch from a sample recorded at root.
+func RateFor(pitch, root int) float32 { return float32(math.Exp2(float64(pitch-root) / 12)) }
+
+// Sine is a test sample: a plucked-ish sine at the given MIDI pitch, secs long (the seam's test tone, and the
+// SAMPLER's placeholder until the real samples land).
+func Sine(pitch int, secs float64) *Sample {
+	n := int(secs * Rate)
+	s := &Sample{PCM: make([]float32, n), Root: pitch}
+	f := 440 * math.Exp2(float64(pitch-69)/12)
+	for i := range s.PCM {
+		t := float64(i) / Rate
+		s.PCM[i] = float32(math.Sin(2*math.Pi*f*t) * math.Exp(-3*t) * min(1, t*200))
+	}
+	return s
+}
+
+// Data holds the shipped sound files (data/README.md: the names the bank and the score expect).
+//
+//go:embed data
+var Data embed.FS

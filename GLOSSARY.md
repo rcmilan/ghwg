@@ -530,3 +530,26 @@ Each day may bring rain, fog or wind, drawn over the street and windows (visual 
 
 **Kitchen life**:
 An idle Housekeeper sometimes goes to the fridge, the counter or the stove and says a line there; any job pulls it away at once.
+
+## Sound (09, 2026-11-22)
+
+**Fugue**:
+The game's music: a fugue in which each Voice is a quest character's line, one subject passed between them; bright cool jazz at 150 BPM in its relative major F in the real dimension, the same score at half the tempo, a D minor ballad, in the ghost one. Its parts play only where their characters are heard; all six together play in the credits and Father P's cutscene.
+_Avoid_: soundtrack, BGM
+
+**Voice**:
+One line of the Fugue and its instrument: the Concierge, Magenta, Magda, Celestine, Tim or Osvaldo, a track each in `fugue.mid`. Teo and the Cat have none.
+_Avoid_: part, track (except for the MIDI file's)
+
+**Loop**:
+The Fugue's 20 bars, played round and round on the Clock: 8 game hours in the ghost dimension (60 BPM; bar 1 at 00:00, 08:00 and 16:00), 3.2 in the real one (150 BPM). A SHIFT cuts to the other dimension's place in it.
+
+**Coda**:
+The finale's music, written after the Loop from its `coda` marker: a treasure chest opening, a creeping build to the crate's lid, a reveal onto F major, a C7 at the dark and an F7 as the spirit's eyes open, the high instruments sforzando. It plays once, from the finale's first frame, timed to the scene.
+
+**Treatment**:
+How the Concierge's Voice sounds in a Dimension: a dry bass in real, the same bass with a long reverb in ghost. The notes are the same.
+
+**Jukebox**:
+The dev screen (`-music`) that plays the Fugue alone, a Voice per key, to hear and revise the score.
+
