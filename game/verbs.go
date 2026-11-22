@@ -435,7 +435,9 @@ func (g *Game) ghostDeliver(i int) {
 		g.sayDone(g.questParty("celestine"), objOf("O8").Done)
 		g.verbDone(evDeliver, i, "O8")
 	case g.handprintRoom() == i:
-		g.verbDone(evDoor, i, "O4")
+		c := g.doorDrop(i) // the close-up on the handprint; its end finishes O4
+		g.scene.at = image.Pt(c.X, c.Y-3*world.TileSize/2)
+		g.playQuestScene("hand")
 	}
 }
 

@@ -59,8 +59,8 @@ var beats = [beatCount]beat{
 			Done: "Ninety-seven years on hold. That woman has the patience of a mountain.",
 			Hard: "the entry continues on another spread"}}},
 	{Title: "A SHAFT OF LIGHT", Guests: []string{"magda"}, Purse: 40, Item: itemGerald, Speaker: "magenta", AtEnd: true,
-		Lines: [3]string{"Did it have a sign? That's my spirit. Bound to me till the job's done. It's an air thing.",
-			"It said five minutes last time too. That was a whole prestige ago.",
+		Lines: [3]string{"Two eyes in the dark? That's mine. Bound to me till the job's done.",
+			"Same eyes, same words. It's loyal. To me, mostly.",
 			"It waved at me. We're on waving terms now. It still wants its freedom. Fair."},
 		Objs: []objective{
 			{ID: "O3", Row: "PUT " + upper(nameMagda) + " IN " + upper(nameMadame) + "'S ROOM", Side: Human,
@@ -110,6 +110,7 @@ var (
 	celestineEntry     = "Ordered: one (1) MacGuffin, eternal, eldritch. Room service, 1923. Still waiting. Lovely hotel otherwise. Room {n}."
 	celestineEntryHard = "cont'd, still waiting, still lovely"
 	o4Signs            = [2]string{"BACK IN 5 MINUTES. SERVING A MASTER. NOT YOU.", "STILL 5 MINUTES."}
+	o4Lines            = [2]string{"I SERVE ANOTHER.", "STILL SERVING."}
 	porterQuirk        = "NIGHT PORTER, 1923"
 	porterFact         = "Clocked in 1923. The clock broke. Still in."
 	keyGive            = "Found this in the bedside drawer. It hummed. I didn't like it."

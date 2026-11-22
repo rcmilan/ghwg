@@ -8,6 +8,7 @@ import (
 
 	"ghosthotel/assets"
 	"ghosthotel/entities"
+	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -18,7 +19,9 @@ import (
 // Update/Draw hand over to the scene while g.scene.id is set. Each plays in full the first time and SPACE skips it
 // on a replay. When one ends it reports questEvent(evScene, -1, id).
 //
-//	O4      the card frame closes in on the spirit: its sign (o4Signs), then it folds into the floor
+//	O4      the whole screen fades to black, two eyes open in it and say o4Lines, they close, the screen fades back; the
+//	        running spirit is removed while it is fully black
+//	hand    (not a quest scene: nothing waits on it) the frame closes in on the handprint on the door, its line, SPACE in ghost
 //	O9      the card frame on Tim: the suitcase opens (a case, a clipboard), then the hotel view pulls back and the
 //	        clipboard's 5x5 hotel with a circle round it is drawn over it
 //	finale  everyone gathers in the hall, both Dimensions show split down the Mirror, the crate's lid lifts, stars pour
@@ -31,9 +34,9 @@ const (
 	sceneZoom = 1.8 // how close, of the play camera
 	sceneBlur = 6   // the blur's reach, image px (talkBlur's range)
 
-	o4Sign = 30  // the spirit holds its sign up...
-	o4Fold = 150 // ...and folds it away
-	o4Len  = 215
+	o4Fade = 30 // frames to fade to black, and to fade back
+	o4Eyes = 45 // the eyes open (over 15)
+	o4Say  = 75 // the first line; each takes lineHold
 
 	o9Line1 = 30 // Tim's first line
 	o9Case  = 70 // the suitcase opens (30 frames), the small one rises at o9Small, the clipboard at o9Board
@@ -65,7 +68,7 @@ const (
 type sceneState struct {
 	id    string      // "O4", "O9", "finale", or "credits" (credits.go)
 	t     int         // frames since it began
-	at    image.Point // O4: where the spirit stands, world px, set by VERBS before playQuestScene("O4"); zero: on the Concierge
+	at    image.Point // hand: the handprint, world px, set before playQuestScene("hand")
 	from  string      // credits: the cutscene it ends ("finale"), "" when opened alone
 	page  int         // credits: 0 the credits, 1 the epilogue
 	cast  []sceneCast // finale: whoever gathers, the Concierge first
@@ -100,7 +103,7 @@ func (g *Game) playQuestScene(id string) {
 	if g.scene.on() {
 		return
 	}
-	if id != "O4" && id != "O9" && id != "finale" && id != "talk" {
+	if id != "O4" && id != "O9" && id != "finale" && id != "talk" && id != "hand" {
 		g.questEvent(evScene, -1, id)
 		return
 	}
@@ -109,8 +112,12 @@ func (g *Game) playQuestScene(id string) {
 	}
 	g.state, g.shifting, g.viewT, g.viewIn, g.hands, g.prestigeAsk = StatePlay, nil, 0, 0, "", false
 	g.scene = sceneState{id: id, at: g.scene.at}
-	if id == "finale" {
+	switch id {
+	case "finale":
 		g.finaleStart()
+	case "hand":
+		g.scene.line, g.scene.lineAt = handLine, sceneIn
+		g.scene.out = sceneIn + sayLen(handLine)
 	}
 }
 
@@ -129,7 +136,7 @@ func (g *Game) sceneSeen() bool {
 
 // sceneLen: how long the cutscene is.
 func (g *Game) sceneLen() int {
-	return map[string]int{"O4": o4Len, "O9": o9Len, "finale": fLen}[g.scene.id]
+	return map[string]int{"O4": g.o4End() + 15 + o4Fade, "O9": o9Len, "finale": fLen}[g.scene.id]
 }
 
 // stepScene runs the cutscene a frame (Update's, in place of the world).
@@ -143,12 +150,19 @@ func (g *Game) stepScene() {
 	case "talk":
 		g.stepTalk()
 		return
+	case "hand":
+		g.stepHand()
+		return
 	}
 	if s.t > 0 && g.sceneSeen() && g.in.JustPressed(ebiten.KeySpace) {
 		g.endScene()
 		return
 	}
 	switch s.id {
+	case "O4":
+		if s.t >= o4Fade { // fully black: the running spirit goes now, unseen
+			g.verbs.spirit.on, g.verbs.spirit.fold = false, 0
+		}
 	case "O9":
 		g.viewT = min(1, max(0, float64(s.t-o9Hotel)/(viewFrames*3)))
 	case "finale":
@@ -182,7 +196,10 @@ func (g *Game) closeScene(id string) {
 		m.Deallocate()
 	}
 	g.scene = sceneState{}
-	if id != "talk" { // nothing waits on a talk
+	if id == "O4" { // a skip leaves it gone too
+		g.verbs.spirit.on, g.verbs.spirit.fold = false, 0
+	}
+	if id != "talk" && id != "hand" { // nothing waits on a talk or the hand
 		sceneDone(g, id)
 	}
 }
@@ -278,21 +295,64 @@ func (g *Game) drawSpirit(s *ebiten.Image, x, y, u float64, sign []string, flat,
 	}
 }
 
+// o4End: the frame the eyes start to close, after one line per dash.
+func (g *Game) o4End() int { return o4Say + dashes(g.level)*lineHold }
+
 func (g *Game) drawO4(screen *ebiten.Image, bg color.Color) {
 	t := g.scene.t
-	spot := g.scene.at
-	if spot == (image.Point{}) { // none given: on the Concierge
-		spot = image.Pt(int(g.player.X), int(g.player.Y))
+	mw, mh := g.mapSize()
+	ox, oy := g.cam.Origin(g.player.X, g.player.Y, mw, mh)
+	screen.Fill(bg)
+	g.drawWorld(screen, ox, oy)
+	end := g.o4End()
+	b := screen.Bounds()
+	rect(screen, 0, 0, b.Dx(), b.Dy(), color.NRGBA{0, 0, 0, uint8(255 * ease(float64(t)/o4Fade) * (1 - ease(float64(t-end-15)/o4Fade)))})
+	open := ease(float64(t-o4Eyes)/15) * (1 - ease(float64(t-end)/15))
+	open *= 1 - max(0, 1-math.Abs(float64(t-o4Say-70))/4) // one blink
+	cx, cy := float64(b.Dx())/2, float64(b.Dy())/2-10*zoom
+	r := 3 * zoom
+	for _, d := range []float64{-5, 5} {
+		if open <= 0 { // not open yet: no lids over the world
+			break
+		}
+		x := cx + d*zoom
+		g.glowAt(screen, x, cy, 14*zoom, moonLight, .35*open)
+		vector.FillCircle(screen, float32(x), float32(cy), float32(r), color.NRGBA{225, 232, 245, uint8(255 * open)}, true)
+		lid := int(float64(r)*(1-open)) + 1 // black lids close down over it
+		rect(screen, int(x)-r-1, int(cy)-r-1, 2*r+2, int(float64(r)*(1-open))+1, color.Black)
+		rect(screen, int(x)-r-1, int(cy)+r-lid+1, 2*r+2, lid, color.Black)
 	}
-	e := ease(float64(t)/sceneIn) * (1 - ease(float64(t-o4Len+sceneOut)/sceneOut))
-	k := 1 + (sceneZoom-1)*e
-	on := g.drawFocused(screen, bg, float64(spot.X), float64(spot.Y)-charH/2, k, e)
-	x, y := on(float64(spot.X), float64(spot.Y))
-	var sign []string
-	if t >= o4Sign {
-		sign = wrapAt(o4Signs[0], 22)
+	if i := (t - o4Say) / lineHold; t >= o4Say && i < dashes(g.level) {
+		age := float64(t - o4Say - i*lineHold)
+		sayText(screen, o4Lines[i], cx, cy+float64(14*zoom+glyphH*2+2), float32(ease(age/8)*(1-ease((age-lineHold+15)/15))))
 	}
-	g.drawSpirit(screen, x, y, zoom*k, sign, float64(t-o4Fold)/50, ease(float64(t)/12))
+}
+
+// handLine: what the handprint says, up close.
+const handLine = "Five fingers, pressed from the other side. It's waving."
+
+// stepHand: the frame closes in on the handprint, its line (SPACE, once closed in, cuts it short), the frame lets go;
+// then the door's O4 is done.
+func (g *Game) stepHand() {
+	s := &g.scene
+	if s.t >= sceneIn && s.t < s.out && g.in.JustPressed(ebiten.KeySpace) {
+		s.out = s.t
+	}
+	if s.t++; s.t >= s.out+sceneOut {
+		room := g.handprintRoom()
+		g.endScene()
+		g.verbDone(evDoor, room, "O4")
+	}
+}
+
+func (g *Game) drawHandScene(screen *ebiten.Image, bg color.Color) {
+	s := &g.scene
+	e := ease(float64(s.t)/sceneIn) * (1 - ease(float64(s.t-s.out)/sceneOut))
+	on := g.drawFocused(screen, bg, float64(s.at.X), float64(s.at.Y), 1+(sceneZoom-1)*e, e)
+	if s.t >= s.lineAt && s.t < s.out {
+		x, y := on(float64(s.at.X), float64(s.at.Y)-world.TileSize)
+		sayText(screen, handLine, x, y, float32(ease(float64(s.t-s.lineAt)/8)))
+	}
 }
 
 // ---- talk
@@ -687,6 +747,8 @@ func (g *Game) drawScene(screen *ebiten.Image) {
 		g.drawO9(screen, bg)
 	case "talk":
 		g.drawTalkScene(screen, bg)
+	case "hand":
+		g.drawHandScene(screen, bg)
 	case "finale":
 		g.drawFinale(screen, bg)
 	case "credits":
@@ -705,6 +767,8 @@ func (g *Game) DevScene(id string) {
 			g.settleIn(p)
 		}
 	}
-	g.scene.at = image.Pt(int(g.player.X)+28, int(g.player.Y)-4)
+	if id == "hand" {
+		g.scene.at = image.Pt(int(g.player.X), int(g.player.Y)-world.TileSize)
+	}
 	g.playQuestScene(id)
 }
