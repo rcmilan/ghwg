@@ -187,6 +187,10 @@ var (
 var credits = []string{
 	"THE MACGUFFIN HAS CHECKED IN",
 	"",
+	"A GAME BY",
+	"RICARDO MILAN",
+	"GABRIEL RODRIGUES",
+	"",
 	"Made for GitHub Game Off 2026, theme SHIFT",
 	"",
 	"Art: LimeZu, Modern Interiors (free pack)",

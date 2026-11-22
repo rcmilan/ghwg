@@ -822,6 +822,35 @@ func TestO13Crate(t *testing.T) {
 	}
 }
 
+// Buying the crate: whoever is in Madame's Room (but her own) leaves at once, and nobody is booked in after.
+func TestCrateClearsMadamesRoom(t *testing.T) {
+	g, _ := verbRun(t, 2, 7)
+	g.own(Mirror)
+	room := named(t, g, 1, "celestine").Room
+	guest := g.arrive(room)
+	if guest == nil || guest.Room != room || g.reserved(room) {
+		t.Fatalf("setup: %v", guest)
+	}
+	g.settleIn(guest)
+	g.wallet = [2]Num{5000, 1000}
+	c := row(t, rowCrate)
+	if why := g.addToCart(c, -1); why != "" {
+		t.Fatal(why)
+	}
+	if why := g.placeOrder(); why != "" {
+		t.Fatal(why)
+	}
+	if guest.state != checkingOut {
+		t.Errorf("the guest is %v, not leaving", guest.state)
+	}
+	if !g.reserved(room) || !g.crateHold() {
+		t.Error("her Room is not held for the finale")
+	}
+	if g.questParty("celestine").state == checkingOut {
+		t.Error("Madame left too")
+	}
+}
+
 // A guest with an Ask says it instead of its line, while the objective is open and no other.
 func TestAskReplacesLine(t *testing.T) {
 	g, _ := verbRun(t, 2, 3)

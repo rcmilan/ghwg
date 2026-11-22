@@ -189,7 +189,7 @@ func (g *Game) maybeGhostIn() {
 		}
 		for _, a := range []*arrival{&g.ghostArrivals[i], second} {
 			if a.at > 0 && g.clock >= a.at && g.isOwned(i) && g.ghostsIn(i) < g.ghostSlots(i) && (booked < g.demand() || !g.vacant(i, Ghost)) &&
-				!g.closed(i) && !g.changing(i) && !g.stays(i) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
+				!g.closed(i) && !g.changing(i) && !g.stays(i) && !(g.crateHold() && i == g.roomOfKey("celestine")) && (g.spawnClearIn(Ghost) || !g.vacant(i, Ghost)) {
 				if g.vacant(i, Ghost) {
 					booked++
 				}
