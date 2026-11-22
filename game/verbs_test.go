@@ -682,7 +682,9 @@ func TestO9KeyForTim(t *testing.T) {
 		t.Errorf("after TALK: said %q, held %q pinned %v", txt, g.verbs.held, g.verbPinned(old))
 	}
 	g.ghost = true // SHIFT: Tim
-	talkTo(g, s, tim)
+	if txt := talkTo(g, s, tim); txt != "" || g.scene.id != "O9" { // the cutscene alone: no talk close-in first, no ask again
+		t.Errorf("GIVE: said %q, scene %q; want the O9 cutscene at once", txt, g.scene.id)
+	}
 	if !reported(g, "O9") || g.verbs.held != "" {
 		t.Errorf("GIVE: reported %v held %q", g.verbs.done, g.verbs.held)
 	}

@@ -57,6 +57,10 @@ func (g *Game) questSpeak(p *Party, guest *entities.Guest) {
 	p.hold = g.tick + talkHold
 	guest.Anim.Facing = entities.Toward(g.player.X-guest.X, g.player.Y-guest.Y)
 	g.verbOpened(p)
+	if g.verbs.held == "O9" && slices.Contains(g.verbOpts(p, guest), optGive) { // the key to Tim: its cutscene is the talk, one close-in, no ask again (live test 5)
+		g.cardVerb(optGive, p, guest)
+		return
+	}
 	g.playQuestScene("talk")
 	s := &g.scene
 	s.tp, s.tg, s.line, s.lineAt = p, guest, g.verbQuote(p, guest), sceneIn
