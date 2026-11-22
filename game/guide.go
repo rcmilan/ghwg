@@ -397,9 +397,6 @@ func (g *Game) markOf(t target, vis image.Rectangle) *mark {
 		if s := g.verbs.spirit; s.on && !g.ghost {
 			return &mark{spirit: true, z: s.y - 0.01, box: image.Rect(int(s.x)-8, int(s.y)-30, int(s.x)+8, int(s.y)+2)}
 		}
-	case tgLobby:
-		m := g.hotel.Mirror
-		return g.mirrorProps(image.Rect(m.X-gts/2, m.Y-gts/2-2*gts, m.X+gts/2, m.Y-gts/2))
 	}
 	return nil
 }

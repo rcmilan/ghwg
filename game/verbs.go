@@ -153,17 +153,17 @@ func (g *Game) verbsComing(id Unlock) bool {
 	})
 }
 
-// shipQuest: the courier's stop for a bought quest row: the wreath at Madame's door, the crate at the Entrance Mirror.
-func (g *Game) shipQuest(l cartLine) drop {
+// shipQuest: the courier's stops for a bought quest row: the wreath at Madame's door, the crate inside her Room.
+func (g *Game) shipQuest(l cartLine) []drop {
+	l.room = max(0, g.roomOfKey("celestine"))
 	if shop[l.item].ID == rowWreath {
-		l.room = max(0, g.roomOfKey("celestine"))
-		return drop{at: g.doorDrop(l.room), lines: []cartLine{l}}
+		return []drop{{at: g.doorDrop(l.room), lines: []cartLine{l}}}
 	}
-	return drop{at: g.hotel.Mirror, lines: []cartLine{l}}
+	return g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)
 }
 
 // receiveQuest: the courier hands a quest row over: the wreath is left at the door (a parcel in real, the wreath in
-// ghost); the crate reaches the Mirror, and the first time ever the finale plays.
+// ghost); the crate reaches Madame's Room, and the first time ever the finale plays.
 func (g *Game) receiveQuest(l cartLine) {
 	if shop[l.item].ID == rowWreath {
 		g.rollSet("O8.parcel", l.room+1)

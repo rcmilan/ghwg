@@ -338,8 +338,8 @@ func (g *Game) ship(order []cartLine) {
 			c.drops = append(c.drops, g.intoRoom(l.room, g.hotel.RoomMirrorSpot(l.room), l)...)
 		case it.ID == rowKey: // walked to the Room's own door
 			c.drops = append(c.drops, drop{at: g.doorDrop(l.room), lines: []cartLine{l}})
-		case isQuestRow(it.ID): // 08 W5: the wreath to Madame's door, the crate to the Mirror
-			c.drops = append(c.drops, g.shipQuest(l))
+		case isQuestRow(it.ID): // 08 W5: the wreath to Madame's door, the crate into Madame's Room
+			c.drops = append(c.drops, g.shipQuest(l)...)
 		case !it.room():
 			stock.lines = append(stock.lines, l)
 		default:
