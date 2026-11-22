@@ -23,7 +23,7 @@ var upBlurb = [upgradeCount]string{
 
 var upIcon = [upgradeCount]string{
 	LobbyDecor: "icon_deluxe", Brochures: "icon_door", Soundproofing: "icon_bed_single", SeanceTable: "icon_mirror",
-	TipJar: "icon_key", CleaningKit: "icon_towel", OfferingBox: fatherK.name,
+	TipJar: "icon_tipjar", CleaningKit: "icon_towel", OfferingBox: fatherK.name,
 }
 
 // upRow: the shop index of each upgrade's row.

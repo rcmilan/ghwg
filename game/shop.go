@@ -106,9 +106,9 @@ var shop = []Item{
 	{ID: rowFatherP, Tab: tabStaff, Name: nameFatherP, Blurb: "Takes the hotel, gives a bonus on all income. Begin again.", Hint: "Fill the biggest hotel and buy every Room key to unlock.", Icon: fatherP.name, Head: true,
 		Cost: Cost{Ecto: prestigeEcto}}, // SPACE opens his card (prestige.go), no cart
 	// 08 W5: the quest rows (verbs.go, items.go); questRowOn says when they are on sale.
-	{ID: rowWreath, Tab: tabHotel, Name: "Wreath", Blurb: wreathRow, Icon: "icon_key", Cost: Cost{Money: 200}},
-	{ID: rowCrate, Tab: tabHotel, Name: "A crate", Blurb: crateRow, Icon: "icon_key", Cost: Cost{Money: 2000, Ecto: 500}},
-	{ID: rowStorm, Tab: tabHotel, Name: "Storm in a jar", Blurb: "Tonight's thunderstorm: sightings pay double. Free, once a day.", Icon: "icon_key"},
+	{ID: rowWreath, Tab: tabHotel, Name: "Wreath", Blurb: wreathRow, Icon: "icon_wreath", Cost: Cost{Money: 200}},
+	{ID: rowCrate, Tab: tabHotel, Name: "A crate", Blurb: crateRow, Icon: "icon_crate", Cost: Cost{Money: 2000, Ecto: 500}},
+	{ID: rowStorm, Tab: tabHotel, Name: "Storm in a jar", Blurb: "Tonight's thunderstorm: sightings pay double. Free, once a day.", Icon: "icon_storm"},
 
 	{ID: rowKey, Tab: tabRooms, Name: "Room key", Blurb: "Opens a boarded-up Room. Bring a hammer.", Icon: "icon_key", Cost: Cost{Money: keyBase}, // its Price is set in owned.go's init
 		Send: func(g *Game, l cartLine) { g.openRoom(l.room) }},

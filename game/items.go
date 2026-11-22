@@ -132,7 +132,7 @@ func placeRefuse(g *Game, room int, id Unlock) string {
 
 func init() { // the placing rows, on the Room's ring (shop.go has the rest)
 	shop = append(shop,
-		Item{ID: rowGerald, Tab: tabRooms, Name: "Place " + nameGerald, Blurb: nameGerald + " floats here. This Room's sightings pay 50% more.", Icon: "icon_key",
+		Item{ID: rowGerald, Tab: tabRooms, Name: "Place " + nameGerald, Blurb: nameGerald + " floats here. This Room's sightings pay 50% more.", Icon: "icon_gerald",
 			Refuse: func(g *Game, room int) string { return placeRefuse(g, room, rowGerald) },
 			Send:   func(g *Game, l cartLine) { g.items.Gerald = l.room + 1 }},
 		Item{ID: rowWard, Tab: tabRooms, Name: "Place the Ward", Blurb: "Its human Parties never flee. Guests may leave. Emotionally.", Icon: "lock_red",
