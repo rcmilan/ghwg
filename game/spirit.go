@@ -216,9 +216,9 @@ func (g *Game) drawHandprint(s *ebiten.Image, x, y int) {
 	g.drawGlow(s, x, y-4*u, [3]float32{.4, 1, .75}, 0.6, 1.6)
 	ink := resInk(Ecto)
 	wave := int(math.Round(math.Sin(float64(g.tick)/12) * 2 * u))
-	pw := 7 * u // the palm's width, a little narrower than its first 8 (live test 6)
+	pw := 6 * u // the palm: 6 wide, 5 tall (first 8 by 6; live test 6)
 	x0 := x - pw/2
-	rect(s, x0+wave/2, y-6*u, pw, 6*u, ink)
+	rect(s, x0+wave/2, y-6*u, pw, 5*u, ink)
 	for f := range 4 { // four fingers, the outer ones shorter, swaying with the wave
 		rect(s, x0+f*pw/4+wave, y-(10+b2i(f == 1 || f == 2)*2)*u, pw/4-1, 5*u, ink)
 	}
