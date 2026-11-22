@@ -120,3 +120,30 @@ func TestNotice(t *testing.T) {
 		t.Fatalf("%d notices left after their hold", len(g.note.items))
 	}
 }
+
+// 09: sound opens only through OpenSound, which main calls for a person's game; the sim, the tests and -shot
+// never touch the audio device. Only sound.go may call sound.Open, only main may call OpenSound, and a Game
+// a test builds plays the whole frame (Update) with no mixer.
+func TestHeadlessIsSilent(t *testing.T) {
+	if runtime.GOOS == "js" {
+		t.Skip("reads the source files, which Node on Windows cannot list")
+	}
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f != "sound.go" && regexp.MustCompile(`\bsound\.Open\(|\.OpenSound\(`).Match(b) {
+			t.Errorf("%s opens the sound: only main does, through OpenSound", f)
+		}
+	}
+	g := mustNew(t)
+	g.Update()
+	if g.snd.mix != nil {
+		t.Fatal("a headless Game has a mixer")
+	}
+	if g.snd.vol != [2]int{volDefault, volDefault} {
+		t.Fatalf("the sliders start at %d, got %v", volDefault, g.snd.vol)
+	}
+}

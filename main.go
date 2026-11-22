@@ -70,11 +70,27 @@ func main() {
 	credits := flag.Bool("credits", false, "dev: open the credits (with -shot -at: 700 the epilogue and CONTINUE)")
 	kitchenLife := flag.String("kitchenlife", "", "dev: a Housekeeper at the fridge, sink or stove saying its line (with -shot -at a few frames)")
 	witch := flag.Bool("witch", false, "dev: the six quest characters in the Lobby beside the three ordinary sheets, turning every 120 frames, then running (with -shot -at; -ghost adds the Cat's frames)")
+	pause := flag.Bool("pause", false, "dev: open the pause menu on a Run, for prints")
+	tone := flag.Bool("tone", false, "dev: a beep each second through the game's mixer, to check the audio path (web: ?args=-tone)")
 	verb := flag.String("verb", "", "dev: start a Run at this objective (O1..O13) with its guests in, for prints (use -grid 3x1; -ghost for the ghost side; O4 at night, -at 14)")
+	music := flag.String("music", "", "dev: the music jukebox instead of the game: all, or voices (e.g. Magenta,Tim); keys 1-6 voices, A/D bars, SPACE pause, C coda, G real/ghost: tempo and Concierge line (web: ?args=-music all -bar 9; -scale, -ghost)")
+	midi := flag.String("midi", "", "dev, with -music or -render: read the score from this .mid file instead of the embedded one; the jukebox reloads it at the next bar when it changes")
+	renderPath := flag.String("render", "", "dev: mix the score to this 16-bit mono WAV, headless, and quit (with -music voices, -bar, -bars, -coda, -ghost, -midi)")
+	bar := flag.Int("bar", 1, "dev, with -music or -render: the bar to start at (from 1)")
+	bars := flag.Int("bars", 8, "dev, with -render: how many bars to mix (0 with -coda: through the coda's end)")
+	coda := flag.Bool("coda", false, "dev, with -render: mix the coda instead of the loop")
 	if game.Dev { // the production build takes no flags: every dev start, -story and the rest, stays off
 		flag.Parse()
 	}
 	game.StoryMode = *story
+	if *renderPath != "" { // 09 T404: the music harness never builds the game
+		renderWAV(*renderPath, *music, *midi, *bar, *bars, *coda, *ghost)
+		return
+	}
+	if *music != "" {
+		runJukebox(*music, *midi, *bar, *ghost, *scale)
+		return
+	}
 
 	ebiten.SetWindowSize(960, 540)
 	ebiten.SetWindowTitle(game.Name)
@@ -110,7 +126,7 @@ func main() {
 	// Dev starts combine (08 F0): one Run, started once, each start adding to it. Where two set the same thing
 	// (the Concierge's spot, the wallet, every Room's Mood), the later one here wins.
 	dev := *shotPath != "" || *shop != "" || *shadow > 0 || *haunt > 0 || *dirt > 0 || *mood != noMood || *ghosts > 0 || *intro >= 0 || *key >= 0 ||
-		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != "" || *witch || *verb != ""
+		*change != "" || *kitchen || *grow != "" || *staff != "" || *mirror || *corridors >= 0 || *busy || *ready >= 0 || *match >= 0 || *card >= 0 || *ghost || *hotelView != "" || *term != "" || *father != "" || *ritual != "" || *notices || *prestige || *pantry || *level > 0 || *shifts || *growAt > 0 || *book > 0 || *weather != "" || *street || *items != "" || *quest > 0 || *scene != "" || *macguffin || *credits || *kitchenLife != "" || *witch || *verb != "" || *pause
 	g.DevLevel(*level)
 	if dev {
 		switch {
@@ -189,6 +205,9 @@ func main() {
 	if *street {
 		g.DevStreet()
 	}
+	if *pause {
+		g.DevPause()
+	}
 	if *witch {
 		g.DevWitch()
 	}
@@ -228,6 +247,14 @@ func main() {
 	}
 	if *shifts || *growAt > 0 {
 		run = &shifter{Game: g, growAt: *growAt, shifts: *shifts}
+	}
+	if *shotPath == "" { // 09: a person's game has sound; prints, the sim and tests never open it
+		if err := g.OpenSound(); err != nil {
+			log.Printf("sound: %v", err)
+		}
+		if *tone {
+			g.DevTone()
+		}
 	}
 	if *shotPath == "" { // a print runs thousands of Updates a tick on purpose
 		w := &guard{Game: run}
