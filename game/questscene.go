@@ -689,7 +689,10 @@ func (g *Game) drawFinale(screen *ebiten.Image, bg color.Color) {
 		g.drawWorld(screen, ox, oy)
 		return
 	}
-	screen.Fill(color.Black) // the void round the Room
+	screen.Fill(color.Black) // the void round the Room, which is in the middle of the screen: no map edge holds the camera (live test 5)
+	c := g.finaleRoom().Shell()
+	c.Min = c.Min.Add(c.Max).Div(2)
+	ox, oy = c.Min.X*zoom-b.Dx()/2, c.Min.Y*zoom-b.Dy()/2
 	g.drawStage(screen, ox, oy)
 	cx, cy := at(float64(s.crate.X), float64(s.crate.Y))
 	if lit := ease(float64(t-fLight) / 40); lit > 0 {
