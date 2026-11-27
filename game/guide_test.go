@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image"
 	"math"
 	"slices"
 	"testing"
@@ -263,6 +264,28 @@ func TestOutlineUnderFog(t *testing.T) {
 	g.fog[0] = 1
 	if !g.underFog(m) || len(g.guideActors([]mark{m}, 0, 0)) != 0 {
 		t.Fatal("fogged room: drawn under the Fog")
+	}
+}
+
+// 10: a step at the Terminal (the grow step, O8's buy) never outlines the Terminal; its "!" shows instead.
+func TestTerminalStepNoOutline(t *testing.T) {
+	o8 := slices.IndexFunc(beats[:], func(b beat) bool {
+		return slices.ContainsFunc(b.Objs, func(o objective) bool { return o.ID == "O8" })
+	}) + 1
+	for _, beat := range []int{0, o8} { // GROW THE HOTEL; O8's buy
+		g, _ := verbRun(t, 3, max(beat, 1))
+		if beat == 0 {
+			g.quest = questRun{} // before the first beat: the grow step
+		}
+		if !g.terminalStep() {
+			t.Fatalf("beat %d: no step at the Terminal", beat)
+		}
+		w, h := g.mapSize()
+		for _, m := range g.guideMarks(image.Rect(0, 0, w, h)) {
+			if m.box.Overlaps(g.hotel.Terminal) {
+				t.Errorf("beat %d: the Terminal is outlined (%v)", beat, m.box)
+			}
+		}
 	}
 }
 

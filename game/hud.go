@@ -245,10 +245,10 @@ func (g *Game) newBuy() bool {
 
 const badgeScale = 3 // the "!" over the Terminal's screen, as big as the counters
 
-// drawBadge shows a "!" at the top right of the Terminal's screen while newBuy, in play, clear of the Concierge
-// behind it; only where the Terminal is on screen.
+// drawBadge shows a "!" at the top right of the Terminal's screen while newBuy or a step sends the Concierge there
+// (terminalStep), in play, clear of the Concierge behind it; only where the Terminal is on screen.
 func (g *Game) drawBadge(s *ebiten.Image) {
-	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || !g.newBuy() {
+	if g.state != StatePlay || g.intro != nil || g.viewT > 0 || !g.newBuy() && !g.terminalStep() {
 		return
 	}
 	mw, mh := g.mapSize()
