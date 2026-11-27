@@ -98,7 +98,7 @@ Sound effects (09): footsteps sound in the real dimension only (in ghost everyon
 
 ## Assets
 
-The art is LimeZu's Modern Interiors free pack (https://limezu.itch.io/moderninteriors), used and edited under its free license: non-commercial use only, no commercial use or resale. That license is separate from the code's license.
+The art is LimeZu's Modern Interiors free pack (https://limezu.itch.io/moderninteriors), used and edited under its free license: non-commercial use only, no commercial use or resale. That license is separate from the code's license: the code is MIT (`LICENSE`).
 
 The supplied Modern Interiors source pack remains untouched at the workspace root as requested. The `assets` package is the replacement boundary for future LimeZu sprite-sheet slicing; the current clean geometric presentation keeps the project runnable until those scattered files are curated. The W95FA font source is not present locally, so Ebitengine's built-in debug glyphs are used temporarily.
 
