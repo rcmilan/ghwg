@@ -340,6 +340,9 @@ func (g *Game) guideMarks(vis image.Rectangle) (ms []mark) {
 		}
 		switch {
 		case r.Step.Dim == g.realm() || r.Step.Any:
+			if tgt.Kind == tgTerminal {
+				continue // 10: no outline on the Terminal; its "!" shows instead (terminalStep, drawBadge)
+			}
 			m = g.markOf(tgt, vis)
 		case !r.Step.Wait && g.unlocked(Mirror):
 			m = g.mirrorMark()
@@ -357,6 +360,18 @@ func (g *Game) guideMarks(vis image.Rectangle) (ms []mark) {
 		}
 	}
 	return ms
+}
+
+// terminalStep: an open step sends the Concierge to the Terminal here (a buy, or a shop row it needs): the Terminal's
+// "!" shows for it (drawBadge), not an outline (10, user: the outline on the Terminal read badly).
+func (g *Game) terminalStep() bool {
+	_, rows := g.guideRows()
+	for _, r := range rows {
+		if !r.Done && r.Step.Text != "" && (r.Need != "" || r.Step.Tgt.Kind == tgTerminal) && (r.Step.Dim == g.realm() || r.Step.Any) {
+			return true
+		}
+	}
+	return false
 }
 
 const gts = world.TileSize
