@@ -8,8 +8,8 @@ import (
 	"ghosthotel/sound"
 )
 
-// T407: W/S wrap over the four rows, A/D move only the picked slider (clamped 0..volSteps), SPACE acts on
-// Resume and Quit and does nothing on a slider.
+// T407: W/S wrap over the three rows (no Music row: 10), A/D move only the Effects slider (clamped
+// 0..volSteps), SPACE acts on Resume and Quit and does nothing on the slider.
 func TestPauseMenu(t *testing.T) {
 	g, s := headless(t, 2, 1, 1)
 	g.startRun()
@@ -22,29 +22,24 @@ func TestPauseMenu(t *testing.T) {
 		t.Fatalf("A/D on Resume moved a slider: %v", g.snd.vol)
 	}
 	keys(g, s, ebiten.KeyS)
-	if g.pausePick != pauseMusic {
-		t.Fatalf("S: pick %d, want Music", g.pausePick)
+	if g.pausePick != pauseEffects {
+		t.Fatalf("S: pick %d, want Effects", g.pausePick)
 	}
 	keys(g, s, ebiten.KeyA)
-	if g.snd.vol != [2]int{volDefault - 1, volDefault} {
-		t.Fatalf("A on Music: %v", g.snd.vol)
+	if g.snd.vol[sound.Effects] != volDefault-1 {
+		t.Fatalf("A on Effects: %v", g.snd.vol)
 	}
 	for range volSteps + 2 {
 		keys(g, s, ebiten.KeyA)
 	}
-	if g.snd.vol[sound.Music] != 0 {
-		t.Fatalf("Music clamps at 0, got %d", g.snd.vol[sound.Music])
+	if g.snd.vol[sound.Effects] != 0 {
+		t.Fatalf("Effects clamps at 0, got %d", g.snd.vol[sound.Effects])
 	}
-	keys(g, s, ebiten.KeySpace)
-	if g.state != StatePause {
-		t.Fatal("SPACE on a slider left the pause")
-	}
-	keys(g, s, ebiten.KeyS)
 	for range volSteps + 2 {
 		keys(g, s, ebiten.KeyD)
 	}
-	if g.snd.vol != [2]int{0, volSteps} {
-		t.Fatalf("D on Effects clamps at volSteps, left Music alone: %v", g.snd.vol)
+	if g.snd.vol != [2]int{volDefault, volSteps} {
+		t.Fatalf("D on Effects clamps at volSteps, never touches Music: %v", g.snd.vol)
 	}
 	keys(g, s, ebiten.KeySpace)
 	if g.state != StatePause {
