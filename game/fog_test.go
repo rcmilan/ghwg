@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"ghosthotel/entities"
+	"ghosthotel/world"
 )
 
 // D92, T035: a Room fogs once its whole Party is in with the door shut, fading in over ~0.5 s, and
@@ -93,5 +94,53 @@ func TestFog(t *testing.T) {
 	}
 	if g.fog[room] != 0 {
 		t.Fatalf("fog %.2f %d frames after the door opened, want 0", g.fog[room], fogFrames)
+	}
+}
+
+// Wall leak (2026-11-14) and corner vanish (2026-11-15): from the Corridor, every door shut, nobody gets
+// into a Room's Shell, its north wall face and corners included (its top row is blocked, F0): so the
+// Concierge walking round a Room never lifts its Fog, and a guest walking round it is never faded by it.
+// Inside, the Concierge lifts it and a guest is under it.
+func TestFogStopsAtTheWall(t *testing.T) {
+	g, _ := headless(t, 3, 3, 1)
+	g.startRun()
+	g.fog = slices.Repeat([]float64{1}, len(g.hotel.Rooms))
+	free := func(p image.Point) bool { return !g.blocked(entities.FootBox(float64(p.X), float64(p.Y))) }
+	for room, r := range g.hotel.Rooms {
+		g.parties = []*Party{{settled: true, Booking: Booking{Room: room, Realm: Human}}}
+		shell := r.Shell()
+		area := shell.Inset(-2 * world.TileSize) // the Corridors round it, wall ends and corners
+		var todo []image.Point
+		seen := map[image.Point]bool{}
+		for y := area.Min.Y; y < area.Max.Y; y++ {
+			for x := area.Min.X; x < area.Max.X; x++ {
+				if p := image.Pt(x, y); !p.In(shell) && free(p) {
+					seen[p], todo = true, append(todo, p)
+				}
+			}
+		}
+		for len(todo) > 0 {
+			p := todo[len(todo)-1]
+			todo = todo[:len(todo)-1]
+			g.player.X, g.player.Y = float64(p.X), float64(p.Y)
+			if !g.fogged(room) {
+				t.Fatalf("Room %d: the Concierge at %v, come from the Corridor (Room px %v), lifts its Fog", room, p, p.Sub(shell.Min))
+			}
+			if f := g.fogAt(p); f != 0 {
+				t.Fatalf("Room %d: a guest at %v, come from the Corridor (Room px %v), is under its Fog", room, p, p.Sub(shell.Min))
+			}
+			for _, d := range [...]image.Point{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+				if n := p.Add(d); n.In(area) && !seen[n] && free(n) {
+					seen[n], todo = true, append(todo, n)
+				}
+			}
+		}
+		in := shell.Min.Add(image.Pt(shell.Dx()/2, shell.Dy()/2))
+		if g.player.X, g.player.Y = float64(in.X), float64(in.Y); g.fogged(room) {
+			t.Errorf("Room %d: the Concierge inside it does not lift its Fog", room)
+		}
+		if g.fogAt(in) != 1 {
+			t.Errorf("Room %d: a guest inside it is not under its Fog", room)
+		}
 	}
 }
