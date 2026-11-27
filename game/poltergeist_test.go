@@ -119,14 +119,18 @@ func TestPoltergeistRefused(t *testing.T) {
 }
 
 // The cap is the Guest's FleeAt, as a haunt's: enough taps and the Party flees; each tap earns only the Fear it adds.
+// A tap within tapCooldown of the last does nothing.
 func TestPoltergeistCap(t *testing.T) {
 	g, _, p := pairIn(t, 3, 2, 4)
 	g.ghost = true
 	pt := tapSpots(g, 4)["west"]
 	g.player.X, g.player.Y = float64(pt.X), float64(pt.Y)
 	taps := 0
-	for g.poltTapNow() {
+	for g.tick = 1; g.poltTapNow(); g.tick++ {
 		taps++
+		if g.tick += tapCooldown - 1; g.poltTapNow() {
+			t.Fatal("a tap inside the cooldown worked")
+		}
 	}
 	if want := (p.Guests[0].FleeAt + tapFear - 1) / tapFear; taps != want || p.Guests[0].Fear != p.Guests[0].FleeAt {
 		t.Fatalf("%d taps to FleeAt, Fear %d; want %d taps", taps, p.Guests[0].Fear, want)
