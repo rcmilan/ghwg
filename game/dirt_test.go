@@ -265,3 +265,35 @@ func TestMessAfterHaunt(t *testing.T) {
 		t.Fatalf("a serve lifting 2 dirt: spiritual %d, normal %d; want 6 and 1", g.spiritDirt(0), g.normalDirt(0))
 	}
 }
+
+// 10: a Party's mess lands each morning of its stay, as its Guests get up, not all at checkout; the stay's
+// total is what one lump at checkout weighed.
+func TestNightMess(t *testing.T) {
+	g, _, p := settled(t)
+	p.mess, p.Nights = 2, 3
+	p.schedule(p.arrived)
+	g.mood[p.Room] = 0 // room to fall, no clamp
+	var drops []int    // the clocks the Mood fell
+	for i := 0; !p.Paid; i++ {
+		if i > 4*dayFrames {
+			t.Fatal("the Party never checked out")
+		}
+		p.asked, p.askEnded = 0, g.clock // no requests: an expired one would lower the Mood too
+		was := g.mood[p.Room]
+		g.step(0, 0)
+		if g.mood[p.Room] < was {
+			drops = append(drops, g.clock)
+		}
+	}
+	if len(drops) != p.Nights {
+		t.Fatalf("the Mood fell %d times over a %d-night stay, want once a night", len(drops), p.Nights)
+	}
+	for _, c := range drops {
+		if c%dayFrames != wakeHour*hourFrames {
+			t.Fatalf("mess landed at %s, want at %02d:00", clockText(c), wakeHour)
+		}
+	}
+	if got, want := -g.mood[p.Room], dirtMood(p.mess*p.Nights); got != want {
+		t.Fatalf("the stay lowered the Mood by %d, want %d: what its mess weighed at checkout", got, want)
+	}
+}

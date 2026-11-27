@@ -172,6 +172,7 @@ type Party struct {
 	arrived    int           // the clock it walked in
 	hold       int           // the tick until which a quest TALK keeps it standing (verbs_card.go)
 	mess       int           // dirt its Guests leave a night (dirt.go)
+	messed     int           // nights of mess it has left so far (nightMess)
 	complainAt int           // the clock it started waiting in the hall (dirt.go)
 	Booking
 }
@@ -530,7 +531,7 @@ func (g *Game) updateParty(p *Party) bool {
 func (g *Game) checkout(p *Party, r world.Room) {
 	p.Paid, p.state = true, leaving
 	g.logStay(p, g.stayOutcome(p))
-	p.tip = Num(p.Payout(g.moodPay(p.Room))) * Num(g.upMul(LobbyDecor)*g.upMul(TipJar)*g.tipQuirkMul(p)) // the Room as the Party leaves it, mess aside; the Rate's decor, the Tip jar and a Big tipper
+	p.tip = Num(p.Payout(g.moodPay(p.Room))) * Num(g.upMul(LobbyDecor)*g.upMul(TipJar)*g.tipQuirkMul(p)) // the Room as the Party leaves it, its nights' mess in (10: nightMess); the Rate's decor, the Tip jar and a Big tipper
 	g.leaveMess(p)
 	g.book(p.Room, g.bookGapNow())
 	door := r.Door.Mul(world.TileSize)
