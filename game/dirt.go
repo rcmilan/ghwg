@@ -103,12 +103,20 @@ func (g *Game) spots(room int) []spot {
 				break
 			}
 		}
-		if total()-g.dirt[room][k].size < g.dirtLevel(room) {
+		if over := total() - g.dirtLevel(room); over < g.dirt[room][k].size {
+			g.dirt[room][k].size -= max(0, min(over, g.dirt[room][k].size-1)) // it shrinks to what is owed
 			break
 		}
 		g.dirt[room] = slices.Delete(g.dirt[room], k, k+1)
 	}
+	// Each kind's spots weigh exactly what it owes, the newest stain growing to its full size before a new one starts: a
+	// spot rounded up let a ghost's stain hide the Guests' mess that came after it (10 bug: "we lost the regular dirt").
+	full := func(i int) int { return spotUnit * max(1, i+2-bigFrom) }
 	for total() < g.dirtLevel(room) {
+		if n := len(g.dirt[room]); n > 0 && g.dirt[room][n-1].spirit == g.byGhost && g.dirt[room][n-1].size < full(n-1) {
+			g.dirt[room][n-1].size += min(g.dirtLevel(room)-total(), full(n-1)-g.dirt[room][n-1].size)
+			continue
+		}
 		free := g.floorCells(room)
 		if len(free) == 0 {
 			break
@@ -126,7 +134,7 @@ func (g *Game) spots(room int) []spot {
 		if len(near) > 0 && r.Float64() < stainGrowth {
 			free = near
 		}
-		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], g.byGhost, spotUnit * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
+		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], g.byGhost, min(full(len(g.dirt[room])), g.dirtLevel(room)-total())}), g.dirtN[room]+1
 	}
 	return g.dirt[room]
 }
