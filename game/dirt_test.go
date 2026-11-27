@@ -246,3 +246,54 @@ func TestDirtyArrival(t *testing.T) {
 		t.Fatalf("past patience: walked %v, state %d, occupies %v, next %+v; want gone and Room 0 rebooked", p.Walked, p.state, p.Occupies(0, Human), g.arrivals[0])
 	}
 }
+
+// 10 bug "we lost the regular dirt": each kind's spots weigh what it owes. A haunt worth 6 dirt left two spiritual
+// spots of 5 (10), and the Guests' mess after it (3) hid in that rounding: no normal spot, nothing to clean in real.
+func TestMessAfterHaunt(t *testing.T) {
+	g, _ := headless(t, 2, 1, 1)
+	g.startRun()
+	g.haunts(0, dirtMood(6))
+	g.addDirtLevel(0, 3) // a Party's mess, as leaveMess leaves it
+	if g.spiritDirt(0) != 6 || g.normalDirt(0) != 3 {
+		t.Fatalf("a haunt of 6, then mess of 3: spiritual %d, normal %d; want 6 and 3", g.spiritDirt(0), g.normalDirt(0))
+	}
+	if n := len(g.spots(0)); n != 3 {
+		t.Fatalf("%d spots, want 3 (5 and 1 spiritual, 3 normal)", n)
+	}
+	g.addMood(0, dirtMood(2)) // a serve takes normal dirt first, and only what it lifted
+	if g.spiritDirt(0) != 6 || g.normalDirt(0) != 1 {
+		t.Fatalf("a serve lifting 2 dirt: spiritual %d, normal %d; want 6 and 1", g.spiritDirt(0), g.normalDirt(0))
+	}
+}
+
+// 10: a Party's mess lands each morning of its stay, as its Guests get up, not all at checkout; the stay's
+// total is what one lump at checkout weighed.
+func TestNightMess(t *testing.T) {
+	g, _, p := settled(t)
+	p.mess, p.Nights = 2, 3
+	p.schedule(p.arrived)
+	g.mood[p.Room] = 0 // room to fall, no clamp
+	var drops []int    // the clocks the Mood fell
+	for i := 0; !p.Paid; i++ {
+		if i > 4*dayFrames {
+			t.Fatal("the Party never checked out")
+		}
+		p.asked, p.askEnded = 0, g.clock // no requests: an expired one would lower the Mood too
+		was := g.mood[p.Room]
+		g.step(0, 0)
+		if g.mood[p.Room] < was {
+			drops = append(drops, g.clock)
+		}
+	}
+	if len(drops) != p.Nights {
+		t.Fatalf("the Mood fell %d times over a %d-night stay, want once a night", len(drops), p.Nights)
+	}
+	for _, c := range drops {
+		if c%dayFrames != wakeHour*hourFrames {
+			t.Fatalf("mess landed at %s, want at %02d:00", clockText(c), wakeHour)
+		}
+	}
+	if got, want := -g.mood[p.Room], dirtMood(p.mess*p.Nights); got != want {
+		t.Fatalf("the stay lowered the Mood by %d, want %d: what its mess weighed at checkout", got, want)
+	}
+}

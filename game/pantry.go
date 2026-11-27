@@ -78,6 +78,20 @@ func (g *Game) pantryPick(p int) int {
 	return pick
 }
 
+// pantrySpace: the Supply SPACE fetches at pantry p, as a supply index: in real its pick; failing that, the held
+// item when no Room wants it, in either dimension (fetch puts it back in the stock). -1: SPACE does nothing here.
+func (g *Game) pantrySpace(p int) int {
+	if k := g.pantryPick(p); k >= 0 && !g.ghost {
+		return k
+	}
+	for i := range g.hotel.Rooms {
+		if g.wants(i, g.hands) {
+			return -1
+		}
+	}
+	return supplyOf(g.hands) // -1 with the hands empty
+}
+
 // pantryRect: the shelf's prop, two cells tall, for the glow.
 func (g *Game) pantryRect(p int) image.Rectangle {
 	c := g.hotel.Pantries[p].Cell

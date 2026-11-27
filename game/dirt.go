@@ -73,10 +73,29 @@ func (g *Game) mess() int {
 	return 1
 }
 
-// leaveMess: a leaving Party's mess, for the nights it stayed (a started night counts).
-func (g *Game) leaveMess(p *Party) {
-	nights := min(p.Nights, (g.clock-p.arrived)/dayFrames+1)
-	g.addDirtLevel(p.Room, p.mess*nights)
+// nightMess: each morning, as Guests get up (wakeHour), a staying Party leaves its night's mess, so it piles up
+// through the stay where the Concierge can see it (10: it all came at checkout, mostly unseen).
+func (g *Game) nightMess() {
+	if g.clock%dayFrames != wakeHour*hourFrames {
+		return
+	}
+	for _, p := range g.parties {
+		if p.state == staying && p.mess > 0 && p.messed < p.Nights {
+			g.messUpTo(p, p.messed+1)
+		}
+	}
+}
+
+// leaveMess: a leaving Party's mess for the nights it stayed (a started night counts) not yet left by nightMess.
+func (g *Game) leaveMess(p *Party) { g.messUpTo(p, min(p.Nights, (g.clock-p.arrived)/dayFrames+1)) }
+
+// messUpTo: the Party's mess for its nights up to the n-th, those it has not left yet. The Mood falls by the
+// stay's whole weight so far less what it fell already, so nightly mess weighs what one lump at checkout did.
+func (g *Game) messUpTo(p *Party, n int) {
+	if n > p.messed {
+		g.addMood(p.Room, dirtMood(p.mess*p.messed)-dirtMood(p.mess*n))
+		p.messed = n
+	}
 }
 
 // spots: the Room's dirt spots, enough to cover its dirt, past bigFrom each a spotUnit bigger (a
@@ -103,12 +122,20 @@ func (g *Game) spots(room int) []spot {
 				break
 			}
 		}
-		if total()-g.dirt[room][k].size < g.dirtLevel(room) {
+		if over := total() - g.dirtLevel(room); over < g.dirt[room][k].size {
+			g.dirt[room][k].size -= max(0, min(over, g.dirt[room][k].size-1)) // it shrinks to what is owed
 			break
 		}
 		g.dirt[room] = slices.Delete(g.dirt[room], k, k+1)
 	}
+	// Each kind's spots weigh exactly what it owes, the newest stain growing to its full size before a new one starts: a
+	// spot rounded up let a ghost's stain hide the Guests' mess that came after it (10 bug: "we lost the regular dirt").
+	full := func(i int) int { return spotUnit * max(1, i+2-bigFrom) }
 	for total() < g.dirtLevel(room) {
+		if n := len(g.dirt[room]); n > 0 && g.dirt[room][n-1].spirit == g.byGhost && g.dirt[room][n-1].size < full(n-1) {
+			g.dirt[room][n-1].size += min(g.dirtLevel(room)-total(), full(n-1)-g.dirt[room][n-1].size)
+			continue
+		}
 		free := g.floorCells(room)
 		if len(free) == 0 {
 			break
@@ -126,7 +153,7 @@ func (g *Game) spots(room int) []spot {
 		if len(near) > 0 && r.Float64() < stainGrowth {
 			free = near
 		}
-		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], g.byGhost, spotUnit * max(1, len(g.dirt[room])+2-bigFrom)}), g.dirtN[room]+1
+		g.dirt[room], g.dirtN[room] = append(g.dirt[room], spot{free[r.IntN(len(free))], g.byGhost, min(full(len(g.dirt[room])), g.dirtLevel(room)-total())}), g.dirtN[room]+1
 	}
 	return g.dirt[room]
 }

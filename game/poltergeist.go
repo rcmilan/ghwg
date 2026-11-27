@@ -12,9 +12,10 @@ import (
 // inside, shakes one prop and frightens each of them: manual early Ecto, which the Shadow later automates.
 // It earns through frighten, the one Fear rule (shadow.go). Placeholders.
 const (
-	tapFear        = shadowSeen // Fear each human inside takes per tap: one Shadow sighting
-	tapShakeFrames = 24         // frames the tapped prop shakes
-	tapShakePx     = 1          // world px it jitters either way
+	tapFear        = 2      // Fear each human inside takes per tap (2026-11-27: was 10, one Shadow sighting)
+	tapCooldown    = 3 * 60 // frames after a tap before the next one works (3 s); not shown, a press just does nothing
+	tapShakeFrames = 24     // frames the tapped prop shakes
+	tapShakePx     = 1      // world px it jitters either way
 )
 
 // poltState: the prop the last tap shook.
@@ -75,10 +76,10 @@ func (g *Game) tapTarget() (int, image.Point) {
 
 // poltTapNow: one tap on the room from where the Concierge stands: the prop shakes and each human inside takes
 // tapFear. The cap is the Guest's FleeAt, as a ghost's haunt (match.go terrify): enough taps and the Party steps out,
-// then flees, unpaid. False if refused.
+// then flees, unpaid. False if refused, or within tapCooldown of the last tap.
 func (g *Game) poltTapNow() bool {
 	room, cell := g.tapTarget()
-	if room < 0 {
+	if room < 0 || g.poltTap.at != 0 && g.tick-g.poltTap.at < tapCooldown {
 		return false
 	}
 	p, in := g.inside(room)

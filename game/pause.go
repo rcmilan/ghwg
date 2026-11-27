@@ -4,17 +4,17 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"ghosthotel/sound"
 )
 
-// The pause (07 U1, 09 T407): ESC with nothing open stops the world on Resume / Music / Effects / Quit to
-// title. ESC or SPACE on Resume goes on; only SPACE on Quit ends the Run. A / D move the picked slider; the
-// values apply when the pause closes (updateSound), and are never saved.
-var pauseRows = [...]string{"RESUME", "MUSIC", "EFFECTS", "QUIT TO TITLE"}
+// The pause (07 U1, 09 T407): ESC with nothing open stops the world on Resume / Effects / Quit to title.
+// ESC or SPACE on Resume goes on; only SPACE on Quit ends the Run. A / D move the Effects slider; the value
+// applies when the pause closes (updateSound), and is never saved. No Music row while the game has no music
+// (10, 2026-11-27: the music, #16, is not in the release).
+var pauseRows = [...]string{"RESUME", "EFFECTS", "QUIT TO TITLE"}
 
-const (
-	pauseMusic   = 1 // the slider rows; their bus is the row - 1
-	pauseEffects = 2
-)
+const pauseEffects = 1 // the slider row, on the Effects bus
 
 // DevPause opens the pause on a Run (-pause), for prints.
 func (g *Game) DevPause() { g.state, g.pausePick = StatePause, 0 }
@@ -28,8 +28,8 @@ func (g *Game) updatePause() {
 	case key(ebiten.KeyS):
 		g.pausePick = (g.pausePick + 1) % n
 	case key(ebiten.KeyA) || key(ebiten.KeyD):
-		if k := g.pausePick; k == pauseMusic || k == pauseEffects {
-			v := &g.snd.vol[k-1]
+		if g.pausePick == pauseEffects {
+			v := &g.snd.vol[sound.Effects]
 			if key(ebiten.KeyA) {
 				*v = max(*v-1, 0)
 			} else {
@@ -45,7 +45,7 @@ func (g *Game) updatePause() {
 
 func (g *Game) drawPause(s *ebiten.Image) {
 	rect(s, 0, 0, screenW, screenH, color.RGBA{0, 0, 0, 150})
-	const w, h = 320, 56 + 4*rowH + 8
+	const w, h = 320, 56 + len(pauseRows)*rowH + 8
 	x, y := (screenW-w)/2, (screenH-h)/2
 	rect(s, x, y, w, h, storeInk)
 	rect(s, x+3, y+3, w-6, h-6, storePage)
@@ -56,7 +56,7 @@ func (g *Game) drawPause(s *ebiten.Image) {
 			rect(s, x+12, ry, w-24, rowH-4, storeCard)
 			rect(s, x+12, ry, 4, rowH-4, storeAccent)
 		}
-		if k != pauseMusic && k != pauseEffects {
+		if k != pauseEffects {
 			g.tintedAt(s, name, x+w/2-len(name)*glyphW, ry+2, 2, storeInk, 1)
 			continue
 		}
@@ -68,7 +68,7 @@ func (g *Game) drawPause(s *ebiten.Image) {
 			if k == g.pausePick {
 				c = storePage // the picked row's card would hide an empty segment
 			}
-			if i < g.snd.vol[k-1] {
+			if i < g.snd.vol[sound.Effects] {
 				c = storeAccent
 			}
 			rect(s, bx+i*(segW+gap), ry+5, segW, segH, storeInk)

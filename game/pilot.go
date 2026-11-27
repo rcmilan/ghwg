@@ -285,9 +285,10 @@ func (p *Pilot) Clean(room int, at image.Point) {
 func (p *Pilot) Tap(room, n int) {
 	d := p.hotel.Rooms[room]
 	p.GoTo(p.hotel.Map.Center(d.Door.X, d.Shell().Max.Y/world.TileSize))
+	last := math.MinInt / 2
 	p.do(func(p *Pilot, v View) (bool, bool) {
-		if p.tap(ebiten.KeySpace) {
-			n--
+		if p.frame-last >= tapCooldown && p.tap(ebiten.KeySpace) { // presses inside the cooldown do nothing
+			n, last = n-1, p.frame
 		}
 		return n <= 0, n <= 0
 	})
