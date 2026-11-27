@@ -157,6 +157,7 @@ type Party struct {
 	banished   bool          // Father M sent a ghost Party over (sendOver), not passing on by itself
 	asked      int           // the clock it asked for service, 0 when not asking (D163)
 	want       Unlock        // the supply it asked for (supply.go)
+	far        []farAsk      // the housekeepers that found this ask out of reach in time (keeper.go reaches)
 	askEnded   int           // the clock its last request was served, expired or lapsed
 	fledAt     int           // the tick it fled (D164)
 	scares     int           // times Fear hit the limit: the first steps out, the second flees (Step 2)

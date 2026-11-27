@@ -2,23 +2,8 @@ package game
 
 import (
 	"image"
-	"math"
 	"testing"
 )
-
-// pathLen: the length, world px, of the route from `from` to `to` (Path's waypoints); -1 when unreachable.
-func pathLen(g *Game, from, to image.Point) float64 {
-	p := g.hotel.Path(from, to, -1)
-	if p == nil {
-		return -1
-	}
-	n, at := 0.0, from
-	for _, w := range p {
-		n += math.Hypot(float64(w.X-at.X), float64(w.Y-at.Y))
-		at = w
-	}
-	return n
-}
 
 // Bug 10 (unreachable delivery time): the ask window must cover a housekeeper's worst trip, from any cell of the
 // hotel outside a Room to the stock she fetches from (the kitchen or the nearer pantry) and on to the asking Room's
@@ -141,5 +126,32 @@ func TestKeeperDropsDeadDelivery(t *testing.T) {
 				t.Fatalf("stock %d, want %d: the Water she carried goes back", g.stock[SupplyWater], want)
 			}
 		})
+	}
+}
+
+// Bug 10 (a trip that can't make it): a housekeeper leaves an ask she would reach only after it expires, and
+// takes one she can reach in time.
+func TestKeeperSkipsFarAsk(t *testing.T) {
+	g, _, p := settled(t)
+	g.stock = map[Unlock]int{SupplyWater: 2}
+	g.hire()
+	k := g.keepers[0]
+	at := g.kitchenSpot()
+	k.X, k.Y, k.Path = float64(at.X), float64(at.Y), nil
+	p.asked, p.want = g.clock-askMinutes*minuteFrames+tps, SupplyWater // 1 s left: no trip fits
+	g.step(0, 0)
+	if k.job == fetching || k.job == serving || len(p.far) != 1 {
+		t.Fatalf("job %d, far %v: want her off an ask with 1 s left, judged once", k.job, p.far)
+	}
+	for range 10 {
+		g.step(0, 0)
+	}
+	if len(p.far) != 1 {
+		t.Fatalf("far %v: the ask is judged once, not every frame", p.far)
+	}
+	p.asked = g.clock // a fresh ask: 45 s
+	g.step(0, 0)
+	if k.job != fetching {
+		t.Fatalf("job %d: want her fetching for a fresh ask", k.job)
 	}
 }
