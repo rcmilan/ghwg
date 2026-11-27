@@ -1,8 +1,6 @@
 package sound
 
 import (
-	"path"
-	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -22,21 +20,16 @@ func TestLoadBankEmptyIsSine(t *testing.T) {
 	}
 }
 
-// The shipped bank: every instrument has its own samples (none is the sine placeholder), at their real pitch,
-// the steps are there, and each sample is a sensible length.
+// The shipped bank: the three steps; no instrument samples while the game has no music (10, 2026-11-27: the
+// music, #16, is not in the release), so the instruments are the sine placeholders.
 func TestLoadBankShipped(t *testing.T) {
 	b, err := LoadBank(Data)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for i, set := range b.Inst {
-		if len(set) < 2 {
-			t.Errorf("%s: %d samples, want one an octave or so", InstrumentNames[i], len(set))
-		}
-		for _, s := range set {
-			if secs := float64(len(s.PCM)) / Rate; secs < .3 || secs > 3.5 {
-				t.Errorf("%s_%d: %.2f s", InstrumentNames[i], s.Root, secs)
-			}
+		if len(set) != len(SineBank().Inst[i]) {
+			t.Errorf("%s: %d samples shipped, want none (the sine set)", InstrumentNames[i], len(set))
 		}
 	}
 	if len(b.Steps) != 3 {
@@ -56,14 +49,14 @@ func TestLoadBankBadFile(t *testing.T) {
 	}
 }
 
-// The loader hands the bank over only with the last file in, one file a step, the bass first (the title's).
+// The loader hands the bank over only with the last file in, one file a step.
 func TestBankLoaderSteps(t *testing.T) {
 	l, err := NewBankLoader(Data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(l.files); n < 2 || !strings.HasPrefix(path.Base(l.files[0]), "bass") {
-		t.Fatalf("the bass decodes first: %v", l.files)
+	if n := len(l.files); n < 2 {
+		t.Fatalf("files: %v", l.files)
 	}
 	steps, n := 0, len(l.files)
 	for {

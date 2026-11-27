@@ -102,7 +102,7 @@ The art is LimeZu's Modern Interiors free pack (https://limezu.itch.io/modernint
 
 The supplied Modern Interiors source pack remains untouched at the workspace root as requested. The `assets` package is the replacement boundary for future LimeZu sprite-sheet slicing; the current clean geometric presentation keeps the project runnable until those scattered files are curated. The W95FA font source is not present locally, so Ebitengine's built-in debug glyphs are used temporarily.
 
-The sound samples in `sound/data/` are all CC0 (public domain), cut, resampled and encoded by `tools/samples.py` (the sources are not committed):
+The sound samples are all CC0 (public domain), cut, resampled and encoded by `tools/samples.py` (the sources are not committed). Only the footsteps ship in `sound/data/` while the game has no music; the instruments come back with the music PR (#16):
 
 - Pizzicato upright bass (`bass_*`, `basswet_*`) and Harmon-muted trumpet (`trumpet_*`): VSCO 2 Community Edition by Versilian Studios, CC0, https://github.com/sgossner/VSCO-2-CE
 - Tenor saxophone (`sax_*`, standing in for the alto) and vibraphone (`vibes_*`): Versilian Community Sample Library, CC0, https://github.com/sgossner/VCSL
