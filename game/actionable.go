@@ -60,13 +60,13 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 		}
 	}
 	if k := g.atSupply(); k >= 0 {
-		if id := supplies[k].ID; g.ghost || g.stock[id] == 0 && g.hands != id { // nothing for it here, and no hotel view either
+		if id := supplies[k].ID; g.hands != id && (g.ghost || g.stock[id] == 0) { // fetching is real-only, putting back works in both; nothing for it here, and no hotel view either
 			return actNone, image.Rectangle{}
 		}
 		r := supplySpot(g.hotel, k) // the prop, two cells tall, over its front row
 		return actSupply, image.Rect(r.Min.X, r.Min.Y-ts, r.Max.X, r.Max.Y-ts)
 	}
-	if p := g.atPantry(); p >= 0 && !g.ghost && g.pantryPick(p) >= 0 { // the same, from a pantry (08 P1-U); nothing for it there falls through
+	if p := g.atPantry(); p >= 0 && g.pantrySpace(p) >= 0 { // the same, from a pantry (08 P1-U); nothing for it there falls through
 		return actSupply, g.pantryRect(p)
 	}
 	if i := g.atMat(); i >= 0 {
@@ -120,7 +120,7 @@ func (g *Game) space() {
 		g.startShift()
 	case actSupply:
 		if p := g.atPantry(); p >= 0 {
-			g.fetch(g.pantryPick(p))
+			g.fetch(g.pantrySpace(p))
 		} else {
 			g.fetch(g.atSupply())
 		}

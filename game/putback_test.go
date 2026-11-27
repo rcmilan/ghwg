@@ -50,3 +50,26 @@ func supplyGlow(g *Game, k int) (r image.Rectangle) {
 	r = supplySpot(g.hotel, k)
 	return image.Rect(r.Min.X, r.Min.Y-world.TileSize, r.Max.X, r.Max.Y-world.TileSize)
 }
+
+// 10: in ghost, SPACE at the shelf of the held item puts it back (it glows); fetching there stays real-only.
+func TestPutBackInGhost(t *testing.T) {
+	g, s := headless(t, 2, 1, 1)
+	g.startRun()
+	k, front := supplyOf(SupplyFood), supplyFront(g, supplyOf(SupplyFood))
+	g.stock, g.hands, g.ghost = map[Unlock]int{SupplyFood: 0}, SupplyFood, true
+	g.player.X, g.player.Y = float64(front.X), float64(front.Y)
+	if act, r := g.actionable(); act != actSupply || r != supplyGlow(g, k) {
+		t.Errorf("ghost, at the oven holding Food: act %v rect %v, want actSupply glowing on the oven", act, r)
+	}
+	press(g, s, front)
+	if g.hands != "" || g.stock[SupplyFood] != 1 {
+		t.Fatalf("ghost put back: hands %q stock %d, want empty and 1", g.hands, g.stock[SupplyFood])
+	}
+	if act, _ := g.actionable(); act != actNone {
+		t.Errorf("ghost, at a stocked oven with empty hands: act %v, want nothing", act)
+	}
+	press(g, s, front)
+	if g.hands != "" || g.stock[SupplyFood] != 1 {
+		t.Errorf("fetched in ghost: hands %q stock %d", g.hands, g.stock[SupplyFood])
+	}
+}

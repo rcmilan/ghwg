@@ -166,3 +166,33 @@ func TestPantryStockNear(t *testing.T) {
 		t.Error("stock shown from afar")
 	}
 }
+
+// 10: holding an item no Room wants, SPACE at a pantry puts it back in the kitchen's stock (the shelf glows), in
+// either dimension; an item a Room still wants stays in the hands.
+func TestPantryPutBack(t *testing.T) {
+	for _, ghost := range []bool{false, true} {
+		g := pantryRun(t, 1)
+		g.stock, g.hands, g.ghost = map[Unlock]int{SupplyTowel: 0}, SupplyTowel, ghost
+		spot := center(g.hotel.Pantries[0].Spot)
+		g.player.X, g.player.Y = float64(spot.X), float64(spot.Y)
+		asks(g, 0, SupplyTowel)
+		if act, _ := g.actionable(); act == actSupply {
+			t.Errorf("ghost=%v: a Room wants the Towels in hand, the pantry still offers to take them", ghost)
+		}
+		g.parties = nil // the ask ended
+		if act, r := g.actionable(); act != actSupply || r != g.pantryRect(0) {
+			t.Fatalf("ghost=%v: holding Towels nobody wants: %v %v, want actSupply and its shelf", ghost, act, r)
+		}
+		g.space()
+		if g.hands != "" || g.stock[SupplyTowel] != 1 {
+			t.Errorf("ghost=%v: put back: hands %q, Towels %d; want empty, 1", ghost, g.hands, g.stock[SupplyTowel])
+		}
+		if act, _ := g.actionable(); act == actSupply {
+			t.Errorf("ghost=%v: empty hands, nobody asking, the pantry still offers", ghost)
+		}
+		asks(g, 0, SupplyTowel) // a Room asks for what the stock has: the pantry hands it out in real only
+		if act, _ := g.actionable(); (act == actSupply) == ghost {
+			t.Errorf("ghost=%v: an asked-for Supply in stock: %v", ghost, act)
+		}
+	}
+}

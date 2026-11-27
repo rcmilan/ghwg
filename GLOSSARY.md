@@ -431,7 +431,7 @@ How many Prestiges the hotel has been through. It sets the grid's limit, (3 + Le
 The income multiplier a Prestige leaves: every Money and Ectoplasm earning is multiplied by it, in one place. Each Prestige adds to it (it never drops) the square root of the Run's Ectoplasm earned plus its unspent Money (donated, $10 counting as 1 Ectoplasm) over 6000.
 
 **Pantry**:
-A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It has no stock of its own: it shows the Kitchen's, each Supply's icon and `xN` side by side while the Concierge is within 2 cells. SPACE there works only while a Room asks for a Supply the Kitchen has, and takes the one asked by the asking Room nearest to it (what is in the hands goes back to the stock); a Housekeeper fetches from whichever of it and the Kitchen is nearer. Supplies are still bought in the Kitchen.
+A shelf of Supplies in the middle of each Corridor a New floor made, apart from its Corridor mirror: a HOTEL upgrade on sale from Level 1. It has no stock of its own: it shows the Kitchen's, each Supply's icon and `xN` side by side while the Concierge is within 2 cells. SPACE there, in real, takes the Supply asked by the asking Room nearest to it while the Kitchen has it (what is in the hands goes back to the stock); holding an item no Room wants, it puts that back in the stock, in either Dimension; a Housekeeper fetches from whichever of it and the Kitchen is nearer. Supplies are still bought in the Kitchen.
 _Avoid_: shelf (alone), storeroom
 
 **Save**:
