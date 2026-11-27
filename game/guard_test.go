@@ -120,3 +120,64 @@ func TestNotice(t *testing.T) {
 		t.Fatalf("%d notices left after their hold", len(g.note.items))
 	}
 }
+
+// 09: sound opens only through OpenSound, which main calls for a person's game; the sim, the tests and -shot
+// never touch the audio device. Only sound.go may call sound.Open, only main may call OpenSound, and a Game
+// a test builds plays the whole frame (Update) with no mixer.
+func TestHeadlessIsSilent(t *testing.T) {
+	if runtime.GOOS == "js" {
+		t.Skip("reads the source files, which Node on Windows cannot list")
+	}
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f != "sound.go" && regexp.MustCompile(`\bsound\.Open\(|\.OpenSound\(`).Match(b) {
+			t.Errorf("%s opens the sound: only main does, through OpenSound", f)
+		}
+	}
+	g := mustNew(t)
+	g.Update()
+	if g.snd.mix != nil {
+		t.Fatal("a headless Game has a mixer")
+	}
+	if g.snd.vol != [2]int{volDefault, volDefault} {
+		t.Fatalf("the sliders start at %d, got %v", volDefault, g.snd.vol)
+	}
+}
+
+// iconY is the one way an icon gets its y beside text: a skull or HUD icon stamped without it fails here.
+func TestIconsBesideTextUseIconY(t *testing.T) {
+	if runtime.GOOS == "js" {
+		t.Skip("reads the source files, which Node on Windows cannot list")
+	}
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || f == "items.go" { // items.go stamps world sprites, beside no text
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for _, l := range strings.Split(string(b), "\n") {
+			if strings.Contains(l, "g.stamp(") && (strings.Contains(l, "g.skull") || strings.Contains(l, "g.hudIcon(")) && !strings.Contains(l, "iconY(") {
+				t.Errorf("%s: %q stamps an icon without iconY", f, strings.TrimSpace(l))
+			}
+		}
+	}
+}
+
+// iconY centres the icon on the text's glyph cell.
+func TestIconY(t *testing.T) {
+	for _, c := range []struct {
+		ty   int
+		ts   float64
+		rows int
+		is   float64
+		want int
+	}{{0, 2, 7, 2, 9}, {10, 2, 6, 2, 20}, {0, 3, 10, 3, 9}, {5, 1, 16, 1, 5}} {
+		if got := iconY(c.ty, c.ts, c.rows, c.is); got != c.want {
+			t.Errorf("%+v: got %d", c, got)
+		}
+	}
+}

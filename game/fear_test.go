@@ -2,11 +2,9 @@ package game
 
 import (
 	"image"
-	"slices"
 	"testing"
 
 	"ghosthotel/entities"
-	"ghosthotel/world"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -51,22 +49,12 @@ func pairIn(t *testing.T, cols, rows, room int) (*Game, *script, *Party) {
 	return g, s, p
 }
 
-// T249: the Hex is gone: no store row, no Unlock, and SPACE in ghost beside a Room with Guests changes nothing.
+// T249: the Hex is gone: no store row, no Unlock. (Its tap came back as the Poltergeist tap, poltergeist_test.go.)
 func TestNoHex(t *testing.T) {
 	for _, it := range shop {
 		if it.ID == "hex" || it.Name == "Hex" {
 			t.Fatalf("the store still sells %q", it.Name)
 		}
-	}
-	const ts = world.TileSize
-	g, s, p := pairIn(t, 3, 2, 4)
-	o := g.hotel.Rooms[4].Origin
-	g.ghost = true
-	p.Rate = 0 // no rent ticking in: only SPACE could move the wallet
-	moods := slices.Clone(g.mood)
-	press(g, s, image.Pt((o.X-1)*ts+ts/2, (o.Y+5)*ts+ts/2)) // beside the west wall
-	if g.wallet != [2]Num{} || len(g.floaters) > 0 || p.Guests[0].Fear != 0 || !slices.Equal(g.mood, moods) || g.taps[4] != [taskCount]Num{} {
-		t.Fatalf("SPACE beside an occupied Room did something: wallet %v, floaters %d, Fear %d, taps %v", g.wallet, len(g.floaters), p.Guests[0].Fear, g.taps[4])
 	}
 }
 

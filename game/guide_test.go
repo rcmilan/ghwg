@@ -265,3 +265,12 @@ func TestOutlineUnderFog(t *testing.T) {
 		t.Fatal("fogged room: drawn under the Fog")
 	}
 }
+
+// The grow step outlines nothing in the Terminal (live test 3: the tab's "!" is enough).
+func TestNeedsGrowRows(t *testing.T) {
+	g, _ := verbRun(t, 2, 1)
+	g.quest = questRun{}
+	if ids := g.needRows(); slices.Contains(ids, GrowCol) || slices.Contains(ids, GrowFloor) {
+		t.Errorf("grow step open: %v", ids)
+	}
+}

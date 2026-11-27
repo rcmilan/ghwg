@@ -262,7 +262,7 @@ func TestPause(t *testing.T) {
 	if keys(g, s, ebiten.KeyEscape, ebiten.KeySpace); g.state != StatePlay {
 		t.Fatalf("SPACE on Resume: state %d, want play", g.state)
 	}
-	if keys(g, s, ebiten.KeyEscape, ebiten.KeyS, ebiten.KeySpace); g.state != StateTitle {
+	if keys(g, s, ebiten.KeyEscape, ebiten.KeyW, ebiten.KeySpace); g.state != StateTitle {
 		t.Fatalf("SPACE on Quit: state %d, want the title", g.state)
 	}
 }

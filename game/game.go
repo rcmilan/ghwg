@@ -185,6 +185,8 @@ type Game struct {
 	items    itemRun     // items.go
 	street   streetState // street.go
 	questHud questShow   // quest_hud.go: when the checklist last changed
+	snd      soundState  // 09 (sound.go)
+	poltTap  poltState   // 09: the last Poltergeist tap (poltergeist.go)
 }
 
 // New builds the shipped grid (world.Cols x world.Rows), played on the keyboard.
@@ -217,6 +219,7 @@ func newWorld(cols, rows int, seed uint64) (*Game, error) {
 		return nil, err
 	}
 	g := &Game{state: StateTitle, hotel: h, grid0: [2]int{cols, rows}, types: types, rng: rng, chat: rand.New(rand.NewPCG(seed, seed+1)), words: rand.New(rand.NewPCG(seed, seed+2)), ident: rand.New(rand.NewPCG(seed, seed+3)), ts: ts, in: &script{}, bonus: 1, headless: true, scale: 1, dt: 1, ticked: true}
+	g.snd.init()                                                                 // 09: the sliders' defaults
 	if g.transition, err = ebiten.NewShader([]byte(transitionSrc)); err != nil { // now, not on the first flip (D190)
 		return nil, err
 	}
@@ -304,6 +307,7 @@ func (g *Game) startRun() {
 }
 
 func (g *Game) Update() error {
+	defer g.updateSound() // 09: after everything else, whichever way Update returns
 	if g.reel == nil && g.intro == nil && g.state != StateTitle && g.state != StatePause {
 		g.played++
 	}

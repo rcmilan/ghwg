@@ -121,15 +121,15 @@ func (g *Game) drawQuest(dst *ebiten.Image) {
 			x = sw - hudMargin - w
 		}
 		if r.Done {
-			g.stamp(dst, g.hudIcon("hud-tick", tickRows), x, y+4, questRowScale, color.RGBA{150, 150, 150, 255})
+			g.stamp(dst, g.hudIcon("hud-tick", tickRows), x, iconY(y, questRowScale, len(tickRows), questRowScale), questRowScale, color.RGBA{150, 150, 150, 255})
 		} else {
 			ix := x
 			if r.Step.Dim == Human || r.Step.Any {
-				g.stamp(dst, g.hudIcon("hud-real", realRows), ix, y+2, questRowScale, markGold)
+				g.stamp(dst, g.hudIcon("hud-real", realRows), ix, iconY(y, questRowScale, len(realRows), questRowScale), questRowScale, markGold)
 				ix += questIcon*questRowScale + 2
 			}
 			if r.Step.Dim == Ghost || r.Step.Any {
-				g.stamp(dst, g.hudIcon("hud-ghost", ghostRows), ix, y+2, questRowScale, markSilver)
+				g.stamp(dst, g.hudIcon("hud-ghost", ghostRows), ix, iconY(y, questRowScale, len(ghostRows), questRowScale), questRowScale, markSilver)
 			}
 		}
 		a := float32(1)

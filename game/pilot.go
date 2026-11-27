@@ -280,6 +280,20 @@ func (p *Pilot) Clean(room int, at image.Point) {
 	})
 }
 
+// Tap walks to the tile below the Room's door and presses SPACE n times there (the Poltergeist tap,
+// poltergeist.go), then back to the Mirror: a Concierge left on the doormat blocks the Party's door.
+func (p *Pilot) Tap(room, n int) {
+	d := p.hotel.Rooms[room]
+	p.GoTo(p.hotel.Map.Center(d.Door.X, d.Shell().Max.Y/world.TileSize))
+	p.do(func(p *Pilot, v View) (bool, bool) {
+		if p.tap(ebiten.KeySpace) {
+			n--
+		}
+		return n <= 0, n <= 0
+	})
+	p.GoTo(p.hotel.Mirror)
+}
+
 // CallPriest buys a Priest for the Room at the Terminal. It fails when the Terminal refuses (no money,
 // or a Priest is already on the Room).
 func (p *Pilot) CallPriest(room int) {

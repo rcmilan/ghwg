@@ -22,7 +22,8 @@ const (
 	actCard
 	actClean
 	actView
-	actQuestTalk // 08 W5 R8: SPACE talks to a quest character close by (verbs_card.go)
+	actQuestTalk   // 08 W5 R8: SPACE talks to a quest character close by (verbs_card.go)
+	actPoltergeist // 09: SPACE beside a Room's walls in ghost, humans inside: the tap (poltergeist.go)
 )
 
 // actionable: what SPACE would do now and the world rect of the prop it acts on (for the glow; empty when there is
@@ -89,6 +90,12 @@ func (g *Game) actionable() (spaceAct, image.Rectangle) {
 	if room, cell := g.cleanable(); room >= 0 {
 		return actClean, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
 	}
+	if room, cell := g.tapTarget(); room >= 0 { // after everything else: the tap is only where nothing else applies
+		if cell.X < 0 {
+			return actPoltergeist, image.Rectangle{}
+		}
+		return actPoltergeist, image.Rect(cell.X*ts, cell.Y*ts, cell.X*ts+ts, cell.Y*ts+ts)
+	}
 	return actView, image.Rectangle{} // SPACE where nothing else is its to do: the hotel view (U2)
 }
 
@@ -129,6 +136,8 @@ func (g *Game) space() {
 		g.questSpeak(g.questTalk())
 	case actClean:
 		g.clean(g.cleanable())
+	case actPoltergeist:
+		g.poltTapNow()
 	case actView:
 		g.openView()
 	default:

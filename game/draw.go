@@ -321,7 +321,7 @@ func (g *Game) drawWorld(screen *ebiten.Image, ox, oy int) {
 		if g.reel != nil && g.vortexProp(i, ox, oy) { // lifted off in the prestige vortex
 			return
 		}
-		g.queueProp(i, o.X*zoom-ox, o.Y*zoom-oy)
+		g.queueProp(i, (o.X+g.tapShake(image.Pt(p.cx, p.cy), p.l))*zoom-ox, o.Y*zoom-oy)
 		if p.l == world.LayerWalls && g.shadowOnWall(p) { // a Shadow on it goes over it and under what comes after
 			g.flushProps(screen)
 			g.drawShadow(screen, p, ox, oy)

@@ -120,7 +120,11 @@ _Avoid_: flip (in player-facing text), toggle
 ## Haunting
 
 **Fear**:
-How frightened a Guest is. It rises when the Guest sees a Shadow Person and never falls. It shows only in the ghost Dimension, as a red glow. Each Guest has its own **Flee At** limit (100 by default).
+How frightened a Guest is. It rises when the Guest sees a Shadow Person or the Concierge taps the Room (Poltergeist tap) and never falls. It shows only in the ghost Dimension, as a red glow. Each Guest has its own **Flee At** limit (100 by default).
+
+**Poltergeist tap**, **the tap**:
+The Concierge's one manual fright (09, 2026-11-22; the old Hex, back as a verb, not a store item). In the ghost Dimension SPACE on a floor tile touching a Room's outer walls from outside (any side, the door's included), with human Guests inside and nothing else for SPACE to do there: one prop in the Room (the one nearest the Concierge, the one that glows) shakes once and each human Guest inside takes one Shadow sighting's Fear (`tapFear`), and its Ectoplasm follows the same Fear rule as a Shadow's. Unlike a Shadow it may push a Guest to its Flee At, so tapping too much loses the rent. Refused in the real Dimension, with no human inside or with every human already at Flee At; ghost Guests are never frightened. The Shadow Person later does the same by itself. Not the **Ghost kind** Poltergeist (the red band of the Phantasm scale).
+_Avoid_: hex, haunt (a ghost's own), poke
 
 **Flee**:
 A Party leaving for good, unpaid, the moment one of its Guests reaches its Flee At. Its Room is Vacant at once. Its Guests hop once in place, screaming, then run out at triple speed.
@@ -349,9 +353,6 @@ _Avoid_: message, message line, status bar, toast
 **Room-only line**:
 A line that makes sense only inside a Room (what a Guest says of its Room, of a Shadow seen there, a ghost's in-Room lines, "Zzz..."). A Guest outside the Rooms never shows one: said inside, it ends at the door. A Shadow seen in a Corridor or the hall draws a hall line instead.
 
-**Voice**:
-What a member of staff (Housekeeper, Courier, Priest) says as the Concierge comes near: one line, now and then, one of the staff at a time.
-
 **Goals Strategy** (`goals`, 2026-11-14)
 The sim Strategy that plays a Run in the agreed order of first goals: Room 1, the Mirror, Room 2, then everything that earns as soon as the wallet covers it (Ectoplasm on the first Growth, the in-Room Mirror, the Deluxe tier, a Room's upgrade, more Growth; Money on the keys, then one housekeeper), buys Father K's and Father M's unlocks, calls Father M on the worst Room and keeps Father K on his Retainer; the sim's `M calls`, `retainer days` and `priest ecto` columns count it. It buys the moment it can, so when it stands idle there was nothing to buy and nothing to do: the sim's **pacing** lines (each milestone in real minutes, and the longest such wait before the first Growth, the first housekeeper and the in-Room Mirror) are read off its Runs, and `TestPacing` holds them in band.
 
@@ -530,3 +531,8 @@ Each day may bring rain, fog or wind, drawn over the street and windows (visual 
 
 **Kitchen life**:
 An idle Housekeeper sometimes goes to the fridge, the counter or the stove and says a line there; any job pulls it away at once.
+
+## Sound (09, 2026-11-22)
+
+**Crowd volume**:
+Footsteps are louder the fewer people walk in the Concierge's area: 1.0 is the loudest, alone at night.

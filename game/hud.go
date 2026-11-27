@@ -218,7 +218,7 @@ func (g *Game) drawHUD(s *ebiten.Image) {
 		x := int(-float64(w) + travel*ease) // from off the left edge
 		if Res(r) == Ecto {
 			x = int(float64(sw) - travel*ease) // from off the right edge
-			g.stamp(s, g.skull, x, y+skullDY*hudScale, hudScale, resInk(Ecto))
+			g.stamp(s, g.skull, x, iconY(y, hudScale, len(skullRows), hudScale), hudScale, resInk(Ecto))
 			x += (len(skullRows[0]) + 2) * hudScale
 		}
 		g.tintedAt(s, v, x, y, hudScale, resInk(Res(r)), 1)
@@ -275,7 +275,7 @@ func outline(s *ebiten.Image, v string, x, y int, scale float64, c color.Color, 
 // The debug font's glyph cell, px; its digits sit on rows 3..12 of the 16.
 const glyphW, glyphH = 6, 16
 
-// The Ecto icon (the skull), drawn in the ink of the currency; skullDY lines it up with the digits.
+// The Ecto icon (the skull), drawn in the ink of the currency; iconY lines it up with the digits.
 var skullRows = []string{
 	"..XXXXX..",
 	".XXXXXXX.",
@@ -289,7 +289,11 @@ var skullRows = []string{
 	"..XXXXX..",
 }
 
-const skullDY = 3
+// iconY: the y that centres an icon of iconRows px rows, drawn at iconScale, on a line of text drawn at textY, textScale
+// (a glyph cell is glyphH tall, its digits and capitals centred in it). Every icon stamped beside text takes its y here.
+func iconY(textY int, textScale float64, iconRows int, iconScale float64) int {
+	return textY + int((float64(glyphH)*textScale-float64(iconRows)*iconScale)/2)
+}
 
 // bitmap: white where 'X', clear elsewhere.
 func bitmap(rows []string) *ebiten.Image {

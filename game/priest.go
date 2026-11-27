@@ -248,6 +248,7 @@ func (g *Game) updatePriest(pr *priest) bool {
 	case rBurst:
 		if pr.t >= burstFrames {
 			g.ritualEffect(pr)
+			g.ritualDing(pr)
 			if pr.loop {
 				g.ritualDirt(pr.RoomIndex)
 			}

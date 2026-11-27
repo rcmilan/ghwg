@@ -100,10 +100,11 @@ type sceneState struct {
 
 // sceneCast: one who walks into the hall for the finale.
 type sceneCast struct {
-	g    *entities.Guest
-	home image.Point
-	slot image.Point
-	pop  int // the frame a far one appears in the hall; 0 for one who walks in
+	g     *entities.Guest
+	home  image.Point
+	slot  image.Point
+	pop   int  // the frame a far one appears in the hall; 0 for one who walks in
+	ghost bool // drawn as a ghost: a stand-in belongs to no Party, so its realm is not read from one
 }
 
 func (s *sceneState) on() bool { return s.id != "" }
@@ -537,8 +538,14 @@ func (g *Game) finaleRoom() world.Room {
 	return g.hotel.Rooms[max(0, i)]
 }
 
-// finaleStart: the cast (the Concierge first, then whoever of finaleKeys is in the hotel) is set to walk into
-// Madame's Room by its door, the circle's centre on the Room's floor.
+// finaleGhost: the key is one of the named ghosts.
+func finaleGhost(key string) bool {
+	return slices.ContainsFunc(namedGhosts, func(n namedGhost) bool { return n.Key == key })
+}
+
+// finaleStart: the cast (the Concierge first, then all of finaleKeys: one not in the hotel, checked out or not yet
+// come, is a stand-in who walks in by the door like the rest) is set to walk into Madame's Room by its door, the
+// circle's centre on the Room's floor.
 func (g *Game) finaleStart() {
 	s := &g.scene
 	r := g.finaleRoom()
@@ -552,9 +559,14 @@ func (g *Game) finaleStart() {
 	s.pl.X, s.pl.Y = g.player.X, g.player.Y
 	s.cast = []sceneCast{{g: &s.pl, home: home}} // the Concierge too: he helped, willing or not (live test 5)
 	for _, k := range finaleKeys {
-		if gu := g.findGuest(k); gu != nil {
-			s.cast = append(s.cast, sceneCast{g: gu, home: image.Pt(int(gu.X), int(gu.Y))})
+		gu := g.findGuest(k)
+		if gu == nil {
+			gu = new(entities.Guest)
+			*gu = entities.NewGuest(s.door, "Amelia")
+			gu.Who.Key, gu.Phantasm = k, 1
+			wear(gu)
 		}
+		s.cast = append(s.cast, sceneCast{g: gu, home: image.Pt(int(gu.X), int(gu.Y)), ghost: finaleGhost(k)})
 	}
 	n := len(s.cast)
 	for i := range s.cast { // the points of the circle, from the top, round: the Concierge's the top one
@@ -602,11 +614,13 @@ func (g *Game) stepFinale() {
 		}
 	}
 	g.player.X, g.player.Y = s.pl.X, s.pl.Y
-	if tim := g.findGuest("tim"); tim != nil && t >= fCap { // the scene draws him from here
-		if t == fCap {
-			s.timAt = image.Pt(int(tim.X), int(tim.Y))
+	for _, c := range s.cast {
+		if c.g.Who.Key == "tim" && t >= fCap { // the scene draws him from here
+			if t == fCap {
+				s.timAt = image.Pt(int(c.g.X), int(c.g.Y))
+			}
+			c.g.X, c.g.Y = -1000, -1000
 		}
-		tim.X, tim.Y = -1000, -1000
 	}
 	mw, mh := g.mapSize()
 	g.cam.Follow(float64(s.crate.X), float64(s.crate.Y), mw, mh)
@@ -961,7 +975,7 @@ func (g *Game) drawStage(screen *ebiten.Image, ox, oy int) {
 		}
 		x, y, a := c.g.X, c.g.Y, float32(0)
 		var tint []float32
-		ghost := i > 0 && g.realmOf(c.g) == Ghost
+		ghost := c.ghost
 		if ghost {
 			tint, _, _ = g.ghostLook(c.g)
 			a = finaleFaint
