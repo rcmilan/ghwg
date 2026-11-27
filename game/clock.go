@@ -28,13 +28,14 @@ func clockText(c int) string {
 }
 
 // advanceClock runs the Clock one frame; the Terminal pauses it by not stepping the world at all (D73). Each
-// new game minute scares the haunted (haunt.go), lets Guests ask for service (serve.go) and may bring a Walk-in.
+// new game minute scares the haunted (haunt.go), lets Guests ask for service (serve.go), leave their night's mess (dirt.go) and may bring a Walk-in.
 func (g *Game) advanceClock() {
 	if g.clock++; g.clock%minuteFrames != 0 {
 		return
 	}
 	g.scare()
 	g.updateAsks()
+	g.nightMess()
 	g.updateRoomTalk()
 	g.hauntGhosts()
 	g.questArrivals() // 08 W5: ahead of the walk-ins

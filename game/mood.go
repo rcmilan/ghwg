@@ -70,7 +70,7 @@ func (g *Game) setDirtLevel(room, dirt int) {
 	}
 }
 
-// addDirtLevel: guest mess and frights, d dirt more, lower the Mood by its weight.
+// addDirtLevel: d dirt more, lowering the Mood by its weight (tests and dev; Guests' mess goes by messUpTo).
 func (g *Game) addDirtLevel(room, d int) { g.addMood(room, -dirtMood(d)) }
 
 // raiseMood lifts the Room's Mood to at least to; it never lowers it.
