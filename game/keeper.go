@@ -210,8 +210,12 @@ func (g *Game) nextJob(k *housekeeper) bool {
 				g.sendKeeper(k, g.hotel.Map.Center(c.X, c.Y), p.Room)
 				return true
 			}
-		case p.asking() && p.state == staying && !taken(p.Room, fetching, serving):
+		case p.asking() && p.state == staying && !taken(p.Room, fetching, serving) && !slices.Contains(p.far, farAsk{k, p.asked}):
 			if at, ok := g.nearestStock(k, p.want); ok { // the kitchen or a pantry, whichever is nearer
+				if !g.reaches(k, at, p) { // she would get there after it expires: leave it, judged once
+					p.far = append(p.far, farAsk{k, p.asked})
+					continue
+				}
 				k.job, k.room, k.item = fetching, p.Room, p.want
 				g.sendKeeper(k, at, -1)
 				return true
@@ -231,6 +235,34 @@ func (g *Game) nextJob(k *housekeeper) bool {
 		}
 	}
 	return g.sweep(k) // nothing asked, nothing complained of: the Room with the most dirt
+}
+
+// farAsk: a housekeeper that found the ask made at clock `asked` out of reach (Party.far).
+type farAsk struct {
+	k     *housekeeper
+	asked int
+}
+
+// reaches (bug 10): k gets from where she stands to the stock at `at` and on to p's door before p's ask expires,
+// by the routes' length at her pace. A route not found counts as reached: she sets off as before.
+func (g *Game) reaches(k *housekeeper, at image.Point, p *Party) bool {
+	a, b := pathLen(g, image.Pt(int(k.X), int(k.Y)), at), pathLen(g, at, g.doorDrop(p.Room))
+	left := askMinutes*minuteFrames - (g.clock - p.asked)
+	return a < 0 || b < 0 || a+b <= float64(left)*keeperSpeed*g.staffSpeed()
+}
+
+// pathLen: the length, world px, of the route from `from` to `to` (Path's waypoints); -1 when unreachable.
+func pathLen(g *Game, from, to image.Point) float64 {
+	p := g.hotel.Path(from, to, -1)
+	if p == nil {
+		return -1
+	}
+	n, at := 0.0, from
+	for _, w := range p {
+		n += math.Hypot(float64(w.X-at.X), float64(w.Y-at.Y))
+		at = w
+	}
+	return n
 }
 
 // sweep (08 B1): the idle housekeeper cleans the Room with the most regular dirt nobody is cleaning, a Room with
